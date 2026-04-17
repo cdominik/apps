@@ -1194,28 +1194,64 @@
 
   document.getElementById('btnSharePreviewCancel').addEventListener('click', closeSharePreview);
   document.getElementById('btnSharePreviewDone').addEventListener('click', () => {
-    // Render current share canvas to a PNG and hand off to the share flow
     shareCanvas.toBlob(async (blob) => {
       if (!blob) { alert('Could not create image.'); return; }
-      const file = new File([blob], 'aggregate.png', { type: 'image/png' });
-      try {
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: 'Sphere aggregate' });
-          closeSharePreview();
-          return;
-        }
-      } catch (err) {
-        if (err && err.name === 'AbortError') return;
-      }
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'aggregate.png';
-      document.body.appendChild(a); a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      await shareBlob(blob, 'aggregate.png', 'image/png', 'Sphere aggregate');
       closeSharePreview();
     }, 'image/png');
   });
+
+  // Heuristic: is this a mobile device? On desktop we prefer direct download
+  // (cleaner UX than the small share dialog browsers show). On mobile we prefer
+  // the share sheet (gives access to Photos, Files, AirDrop, Messages, etc.).
+  function isMobileDevice() {
+    // navigator.userAgentData is the modern API where available
+    if (navigator.userAgentData && typeof navigator.userAgentData.mobile === 'boolean') {
+      return navigator.userAgentData.mobile;
+    }
+    // Fall back to UA sniff + touch
+    const ua = navigator.userAgent || '';
+    const uaMobile = /Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(ua);
+    const touch = (navigator.maxTouchPoints || 0) > 1;
+    return uaMobile || touch;
+  }
+
+  // Unified share/download helper. On desktop: direct download. On mobile:
+  // try the Web Share API with files first, fall back to download.
+  async function shareBlob(blob, filename, mime, title) {
+    const file = new File([blob], filename, { type: mime });
+
+    if (isMobileDevice() && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title });
+        return;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return; // user cancelled
+        console.warn('navigator.share failed:', err);
+        // Fall through to download
+      }
+    }
+
+    // Download path (primary on desktop, fallback on mobile)
+    const url = URL.createObjectURL(blob);
+    try {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (err) {
+      URL.revokeObjectURL(url);
+      const url2 = URL.createObjectURL(blob);
+      const win = window.open(url2, '_blank');
+      if (!win) {
+        alert('Could not share or download. Check your browser settings.');
+      }
+    }
+  }
 
   window.addEventListener('resize', () => {
     if (shareOverlay.classList.contains('visible')) {
@@ -1241,27 +1277,7 @@
     }
     const text = lines.join('\n') + '\n';
     const blob = new Blob([text], { type: 'text/plain' });
-    const filename = 'aggregate.txt';
-
-    // Prefer native share sheet on mobile (so the file can go to Files, Mail, etc.)
-    (async () => {
-      const file = new File([blob], filename, { type: 'text/plain' });
-      try {
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: 'Sphere aggregate data' });
-          return;
-        }
-      } catch (err) {
-        if (err && err.name === 'AbortError') return;
-      }
-      // Fallback: trigger a download
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    })();
+    shareBlob(blob, 'aggregate.txt', 'text/plain', 'Sphere aggregate data');
   }
 
   function fmt(v) {
