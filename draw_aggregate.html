@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Sphere Aggregate</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #fff; color: #222;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    overscroll-behavior: none;
+  }
+  #stage { position: absolute; inset: 0; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #ui {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+    display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+    pointer-events: none;
+  }
+  #ui {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+    display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+    background: linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0));
+    pointer-events: none;
+  }
+  .btn {
+    pointer-events: auto;
+    background: rgba(255,255,255,0.92); color: #222; border: 1px solid #ccc;
+    padding: 10px 14px; border-radius: 10px; font-size: 14px;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    min-width: 64px; text-align: center; cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .btn:active { background: #e8e8ee; }
+  .btn.active { background: #2a7; border-color: #2a7; color: #fff; }
+  #topbar {
+    position: absolute; top: 0; left: 0; right: 0;
+    padding: calc(10px + env(safe-area-inset-top, 0px)) 10px 8px;
+    display: flex; gap: 8px; align-items: flex-start;
+    pointer-events: none;
+  }
+  #info {
+    position: absolute;
+    left: 10px;
+    bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+    font-size: 11px; color: #666;
+    background: rgba(255,255,255,0.8);
+    padding: 3px 8px; border-radius: 8px;
+    border: 1px solid #ddd;
+    pointer-events: none;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  }
+  #sliders {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    flex: 1;
+    max-width: 420px;
+    margin-left: auto;
+    margin-right: auto;
+    pointer-events: none;
+  }
+  .slider-row {
+    pointer-events: auto; display: flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,0.92); padding: 6px 10px; border-radius: 10px;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border: 1px solid #ccc; font-size: 12px; color: #222;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .slider-row input[type=range] { flex: 1; min-width: 0; width: auto; }
+  .slider-row .label { flex-shrink: 0; min-width: 38px; }
+  #hint {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    color: #888; font-size: 13px; text-align: center; pointer-events: none;
+    max-width: 80%; line-height: 1.5;
+  }
+  #hint.hidden { display: none; }
+
+  /* Help overlay */
+  #helpOverlay {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: none; align-items: center; justify-content: center;
+    padding: 16px; z-index: 10;
+    backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+  }
+  #helpOverlay.visible { display: flex; }
+  #helpPanel {
+    background: #fff; color: #222; border-radius: 14px;
+    max-width: 560px; width: 100%; max-height: 100%;
+    overflow-y: auto;
+    padding: 18px 20px calc(18px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    font-size: 14px; line-height: 1.5;
+    -webkit-overflow-scrolling: touch;
+  }
+  #helpPanel h2 { font-size: 18px; margin-bottom: 10px; }
+  #helpPanel h3 { font-size: 14px; margin: 14px 0 4px; color: #2a7; }
+  #helpPanel p { margin: 4px 0; }
+  #helpPanel .row { display: flex; gap: 8px; margin: 3px 0; }
+  #helpPanel .tag {
+    font-size: 11px; padding: 1px 6px; border-radius: 4px; font-weight: 600;
+    flex-shrink: 0; align-self: flex-start; margin-top: 2px;
+  }
+  #helpPanel .tag.desktop { background: #e5ecff; color: #2a4aa8; }
+  #helpPanel .tag.mobile  { background: #e8f5ea; color: #1a7a33; }
+  #helpPanel .tag.both    { background: #eee; color: #444; }
+  #helpPanel .close-row { display: flex; justify-content: flex-end; margin-top: 16px; }
+  #helpPanel button {
+    background: #2a7; color: #fff; border: none; padding: 10px 18px;
+    border-radius: 10px; font-size: 14px; cursor: pointer;
+  }
+  #helpPanel button:active { background: #249060; }
+
+  /* Share preview overlay */
+  #shareOverlay {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: none; flex-direction: column;
+    z-index: 20;
+    padding: calc(10px + env(safe-area-inset-top, 0px)) 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  #shareOverlay.visible { display: flex; }
+  #shareCanvasWrap {
+    flex: 1; position: relative; min-height: 0;
+    background: #fff; border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  }
+  #shareCanvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #shareControls {
+    margin-top: 10px;
+    background: rgba(255,255,255,0.95);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 8px;
+    font-size: 12px; color: #222;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  #shareControls .slider-row { background: transparent; border: none; padding: 0; box-shadow: none; }
+  #shareControls .slider-row input[type=range] { flex: 1; }
+  #shareControls .hint { color: #666; font-size: 11px; margin: 0 2px; }
+  #shareControls .buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+  #shareControls .buttons button {
+    padding: 9px 16px; border-radius: 8px; font-size: 13px;
+    border: 1px solid #ccc; background: #fff; color: #222; cursor: pointer;
+  }
+  #shareControls .buttons button.primary {
+    background: #2a7; border-color: #2a7; color: #fff;
+  }
+  #shareControls .buttons button:active { transform: translateY(1px); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="canvas"></canvas>
+</div>
+
+<div id="topbar">
+  <div id="sliders">
+    <div class="slider-row"><span class="label">Size</span> <input id="sizeSlider" type="range" min="6" max="40" value="16"></div>
+    <div class="slider-row"><span class="label">Temp</span> <input id="tempSlider" type="range" min="0" max="300" value="100"></div>
+    <div class="slider-row"><span class="label">Spread</span> <input id="spreadSlider" type="range" min="0" max="100" value="0"></div>
+    <div class="slider-row"><span class="label">Depth</span> <input id="depthSlider" type="range" min="0" max="100" value="50"></div>
+  </div>
+</div>
+
+<div id="info">Spheres: <span id="count">0</span></div>
+
+<div id="hint">Draw a line with your finger or stylus.<br>Two fingers to rotate the structure.<br>Pinch to zoom.</div>
+
+<div id="ui">
+  <button class="btn active" id="modeDraw">Draw</button>
+  <button class="btn" id="modeRotate">Rotate</button>
+  <button class="btn" id="btnUndo">Undo</button>
+  <button class="btn" id="btnClear">Clear</button>
+  <button class="btn" id="btnReset">Reset View</button>
+  <button class="btn" id="btnShare">Share</button>
+  <button class="btn" id="btnExport">Export</button>
+  <button class="btn" id="btnHelp" aria-label="Help">?</button>
+</div>
+
+<div id="helpOverlay">
+  <div id="helpPanel">
+    <h2>Sphere Aggregate — Help</h2>
+    <p>Draw chains of spheres to build a 3D aggregate. Rotate between strokes to grow arms in different directions.</p>
+
+    <h3>Drawing</h3>
+    <div class="row"><span class="tag mobile">Mobile</span><span>One finger or stylus draws a stroke. When you lift, the stroke becomes a chain of spheres.</span></div>
+    <div class="row"><span class="tag desktop">Desktop</span><span>Left-click and drag to draw. Release to commit the chain.</span></div>
+    <div class="row"><span class="tag both">Both</span><span>If a stroke starts or ends on an existing sphere, it connects to that sphere at its 3D depth. If both ends hit existing spheres, the chain forms a genuine 3D bridge — smoothly interpolating depth between them along the stroke.</span></div>
+
+    <h3>Rotating</h3>
+    <div class="row"><span class="tag mobile">Mobile</span><span>Two fingers rotate the structure — drag to rotate, twist for roll. Works in any mode.</span></div>
+    <div class="row"><span class="tag desktop">Desktop</span><span>Right-click and drag to rotate, anytime. (Or switch to Rotate mode and use left-click.)</span></div>
+
+    <h3>Zooming</h3>
+    <div class="row"><span class="tag mobile">Mobile</span><span>Pinch with two fingers.</span></div>
+    <div class="row"><span class="tag desktop">Desktop</span><span>Mouse wheel — zooms around the cursor.</span></div>
+
+    <h3>Modes</h3>
+    <p><b>Draw</b> — single finger/left-click draws.<br>
+    <b>Rotate</b> — single finger/left-click rotates instead. Useful on a touchscreen without a stylus or when you want to carefully rotate without risk of drawing.</p>
+    <p>On desktop you can usually leave Draw mode on permanently and use right-drag for rotation.</p>
+
+    <h3>Sliders</h3>
+    <p><b>Size</b> — radius of new spheres. Changes only apply to the next stroke; existing spheres keep their size.</p>
+    <p><b>Spread</b> — random variation in grain size within each stroke. At 0, all new spheres are exactly the Size radius. Higher values produce a natural log-normal mix of large and small grains.</p>
+    <p><b>Temp</b> — random position deviation from the drawn line. At 0, spheres sit exactly on your stroke. Higher values give a more hand-built, irregular look. Chain connectivity is preserved at all temperatures.</p>
+    <p><b>Depth</b> — strength of the atmospheric depth cue (misting toward white for far spheres). Pure visual effect, doesn't change the geometry.</p>
+
+    <h3>Buttons</h3>
+    <p><b>Undo</b> — removes the most recently drawn stroke.<br>
+    <b>Clear</b> — removes the entire aggregate (with confirmation).<br>
+    <b>Reset View</b> — resets rotation, pan and zoom to defaults. Your aggregate is unchanged.<br>
+    <b>Share</b> — opens a preview where you can rotate, zoom, and add perspective for a nicer image before exporting. Tap Share to send the PNG via the system share sheet (mobile) or download it (desktop). The preview is cosmetic only — your aggregate isn't changed.<br>
+    <b>Export</b> — saves the aggregate as an ASCII text file. First line is the number of spheres; each following line is <code>index radius x y z</code>.</p>
+
+    <div class="close-row"><button id="btnHelpClose">Close</button></div>
+  </div>
+</div>
+
+<div id="shareOverlay">
+  <div id="shareCanvasWrap">
+    <canvas id="shareCanvas"></canvas>
+  </div>
+  <div id="shareControls">
+    <div class="hint">Drag to rotate · pinch / wheel to zoom · adjust perspective for a nicer image</div>
+    <div class="slider-row"><span class="label">Perspective</span> <input id="persSlider" type="range" min="0" max="100" value="30"></div>
+    <div class="buttons">
+      <button id="btnSharePreviewCancel">Cancel</button>
+      <button id="btnSharePreviewDone" class="primary">Share</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const countEl = document.getElementById('count');
+  const hintEl = document.getElementById('hint');
+  const sizeSlider = document.getElementById('sizeSlider');
+  const tempSlider = document.getElementById('tempSlider');
+  const spreadSlider = document.getElementById('spreadSlider');
+  const depthSlider = document.getElementById('depthSlider');
+
+  // --- State ---
+  // Aggregate is a list of spheres in world (model) coordinates.
+  // Each sphere: { x, y, z, r, group }  (group = stroke index, for undo)
+  const spheres = [];
+  let strokeGroup = 0;
+
+  // View transform: rotation matrix (3x3) + zoom + center offset (pan optional)
+  let R = identity3();
+  let zoom = 1;
+  let panX = 0, panY = 0;
+
+  let sphereRadius = parseFloat(sizeSlider.value);
+  let temperature = parseFloat(tempSlider.value) / 100; // 0..1
+  let sizeSpread = parseFloat(spreadSlider.value) / 100; // 0..1
+  let depthStrength = parseFloat(depthSlider.value) / 100; // 0..1
+  let mode = 'draw'; // 'draw' | 'rotate'
+
+  // --- Resize ---
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = window.innerWidth, h = window.innerHeight;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', resize);
+
+  // --- Matrix helpers (3x3 row-major) ---
+  function identity3() { return [1,0,0, 0,1,0, 0,0,1]; }
+  function matMul(a, b) {
+    const r = new Array(9);
+    for (let i=0;i<3;i++) for (let j=0;j<3;j++) {
+      r[i*3+j] = a[i*3]*b[j] + a[i*3+1]*b[j+3] + a[i*3+2]*b[j+6];
+    }
+    return r;
+  }
+  function rotX(a) { const c=Math.cos(a), s=Math.sin(a); return [1,0,0, 0,c,-s, 0,s,c]; }
+  function rotY(a) { const c=Math.cos(a), s=Math.sin(a); return [c,0,s, 0,1,0, -s,0,c]; }
+  function rotZ(a) { const c=Math.cos(a), s=Math.sin(a); return [c,-s,0, s,c,0, 0,0,1]; }
+  function applyMat(m, v) {
+    return [
+      m[0]*v[0] + m[1]*v[1] + m[2]*v[2],
+      m[3]*v[0] + m[4]*v[1] + m[5]*v[2],
+      m[6]*v[0] + m[7]*v[1] + m[8]*v[2],
+    ];
+  }
+  // Transpose = inverse for rotation matrices
+  function transpose3(m) {
+    return [m[0],m[3],m[6], m[1],m[4],m[7], m[2],m[5],m[8]];
+  }
+
+  // --- Projection ---
+  // World -> screen: rotate then orthographic project (x,y), z used for depth sort + shading
+  function projectPoint(p) {
+    const v = applyMat(R, [p.x, p.y, p.z]);
+    const w = window.innerWidth, h = window.innerHeight;
+    return {
+      sx: w/2 + panX + v[0] * zoom,
+      sy: h/2 + panY + v[1] * zoom,
+      z: v[2]
+    };
+  }
+  // Screen (sx,sy) at a given view-space depth -> world point
+  function unprojectScreen(sx, sy, viewZ = 0) {
+    const w = window.innerWidth, h = window.innerHeight;
+    const vx = (sx - w/2 - panX) / zoom;
+    const vy = (sy - h/2 - panY) / zoom;
+    const vz = viewZ;
+    // world = R^T * view
+    const RT = transpose3(R);
+    const world = applyMat(RT, [vx, vy, vz]);
+    return { x: world[0], y: world[1], z: world[2] };
+  }
+
+  // Hit-test: find the front-most sphere whose projected disk contains (sx, sy).
+  // Returns that sphere's view-space z, or null if nothing hit.
+  function hitTestViewZ(sx, sy) {
+    let best = null;
+    for (const s of spheres) {
+      const v = applyMat(R, [s.x, s.y, s.z]);
+      const w = window.innerWidth, h = window.innerHeight;
+      const psx = w/2 + panX + v[0] * zoom;
+      const psy = h/2 + panY + v[1] * zoom;
+      const r = s.r * zoom;
+      const d2 = (sx - psx) * (sx - psx) + (sy - psy) * (sy - psy);
+      if (d2 <= r * r) {
+        if (best === null || v[2] > best) best = v[2]; // front-most = larger view z
+      }
+    }
+    return best;
+  }
+
+  // --- Drawing ---
+  function draw() {
+    const w = window.innerWidth, h = window.innerHeight;
+    ctx.clearRect(0, 0, w, h);
+
+    // White background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+
+    if (spheres.length > 0) {
+      // Project all and sort by depth (back to front)
+      const projected = spheres.map(s => {
+        const p = projectPoint(s);
+        return { p, s };
+      });
+      projected.sort((a, b) => a.p.z - b.p.z);
+
+      // Depth range for shading
+      let zMin = Infinity, zMax = -Infinity;
+      for (const pr of projected) {
+        if (pr.p.z < zMin) zMin = pr.p.z;
+        if (pr.p.z > zMax) zMax = pr.p.z;
+      }
+      const zRange = Math.max(1e-6, zMax - zMin);
+
+      for (const pr of projected) {
+      const { p, s } = pr;
+      const depthT = (p.z - zMin) / zRange; // 0 back -> 1 front
+      const brightness = 0.55 + 0.45 * depthT;
+
+      // No size scaling — that would break chain contact. Depth is conveyed
+      // through misting, shading, shadow and outline fade instead.
+      const radius = s.r * zoom;
+
+      // Aerial perspective: how much to blend sphere colors toward white (the
+      // background). At depthStrength=1, far spheres fade up to ~65% toward white.
+      const mist = depthStrength * 0.65 * (1 - depthT);
+
+      // Soft drop shadow for depth cue on white (also fades with mist)
+      ctx.beginPath();
+      ctx.arc(p.sx + radius*0.15, p.sy + radius*0.2, radius*0.95, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(0,0,0,${(0.05 + 0.08*depthT) * (1 - mist*0.8)})`;
+      ctx.fill();
+
+      // Sphere with light from upper-left
+      const grad = ctx.createRadialGradient(
+        p.sx - radius*0.4, p.sy - radius*0.4, radius*0.1,
+        p.sx, p.sy, radius
+      );
+      const hue = 210;
+      // Base HSL lightnesses
+      const hiL0 = 85 + brightness * 8;
+      const midL0 = 55 * brightness + 20;
+      const loL0 = Math.max(20, 25 * brightness + 10);
+      // Blend toward white (100%) by `mist`
+      const hiL = hiL0 + (100 - hiL0) * mist;
+      const midL = midL0 + (100 - midL0) * mist;
+      const loL = loL0 + (100 - loL0) * mist;
+      // Also desaturate as we mist, so far things look atmospheric
+      const sat = (1 - mist);
+      grad.addColorStop(0, `hsl(${hue}, ${80*sat}%, ${hiL}%)`);
+      grad.addColorStop(0.55, `hsl(${hue}, ${65*sat}%, ${midL}%)`);
+      grad.addColorStop(1, `hsl(${hue}, ${55*sat}%, ${loL}%)`);
+
+      ctx.beginPath();
+      ctx.arc(p.sx, p.sy, radius, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Outline also fades into the mist
+      ctx.lineWidth = 0.8;
+      const outlineA = (0.35 + 0.25*(1-depthT)) * (1 - mist);
+      ctx.strokeStyle = `rgba(30,40,70,${outlineA})`;
+      ctx.stroke();
+    }
+    } // end if (spheres.length > 0)
+
+    // live-draw preview stroke
+    if (livePreview.length > 1) {
+      ctx.beginPath();
+      ctx.moveTo(livePreview[0].x, livePreview[0].y);
+      for (let i=1;i<livePreview.length;i++) ctx.lineTo(livePreview[i].x, livePreview[i].y);
+      ctx.strokeStyle = 'rgba(30, 100, 180, 0.55)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+
+  // --- Stroke handling ---
+  let livePreview = []; // screen-space points for current stroke
+  let drawingStroke = false;
+
+  function startStroke(sx, sy) {
+    drawingStroke = true;
+    livePreview = [{ x: sx, y: sy }];
+    hintEl.classList.add('hidden');
+  }
+  function extendStroke(sx, sy) {
+    if (!drawingStroke) return;
+    livePreview.push({ x: sx, y: sy });
+    draw();
+  }
+  function endStroke() {
+    if (!drawingStroke) return;
+    drawingStroke = false;
+    if (livePreview.length < 1) { livePreview = []; return; }
+
+    const startZ = hitTestViewZ(livePreview[0].x, livePreview[0].y);
+    const last = livePreview[livePreview.length - 1];
+    const endZ = hitTestViewZ(last.x, last.y);
+
+    // Determine direction and z profile:
+    // - only end hits  -> walk backwards so the first placed sphere is the anchor
+    // - only start hits-> walk forwards
+    // - both hit       -> walk forwards; end is enforced by a final snap
+    // - neither        -> walk forwards, flat plane
+    let pts = livePreview.slice();
+    let zAtStart, zAtEnd;
+    let snapLastToEnd = false;
+
+    if (startZ !== null && endZ !== null) {
+      zAtStart = startZ; zAtEnd = endZ;
+      snapLastToEnd = true;
+    } else if (endZ !== null && startZ === null) {
+      pts.reverse();
+      zAtStart = endZ; zAtEnd = endZ;
+    } else if (startZ !== null) {
+      zAtStart = startZ; zAtEnd = startZ;
+    } else {
+      zAtStart = 0; zAtEnd = 0;
+    }
+
+    // Arc-length parameterization of the (possibly reversed) point list
+    const cum = new Array(pts.length);
+    cum[0] = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const dx = pts[i].x - pts[i-1].x;
+      const dy = pts[i].y - pts[i-1].y;
+      cum[i] = cum[i-1] + Math.hypot(dx, dy);
+    }
+    const totalLen = cum[cum.length - 1] || 1;
+
+    function zAtStrokePoint(sx, sy, segIdx) {
+      const a = pts[Math.max(0, segIdx - 1)];
+      const segStart = cum[Math.max(0, segIdx - 1)];
+      const segEnd = cum[segIdx] ?? cum[cum.length - 1];
+      const segLen = segEnd - segStart;
+      const dx = sx - a.x, dy = sy - a.y;
+      const along = Math.hypot(dx, dy);
+      const here = segStart + Math.min(segLen, along);
+      const t = here / totalLen;
+      return zAtStart + (zAtEnd - zAtStart) * t;
+    }
+
+    strokeGroup++;
+    const RT = transpose3(R);
+
+    const sigma = sizeSpread * 0.9;
+    function sampleRadius() {
+      if (sigma === 0) return sphereRadius;
+      const m = Math.exp(gaussian() * sigma - sigma * sigma / 2);
+      const clamped = Math.max(0.3, Math.min(3.0, m));
+      return sphereRadius * clamped;
+    }
+
+    const overlapFactor = 0.8;
+
+    function pointAt(sx, sy, segIdx) {
+      const z = zAtStrokePoint(sx, sy, segIdx);
+      return unprojectScreen(sx, sy, z);
+    }
+
+    const jitterBase = temperature * 0.6;
+    function jitterWorld(r) {
+      if (jitterBase === 0) return [0, 0, 0];
+      const amp = jitterBase * r;
+      const jx = gaussian() * amp;
+      const jy = gaussian() * amp;
+      const jz = gaussian() * amp;
+      return applyMat(RT, [jx, jy, jz]);
+    }
+
+    // How much the drawing plane's view-z changes per unit of stroke arc length
+    // (in screen pixels). Used to correct the screen-spacing target so that the
+    // 3D center-to-center distance equals the desired value even when the chain
+    // is traversing depth.
+    const dzPerScreenPx = (zAtEnd - zAtStart) / totalLen;
+
+    // Given a desired 3D center-to-center distance D (in world units), figure
+    // out the screen-space spacing we need to advance along the stroke so that
+    // unprojected points end up exactly D apart in 3D. Screen-plane component
+    // is D_screen_world = sqrt(D^2 - dz^2), then convert to pixels via * zoom.
+    function screenSpacingFor(D3D) {
+      const k2 = (1/(zoom*zoom)) + dzPerScreenPx * dzPerScreenPx;
+      return D3D / Math.sqrt(k2);
+    }
+
+    // First sphere anchored at pts[0]
+    let r0 = sampleRadius();
+    let base = pointAt(pts[0].x, pts[0].y, 0);
+    const j0 = jitterWorld(r0);
+    let prev = { x: base.x + j0[0], y: base.y + j0[1], z: base.z + j0[2], r: r0 };
+    spheres.push({ ...prev, group: strokeGroup });
+
+    let segIdx = 1;
+    let segFrom = pts[0];
+    let accScreen = 0;
+    let rNext = sampleRadius();
+    let targetScreen = screenSpacingFor(overlapFactor * (prev.r + rNext));
+
+    while (segIdx < pts.length) {
+      const segTo = pts[segIdx];
+      const dx = segTo.x - segFrom.x, dy = segTo.y - segFrom.y;
+      const segLen = Math.hypot(dx, dy);
+      if (segLen === 0) { segIdx++; segFrom = segTo; continue; }
+
+      if (accScreen + segLen < targetScreen) {
+        accScreen += segLen;
+        segFrom = segTo;
+        segIdx++;
+      } else {
+        const need = targetScreen - accScreen;
+        const t = need / segLen;
+        const sx = segFrom.x + dx * t;
+        const sy = segFrom.y + dy * t;
+        let world = pointAt(sx, sy, segIdx);
+        const jw = jitterWorld(rNext);
+        let wx = world.x + jw[0], wy = world.y + jw[1], wz = world.z + jw[2];
+
+        const ddx = wx - prev.x, ddy = wy - prev.y, ddz = wz - prev.z;
+        const d = Math.hypot(ddx, ddy, ddz);
+        const maxD = prev.r + rNext;
+        if (d > maxD && d > 0) {
+          const k = maxD / d;
+          wx = prev.x + ddx * k;
+          wy = prev.y + ddy * k;
+          wz = prev.z + ddz * k;
+        }
+
+        prev = { x: wx, y: wy, z: wz, r: rNext };
+        spheres.push({ ...prev, group: strokeGroup });
+
+        segFrom = { x: sx, y: sy };
+        accScreen = 0;
+        rNext = sampleRadius();
+        targetScreen = screenSpacingFor(overlapFactor * (prev.r + rNext));
+      }
+    }
+
+    // If both endpoints were hits, snap a final sphere onto the end point.
+    // Because screenSpacingFor already corrected for depth traversal, `prev`
+    // should now be close to the end point in 3D, and the contact clamp below
+    // handles any residual. We always add the anchor (not conditionally) so
+    // the connection to the end sphere is guaranteed.
+    if (snapLastToEnd) {
+      const endPt = pts[pts.length - 1];
+      const rEnd = sampleRadius();
+      const endWorld = unprojectScreen(endPt.x, endPt.y, zAtEnd);
+      let wx = endWorld.x, wy = endWorld.y, wz = endWorld.z;
+      // Contact clamp against prev, just in case
+      const ddx = wx - prev.x, ddy = wy - prev.y, ddz = wz - prev.z;
+      const d = Math.hypot(ddx, ddy, ddz);
+      const maxD = prev.r + rEnd;
+      // Only skip if we're already essentially on top of `prev`
+      if (d > 0.15 * maxD) {
+        if (d > maxD) {
+          // Shouldn't happen often now that spacing is depth-corrected, but
+          // if the chain fell short (e.g. a very short, very deep bridge),
+          // insert intermediate spheres along the straight world-space line
+          // from prev to endWorld until we can reach.
+          const steps = Math.ceil(d / maxD);
+          for (let i = 1; i <= steps; i++) {
+            const t = i / steps;
+            const ix = prev.x + ddx * t;
+            const iy = prev.y + ddy * t;
+            const iz = prev.z + ddz * t;
+            const ri = (i === steps) ? rEnd : sampleRadius();
+            spheres.push({ x: ix, y: iy, z: iz, r: ri, group: strokeGroup });
+            prev = { x: ix, y: iy, z: iz, r: ri };
+          }
+        } else {
+          spheres.push({ x: wx, y: wy, z: wz, r: rEnd, group: strokeGroup });
+        }
+      }
+    }
+
+    livePreview = [];
+    updateCount();
+    draw();
+  }
+
+  // Approx standard normal via Box-Muller
+  function gaussian() {
+    let u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  function resample(points, spacing) {
+    if (points.length === 0) return [];
+    if (points.length === 1) return [points[0]];
+    const out = [points[0]];
+    let acc = 0;
+    let prev = points[0];
+    for (let i = 1; i < points.length; i++) {
+      const cur = points[i];
+      const dx = cur.x - prev.x, dy = cur.y - prev.y;
+      const d = Math.hypot(dx, dy);
+      if (d === 0) continue;
+      let remaining = d;
+      let from = prev;
+      while (acc + remaining >= spacing) {
+        const need = spacing - acc;
+        const t = need / remaining;
+        const nx = from.x + (cur.x - from.x) * t;
+        const ny = from.y + (cur.y - from.y) * t;
+        out.push({ x: nx, y: ny });
+        from = { x: nx, y: ny };
+        remaining -= need;
+        acc = 0;
+      }
+      acc += remaining;
+      prev = cur;
+    }
+    // include last point if it's far enough
+    const last = out[out.length-1];
+    const endPt = points[points.length-1];
+    if (Math.hypot(endPt.x - last.x, endPt.y - last.y) > spacing * 0.5) {
+      out.push(endPt);
+    }
+    return out;
+  }
+
+  // --- Touch / pointer handling with multi-touch rotate & pinch ---
+  const activeTouches = new Map(); // id -> {x,y}
+  let gestureMode = null; // 'draw' | 'rotate'
+  let lastRotateState = null; // { cx, cy, dist, angle }
+
+  function touchPos(t) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: t.clientX - rect.left, y: t.clientY - rect.top, id: t.identifier ?? t.pointerId };
+  }
+
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      const p = touchPos(t);
+      activeTouches.set(p.id, { x: p.x, y: p.y });
+    }
+    decideGesture();
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      const p = touchPos(t);
+      activeTouches.set(p.id, { x: p.x, y: p.y });
+    }
+    updateGesture();
+  }, { passive: false });
+
+  function endTouches(e) {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      activeTouches.delete(t.identifier ?? t.pointerId);
+    }
+    if (activeTouches.size === 0) {
+      if (gestureMode === 'draw') endStroke();
+      gestureMode = null;
+      lastRotateState = null;
+    } else {
+      decideGesture();
+    }
+  }
+  canvas.addEventListener('touchend', endTouches, { passive: false });
+  canvas.addEventListener('touchcancel', endTouches, { passive: false });
+
+  // Mouse fallback (for desktop testing)
+  // Left button: draw (respects mode toggle). Right button: always rotate.
+  let mouseDown = false;
+  let mouseButton = 0;
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  canvas.addEventListener('mousedown', (e) => {
+    mouseDown = true;
+    mouseButton = e.button;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    if (e.button === 2 || mode === 'rotate') {
+      gestureMode = 'rotate'; lastMouse = { x, y };
+    } else {
+      gestureMode = 'draw'; startStroke(x, y);
+    }
+  });
+  let lastMouse = null;
+  canvas.addEventListener('mousemove', (e) => {
+    if (!mouseDown) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    if (gestureMode === 'draw') extendStroke(x, y);
+    else if (gestureMode === 'rotate' && lastMouse) {
+      const dx = x - lastMouse.x, dy = y - lastMouse.y;
+      applyRotationDelta(dx, dy);
+      lastMouse = { x, y };
+      draw();
+    }
+  });
+  window.addEventListener('mouseup', () => {
+    if (gestureMode === 'draw') endStroke();
+    mouseDown = false; gestureMode = null; lastMouse = null;
+  });
+
+  function decideGesture() {
+    if (activeTouches.size === 1 && mode === 'draw') {
+      if (gestureMode !== 'draw') {
+        const [p] = activeTouches.values();
+        startStroke(p.x, p.y);
+        gestureMode = 'draw';
+      }
+    } else if (activeTouches.size >= 2 || (activeTouches.size === 1 && mode === 'rotate')) {
+      // switch to rotate, drop any draw in progress (don't commit partial)
+      if (gestureMode === 'draw') {
+        livePreview = [];
+        drawingStroke = false;
+        draw();
+      }
+      gestureMode = 'rotate';
+      lastRotateState = computeRotateState();
+    }
+  }
+
+  function computeRotateState() {
+    const pts = [...activeTouches.values()];
+    if (pts.length === 1) {
+      return { cx: pts[0].x, cy: pts[0].y, dist: null, angle: null, single: true };
+    }
+    const cx = (pts[0].x + pts[1].x) / 2;
+    const cy = (pts[0].y + pts[1].y) / 2;
+    const dx = pts[1].x - pts[0].x, dy = pts[1].y - pts[0].y;
+    const dist = Math.hypot(dx, dy);
+    const angle = Math.atan2(dy, dx);
+    return { cx, cy, dist, angle, single: false };
+  }
+
+  function applyRotationDelta(dx, dy) {
+    // dx -> rotation around world-Y (as seen in view), dy -> rotation around world-X
+    const sens = 0.008;
+    // Apply in view space: pre-multiply so newest rotation is applied on top
+    const rx = rotX(dy * sens);
+    const ry = rotY(dx * sens);
+    R = matMul(matMul(ry, rx), R);
+  }
+
+  function updateGesture() {
+    if (gestureMode === 'draw' && activeTouches.size === 1) {
+      const [p] = activeTouches.values();
+      extendStroke(p.x, p.y);
+    } else if (gestureMode === 'rotate') {
+      const st = computeRotateState();
+      if (!lastRotateState) { lastRotateState = st; return; }
+      const dx = st.cx - lastRotateState.cx;
+      const dy = st.cy - lastRotateState.cy;
+      applyRotationDelta(dx, dy);
+
+      if (!st.single && !lastRotateState.single) {
+        // pinch zoom
+        if (lastRotateState.dist && st.dist) {
+          const ratio = st.dist / lastRotateState.dist;
+          zoom *= ratio;
+          zoom = Math.min(50, Math.max(0.02, zoom));
+        }
+        // twist -> rotation around view Z
+        if (lastRotateState.angle != null && st.angle != null) {
+          let da = st.angle - lastRotateState.angle;
+          if (da > Math.PI) da -= 2*Math.PI;
+          if (da < -Math.PI) da += 2*Math.PI;
+          R = matMul(rotZ(da), R);
+        }
+      }
+      lastRotateState = st;
+      draw();
+    }
+  }
+
+  // --- UI wiring ---
+  document.getElementById('modeDraw').addEventListener('click', () => setMode('draw'));
+  document.getElementById('modeRotate').addEventListener('click', () => setMode('rotate'));
+  function setMode(m) {
+    mode = m;
+    document.getElementById('modeDraw').classList.toggle('active', m === 'draw');
+    document.getElementById('modeRotate').classList.toggle('active', m === 'rotate');
+  }
+
+  document.getElementById('btnUndo').addEventListener('click', () => {
+    if (spheres.length === 0) return;
+    const lastGroup = spheres[spheres.length - 1].group;
+    while (spheres.length && spheres[spheres.length-1].group === lastGroup) spheres.pop();
+    updateCount();
+    draw();
+  });
+
+  document.getElementById('btnClear').addEventListener('click', () => {
+    if (spheres.length === 0) return;
+    if (confirm('Clear the entire aggregate?')) {
+      spheres.length = 0;
+      strokeGroup = 0;
+      updateCount();
+      hintEl.classList.remove('hidden');
+      draw();
+    }
+  });
+
+  document.getElementById('btnReset').addEventListener('click', () => {
+    R = identity3(); zoom = 1; panX = 0; panY = 0;
+    draw();
+  });
+
+  sizeSlider.addEventListener('input', () => {
+    sphereRadius = parseFloat(sizeSlider.value);
+  });
+  tempSlider.addEventListener('input', () => {
+    temperature = parseFloat(tempSlider.value) / 100;
+  });
+  spreadSlider.addEventListener('input', () => {
+    sizeSpread = parseFloat(spreadSlider.value) / 100;
+  });
+  depthSlider.addEventListener('input', () => {
+    depthStrength = parseFloat(depthSlider.value) / 100;
+    draw();
+  });
+
+  document.getElementById('btnShare').addEventListener('click', shareImage);
+
+  function updateCount() { countEl.textContent = spheres.length; }
+
+  // --- Share ---
+  async function shareImage() {
+    // Render to a fresh canvas at current size
+    const w = window.innerWidth, h = window.innerHeight;
+    const out = document.createElement('canvas');
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    out.width = w * dpr; out.height = h * dpr;
+    const octx = out.getContext('2d');
+    octx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // copy current canvas content by redrawing into octx
+    // Temporarily swap ctx to draw onto out
+    const savedCtx = redirectCtx(octx);
+    draw();
+    redirectCtx(savedCtx);
+    draw(); // restore on-screen
+
+    out.toBlob(async (blob) => {
+      if (!blob) { alert('Could not create image.'); return; }
+      const file = new File([blob], 'aggregate.png', { type: 'image/png' });
+      try {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'Sphere aggregate' });
+          return;
+        }
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+      }
+      // Fallback: download
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'aggregate.png';
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, 'image/png');
+  }
+
+  // Swap the module-level ctx used by draw()
+  function redirectCtx(newCtx) {
+    const old = ctx;
+    // eslint-disable-next-line no-func-assign
+    drawCtx = newCtx;
+    return old;
+  }
+  // To make redirectCtx work, draw() should use drawCtx. Simpler: just render a PNG from the
+  // live canvas via toDataURL / toBlob on `canvas` itself — that's what we actually need.
+  // Replace shareImage with simpler version below.
+
+  async function shareImageSimple() {
+    draw(); // make sure it's current
+    canvas.toBlob(async (blob) => {
+      if (!blob) { alert('Could not create image.'); return; }
+      const file = new File([blob], 'aggregate.png', { type: 'image/png' });
+      try {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'Sphere aggregate' });
+          return;
+        }
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'aggregate.png';
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, 'image/png');
+  }
+  // Override the handler to use the simpler path:
+  document.getElementById('btnShare').removeEventListener?.('click', shareImage);
+  document.getElementById('btnShare').onclick = openSharePreview;
+
+  // ===== Share preview =====
+  // A compositing view: rotate/zoom/perspective for a nice image, without
+  // affecting the main drawing pipeline at all. Perspective here is a pure
+  // render-time transform, so it can't break placement or hit-testing.
+  const shareOverlay = document.getElementById('shareOverlay');
+  const shareCanvas = document.getElementById('shareCanvas');
+  const sctx = shareCanvas.getContext('2d');
+  const persSlider = document.getElementById('persSlider');
+
+  // Share preview state
+  let pvR = identity3();
+  let pvZoom = 1;
+  let pvPerspective = parseFloat(persSlider.value) / 100; // 0..1
+  let pvPanX = 0, pvPanY = 0;
+
+  function openSharePreview() {
+    if (spheres.length === 0) { alert('Draw something first.'); return; }
+    // Start from the current main view so the user sees what they expect
+    pvR = R.slice();
+    pvZoom = zoom;
+    pvPanX = panX;
+    pvPanY = panY;
+    pvPerspective = parseFloat(persSlider.value) / 100;
+    shareOverlay.classList.add('visible');
+    resizeShareCanvas();
+    drawShare();
+  }
+  function closeSharePreview() {
+    shareOverlay.classList.remove('visible');
+  }
+
+  function resizeShareCanvas() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const rect = shareCanvas.getBoundingClientRect();
+    shareCanvas.width = Math.max(1, rect.width * dpr);
+    shareCanvas.height = Math.max(1, rect.height * dpr);
+    sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  // Perspective scale for the preview: focal distance shrinks with slider.
+  // Returns pixels-per-world-unit at a given view-z. At pvPerspective=0 the
+  // result is exactly pvZoom (orthographic).
+  function pvScale(vz) {
+    if (pvPerspective <= 0) return pvZoom;
+    const rect = shareCanvas.getBoundingClientRect();
+    const screenSize = Math.max(rect.width, rect.height);
+    // Focal distance shrinks steeply as the slider increases. Use an
+    // exponential mapping so the top of the slider gives a strong, fisheye-ish
+    // perspective while the middle still gives a gentle one.
+    //   t=0    -> orthographic (handled above)
+    //   t=0.3  -> gentle (focal ~ 3 * screenSize)
+    //   t=1    -> strong  (focal ~ 0.4 * screenSize)
+    const t = pvPerspective;
+    const focal = screenSize * Math.pow(0.05, t) * 2 / pvZoom;
+    const denom = Math.max(focal * 0.15, focal - vz);
+    return pvZoom * (focal / denom);
+  }
+
+  function drawShare() {
+    const rect = shareCanvas.getBoundingClientRect();
+    const w = rect.width, h = rect.height;
+    sctx.clearRect(0, 0, w, h);
+    sctx.fillStyle = '#ffffff';
+    sctx.fillRect(0, 0, w, h);
+    if (spheres.length === 0) return;
+
+    // Project each sphere through the preview's rotation and perspective.
+    // Naive pinhole: both center and radius scale by focal/d. This is an
+    // approximation of a true sphere silhouette but preserves visual contact
+    // between neighboring spheres, which is what we want for aggregates.
+    // We keep the focal distance bounded below to avoid extreme distortion
+    // near the camera (which breaks the approximation visibly).
+    const rect2 = shareCanvas.getBoundingClientRect();
+    const screenSize = Math.max(rect2.width, rect2.height);
+
+    let focal;
+    if (pvPerspective <= 0) {
+      focal = Infinity;
+    } else {
+      // Map slider to focal distance. Lower focal = stronger perspective.
+      // At t=0 focal ~ 6*screen (gentle), at t=1 focal ~ 0.4*screen (strong).
+      const t = pvPerspective;
+      focal = screenSize * Math.pow(0.067, t) * 6 / pvZoom;
+    }
+
+    const projected = spheres.map(s => {
+      const v = applyMat(pvR, [s.x, s.y, s.z]);
+      let sx, sy, rScreen;
+      if (!isFinite(focal)) {
+        sx = w/2 + pvPanX + v[0] * pvZoom;
+        sy = h/2 + pvPanY + v[1] * pvZoom;
+        rScreen = s.r * pvZoom;
+      } else {
+        // Uniform lower bound on camera-to-sphere distance (fraction of focal,
+        // same for every sphere — keeps neighbors consistent under clamping).
+        const d = Math.max(focal * 0.18, focal - v[2]);
+        const scale = pvZoom * (focal / d);
+        sx = w/2 + pvPanX + v[0] * scale;
+        sy = h/2 + pvPanY + v[1] * scale;
+        rScreen = s.r * scale;
+      }
+      return { sx, sy, z: v[2], r: rScreen };
+    });
+    projected.sort((a, b) => a.z - b.z);
+
+    let zMin = Infinity, zMax = -Infinity;
+    for (const pr of projected) {
+      if (pr.z < zMin) zMin = pr.z;
+      if (pr.z > zMax) zMax = pr.z;
+    }
+    const zRange = Math.max(1e-6, zMax - zMin);
+
+    for (const pr of projected) {
+      const depthT = (pr.z - zMin) / zRange;
+      const brightness = 0.55 + 0.45 * depthT;
+      const mist = depthStrength * 0.65 * (1 - depthT);
+      const radius = Math.max(0.5, pr.r);
+
+      sctx.beginPath();
+      sctx.arc(pr.sx + radius*0.15, pr.sy + radius*0.2, radius*0.95, 0, Math.PI*2);
+      sctx.fillStyle = `rgba(0,0,0,${(0.05 + 0.08*depthT) * (1 - mist*0.8)})`;
+      sctx.fill();
+
+      const grad = sctx.createRadialGradient(
+        pr.sx - radius*0.4, pr.sy - radius*0.4, radius*0.1,
+        pr.sx, pr.sy, radius
+      );
+      const hue = 210;
+      const hiL0 = 85 + brightness * 8;
+      const midL0 = 55 * brightness + 20;
+      const loL0 = Math.max(20, 25 * brightness + 10);
+      const hiL = hiL0 + (100 - hiL0) * mist;
+      const midL = midL0 + (100 - midL0) * mist;
+      const loL = loL0 + (100 - loL0) * mist;
+      const sat = (1 - mist);
+      grad.addColorStop(0, `hsl(${hue}, ${80*sat}%, ${hiL}%)`);
+      grad.addColorStop(0.55, `hsl(${hue}, ${65*sat}%, ${midL}%)`);
+      grad.addColorStop(1, `hsl(${hue}, ${55*sat}%, ${loL}%)`);
+      sctx.beginPath();
+      sctx.arc(pr.sx, pr.sy, radius, 0, Math.PI*2);
+      sctx.fillStyle = grad;
+      sctx.fill();
+
+      sctx.lineWidth = 0.8;
+      const outlineA = (0.35 + 0.25*(1-depthT)) * (1 - mist);
+      sctx.strokeStyle = `rgba(30,40,70,${outlineA})`;
+      sctx.stroke();
+    }
+  }
+
+  // Preview gestures: rotate (single finger / left-drag), pinch / wheel zoom
+  const pvTouches = new Map();
+  let pvLast = null;
+  function pvCoord(t) {
+    const rect = shareCanvas.getBoundingClientRect();
+    return { x: t.clientX - rect.left, y: t.clientY - rect.top };
+  }
+  shareCanvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      const c = pvCoord(t);
+      pvTouches.set(t.identifier, c);
+    }
+    pvLast = pvTouchState();
+  }, { passive: false });
+  shareCanvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      const c = pvCoord(t);
+      pvTouches.set(t.identifier, c);
+    }
+    const st = pvTouchState();
+    if (pvLast && st) {
+      const dx = st.cx - pvLast.cx, dy = st.cy - pvLast.cy;
+      const rx = rotX(dy * 0.008);
+      const ry = rotY(dx * 0.008);
+      pvR = matMul(matMul(ry, rx), pvR);
+      if (st.dist && pvLast.dist) {
+        pvZoom *= st.dist / pvLast.dist;
+        pvZoom = Math.min(50, Math.max(0.02, pvZoom));
+      }
+      if (st.angle != null && pvLast.angle != null) {
+        let da = st.angle - pvLast.angle;
+        if (da > Math.PI) da -= 2*Math.PI;
+        if (da < -Math.PI) da += 2*Math.PI;
+        pvR = matMul(rotZ(da), pvR);
+      }
+      drawShare();
+    }
+    pvLast = st;
+  }, { passive: false });
+  function pvEndTouch(e) {
+    e.preventDefault();
+    for (const t of e.changedTouches) pvTouches.delete(t.identifier);
+    pvLast = pvTouchState();
+  }
+  shareCanvas.addEventListener('touchend', pvEndTouch, { passive: false });
+  shareCanvas.addEventListener('touchcancel', pvEndTouch, { passive: false });
+  function pvTouchState() {
+    const pts = [...pvTouches.values()];
+    if (pts.length === 0) return null;
+    if (pts.length === 1) return { cx: pts[0].x, cy: pts[0].y, dist: null, angle: null };
+    const cx = (pts[0].x + pts[1].x) / 2;
+    const cy = (pts[0].y + pts[1].y) / 2;
+    const dx = pts[1].x - pts[0].x, dy = pts[1].y - pts[0].y;
+    return { cx, cy, dist: Math.hypot(dx, dy), angle: Math.atan2(dy, dx) };
+  }
+
+  // Mouse support for preview
+  let pvMouseDown = false, pvMouseLast = null;
+  shareCanvas.addEventListener('mousedown', (e) => {
+    pvMouseDown = true;
+    pvMouseLast = pvCoord(e);
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!pvMouseDown) return;
+    const c = pvCoord(e);
+    const dx = c.x - pvMouseLast.x, dy = c.y - pvMouseLast.y;
+    const rx = rotX(dy * 0.008);
+    const ry = rotY(dx * 0.008);
+    pvR = matMul(matMul(ry, rx), pvR);
+    pvMouseLast = c;
+    drawShare();
+  });
+  window.addEventListener('mouseup', () => { pvMouseDown = false; });
+  shareCanvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const factor = Math.exp(-e.deltaY * 0.0015);
+    pvZoom *= factor;
+    pvZoom = Math.min(50, Math.max(0.02, pvZoom));
+    drawShare();
+  }, { passive: false });
+
+  persSlider.addEventListener('input', () => {
+    pvPerspective = parseFloat(persSlider.value) / 100;
+    drawShare();
+  });
+
+  document.getElementById('btnSharePreviewCancel').addEventListener('click', closeSharePreview);
+  document.getElementById('btnSharePreviewDone').addEventListener('click', () => {
+    // Render current share canvas to a PNG and hand off to the share flow
+    shareCanvas.toBlob(async (blob) => {
+      if (!blob) { alert('Could not create image.'); return; }
+      const file = new File([blob], 'aggregate.png', { type: 'image/png' });
+      try {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'Sphere aggregate' });
+          closeSharePreview();
+          return;
+        }
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'aggregate.png';
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      closeSharePreview();
+    }, 'image/png');
+  });
+
+  window.addEventListener('resize', () => {
+    if (shareOverlay.classList.contains('visible')) {
+      resizeShareCanvas();
+      drawShare();
+    }
+  });
+
+  // Export as ASCII file
+  document.getElementById('btnExport').addEventListener('click', exportAscii);
+
+  function exportAscii() {
+    if (spheres.length === 0) {
+      alert('Nothing to export — draw something first.');
+      return;
+    }
+    const lines = [String(spheres.length)];
+    for (let i = 0; i < spheres.length; i++) {
+      const s = spheres[i];
+      lines.push(
+        `${i + 1} ${fmt(s.r)} ${fmt(s.x)} ${fmt(s.y)} ${fmt(s.z)}`
+      );
+    }
+    const text = lines.join('\n') + '\n';
+    const blob = new Blob([text], { type: 'text/plain' });
+    const filename = 'aggregate.txt';
+
+    // Prefer native share sheet on mobile (so the file can go to Files, Mail, etc.)
+    (async () => {
+      const file = new File([blob], filename, { type: 'text/plain' });
+      try {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'Sphere aggregate data' });
+          return;
+        }
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+      }
+      // Fallback: trigger a download
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    })();
+  }
+
+  function fmt(v) {
+    // 6 significant digits, with trailing zeros trimmed
+    return Number(v.toPrecision(6)).toString();
+  }
+
+  // Help overlay
+  const helpOverlay = document.getElementById('helpOverlay');
+  document.getElementById('btnHelp').addEventListener('click', () => {
+    helpOverlay.classList.add('visible');
+  });
+  document.getElementById('btnHelpClose').addEventListener('click', () => {
+    helpOverlay.classList.remove('visible');
+  });
+  helpOverlay.addEventListener('click', (e) => {
+    if (e.target === helpOverlay) helpOverlay.classList.remove('visible');
+  });
+
+  // Mouse wheel zoom (around cursor position)
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const w = window.innerWidth, h = window.innerHeight;
+    // World-space point under cursor (in view coords pre-zoom)
+    const vxBefore = (mx - w/2 - panX) / zoom;
+    const vyBefore = (my - h/2 - panY) / zoom;
+    const factor = Math.exp(-e.deltaY * 0.0015);
+    zoom *= factor;
+    zoom = Math.min(50, Math.max(0.02, zoom));
+    // Adjust pan so the same world point stays under the cursor
+    panX = mx - w/2 - vxBefore * zoom;
+    panY = my - h/2 - vyBefore * zoom;
+    draw();
+  }, { passive: false });
+
+  // --- Go ---
+  resize();
+  updateCount();
+})();
+</script>
+</body>
+</html>
