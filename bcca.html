@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BCCA Simulation Live - 360 Fly-Around</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0d0d0d;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px 25px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            min-width: 250px;
+        }
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 1.2rem;
+            color: #4CAF50;
+        }
+        p {
+            margin: 5px 0;
+            font-size: 0.9rem;
+            color: #ccc;
+        }
+        .highlight {
+            color: #fff;
+            font-weight: bold;
+        }
+        #slider-container {
+            display: none;
+            margin-top: 15px;
+            pointer-events: auto;
+        }
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    <h1>BCCA Simulation Live</h1>
+    <p>Iteration: <span id="iterCount" class="highlight">0</span></p>
+    <p>Monomers: <span id="particleCount" class="highlight">1</span></p>
+    <p>Fractal Dim (D<sub>f</sub>): <span id="fractalDim" class="highlight">N/A</span></p>
+    <p>Status: <span id="status" class="highlight">Initializing...</span></p>
+    
+    <div id="slider-container">
+        <p><strong>History Playback</strong></p>
+        <input type="range" id="historySlider" min="0" max="0" value="0">
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x0d0d0d, 0.002);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 20000);
+    camera.position.set(0, 0, 20);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: false }); 
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    document.body.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    const ambientLight = new THREE.AmbientLight(0x404040, 2.0);
+    scene.add(ambientLight);
+    
+    const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.0);
+    dirLight1.position.set(10, 20, 10);
+    scene.add(dirLight1);
+
+    const dirLight2 = new THREE.DirectionalLight(0xaaaaaa, 0.5);
+    dirLight2.position.set(-10, -20, -10);
+    scene.add(dirLight2);
+
+    const R = 1.0;          
+    const D_SQ = 4 * R * R; 
+    const MAX_PARTICLES = 1000000; 
+    const CELL_SIZE = 2 * R; 
+    
+    let currentCluster = [{ x: 0, y: 0, z: 0 }];
+    let iteration = 0;
+    let history = [JSON.parse(JSON.stringify(currentCluster))];
+    
+    // Dynamic Level of Detail Geometries
+    const geoHighPoly = new THREE.SphereGeometry(R, 12, 12); 
+    const geoLowPoly = new THREE.IcosahedronGeometry(R, 0); 
+
+    const colorA = 0x4CAF50; 
+    const colorB = 0x2196F3; 
+    
+    let instancedMeshA = null;
+    let instancedMeshB = null;
+
+    let isAnimating = false;
+    let isFlyingAround = false;
+    
+    let animProgress = 0;
+    let animData = null;
+    let simulationHalted = false;
+
+    // Fly-around states
+    let flyProgress = 0;
+    let flyRadius = 0;
+    let flyPolar = 0;
+    let flyAngleStart = 0;
+
+    function calculateFractalDimension(cluster) {
+        const N = cluster.length;
+        if (N <= 1) return "N/A";
+        
+        let sumSq = 0;
+        for (let i = 0; i < N; i++) {
+            const p = cluster[i];
+            sumSq += p.x*p.x + p.y*p.y + p.z*p.z;
+        }
+        
+        const Rg = Math.sqrt(sumSq / N);
+        if (Rg <= 1.01) return "N/A"; 
+        
+        const df = Math.log(N) / Math.log(Rg / R);
+        return df.toFixed(3);
+    }
+
+    function applyRandomRotation(cluster) {
+        const euler = new THREE.Euler(
+            Math.random() * Math.PI * 2,
+            Math.random() * Math.PI * 2,
+            Math.random() * Math.PI * 2
+        );
+        const q = new THREE.Quaternion().setFromEuler(euler);
+        
+        const rotated = new Array(cluster.length);
+        for(let i=0; i<cluster.length; i++) {
+            const v = new THREE.Vector3(cluster[i].x, cluster[i].y, cluster[i].z).applyQuaternion(q);
+            rotated[i] = { x: v.x, y: v.y, z: v.z };
+        }
+        return rotated;
+    }
+
+    function getBoundingRadius(cluster) {
+        let maxSq = 0;
+        for (let i=0; i<cluster.length; i++) {
+            let p = cluster[i];
+            let sq = p.x*p.x + p.y*p.y + p.z*p.z;
+            if (sq > maxSq) maxSq = sq;
+        }
+        return Math.sqrt(maxSq) + R;
+    }
+
+    function calculateCollisionX(c1, c2) {
+        const rBound1 = getBoundingRadius(c1);
+        const rBound2 = getBoundingRadius(c2);
+        const maxImpact = rBound1 + rBound2;
+
+        const grid = new Map();
+        for (let i = 0; i < c1.length; i++) {
+            const p = c1[i];
+            const cy = Math.floor(p.y / CELL_SIZE);
+            const cz = Math.floor(p.z / CELL_SIZE);
+            const key = `${cy},${cz}`;
+            
+            if (!grid.has(key)) grid.set(key, []);
+            grid.get(key).push(p);
+        }
+
+        let hit = false;
+        let bestXShift = -Infinity;
+        let bestDy = 0, bestDz = 0;
+
+        while (!hit) {
+            const angle = Math.random() * Math.PI * 2;
+            const radiusOffset = Math.sqrt(Math.random()) * maxImpact; 
+            const dy = radiusOffset * Math.cos(angle);
+            const dz = radiusOffset * Math.sin(angle);
+
+            for (let j = 0; j < c2.length; j++) {
+                const p2 = c2[j];
+                const py = p2.y + dy;
+                const pz = p2.z + dz;
+                
+                const cy = Math.floor(py / CELL_SIZE);
+                const cz = Math.floor(pz / CELL_SIZE);
+
+                for(let ny = cy - 1; ny <= cy + 1; ny++) {
+                    for(let nz = cz - 1; nz <= cz + 1; nz++) {
+                        const key = `${ny},${nz}`;
+                        const cellParticles = grid.get(key);
+                        
+                        if (cellParticles) {
+                            for(let i = 0; i < cellParticles.length; i++) {
+                                const p1 = cellParticles[i];
+                                const dpy = p1.y - py;
+                                const dpz = p1.z - pz;
+                                const distSq = dpy*dpy + dpz*dpz;
+
+                                if (distSq <= D_SQ) {
+                                    hit = true;
+                                    const xShift = p1.x - p2.x + Math.sqrt(D_SQ - distSq);
+                                    if (xShift > bestXShift) {
+                                        bestXShift = xShift; 
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (hit) {
+                bestDy = dy;
+                bestDz = dz;
+            }
+        }
+        return { dy: bestDy, dz: bestDz, targetX: bestXShift };
+    }
+
+    function createInstancedMesh(cluster, hexColor) {
+        const material = new THREE.MeshLambertMaterial({ color: hexColor });
+        const geo = cluster.length < 10000 ? geoHighPoly : geoLowPoly;
+        
+        const mesh = new THREE.InstancedMesh(geo, material, cluster.length);
+        const dummy = new THREE.Object3D();
+        
+        for (let i = 0; i < cluster.length; i++) {
+            dummy.position.set(cluster[i].x, cluster[i].y, cluster[i].z);
+            dummy.updateMatrix();
+            mesh.setMatrixAt(i, dummy.matrix);
+        }
+        mesh.instanceMatrix.needsUpdate = true;
+        return mesh;
+    }
+
+    function renderClusterPair(c1, c2, offsetX_A, offsetX_B) {
+        if (instancedMeshA) {
+            instancedMeshA.material.dispose();
+            scene.remove(instancedMeshA);
+        }
+        if (instancedMeshB) {
+            instancedMeshB.material.dispose();
+            scene.remove(instancedMeshB);
+        }
+
+        instancedMeshA = createInstancedMesh(c1, colorA);
+        instancedMeshA.position.x = offsetX_A;
+        scene.add(instancedMeshA);
+
+        if (c2) {
+            instancedMeshB = createInstancedMesh(c2, colorB);
+            instancedMeshB.position.x = offsetX_B;
+            scene.add(instancedMeshB);
+        }
+    }
+
+    function triggerNextStep() {
+        if (simulationHalted) return;
+
+        if (currentCluster.length * 2 > MAX_PARTICLES) {
+            document.getElementById('status').innerText = "Limit Reached. Simulation Halted.";
+            enableHistoryPlayback();
+            simulationHalted = true;
+            return;
+        }
+
+        const c1 = applyRandomRotation(currentCluster);
+        const c2 = applyRandomRotation(currentCluster);
+
+        const r1 = getBoundingRadius(c1);
+        const r2 = getBoundingRadius(c2);
+
+        const stagingDistance = r1 + r2 + 5;
+        renderClusterPair(c1, c2, -stagingDistance, stagingDistance);
+        
+        const totalScale = stagingDistance * 3;
+        
+        // Only force camera out if it's too close to see the staging, otherwise respect user zoom
+        if (camera.position.length() < totalScale) {
+            camera.position.setLength(totalScale);
+        }
+        scene.fog.density = 0.05 / (totalScale * 0.1);
+
+        document.getElementById('status').innerText = "Staging aggregates side-by-side...";
+
+        setTimeout(() => {
+            document.getElementById('status').innerText = "Calculating impact trajectory (Grid Optimized)...";
+            
+            setTimeout(() => {
+                const collision = calculateCollisionX(c1, c2);
+                const startX = collision.targetX + stagingDistance; 
+
+                animData = {
+                    c1: c1,
+                    c2: c2,
+                    dy: collision.dy,
+                    dz: collision.dz,
+                    startX: startX,
+                    targetX: collision.targetX
+                };
+
+                instancedMeshA.position.set(0, 0, 0);
+                instancedMeshB.position.set(animData.startX, animData.dy, animData.dz);
+
+                document.getElementById('status').innerText = "Simulating Ballistic Collision...";
+                animProgress = 0;
+                isAnimating = true;
+
+            }, 50); 
+        }, 1500); 
+    }
+
+    function completeMerge() {
+        const newLen = animData.c1.length + animData.c2.length;
+        let newCluster = new Array(newLen);
+        
+        let idx = 0;
+        let cx = 0, cy = 0, cz = 0;
+
+        for (let i = 0; i < animData.c1.length; i++) {
+            newCluster[idx] = animData.c1[i];
+            cx += newCluster[idx].x;
+            cy += newCluster[idx].y;
+            cz += newCluster[idx].z;
+            idx++;
+        }
+
+        for (let i = 0; i < animData.c2.length; i++) {
+            const p = animData.c2[i];
+            newCluster[idx] = {
+                x: p.x + animData.targetX,
+                y: p.y + animData.dy,
+                z: p.z + animData.dz
+            };
+            cx += newCluster[idx].x;
+            cy += newCluster[idx].y;
+            cz += newCluster[idx].z;
+            idx++;
+        }
+
+        cx /= newLen; cy /= newLen; cz /= newLen;
+        for (let i = 0; i < newLen; i++) {
+            newCluster[i].x -= cx;
+            newCluster[i].y -= cy;
+            newCluster[i].z -= cz;
+        }
+
+        currentCluster = newCluster;
+        iteration++;
+        
+        history.push(JSON.parse(JSON.stringify(currentCluster)));
+
+        const df = calculateFractalDimension(currentCluster);
+
+        document.getElementById('iterCount').innerText = iteration;
+        document.getElementById('particleCount').innerText = currentCluster.length;
+        document.getElementById('fractalDim').innerText = df;
+
+        renderClusterPair(currentCluster, null, 0, 0);
+
+        startFlyAround();
+    }
+
+    function startFlyAround() {
+        document.getElementById('status').innerText = "Scanning 360° Geometry...";
+        
+        // Grab current spherical coordinates based on user's manual zoom/angle
+        const spherical = new THREE.Spherical().setFromVector3(camera.position);
+        flyRadius = spherical.radius;
+        flyPolar = spherical.phi;
+        flyAngleStart = spherical.theta;
+
+        flyProgress = 0;
+        isFlyingAround = true;
+        controls.enabled = false; // Lock out mouse while animating camera
+    }
+
+    function enableHistoryPlayback() {
+        const sliderContainer = document.getElementById('slider-container');
+        const slider = document.getElementById('historySlider');
+        
+        sliderContainer.style.display = 'block';
+        slider.max = history.length - 1;
+        slider.value = history.length - 1;
+
+        slider.addEventListener('input', (e) => {
+            const index = parseInt(e.target.value, 10);
+            const historicalCluster = history[index];
+            const df = calculateFractalDimension(historicalCluster);
+            
+            document.getElementById('iterCount').innerText = index;
+            document.getElementById('particleCount').innerText = historicalCluster.length;
+            document.getElementById('fractalDim').innerText = df;
+            document.getElementById('status').innerText = "History Playback";
+
+            renderClusterPair(historicalCluster, null, 0, 0);
+            
+            const r = getBoundingRadius(historicalCluster);
+            if (camera.position.length() < r * 4) {
+                camera.position.setLength(Math.max(20, r * 4));
+            }
+        });
+    }
+
+    const clock = new THREE.Clock();
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const delta = clock.getDelta();
+
+        if (isAnimating) {
+            animProgress += delta * 1.5; 
+            
+            if (animProgress >= 1) {
+                animProgress = 1;
+                isAnimating = false;
+                instancedMeshB.position.x = animData.targetX;
+                completeMerge();
+            } else {
+                const t = animProgress;
+                instancedMeshB.position.x = animData.startX * (1 - t) + animData.targetX * t;
+            }
+        } else if (isFlyingAround) {
+            // Speed controls how fast it sweeps 360 (0.5 = 2 seconds)
+            flyProgress += delta * 0.5; 
+
+            if (flyProgress >= 1) {
+                flyProgress = 1;
+                isFlyingAround = false;
+                controls.enabled = true; // Return control to user
+                setTimeout(triggerNextStep, 200); 
+            }
+
+            // Smooth ease-in, ease-out formula
+            const t = flyProgress * flyProgress * (3 - 2 * flyProgress);
+            const currentTheta = flyAngleStart + (t * Math.PI * 2);
+
+            const spherical = new THREE.Spherical(flyRadius, flyPolar, currentTheta);
+            camera.position.setFromSpherical(spherical);
+            camera.lookAt(0, 0, 0);
+        }
+
+        controls.update();
+        renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', onWindowResize, false);
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    renderClusterPair(currentCluster, null, 0, 0);
+    triggerNextStep();
+    animate();
+
+</script>
+</body>
+</html>
