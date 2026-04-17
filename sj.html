@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>Badminton Scorekeeper</title> <style>
+        /* --- Basic Page Setup --- */
+        body {
+            font-family: sans-serif; /* Standard sans-serif font */
+            text-align: center; /* Center-align text content */
+            display: flex; /* Enable flexbox layout */
+            flex-direction: column; /* Stack elements vertically */
+            align-items: center; /* Center items horizontally */
+            min-height: 100vh; /* Ensure body takes at least full viewport height */
+            margin: 0; /* Remove default body margin */
+            padding: 10px; /* Add some padding around content */
+            box-sizing: border-box; /* Include padding and border in element's total width and height */
+        }
+
+        h1 {
+            margin-top: 0; /* Remove extra space above heading */
+            margin-bottom: 10px;
+            font-size: 1.8em; /* Adjust heading size */
+        }
+
+        /* --- Top Control Buttons --- */
+        #top-buttons {
+             width: 90%; /* Relative width */
+             max-width: 600px; /* Maximum width for larger screens */
+             display: flex; /* Arrange buttons horizontally */
+             justify-content: space-around; /* Distribute space */
+             margin-bottom: 15px; /* Space below buttons */
+        }
+
+        #reset, #undo, #fullscreen-btn {
+             padding: 10px 15px; /* Button padding */
+             font-size: 1em; /* Button text size */
+             border: none; /* Remove default border */
+             color: white; /* Text color */
+             border-radius: 20px; /* Rounded corners */
+             cursor: pointer; /* Pointer cursor on hover */
+             flex-grow: 1; /* Allow buttons to share space */
+             margin: 0 5px; /* Space between buttons */
+             white-space: nowrap; /* Keep text on one line for these buttons */
+        }
+
+        #reset { background-color: #4CAF50; } /* Green */
+        #undo { background-color: #f44336; } /* Red */
+        #fullscreen-btn { background-color: #007bff; } /* Blue */
+
+        /* --- Score Display --- */
+        #score {
+            font-size: 5em; /* Large score text */
+            margin-bottom: 10px;
+            min-height: 1.2em; /* Prevent layout shift when text changes */
+            line-height: 1; /* Adjust line spacing */
+        }
+
+        /* Specific styles for 9-9 score text */
+        #score.neuf-neuf-text {
+            color: red;
+            font-size: 4.5em; /* Slightly smaller */
+        }
+
+        /* Specific styles for 13-13 score text */
+        #score.treize-treize-text {
+            color: orange;
+            font-size: 4.5em; /* Slightly smaller */
+        }
+
+        /* --- Court Representation --- */
+        #rectangle {
+            width: 90%; /* Relative width */
+            max-width: 600px; /* Max width */
+            aspect-ratio: 13 / 6; /* Maintain badminton court aspect ratio (approx) */
+            height: auto; /* Height adjusts based on width and aspect ratio */
+            max-height: 35vh; /* Limit height relative to viewport height */
+            margin-bottom: 25px; /* Space below court */
+            position: relative; /* Crucial for absolute positioning of figures/arrows inside */
+            overflow: hidden; /* Hide anything extending beyond borders */
+            display: flex; /* Use flexbox for the two court halves */
+            border: none; /* Container has no border; borders are on inner courts */
+        }
+
+        #left-court, #right-court {
+            flex: 1; /* Each div takes up 50% of the width */
+            height: 100%; /* Fill the container height */
+            box-sizing: border-box; /* Include border in size calculation */
+            border: 2px solid black; /* Default border */
+            transition: border-color 0.3s ease, border-width 0.3s ease; /* Smooth border changes */
+        }
+
+        /* Adjust inner borders to create the center line */
+        #left-court { border-right-width: 1px; }
+        #right-court { border-left-width: 1px; }
+
+        /* Server Indicator: Styles when Left is serving (applied to #rectangle) */
+        #rectangle.serving-left #left-court {
+            border-color: red; /* Highlight color */
+            border-width: 4px; /* Thicker border */
+             border-right-width: 2px; /* Adjust center line thickness visually */
+        }
+         #rectangle.serving-left #right-court { /* Ensure non-serving side looks normal */
+             border-color: black;
+             border-width: 2px;
+             border-left-width: 2px; /* Adjust center line thickness visually */
+         }
+
+        /* Server Indicator: Styles when Right is serving (applied to #rectangle) */
+        #rectangle.serving-right #right-court {
+            border-color: red;
+            border-width: 4px;
+             border-left-width: 2px;
+        }
+         #rectangle.serving-right #left-court { /* Ensure non-serving side looks normal */
+             border-color: black;
+             border-width: 2px;
+             border-right-width: 2px;
+         }
+
+        /* --- Player Figures --- */
+        /* Base styles for both stick and jubilant figures */
+        .stick-figure, .jubilant-figure {
+            position: absolute; /* Position relative to #rectangle */
+            max-width: 50px; /* Max width for figures */
+            height: auto;   /* Maintain aspect ratio based on width */
+            transition: opacity 0.5s, filter 0.5s; /* Smooth fade and filter changes */
+        }
+        /* Regular stick figure style */
+        .stick-figure {
+            opacity: 1; /* Visible by default */
+            /* Black color using CSS filter */
+            filter: invert(0%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(0%) contrast(100%);
+        }
+        /* Jubilant figure style */
+        .jubilant-figure {
+            /* Inherits max-width from combined rule */
+            opacity: 0; /* Hidden by default */
+            transform-origin: center bottom; /* Set transform origin if scaling/rotating */
+            /* No default filter applied - will show base jubilant.png */
+        }
+        /* Flip left-side jubilant figures horizontally */
+        #left-jubilant-1, #left-jubilant-2 { transform: scaleX(-1); }
+
+        /* Positioning of individual figures */
+        #left-figure-1   { left: 10%; top: 20%; transform: scaleX(-1); } /* Top-left, flipped */
+        #left-figure-2   { left: 10%; top: 60%; transform: scaleX(-1); } /* Bottom-left, flipped */
+        #left-jubilant-1 { left: 10%; top: 15%; } /* Jubilant version, position adjusted */
+        #left-jubilant-2 { left: 10%; top: 55%; } /* Jubilant version, position adjusted */
+
+        #right-figure-1  { right: 10%; top: 20%; } /* Top-right */
+        #right-figure-2  { right: 10%; top: 60%; } /* Bottom-right */
+        #right-jubilant-1{ right: 10%; top: 15%; } /* Jubilant version, position adjusted */
+        #right-jubilant-2{ right: 10%; top: 55%; } /* Jubilant version, position adjusted */
+
+        /* --- Switch Position Arrow --- */
+        .switch-arrow {
+            position: absolute; /* Position relative to #rectangle */
+            display: none; /* Hidden by default */
+            color: blue; /* Arrow color */
+            font-size: 2.5em; /* Arrow size */
+            font-weight: bold; /* Make arrow thicker */
+            line-height: 1; /* Prevent extra vertical space */
+            top: 50%; /* Center vertically */
+            transform: translateY(-50%); /* Precise vertical centering */
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.2); /* Subtle shadow */
+            z-index: 10; /* Ensure arrow is above court lines */
+        }
+        /* Position left arrow closer to left figures */
+        #left-switch-arrow { left: 25%; }
+        /* Position right arrow closer to right figures */
+        #right-switch-arrow { right: 25%; }
+
+        /* --- Score Increment Buttons --- */
+        .score-button {
+            font-size: 1.8em; /* Text size */
+            padding: 15px 20px; /* Button padding (more vertical for multi-line) */
+            margin: 5px; /* Space around buttons */
+            cursor: pointer; /* Pointer cursor */
+            border-radius: 25px; /* Rounded corners */
+            background-color: #2196F3; /* Blue background */
+            color: white; /* White text */
+            border: none; /* Remove default border */
+            line-height: 1.2; /* Spacing for multi-line text */
+            flex-grow: 1; /* Allow buttons to share space */
+            min-height: 2.5em; /* Ensure decent tap height */
+            /* Use flexbox to center multi-line text properly */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center; /* Ensure text lines are centered */
+        }
+        #buttons {
+            display: flex; /* Arrange score buttons horizontally */
+            justify-content: center;
+            width: 90%; /* Relative width */
+            max-width: 600px; /* Max width */
+            margin-bottom: 20px; /* Space below buttons */
+        }
+
+        /* --- Winner Display --- */
+        #winner {
+            font-size: 3em; /* Large text */
+            display: none; /* Hidden by default */
+            color: green; /* Winner color */
+            margin-top: 10px; /* Space above */
+        }
+
+    </style>
+</head>
+
+<body>
+    <div id="top-buttons">
+        <button id="reset">Reset</button>
+        <button id="undo">Undo</button>
+        <button id="fullscreen-btn">Fullscreen</button>
+    </div>
+
+    <h1>Badminton Score</h1>
+
+    <div id="score">0 - 0</div>
+
+    <div id="rectangle">
+        <div id="left-court"></div>
+        <div id="right-court"></div>
+
+        <img src="sj-images/stick-figure.png" alt="Left Player 1" id="left-figure-1" class="stick-figure">
+        <img src="sj-images/stick-figure.png" alt="Left Player 2" id="left-figure-2" class="stick-figure">
+        <img src="sj-images/stick-figure.png" alt="Right Player 1" id="right-figure-1" class="stick-figure">
+        <img src="sj-images/stick-figure.png" alt="Right Player 2" id="right-figure-2" class="stick-figure">
+        <img src="sj-images/jubilant.png" alt="Left Player 1 Celebrating" id="left-jubilant-1" class="jubilant-figure">
+        <img src="sj-images/jubilant.png" alt="Left Player 2 Celebrating" id="left-jubilant-2" class="jubilant-figure">
+        <img src="sj-images/jubilant.png" alt="Right Player 1 Celebrating" id="right-jubilant-1" class="jubilant-figure">
+        <img src="sj-images/jubilant.png" alt="Right Player 2 Celebrating" id="right-jubilant-2" class="jubilant-figure">
+
+        <div id="left-switch-arrow" class="switch-arrow">↕</div>
+        <div id="right-switch-arrow" class="switch-arrow">↕</div>
+    </div>
+
+    <div id="buttons">
+        <button id="leftScore" class="score-button">Left<br>Score</button>
+        <button id="rightScore" class="score-button">Right<br>Score</button>
+    </div>
+
+    <div id="winner"></div>
+
+    <script>
+        // --- Global State Variables ---
+        let leftScore = 0; // Current score for the left team
+        let rightScore = 0; // Current score for the right team
+        let isLeftServing = true; // Tracks which side is currently serving (or would serve first)
+        let history = []; // Array to store previous states for the undo function
+        let lastScorer = null; // Tracks which team scored the immediately preceding point ('left', 'right', or null)
+
+        // --- DOM Element References ---
+        // Store references to frequently used elements for efficiency
+        const scoreDisplay = document.getElementById('score');
+        const leftButton = document.getElementById('leftScore');
+        const rightButton = document.getElementById('rightScore');
+        const winnerDisplay = document.getElementById('winner');
+        const resetButton = document.getElementById('reset');
+        const undoButton = document.getElementById('undo');
+        const leftFigure1 = document.getElementById('left-figure-1');
+        const leftFigure2 = document.getElementById('left-figure-2');
+        const leftJubilant1 = document.getElementById('left-jubilant-1');
+        const leftJubilant2 = document.getElementById('left-jubilant-2');
+        const rightFigure1 = document.getElementById('right-figure-1');
+        const rightFigure2 = document.getElementById('right-figure-2');
+        const rightJubilant1 = document.getElementById('right-jubilant-1');
+        const rightJubilant2 = document.getElementById('right-jubilant-2');
+        const fullscreenButton = document.getElementById('fullscreen-btn');
+        const rectangle = document.getElementById('rectangle'); // Main court container
+        const leftSwitchArrow = document.getElementById('left-switch-arrow'); // Left position switch indicator
+        const rightSwitchArrow = document.getElementById('right-switch-arrow'); // Right position switch indicator
+
+        // Store default CSS filter for stick figures (black color)
+        const defaultStickFigureFilter = 'invert(0%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(0%) contrast(100%)';
+
+        // --- Core Functions ---
+
+        /**
+         * Updates the main score display (#score).
+         * Shows numeric score or special text ("neuf-neuf!", "treize-treize!").
+         * Applies specific CSS classes for styling special scores.
+         */
+        function updateScore() {
+            // Remove potentially existing special score classes
+            scoreDisplay.classList.remove('neuf-neuf-text', 'treize-treize-text');
+
+            // Check for 9-9
+            if (leftScore === 9 && rightScore === 9) {
+                scoreDisplay.textContent = "neuf-neuf!";
+                scoreDisplay.classList.add('neuf-neuf-text'); // Add class for red styling
+            }
+            // Check for 13-13
+            else if (leftScore === 13 && rightScore === 13) {
+                scoreDisplay.textContent = "treize-treize!";
+                scoreDisplay.classList.add('treize-treize-text'); // Add class for orange styling
+            }
+            // Otherwise, display the standard numeric score
+            else {
+                scoreDisplay.textContent = `${leftScore} - ${rightScore}`;
+            }
+        }
+
+        /**
+         * Updates the visual server indicator (red border on court half).
+         * Adds/removes 'serving-left' or 'serving-right' class to #rectangle.
+         * Does nothing if the score is 0-0 (no indicator shown initially).
+         */
+        function updateServer() {
+            // Only show indicator if score is not 0-0
+            if (leftScore === 0 && rightScore === 0) {
+                rectangle.classList.remove('serving-left', 'serving-right'); // Ensure no highlight at 0-0
+            } else {
+                // Apply class based on who is serving
+                if (isLeftServing) {
+                    rectangle.classList.add('serving-left');
+                    rectangle.classList.remove('serving-right');
+                } else {
+                    rectangle.classList.add('serving-right');
+                    rectangle.classList.remove('serving-left');
+                }
+            }
+        }
+
+        /**
+         * Checks if a team has won the game based on standard rules.
+         * Rules: Score >= 21 AND score difference >= 2, OR first to 30.
+         * Displays the winner message and disables scoring buttons if a winner is found.
+         * Hides the switch indicators upon game end.
+         */
+        function checkWinner() {
+            // Do nothing if game is already won (buttons disabled)
+             if (leftButton.disabled || rightButton.disabled) return;
+
+             let winner = null; // Stores 'Left' or 'Right' if a winner is found
+
+             // Check standard win conditions
+             if ((leftScore >= 21 && leftScore - rightScore >= 2) || leftScore === 30) {
+                 winner = "Left";
+             } else if ((rightScore >= 21 && rightScore - leftScore >= 2) || rightScore === 30) {
+                 winner = "Right";
+             }
+
+             // If a winner was determined
+             if(winner) {
+                 winnerDisplay.textContent = `${winner} Team Wins!`; // Set winner text
+                 winnerDisplay.style.display = "block"; // Show the winner message area
+                 leftButton.disabled = true; // Disable score buttons
+                 rightButton.disabled = true;
+                 showJubilant(winner.toLowerCase()); // Show winner's figures celebrating
+                 hideSwitchIndicators(); // Hide position switch arrows
+             } else {
+                 winnerDisplay.style.display = "none"; // Ensure winner display is hidden if no winner yet
+             }
+        }
+
+        /**
+         * Hides both the left and right position switch indicators.
+         */
+        function hideSwitchIndicators() {
+            leftSwitchArrow.style.display = 'none';
+            rightSwitchArrow.style.display = 'none';
+        }
+
+        /**
+         * Shows the position switch indicator for the specified team ('left' or 'right').
+         * Hides the indicator for the opposing team.
+         * @param {string} team - The team ('left' or 'right') that should switch.
+         */
+        function showSwitchIndicator(team) {
+            if (team === 'left') {
+                rightSwitchArrow.style.display = 'none'; // Hide other
+                leftSwitchArrow.style.display = 'block';  // Show left
+            } else { // team === 'right'
+                leftSwitchArrow.style.display = 'none';  // Hide other
+                rightSwitchArrow.style.display = 'block'; // Show right
+            }
+        }
+
+        /**
+         * Resets the game state to the beginning (0-0).
+         * Resets scores, server, history, last scorer.
+         * Updates displays and hides indicators.
+         * Re-enables score buttons.
+         */
+        function resetGame() {
+            // Re-enable buttons
+            leftButton.disabled = false;
+            rightButton.disabled = false;
+            // Reset scores
+            leftScore = 0;
+            rightScore = 0;
+            // Reset game state variables
+            isLeftServing = true; // Assume left serves first on reset
+            lastScorer = null;
+            history = [];
+            // Update displays to initial state
+            updateScore();
+            updateServer(); // Will remove server indicator (due to 0-0 score)
+            winnerDisplay.style.display = "none";
+            showStickFigures(); // Show default figures
+            hideSwitchIndicators(); // Ensure switch arrows are hidden
+        }
+
+        /**
+         * Reverts the game state to the previous point using the history array.
+         * Restores scores, server status, and last scorer.
+         * Updates displays accordingly.
+         * Hides indicators (simplest approach for undo).
+         * Re-enables score buttons if they were disabled by a win state.
+         */
+        function undoScore() {
+             // Only proceed if there's a state in history to revert to
+             if (history.length > 0) {
+                const previousState = history.pop(); // Get the last saved state
+
+                // Restore state variables
+                leftScore = previousState.leftScore;
+                rightScore = previousState.rightScore;
+                isLeftServing = previousState.isLeftServing;
+                lastScorer = previousState.lastScorer; // Restore who scored before the undone point
+
+                // Re-enable buttons in case undo happened from a winning state
+                leftButton.disabled = false;
+                rightButton.disabled = false;
+
+                // Update all displays to reflect the restored state
+                updateScore();
+                updateServer(); // Will correctly show/hide server indicator based on restored score
+                winnerDisplay.style.display = "none"; // Hide winner message
+                showStickFigures(); // Show default figures
+                hideSwitchIndicators(); // Hide switch indicators upon undo
+            }
+        }
+
+        /**
+         * Shows the celebrating ("jubilant") figures for the scoring team.
+         * Hides the regular stick figures.
+         * Does not apply any color filters.
+         * @param {string} team - The team ('left' or 'right') that scored.
+         */
+        function showJubilant(team) {
+            // Hide regular stick figures
+            leftFigure1.style.opacity = 0; leftFigure2.style.opacity = 0;
+            rightFigure1.style.opacity = 0; rightFigure2.style.opacity = 0;
+            // Ensure all jubilant figures are initially hidden (prevents brief visual glitches)
+            leftJubilant1.style.opacity = 0; leftJubilant2.style.opacity = 0;
+            rightJubilant1.style.opacity = 0; rightJubilant2.style.opacity = 0;
+
+            // Ensure any previously applied filters are cleared
+            leftJubilant1.style.filter = 'none'; leftJubilant2.style.filter = 'none';
+            rightJubilant1.style.filter = 'none'; rightJubilant2.style.filter = 'none';
+
+            // Make the correct jubilant figures visible
+            if (team === 'left') {
+                leftJubilant1.style.opacity = 1;
+                leftJubilant2.style.opacity = 1;
+            } else if (team === 'right') {
+                rightJubilant1.style.opacity = 1;
+                rightJubilant2.style.opacity = 1;
+            }
+        }
+
+        /**
+         * Shows the regular stick figures and hides the jubilant figures.
+         * Applies the default black filter to stick figures.
+         */
+        function showStickFigures() {
+             // Make stick figures visible
+             leftFigure1.style.opacity=1; leftFigure2.style.opacity=1;
+             rightFigure1.style.opacity=1; rightFigure2.style.opacity=1;
+             // Apply default black filter
+             leftFigure1.style.filter=defaultStickFigureFilter; leftFigure2.style.filter=defaultStickFigureFilter;
+             rightFigure1.style.filter=defaultStickFigureFilter; rightFigure2.style.filter=defaultStickFigureFilter;
+             // Hide jubilant figures
+             leftJubilant1.style.opacity=0; leftJubilant2.style.opacity=0;
+             rightJubilant1.style.opacity=0; rightJubilant2.style.opacity=0;
+        }
+
+        /**
+         * Handles the logic when a score button is clicked.
+         * Increments score, updates server, checks for winner, handles indicators.
+         * Saves state to history for undo.
+         * @param {string} team - The team ('left' or 'right') that scored the point.
+         */
+        function handleScore(team) {
+             // Do nothing if game is already won
+             if(leftButton.disabled || rightButton.disabled) return;
+
+             // Check if this point means players should switch (scored 2+ in a row)
+             // This check uses 'lastScorer' *before* it's updated for the current point
+             const shouldSwitch = (team === lastScorer);
+
+             // Save current state *before* making changes, for undo
+             history.push({ leftScore, rightScore, isLeftServing, lastScorer });
+
+             // Update the score and determine who serves next (scorer serves)
+             if (team === 'left') {
+                 leftScore++;
+                 isLeftServing = true;
+             } else { // team === 'right'
+                 rightScore++;
+                 isLeftServing = false;
+             }
+
+             // Update the 'lastScorer' variable *after* saving history and changing score
+             lastScorer = team;
+
+             // Update the visual displays
+             updateScore(); // Update score text/style
+             updateServer(); // Update server indicator border
+             showJubilant(team); // Show celebrating figures
+
+             // Show or Hide the switch indicator based on the consecutive score check
+             if (shouldSwitch) {
+                 showSwitchIndicator(team); // Show arrow if 2+ points in a row
+             } else {
+                 hideSwitchIndicators(); // Hide arrow if streak was broken
+             }
+
+             // Check if the game has been won
+             checkWinner(); // This also hides switch indicator if game ends
+
+             // Set a timeout to switch back from jubilant to stick figures
+             // Only do this if the game is still ongoing
+             if (!leftButton.disabled && !rightButton.disabled) {
+                 setTimeout(() => {
+                     // Check again in case the game ended during the timeout (less likely now, but safe)
+                     if (!leftButton.disabled && !rightButton.disabled) {
+                         showStickFigures();
+                     }
+                 }, 1000); // 1 second delay
+             }
+         }
+
+        // --- Event Listeners (Connect buttons to functions) ---
+        leftButton.addEventListener('click', () => handleScore('left'));
+        rightButton.addEventListener('click', () => handleScore('right'));
+        resetButton.addEventListener('click', resetGame);
+        undoButton.addEventListener('click', undoScore);
+        fullscreenButton.addEventListener('click', () => {
+            // Toggle fullscreen mode
+            if (!document.fullscreenElement) {
+                // Attempt to enter fullscreen
+                document.documentElement.requestFullscreen().catch(err => {
+                    // Log errors if fullscreen fails (e.g., denied by user)
+                    console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+                 });
+            } else {
+                // Exit fullscreen if already active
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        });
+
+        // --- Initial Page Load Setup ---
+        // Set the initial state of the displays when the page loads
+        updateScore(); // Show initial score "0 - 0"
+        updateServer(); // Apply initial server indicator state (none at 0-0)
+        showStickFigures(); // Ensure stick figures are visible
+        hideSwitchIndicators(); // Ensure switch arrows are hidden initially
+
+    </script>
+</body>
+
+</html>
