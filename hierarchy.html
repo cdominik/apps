@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hierarchical Aggregation - Fast Batching</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0d0d0d;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px 25px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            min-width: 250px;
+            z-index: 10;
+        }
+        h1 {
+            margin: 0 0 5px 0;
+            font-size: 1.2rem;
+            color: #4CAF50;
+        }
+        h2 {
+            margin: 0 0 15px 0;
+            font-size: 0.9rem;
+            color: #aaa;
+            font-weight: normal;
+        }
+        p {
+            margin: 5px 0;
+            font-size: 0.9rem;
+            color: #ccc;
+        }
+        .highlight {
+            color: #fff;
+            font-weight: bold;
+        }
+        #slider-container {
+            display: none;
+            margin-top: 15px;
+            pointer-events: auto;
+        }
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+        
+        /* Configuration Overlay Styles */
+        #config-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(5px);
+        }
+        .config-box {
+            background: #1a1a1a;
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid #333;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            width: 350px;
+        }
+        .config-box h2 {
+            color: #4CAF50;
+            margin-top: 0;
+            margin-bottom: 5px;
+            font-size: 1.5rem;
+        }
+        .config-box p.subtitle {
+            color: #888;
+            font-size: 0.9rem;
+            margin-bottom: 25px;
+        }
+        .val-display {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: #fff;
+            margin: 15px 0;
+            background: #0d0d0d;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #333;
+        }
+        button#startBtn {
+            padding: 12px 25px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background 0.2s;
+            width: 100%;
+        }
+        button#startBtn:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+
+<div id="config-overlay">
+    <div class="config-box">
+        <h2>Simulation Settings</h2>
+        <p class="subtitle">Set the Hierarchical Split Factor</p>
+        
+        <p>Double aggregate mass using:</p>
+        <div class="val-display">
+            <span id="dispCount" style="color:#2196F3">8</span> bullets<br>
+            <span style="font-size:0.9rem; color:#aaa">(<span id="dispFactor">8</span>x smaller mass)</span>
+        </div>
+        
+        <input type="range" id="splitInput" min="1" max="7" value="3">
+        <div style="display:flex; justify-content:space-between; color:#666; font-size:0.8rem; margin-top:5px;">
+            <span>2</span><span>4</span><span>8</span><span>16</span><span>32</span><span>64</span><span>128</span>
+        </div>
+        
+        <button id="startBtn">Lock & Start Simulation</button>
+    </div>
+</div>
+
+<div id="ui">
+    <h1>Hybrid Aggregation</h1>
+    <h2>Configurable Hierarchical Phase</h2>
+    <p>Phase: <span id="phaseCount" class="highlight">0</span> / 20</p>
+    <p>Target Mass: <span id="targetMass" class="highlight">1</span></p>
+    <p>Current Particles: <span id="particleCount" class="highlight">1</span></p>
+    <p>Fractal Dim (D<sub>f</sub>): <span id="fractalDim" class="highlight">N/A</span></p>
+    <p>Filling Factor (R<sub>g</sub>): <span id="fillingFactor" class="highlight">100.000%</span></p>
+    <p>Action: <span id="bulletInfo" class="highlight" style="color:#2196F3">N/A</span></p>
+    <p>Status: <span id="status" class="highlight">Awaiting Setup...</span></p>
+    
+    <div id="slider-container">
+        <p><strong>History Playback</strong></p>
+        <input type="range" id="historySlider" min="1" max="1" value="1">
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+    // --- Config Setup Logic ---
+    let splitFactor = 8;
+    let splitPower = 3;
+
+    const splitInput = document.getElementById('splitInput');
+    const dispCount = document.getElementById('dispCount');
+    const dispFactor = document.getElementById('dispFactor');
+    const startBtn = document.getElementById('startBtn');
+    const configOverlay = document.getElementById('config-overlay');
+
+    splitInput.addEventListener('input', (e) => {
+        splitPower = parseInt(e.target.value, 10);
+        splitFactor = Math.pow(2, splitPower);
+        dispCount.innerText = splitFactor;
+        dispFactor.innerText = splitFactor;
+    });
+
+    startBtn.addEventListener('click', () => {
+        configOverlay.style.display = 'none';
+        initSimulation();
+    });
+
+    // --- Scene Setup ---
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x0d0d0d, 0.002);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100000);
+    camera.position.set(0, 0, 20);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: false }); 
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    document.body.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    const ambientLight = new THREE.AmbientLight(0x404040, 2.0);
+    scene.add(ambientLight);
+    
+    const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.0);
+    dirLight1.position.set(10, 20, 10);
+    scene.add(dirLight1);
+
+    const dirLight2 = new THREE.DirectionalLight(0xaaaaaa, 0.5);
+    dirLight2.position.set(-10, -20, -10);
+    scene.add(dirLight2);
+
+    // --- Core Architecture Variables ---
+    const R = 1.0;          
+    const D_SQ = 4 * R * R; 
+    const CELL_SIZE = 2 * R; 
+    const MAX_PARTICLES = 1048576; 
+    
+    let library = []; 
+    let currentCluster = [];
+    
+    const geoHigh = new THREE.SphereGeometry(R, 12, 12); 
+    const geoMed  = new THREE.SphereGeometry(R, 6, 6);   
+    const geoLow  = new THREE.OctahedronGeometry(R, 0);  
+    
+    const matCluster = new THREE.MeshLambertMaterial({ color: 0x4CAF50 });
+    const matBullet  = new THREE.MeshLambertMaterial({ color: 0x2196F3 });
+    
+    let instancedMeshCluster = new THREE.InstancedMesh(geoHigh, matCluster, MAX_PARTICLES);
+    instancedMeshCluster.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    instancedMeshCluster.count = 0;
+    scene.add(instancedMeshCluster);
+
+    let instancedMeshIncoming = null;
+    const dummy = new THREE.Object3D();
+
+    let phase = 0;
+    let targetPhaseMass = 1;
+    let bulletsRequired = 0;
+    let bulletsAdded = 0;
+    let currentBulletBase = null;
+    let currentBulletOriented = null;
+    
+    let isAnimating = false;
+    let animProgress = 0;
+    let animData = null;
+
+    let isFlyingAround = false;
+    let flyProgress = 0;
+    let flyRadius = 0;
+    let flyPolar = 0;
+    let flyAngleStart = 0;
+    
+    // Batching Variables
+    let animationStep = 1;
+    let animatedCountThisPhase = 0;
+
+    function cloneCluster(cluster) {
+        let copy = new Array(cluster.length);
+        for(let i=0; i<cluster.length; i++) {
+            copy[i] = { x: cluster[i].x, y: cluster[i].y, z: cluster[i].z };
+        }
+        return copy;
+    }
+
+    function applyRandomRotation(cluster) {
+        const euler = new THREE.Euler(
+            Math.random() * Math.PI * 2,
+            Math.random() * Math.PI * 2,
+            Math.random() * Math.PI * 2
+        );
+        const q = new THREE.Quaternion().setFromEuler(euler);
+        let rotated = new Array(cluster.length);
+        let v = new THREE.Vector3();
+        for(let i=0; i<cluster.length; i++) {
+            v.set(cluster[i].x, cluster[i].y, cluster[i].z).applyQuaternion(q);
+            rotated[i] = { x: v.x, y: v.y, z: v.z };
+        }
+        return rotated;
+    }
+
+    function recenterCluster(cluster) {
+        let cx = 0, cy = 0, cz = 0;
+        const len = cluster.length;
+        for (let i=0; i<len; i++) {
+            cx += cluster[i].x; cy += cluster[i].y; cz += cluster[i].z;
+        }
+        cx /= len; cy /= len; cz /= len;
+        for (let i=0; i<len; i++) {
+            cluster[i].x -= cx; cluster[i].y -= cy; cluster[i].z -= cz;
+        }
+    }
+
+    function updateStatsForN(n) {
+        if (n <= 1) {
+            document.getElementById('fractalDim').innerText = "N/A";
+            document.getElementById('fillingFactor').innerText = "100.000%";
+            return;
+        }
+
+        let sumSq = 0;
+        for (let i = 0; i < n; i++) {
+            const p = currentCluster[i];
+            sumSq += (p.x*p.x + p.y*p.y + p.z*p.z);
+        }
+
+        const Rg = Math.sqrt(sumSq / n);
+        const df = (Rg <= 1.01) ? "N/A" : (Math.log(n) / Math.log(Rg / R)).toFixed(3);
+
+        const volumeParticles = n * Math.pow(R, 3);
+        const volumeRg = Math.pow(Rg, 3);
+        const ff = (volumeParticles / volumeRg * 100).toFixed(3) + "%";
+
+        document.getElementById('fractalDim').innerText = df;
+        document.getElementById('fillingFactor').innerText = ff;
+    }
+
+    function calculateTrajectory(CT, CI) {
+        let q_attack = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+            Math.random() * Math.PI * 2,
+            Math.random() * Math.PI * 2,
+            Math.random() * Math.PI * 2
+        ));
+        let q_inv = q_attack.clone().invert();
+
+        let N_T = CT.length;
+        let ct_rot = new Float32Array(N_T * 3);
+        let minY = Infinity, maxY = -Infinity;
+        let minZ = Infinity, maxZ = -Infinity;
+        let maxSqT = 0;
+
+        let v = new THREE.Vector3();
+        for(let i=0; i<N_T; i++) {
+            v.set(CT[i].x, CT[i].y, CT[i].z).applyQuaternion(q_inv);
+            ct_rot[i*3] = v.x;
+            ct_rot[i*3+1] = v.y;
+            ct_rot[i*3+2] = v.z;
+
+            if(v.y < minY) minY = v.y;
+            if(v.y > maxY) maxY = v.y;
+            if(v.z < minZ) minZ = v.z;
+            if(v.z > maxZ) maxZ = v.z;
+
+            let sq = v.x*v.x + v.y*v.y + v.z*v.z;
+            if(sq > maxSqT) maxSqT = sq;
+        }
+
+        let RT = Math.sqrt(maxSqT) + R;
+
+        let maxSqI = 0;
+        let N_I = CI.length;
+        for(let i=0; i<N_I; i++) {
+            let p = CI[i];
+            let sq = p.x*p.x + p.y*p.y + p.z*p.z;
+            if(sq > maxSqI) maxSqI = sq;
+        }
+        let RI = Math.sqrt(maxSqI) + R;
+        let maxImpact = RT + RI;
+
+        minY -= CELL_SIZE; maxY += CELL_SIZE;
+        minZ -= CELL_SIZE; maxZ += CELL_SIZE;
+
+        let gridW = Math.max(1, Math.ceil((maxY - minY) / CELL_SIZE));
+        let gridH = Math.max(1, Math.ceil((maxZ - minZ) / CELL_SIZE));
+
+        let head = new Int32Array(gridW * gridH).fill(-1);
+        let next = new Int32Array(N_T);
+
+        for(let i=0; i<N_T; i++) {
+            let py = ct_rot[i*3+1];
+            let pz = ct_rot[i*3+2];
+            let cy = Math.floor((py - minY) / CELL_SIZE);
+            let cz = Math.floor((pz - minZ) / CELL_SIZE);
+            if(cy>=0 && cy<gridW && cz>=0 && cz<gridH) {
+                let cell = cy + cz * gridW;
+                next[i] = head[cell];
+                head[cell] = i;
+            }
+        }
+
+        let hit = false;
+        let bestTargetX = -Infinity;
+        let bestDy = 0, bestDz = 0;
+
+        while(!hit) {
+            let angle = Math.random() * Math.PI * 2;
+            let radiusOffset = Math.sqrt(Math.random()) * maxImpact;
+            let dy = radiusOffset * Math.cos(angle);
+            let dz = radiusOffset * Math.sin(angle);
+
+            for(let j=0; j<N_I; j++) {
+                let pj_y = CI[j].y + dy;
+                let pj_z = CI[j].z + dz;
+
+                let cy = Math.floor((pj_y - minY) / CELL_SIZE);
+                let cz = Math.floor((pj_z - minZ) / CELL_SIZE);
+
+                for(let ny = cy-1; ny <= cy+1; ny++) {
+                    for(let nz = cz-1; nz <= cz+1; nz++) {
+                        if(ny>=0 && ny<gridW && nz>=0 && nz<gridH) {
+                            let cell = ny + nz * gridW;
+                            let pid = head[cell];
+                            while(pid !== -1) {
+                                let pt_x = ct_rot[pid*3];
+                                let pt_y = ct_rot[pid*3+1];
+                                let pt_z = ct_rot[pid*3+2];
+
+                                let distSq = (pt_y - pj_y)**2 + (pt_z - pj_z)**2;
+                                if(distSq <= D_SQ) {
+                                    hit = true;
+                                    let shiftX = pt_x - CI[j].x + Math.sqrt(D_SQ - distSq);
+                                    if(shiftX > bestTargetX) bestTargetX = shiftX;
+                                }
+                                pid = next[pid];
+                            }
+                        }
+                    }
+                }
+            }
+
+            if(hit) {
+                bestDy = dy;
+                bestDz = dz;
+            }
+        }
+
+        let startX = bestTargetX + RT + RI + 15;
+        let worldStart = new THREE.Vector3(startX, bestDy, bestDz).applyQuaternion(q_attack);
+        let worldTarget = new THREE.Vector3(bestTargetX, bestDy, bestDz).applyQuaternion(q_attack);
+
+        return {
+            q_attack: q_attack,
+            worldStart: worldStart,
+            worldTarget: worldTarget,
+            targetX: bestTargetX,
+            dy: bestDy,
+            dz: bestDz
+        };
+    }
+
+    function updateLOD() {
+        const N = currentCluster.length;
+        let targetGeo = geoHigh;
+        if (N >= 100000) targetGeo = geoLow;
+        else if (N >= 10000) targetGeo = geoMed;
+
+        if (instancedMeshCluster.geometry !== targetGeo) {
+            scene.remove(instancedMeshCluster);
+            instancedMeshCluster.dispose();
+            
+            instancedMeshCluster = new THREE.InstancedMesh(targetGeo, matCluster, MAX_PARTICLES);
+            instancedMeshCluster.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+            scene.add(instancedMeshCluster);
+        }
+
+        for(let i = 0; i < N; i++) {
+            dummy.position.copy(currentCluster[i]);
+            dummy.updateMatrix();
+            instancedMeshCluster.setMatrixAt(i, dummy.matrix);
+        }
+        instancedMeshCluster.count = N;
+        instancedMeshCluster.instanceMatrix.needsUpdate = true;
+    }
+
+    function initSimulation() {
+        let monomer = { x:0, y:0, z:0 };
+        currentCluster = [monomer];
+        library.push(cloneCluster(currentCluster)); 
+        updateLOD();
+        updateStatsForN(1);
+        
+        phase = 1;
+        startPhase();
+    }
+
+    function startPhase() {
+        if (phase > 20) {
+            document.getElementById('status').innerText = "1 Million Monomers Reached. Complete.";
+            document.getElementById('slider-container').style.display = 'block';
+            document.getElementById('historySlider').max = currentCluster.length;
+            document.getElementById('historySlider').value = currentCluster.length;
+            
+            document.getElementById('historySlider').addEventListener('input', (e) => {
+                let n = parseInt(e.target.value, 10);
+                instancedMeshCluster.count = n;
+                document.getElementById('particleCount').innerText = n.toLocaleString();
+                updateStatsForN(n);
+            });
+            return;
+        }
+
+        targetPhaseMass = Math.pow(2, phase);
+        let currentMass = Math.pow(2, phase - 1);
+        let bulletMassIdx = 0;
+
+        if (currentMass < splitFactor) {
+            bulletsRequired = currentMass;
+            bulletMassIdx = 0; 
+        } else {
+            bulletsRequired = splitFactor;
+            bulletMassIdx = (phase - 1) - splitPower;
+        }
+
+        bulletsAdded = 0;
+        currentBulletBase = library[bulletMassIdx];
+        
+        // Calculate max 8 visual animations
+        let numToAnimate = Math.min(8, bulletsRequired);
+        animationStep = Math.max(1, Math.floor(bulletsRequired / numToAnimate));
+        animatedCountThisPhase = 0;
+        
+        document.getElementById('phaseCount').innerText = phase;
+        document.getElementById('targetMass').innerText = targetPhaseMass.toLocaleString();
+        document.getElementById('bulletInfo').innerText = `Shooting ${bulletsRequired}x ${currentBulletBase.length}-mer`;
+        
+        fireNextBullet();
+    }
+
+    function fireNextBullet() {
+        if (bulletsAdded >= bulletsRequired) {
+            library.push(cloneCluster(currentCluster)); 
+            startFlyAround();
+            return;
+        }
+
+        const shouldAnimate = (bulletsAdded % animationStep === 0) && (animatedCountThisPhase < 8);
+
+        if (shouldAnimate) {
+            document.getElementById('status').innerText = "Simulating visual trajectory...";
+
+            setTimeout(() => {
+                currentBulletOriented = applyRandomRotation(currentBulletBase);
+                animData = calculateTrajectory(currentCluster, currentBulletOriented);
+
+                if (instancedMeshIncoming) {
+                    scene.remove(instancedMeshIncoming);
+                    instancedMeshIncoming.dispose();
+                }
+                
+                let geo = instancedMeshCluster.geometry; 
+                instancedMeshIncoming = new THREE.InstancedMesh(geo, matBullet, currentBulletOriented.length);
+                for(let i=0; i<currentBulletOriented.length; i++) {
+                    dummy.position.copy(currentBulletOriented[i]);
+                    dummy.updateMatrix();
+                    instancedMeshIncoming.setMatrixAt(i, dummy.matrix);
+                }
+                instancedMeshIncoming.quaternion.copy(animData.q_attack);
+                scene.add(instancedMeshIncoming);
+
+                let maxSq = 0;
+                for(let p of currentCluster) {
+                    let sq = p.x*p.x + p.y*p.y + p.z*p.z;
+                    if(sq > maxSq) maxSq = sq;
+                }
+                let rBound = Math.sqrt(maxSq);
+                let requiredDist = rBound * 3 + 20;
+                if (camera.position.length() < requiredDist) {
+                    camera.position.setLength(requiredDist);
+                }
+                
+                scene.fog.density = 0.05 / (rBound + 10);
+
+                document.getElementById('status').innerText = `Shooting visual bullet ${bulletsAdded + 1} of ${bulletsRequired}...`;
+                animProgress = 0;
+                animatedCountThisPhase++;
+                isAnimating = true;
+            }, 10);
+            
+        } else {
+            // Batch compute silent bullets
+            document.getElementById('status').innerText = `Batch Computing Silent Bullets...`;
+            
+            let batchLimit = 128; // Can comfortably process 128 smaller trajectory checks per tick
+            let processedThisTick = 0;
+
+            while (bulletsAdded < bulletsRequired && processedThisTick < batchLimit) {
+                const checkAnimate = (bulletsAdded % animationStep === 0) && (animatedCountThisPhase < 8);
+                if (checkAnimate) break; 
+                
+                currentBulletOriented = applyRandomRotation(currentBulletBase);
+                animData = calculateTrajectory(currentCluster, currentBulletOriented);
+                
+                // Instantly merge
+                for(let i=0; i<currentBulletOriented.length; i++) {
+                    let p = currentBulletOriented[i];
+                    let worldPos = new THREE.Vector3(animData.targetX + p.x, animData.dy + p.y, animData.dz + p.z).applyQuaternion(animData.q_attack);
+                    currentCluster.push({ x: worldPos.x, y: worldPos.y, z: worldPos.z });
+                }
+                
+                bulletsAdded++;
+                processedThisTick++;
+            }
+            
+            recenterCluster(currentCluster);
+            updateLOD();
+            document.getElementById('particleCount').innerText = currentCluster.length.toLocaleString();
+            
+            setTimeout(fireNextBullet, 10); 
+        }
+    }
+
+    function completeBulletMerge() {
+        isAnimating = false;
+        scene.remove(instancedMeshIncoming);
+        instancedMeshIncoming.dispose();
+        instancedMeshIncoming = null;
+
+        for(let i=0; i<currentBulletOriented.length; i++) {
+            let p = currentBulletOriented[i];
+            let worldPos = new THREE.Vector3(animData.targetX + p.x, animData.dy + p.y, animData.dz + p.z).applyQuaternion(animData.q_attack);
+            currentCluster.push({ x: worldPos.x, y: worldPos.y, z: worldPos.z });
+        }
+
+        recenterCluster(currentCluster);
+        updateLOD();
+        
+        document.getElementById('particleCount').innerText = currentCluster.length.toLocaleString();
+        
+        bulletsAdded++;
+        fireNextBullet();
+    }
+
+    function startFlyAround() {
+        document.getElementById('status').innerText = "Phase Complete! Scanning Structure...";
+        updateStatsForN(currentCluster.length);
+        
+        const spherical = new THREE.Spherical().setFromVector3(camera.position);
+        flyRadius = spherical.radius;
+        flyPolar = spherical.phi;
+        flyAngleStart = spherical.theta;
+
+        scene.fog.density = 0.15 / flyRadius;
+
+        flyProgress = 0;
+        isFlyingAround = true;
+        controls.enabled = false; 
+    }
+
+    const clock = new THREE.Clock();
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const delta = clock.getDelta();
+
+        if (isAnimating) {
+            animProgress += delta * 2.5; 
+            
+            if (animProgress >= 1) {
+                animProgress = 1;
+                instancedMeshIncoming.position.copy(animData.worldTarget);
+                completeBulletMerge();
+            } else {
+                instancedMeshIncoming.position.lerpVectors(animData.worldStart, animData.worldTarget, animProgress);
+            }
+        } else if (isFlyingAround) {
+            flyProgress += delta * 0.4; 
+
+            if (flyProgress >= 1) {
+                flyProgress = 1;
+                isFlyingAround = false;
+                controls.enabled = true; 
+                phase++;
+                setTimeout(startPhase, 500); 
+            }
+
+            const t = flyProgress * flyProgress * (3 - 2 * flyProgress);
+            const currentTheta = flyAngleStart + (t * Math.PI * 2);
+
+            const spherical = new THREE.Spherical(flyRadius, flyPolar, currentTheta);
+            camera.position.setFromSpherical(spherical);
+            camera.lookAt(0, 0, 0);
+        }
+
+        controls.update();
+        renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    animate();
+
+</script>
+</body>
+</html>

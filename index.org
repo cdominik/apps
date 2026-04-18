@@ -7,3 +7,5 @@ This repo serves some simple apps.
 - Live [[file:bcca.html][BCCA Browser simulation]]
 
 - Live [[file:bpca.html][BPCA Browser simulation]]
+
+- Live [[file:hierarchy.html][Hierarchical Browser simulation]]
