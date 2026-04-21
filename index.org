@@ -4,8 +4,4 @@ This repo serves some simple apps.
 
 - [[file:draw_aggregate.html][Drawing an aggregate]] in a web interface
 
-- Live [[file:bcca.html][BCCA Browser simulation]]
-
-- Live [[file:bpca.html][BPCA Browser simulation]]
-
-- Live [[file:hierarchy.html][Hierarchical Browser simulation]]
+- [[file:gallery.html][Aggregation Webapp gallery]]
