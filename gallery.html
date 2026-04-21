@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Aggregation Library - Complete Suite</title>
+    <style>
+        :root {
+            --bg-color: #0d0d0d;
+            --card-bg: #1a1a1a;
+            --accent-color: #4CAF50;
+            --text-main: #e0e0e0;
+            --text-dim: #aaa;
+            --border: #333;
+        }
+
+        body { margin: 0; background-color: var(--bg-color); color: var(--text-main); font-family: 'Segoe UI', sans-serif; line-height: 1.6; }
+        header { padding: 60px 20px; text-align: center; background: linear-gradient(to bottom, #161616, #0d0d0d); border-bottom: 1px solid var(--border); }
+        h1 { margin: 0; font-size: 2.5rem; color: var(--accent-color); letter-spacing: 2px; text-transform: uppercase; }
+        .subtitle { color: var(--text-dim); margin-top: 10px; font-size: 1.1rem; }
+
+        .container { max-width: 1300px; margin: 40px auto; padding: 0 20px; }
+        
+        .sim-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); 
+            gap: 25px; 
+            margin-bottom: 80px; 
+        }
+
+        .card { 
+            background: var(--card-bg); 
+            border: 1px solid var(--border); 
+            border-radius: 12px; 
+            overflow: hidden; 
+            transition: transform 0.3s ease, border-color 0.3s ease; 
+            display: flex; 
+            flex-direction: column; 
+            text-decoration: none; 
+            color: inherit; 
+        }
+
+        .card:hover { transform: translateY(-5px); border-color: var(--accent-color); }
+
+        .card-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: #252525;
+            display: block;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .card-content { padding: 25px; flex-grow: 1; }
+        .card h3 { margin: 0 0 10px 0; color: #fff; font-size: 1.3rem; }
+        .card p { margin: 0; font-size: 0.95rem; color: var(--text-dim); }
+
+        .tag { 
+            display: inline-block; 
+            background: rgba(76, 175, 80, 0.1); 
+            color: var(--accent-color); 
+            padding: 4px 12px; 
+            border-radius: 4px; 
+            font-size: 0.75rem; 
+            font-weight: bold; 
+            text-transform: uppercase; 
+            margin-bottom: 15px; 
+        }
+
+        .learning-section { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 45px; margin-bottom: 60px; }
+        .learning-section h2 { color: var(--accent-color); border-bottom: 1px solid var(--border); padding-bottom: 15px; margin-top: 0; }
+        .learning-section h3 { color: #fff; margin-top: 35px; }
+        .learning-section p { color: var(--text-dim); margin-bottom: 20px; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 25px; color: var(--text-dim); }
+        th, td { text-align: left; padding: 15px; border-bottom: 1px solid var(--border); }
+        th { color: #fff; background: rgba(255,255,255,0.05); }
+
+        footer { text-align: center; padding: 40px; color: #555; font-size: 0.8rem; border-top: 1px solid var(--border); }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>The Aggregation Gallery</h1>
+    <div class="subtitle">A Visual Library of Kinetic Growth and Fractal Physics</div>
+</header>
+
+<div class="container">
+    
+    <div class="sim-grid">
+        <a href="dla.html" class="card">
+            <img src="dla_thumb.jpg" alt="DLA Simulation" class="card-image">
+            <div class="card-content">
+                <span class="tag">Diffusion-Limited</span>
+                <h3>DLA Simulation</h3>
+                <p>Monomers follow Brownian random walks to a central seed. Forms the classic wispy fractal structure.</p>
+            </div>
+        </a>
+
+        <a href="bpca.html" class="card">
+            <img src="bpca_thumb.jpg" alt="BPCA Simulation" class="card-image">
+            <div class="card-content">
+                <span class="tag">Ballistic Particle</span>
+                <h3>BPCA Simulation</h3>
+                <p>Single particles following straight-line trajectories. Produces dense, opaque, and spherical aggregates.</p>
+            </div>
+        </a>
+
+        <a href="bcca_standard.html" class="card">
+            <img src="bcca_std_thumb.jpg" alt="BCCA Standard" class="card-image">
+            <div class="card-content">
+                <span class="tag">Ballistic Cluster</span>
+                <h3>Standard BCCA</h3>
+                <p>Continuous ballistic collisions where clusters of various sizes merge into a single sprawling aggregate.</p>
+            </div>
+        </a>
+
+        <a href="bcca_hierarchical.html" class="card">
+            <img src="bcca_hierarchical_thumb.jpg" alt="BCCA Hierarchical" class="card-image">
+            <div class="card-content">
+                <span class="tag">Hierarchical BCCA</span>
+                <h3>Hierarchical BCCA</h3>
+                <p>Advanced mass-doubling logic (1, 2, 4, 8...). Optimized to simulate structures with over 1,000,000 particles.</p>
+            </div>
+        </a>
+
+        <a href="dlca.html" class="card">
+            <img src="dlca_thumb.jpg" alt="DLCA Simulation" class="card-image">
+            <div class="card-content">
+                <span class="tag">Colloidal Web</span>
+                <h3>DLCA Simulation</h3>
+                <p>Bulk gas diffusion where all clusters move simultaneously. Creates interconnected, gel-like filament networks.</p>
+            </div>
+        </a>
+
+        <a href="ballistic_pbc.html" class="card">
+            <img src="pbc_thumb.jpg" alt="PBC Simulation" class="card-image">
+            <div class="card-content">
+                <span class="tag">Periodic Ballistic</span>
+                <h3>Ballistic PBC</h3>
+                <p>Aggregation in a toroidal "warp-around" box. Simulates an infinite gas while preserving cluster momentum.</p>
+            </div>
+        </a>
+    </div>
+
+    <div class="learning-section">
+        <h2>Physics of Aggregation</h2>
+        <p>Aggregation models categorize how matter clumps together across different environments. By varying <strong>Movement</strong> (Diffusion vs. Ballistic) and <strong>Scale</strong> (Particle-Cluster vs. Cluster-Cluster), we can predict the density and fractal dimension of a material.</p>
+
+        <h3>Hierarchical Logic: The BCCA Advantage</h3>
+        <p>While standard <strong>BCCA</strong> merges clusters as they naturally encounter one another, the <strong>Hierarchical</strong> model uses a structured "mass-doubling" event. This allows us to maintain strict control over the fractal growth at each stage and is the key to simulating extremely large structures (10<sup>6</sup> particles) without crashing the browser.</p>
+
+        <h3>Sticking Probability: DLA vs. RLA</h3>
+        <p>A hidden variable in DLA is the "Sticking Probability." When probability is 100%, particles stick to the first tip they touch, creating the classic <strong>DLA</strong> fractal. When probability is low (< 5%), it becomes <strong>RLA (Reaction-Limited Aggregation)</strong>. In RLA, particles bounce deep into the cluster before bonding, resulting in a much denser core.</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Model</th>
+                    <th>Movement</th>
+                    <th>Growth Type</th>
+                    <th>Fractal Density</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>DLA</td><td>Diffusion</td><td>Particle-Cluster</td><td>Very Low (Sparse)</td></tr>
+                <tr><td>BPCA</td><td>Ballistic</td><td>Particle-Cluster</td><td>High (Compact)</td></tr>
+                <tr><td>BCCA</td><td>Ballistic</td><td>Cluster-Cluster</td><td>Medium (Branched)</td></tr>
+                <tr><td>DLCA</td><td>Diffusion</td><td>Bulk Cluster</td><td>Low (Filamentous)</td></tr>
+                <tr><td>PBC</td><td>Ballistic</td><td>Bulk Cluster</td><td>Variable (Gas-like)</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<footer>
+    Interactive Particle Physics Suite &bull; Built with Three.js &bull; 2026
+</footer>
+
+</body>
+</html>

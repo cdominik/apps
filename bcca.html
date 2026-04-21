@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BCCA Simulation Live - 360 Fly-Around</title>
+    <title>BCCA Simulation Live - 360 Fly-Around & Stats</title>
     <style>
         body {
             margin: 0;
@@ -55,6 +55,7 @@
     <p>Iteration: <span id="iterCount" class="highlight">0</span></p>
     <p>Monomers: <span id="particleCount" class="highlight">1</span></p>
     <p>Fractal Dim (D<sub>f</sub>): <span id="fractalDim" class="highlight">N/A</span></p>
+    <p>Filling Factor (R<sub>g</sub>): <span id="fillingFactor" class="highlight">100.000%</span></p>
     <p>Status: <span id="status" class="highlight">Initializing...</span></p>
     
     <div id="slider-container">
@@ -124,9 +125,9 @@
     let flyPolar = 0;
     let flyAngleStart = 0;
 
-    function calculateFractalDimension(cluster) {
+    function getClusterStats(cluster) {
         const N = cluster.length;
-        if (N <= 1) return "N/A";
+        if (N <= 1) return { df: "N/A", ff: "100.000%" };
         
         let sumSq = 0;
         for (let i = 0; i < N; i++) {
@@ -135,10 +136,16 @@
         }
         
         const Rg = Math.sqrt(sumSq / N);
-        if (Rg <= 1.01) return "N/A"; 
+        let df = "N/A";
+        if (Rg > 1.01) {
+            df = (Math.log(N) / Math.log(Rg / R)).toFixed(3);
+        }
         
-        const df = Math.log(N) / Math.log(Rg / R);
-        return df.toFixed(3);
+        const volumeParticles = N * Math.pow(R, 3);
+        const volumeRg = Math.pow(Rg, 3);
+        const ff = (volumeParticles / volumeRg * 100).toFixed(3) + "%";
+        
+        return { df, ff };
     }
 
     function applyRandomRotation(cluster) {
@@ -292,7 +299,6 @@
         
         const totalScale = stagingDistance * 3;
         
-        // Only force camera out if it's too close to see the staging, otherwise respect user zoom
         if (camera.position.length() < totalScale) {
             camera.position.setLength(totalScale);
         }
@@ -367,11 +373,12 @@
         
         history.push(JSON.parse(JSON.stringify(currentCluster)));
 
-        const df = calculateFractalDimension(currentCluster);
+        const stats = getClusterStats(currentCluster);
 
         document.getElementById('iterCount').innerText = iteration;
         document.getElementById('particleCount').innerText = currentCluster.length;
-        document.getElementById('fractalDim').innerText = df;
+        document.getElementById('fractalDim').innerText = stats.df;
+        document.getElementById('fillingFactor').innerText = stats.ff;
 
         renderClusterPair(currentCluster, null, 0, 0);
 
@@ -381,7 +388,6 @@
     function startFlyAround() {
         document.getElementById('status').innerText = "Scanning 360° Geometry...";
         
-        // Grab current spherical coordinates based on user's manual zoom/angle
         const spherical = new THREE.Spherical().setFromVector3(camera.position);
         flyRadius = spherical.radius;
         flyPolar = spherical.phi;
@@ -389,7 +395,7 @@
 
         flyProgress = 0;
         isFlyingAround = true;
-        controls.enabled = false; // Lock out mouse while animating camera
+        controls.enabled = false; 
     }
 
     function enableHistoryPlayback() {
@@ -403,11 +409,12 @@
         slider.addEventListener('input', (e) => {
             const index = parseInt(e.target.value, 10);
             const historicalCluster = history[index];
-            const df = calculateFractalDimension(historicalCluster);
+            const stats = getClusterStats(historicalCluster);
             
             document.getElementById('iterCount').innerText = index;
             document.getElementById('particleCount').innerText = historicalCluster.length;
-            document.getElementById('fractalDim').innerText = df;
+            document.getElementById('fractalDim').innerText = stats.df;
+            document.getElementById('fillingFactor').innerText = stats.ff;
             document.getElementById('status').innerText = "History Playback";
 
             renderClusterPair(historicalCluster, null, 0, 0);
@@ -438,17 +445,15 @@
                 instancedMeshB.position.x = animData.startX * (1 - t) + animData.targetX * t;
             }
         } else if (isFlyingAround) {
-            // Speed controls how fast it sweeps 360 (0.5 = 2 seconds)
             flyProgress += delta * 0.5; 
 
             if (flyProgress >= 1) {
                 flyProgress = 1;
                 isFlyingAround = false;
-                controls.enabled = true; // Return control to user
+                controls.enabled = true; 
                 setTimeout(triggerNextStep, 200); 
             }
 
-            // Smooth ease-in, ease-out formula
             const t = flyProgress * flyProgress * (3 - 2 * flyProgress);
             const currentTheta = flyAngleStart + (t * Math.PI * 2);
 
