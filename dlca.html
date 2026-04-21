@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D DLCA - Dynamic Fog & Advanced Stats</title>
+    <title>3D DLCA - Fractal Dimension & Stats</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #0d0d0d; font-family: 'Segoe UI', sans-serif; color: white; }
         #ui { position: absolute; top: 20px; left: 20px; pointer-events: none; background: rgba(0, 0, 0, 0.7); padding: 15px 25px; border-radius: 8px; border: 1px solid #333; min-width: 260px; z-index: 10; }
@@ -23,6 +23,7 @@
     <h1>DLCA Simulation</h1>
     <p>Active Clusters: <span id="clusterCount" class="highlight">0</span></p>
     <p>Largest Cluster: <span id="maxClusterSize" class="highlight">0</span></p>
+    <p>Fractal Dim (D<sub>f</sub>): <span id="fractalDim" class="highlight">N/A</span></p>
     <p>Filling Factor (R<sub>g</sub>): <span id="fillingFactor" class="highlight">N/A</span></p>
     <p>Status: <span id="status" class="highlight" style="color:#aaa">Awaiting Start...</span></p>
     
@@ -132,6 +133,7 @@
         particles = [];
         statusText.innerText = "Awaiting Start...";
         document.getElementById('fillingFactor').innerText = "N/A";
+        document.getElementById('fractalDim').innerText = "N/A";
     }
 
     function initDLCA() {
@@ -211,10 +213,14 @@
         if (largestCluster && maxS > 1) {
             let sumSq = 0;
             largestCluster.particles.forEach(p => {
-                // p.localPos is relative to cluster center
                 sumSq += p.localPos.lengthSq();
             });
             const Rg = Math.sqrt(sumSq / maxS);
+            
+            // Fractal Dimension (Df) based on Rg
+            const df = (Math.log(maxS) / Math.log(Rg / R)).toFixed(3);
+            document.getElementById('fractalDim').innerText = df;
+
             const volumeParticles = maxS * Math.pow(R, 3);
             const volumeRg = Math.pow(Rg, 3);
             const ff = (volumeParticles / volumeRg * 100).toFixed(4) + "%";
@@ -285,7 +291,6 @@
         requestAnimationFrame(animate);
         const d = clock.getDelta();
 
-        // Dynamic Fog adjustment based on camera distance
         const camDist = camera.position.length();
         scene.fog.density = 0.6 / (camDist + 20);
 
