@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Ballistic PBC - Performance Optimized</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0d0d0d; font-family: 'Segoe UI', sans-serif; color: white; }
+        #ui { position: absolute; top: 20px; left: 20px; pointer-events: none; background: rgba(0, 0, 0, 0.7); padding: 15px 25px; border-radius: 8px; border: 1px solid #333; min-width: 260px; z-index: 10; }
+        h1 { margin: 0; font-size: 1.2rem; color: #4CAF50; }
+        p { margin: 5px 0; font-size: 0.9rem; color: #ccc; }
+        .highlight { color: #fff; font-weight: bold; }
+        button { pointer-events: auto; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; margin: 10px 0; }
+        button.reset { background: #f44336; }
+        .control-group { margin-top: 15px; pointer-events: auto; border-top: 1px solid #444; padding-top: 10px; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        .slider-label { display: flex; justify-content: space-between; font-size: 0.85rem; color: #bbb; }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    <h1>Ballistic PBC Simulation</h1>
+    <p>Active Clusters: <span id="clusterCount" class="highlight">0</span></p>
+    <p>Max Size: <span id="maxClusterSize" class="highlight">0</span></p>
+    <p>Fractal Dim (D<sub>f</sub>): <span id="fractalDim" class="highlight">N/A</span></p>
+    <p>Filling Factor: <span id="fillingFactor" class="highlight">N/A</span></p>
+    <p>Status: <span id="status" class="highlight" style="color:#aaa">Awaiting Start...</span></p>
+    
+    <button id="actionBtn">Initialize Box & Start</button>
+
+    <div class="control-group">
+        <div class="slider-label"><span>Particle Density</span><span id="densityDisp">2000</span></div>
+        <input type="range" id="densitySlider" min="500" max="4000" step="100" value="2000">
+    </div>
+
+    <div class="control-group">
+        <div class="slider-label"><span>Gas Velocity</span><span id="velDisp">0.5</span></div>
+        <input type="range" id="velSlider" min="0.1" max="2.0" step="0.1" value="0.5">
+    </div>
+
+    <div class="control-group">
+        <div class="slider-label"><span>Sim Speed (Steps/Frame)</span><span id="speedDisp">1</span></div>
+        <input type="range" id="speedSlider" min="1" max="50" step="1" value="1">
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+    let initialParticles = 2000, baseVel = 0.5, stepsPerFrame = 1, isRunning = false;
+    const BOX_SIZE = 100; 
+
+    const actionBtn = document.getElementById('actionBtn');
+    const statusText = document.getElementById('status');
+
+    document.getElementById('densitySlider').addEventListener('input', (e) => {
+        initialParticles = parseInt(e.target.value);
+        document.getElementById('densityDisp').innerText = initialParticles;
+    });
+
+    document.getElementById('velSlider').addEventListener('input', (e) => {
+        baseVel = parseFloat(e.target.value);
+        document.getElementById('velDisp').innerText = baseVel;
+    });
+
+    document.getElementById('speedSlider').addEventListener('input', (e) => {
+        stepsPerFrame = parseInt(e.target.value);
+        document.getElementById('speedDisp').innerText = stepsPerFrame;
+    });
+
+    actionBtn.addEventListener('click', () => {
+        if (!isRunning) {
+            isRunning = true;
+            actionBtn.innerText = "Reset Box";
+            actionBtn.classList.add('reset');
+            statusText.innerText = "Simulating Ballistic Gas...";
+            initSimulation();
+        } else {
+            isRunning = false;
+            actionBtn.innerText = "Initialize Box & Start";
+            actionBtn.classList.remove('reset');
+            clearSimulation();
+        }
+    });
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x0d0d0d, 0.005);
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 10000);
+    camera.position.set(150, 150, 150);
+    const renderer = new THREE.WebGLRenderer({ antialias: false });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    const dLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dLight.position.set(50, 100, 50);
+    scene.add(dLight);
+
+    const boxGeo = new THREE.BoxGeometry(BOX_SIZE * 2, BOX_SIZE * 2, BOX_SIZE * 2);
+    const boxMat = new THREE.MeshBasicMaterial({ color: 0x444444, wireframe: true, transparent: true, opacity: 0.2 });
+    scene.add(new THREE.Mesh(boxGeo, boxMat));
+
+    const R = 1.0, D_SQ = 4 * R * R, CELL_SIZE = 2 * R;
+    let activeClusters = new Set(), particles = [];
+    let instancedMesh = null;
+    const dummy = new THREE.Object3D();
+
+    class Particle {
+        constructor(id, cluster) {
+            this.id = id;
+            this.cluster = cluster;
+            this.localPos = new THREE.Vector3();
+            this.worldPos = new THREE.Vector3();
+        }
+    }
+
+    class Cluster {
+        constructor() {
+            this.pos = new THREE.Vector3();
+            this.vel = new THREE.Vector3(Math.random()-0.5, Math.random()-0.5, Math.random()-0.5).normalize().multiplyScalar(baseVel);
+            this.particles = [];
+            this.color = new THREE.Color().setHSL(Math.random(), 0.7, 0.6);
+        }
+    }
+
+    function clearSimulation() {
+        if (instancedMesh) { scene.remove(instancedMesh); instancedMesh.dispose(); instancedMesh = null; }
+        activeClusters.clear();
+        particles = [];
+        statusText.innerText = "Awaiting Start...";
+        document.getElementById('fractalDim').innerText = "N/A";
+        document.getElementById('fillingFactor').innerText = "N/A";
+    }
+
+    function initSimulation() {
+        clearSimulation();
+        instancedMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(R, 8, 8), new THREE.MeshLambertMaterial({color: 0xffffff}), initialParticles);
+        
+        for (let i = 0; i < initialParticles; i++) {
+            const cluster = new Cluster();
+            cluster.pos.set((Math.random()-0.5)*BOX_SIZE*2, (Math.random()-0.5)*BOX_SIZE*2, (Math.random()-0.5)*BOX_SIZE*2);
+            const p = new Particle(i, cluster);
+            cluster.particles.push(p);
+            activeClusters.add(cluster);
+            particles.push(p);
+            updateVis(p);
+        }
+        scene.add(instancedMesh);
+    }
+
+    function updateVis(p) {
+        p.worldPos.copy(p.cluster.pos).add(p.localPos);
+        dummy.position.copy(p.worldPos);
+        dummy.updateMatrix();
+        instancedMesh.setMatrixAt(p.id, dummy.matrix);
+        instancedMesh.setColorAt(p.id, p.cluster.color);
+    }
+
+    function mergeClusters(c1, c2, p1, p2) {
+        const totalMass = c1.particles.length + c2.particles.length;
+        const newVel = new THREE.Vector3()
+            .addScaledVector(c1.vel, c1.particles.length)
+            .addScaledVector(c2.vel, c2.particles.length)
+            .divideScalar(totalMass);
+
+        let large = c1.particles.length >= c2.particles.length ? c1 : c2;
+        let small = (c1 === large) ? c2 : c1;
+
+        const dir = new THREE.Vector3().subVectors(p1.worldPos, p2.worldPos).normalize();
+        const contactPos = new THREE.Vector3().copy(p2.worldPos).addScaledVector(dir, 2 * R);
+        const shift = new THREE.Vector3().subVectors(contactPos, p1.worldPos);
+        c1.pos.add(shift);
+
+        small.particles.forEach(p => {
+            p.worldPos.copy(small.pos).add(p.localPos);
+            p.localPos.copy(p.worldPos).sub(large.pos);
+            p.cluster = large;
+            large.particles.push(p);
+            updateVis(p);
+        });
+
+        large.vel.copy(newVel);
+        activeClusters.delete(small);
+    }
+
+    function handlePBC(cluster) {
+        if (cluster.pos.x > BOX_SIZE) cluster.pos.x -= BOX_SIZE * 2;
+        if (cluster.pos.x < -BOX_SIZE) cluster.pos.x += BOX_SIZE * 2;
+        if (cluster.pos.y > BOX_SIZE) cluster.pos.y -= BOX_SIZE * 2;
+        if (cluster.pos.y < -BOX_SIZE) cluster.pos.y += BOX_SIZE * 2;
+        if (cluster.pos.z > BOX_SIZE) cluster.pos.z -= BOX_SIZE * 2;
+        if (cluster.pos.z < -BOX_SIZE) cluster.pos.z += BOX_SIZE * 2;
+    }
+
+    function updateStats() {
+        document.getElementById('clusterCount').innerText = activeClusters.size;
+        
+        let maxS = 0, largest = null;
+        activeClusters.forEach(c => {
+            if(c.particles.length > maxS) { maxS = c.particles.length; largest = c; }
+        });
+        document.getElementById('maxClusterSize').innerText = maxS;
+
+        if (largest && maxS > 1) {
+            let sumSq = 0;
+            largest.particles.forEach(p => sumSq += p.localPos.lengthSq());
+            const Rg = Math.sqrt(sumSq / maxS);
+            const df = (Math.log(maxS) / Math.log(Rg / R)).toFixed(3);
+            const volumeParticles = maxS * Math.pow(R, 3);
+            const volumeRg = Math.pow(Rg, 3);
+            const ff = (volumeParticles / volumeRg * 100).toFixed(4) + "%";
+            
+            document.getElementById('fractalDim').innerText = df;
+            document.getElementById('fillingFactor').innerText = ff;
+        }
+    }
+
+    function processSimulation() {
+        if (!isRunning || activeClusters.size <= 1) return;
+
+        for (let s = 0; s < stepsPerFrame; s++) {
+            const grid = new Map();
+            particles.forEach(p => {
+                p.worldPos.copy(p.cluster.pos).add(p.localPos);
+                const key = `${Math.floor(p.worldPos.x/CELL_SIZE)},${Math.floor(p.worldPos.y/CELL_SIZE)},${Math.floor(p.worldPos.z/CELL_SIZE)}`;
+                if (!grid.has(key)) grid.set(key, []);
+                grid.get(key).push(p);
+            });
+
+            const clusters = Array.from(activeClusters);
+            for (let c of clusters) {
+                if (!activeClusters.has(c)) continue;
+                
+                c.pos.add(c.vel);
+                handlePBC(c);
+
+                let collided = false;
+                for (let p of c.particles) {
+                    p.worldPos.copy(c.pos).add(p.localPos);
+                    const cx = Math.floor(p.worldPos.x/CELL_SIZE), cy = Math.floor(p.worldPos.y/CELL_SIZE), cz = Math.floor(p.worldPos.z/CELL_SIZE);
+                    
+                    for (let x=-1; x<=1 && !collided; x++) {
+                        for (let y=-1; y<=1 && !collided; y++) {
+                            for (let z=-1; z<=1 && !collided; z++) {
+                                const cell = grid.get(`${cx+x},${cy+y},${cz+z}`);
+                                if (cell) {
+                                    for (let otherP of cell) {
+                                        if (otherP.cluster !== c && p.worldPos.distanceToSquared(otherP.worldPos) <= D_SQ) {
+                                            mergeClusters(c, otherP.cluster, p, otherP);
+                                            collided = true; break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (collided) break;
+                }
+            }
+        }
+
+        particles.forEach(updateVis);
+        instancedMesh.instanceMatrix.needsUpdate = true;
+        if(instancedMesh.instanceColor) instancedMesh.instanceColor.needsUpdate = true;
+        updateStats();
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const camDist = camera.position.length();
+        scene.fog.density = 0.5 / (camDist + 50);
+
+        processSimulation();
+        controls.update();
+        renderer.render(scene, camera);
+    }
+    animate();
+</script>
+</body>
+</html>

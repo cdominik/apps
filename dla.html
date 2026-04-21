@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D DLA Simulation - Exact Contact & Stats</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0d0d0d;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px 25px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            min-width: 250px;
+            z-index: 10;
+        }
+        h1 {
+            margin: 0 0 5px 0;
+            font-size: 1.2rem;
+            color: #4CAF50;
+        }
+        h2 {
+            margin: 0 0 15px 0;
+            font-size: 0.9rem;
+            color: #aaa;
+            font-weight: normal;
+        }
+        p {
+            margin: 5px 0;
+            font-size: 0.9rem;
+            color: #ccc;
+        }
+        .highlight {
+            color: #fff;
+            font-weight: bold;
+        }
+        button#actionBtn {
+            pointer-events: auto;
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin: 10px 0;
+            transition: background 0.3s;
+        }
+        button#actionBtn.reset {
+            background: #f44336;
+        }
+        button#actionBtn:hover {
+            opacity: 0.9;
+        }
+        .control-group {
+            margin-top: 15px;
+            pointer-events: auto;
+            border-top: 1px solid #444;
+            padding-top: 10px;
+        }
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: #bbb;
+            margin-bottom: 5px;
+        }
+        #speedHint {
+            font-size: 0.8rem; 
+            color: #ffeb3b; 
+            margin-top: 5px; 
+            text-align: center;
+            font-weight: bold;
+            transition: opacity 0.3s;
+        }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    <h1>Diffusion-Limited Aggregation</h1>
+    <h2>3D Brownian Motion</h2>
+    <p>Particles: <span id="particleCount" class="highlight">1</span> / 20,000</p>
+    <p>Fractal Dim (D<sub>f</sub>): <span id="fractalDim" class="highlight">N/A</span></p>
+    <p>Filling Factor (R<sub>g</sub>): <span id="fillingFactor" class="highlight">100.000%</span></p>
+    <p>Status: <span id="status" class="highlight" style="color:#aaa">Awaiting Start...</span></p>
+    
+    <button id="actionBtn">Start Simulation</button>
+
+    <div class="control-group">
+        <div class="slider-label">
+            <span>Sticking Probability</span>
+            <span id="stickDisp" style="color:#fff; font-weight:bold;">100%</span>
+        </div>
+        <input type="range" id="stickSlider" min="1" max="100" value="100">
+    </div>
+
+    <div class="control-group">
+        <div class="slider-label">
+            <span>Sim Speed (Steps/Frame)</span>
+            <span id="speedDisp" style="color:#fff; font-weight:bold;">1</span>
+        </div>
+        <input type="range" id="speedSlider" min="1" max="5000" step="1" value="1">
+        <div id="speedHint">Hint: Increase speed to grow faster!</div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+    // --- UI Controls ---
+    let stickingProb = 1.0;
+    let stepsPerFrame = 1; 
+    let isRunning = false;
+
+    const actionBtn = document.getElementById('actionBtn');
+    const statusText = document.getElementById('status');
+    const speedHint = document.getElementById('speedHint');
+
+    document.getElementById('stickSlider').addEventListener('input', (e) => {
+        stickingProb = parseInt(e.target.value, 10) / 100;
+        document.getElementById('stickDisp').innerText = e.target.value + "%";
+    });
+
+    document.getElementById('speedSlider').addEventListener('input', (e) => {
+        stepsPerFrame = parseInt(e.target.value, 10);
+        document.getElementById('speedDisp').innerText = stepsPerFrame.toLocaleString();
+        
+        if (stepsPerFrame > 50) {
+            speedHint.style.opacity = '0';
+        } else {
+            speedHint.style.opacity = '1';
+        }
+    });
+
+    actionBtn.addEventListener('click', () => {
+        if (!isRunning) {
+            isRunning = true;
+            actionBtn.innerText = "Reset Simulation";
+            actionBtn.classList.add('reset');
+            statusText.innerText = "Walking...";
+            statusText.style.color = "#2196F3";
+            spawnWalker();
+        } else {
+            isRunning = false;
+            actionBtn.innerText = "Start Simulation";
+            actionBtn.classList.remove('reset');
+            resetSimulation();
+        }
+    });
+
+    // --- Scene Setup ---
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x0d0d0d, 0.002);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100000);
+    camera.position.set(0, 0, 30);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: false }); 
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    document.body.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    const ambientLight = new THREE.AmbientLight(0x404040, 2.0);
+    scene.add(ambientLight);
+    
+    const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.0);
+    dirLight1.position.set(10, 20, 10);
+    scene.add(dirLight1);
+
+    const dirLight2 = new THREE.DirectionalLight(0xaaaaaa, 0.5);
+    dirLight2.position.set(-10, -20, -10);
+    scene.add(dirLight2);
+
+    // --- Core Architecture Variables ---
+    const R = 1.0;          
+    const D_SQ = 4 * R * R; 
+    const CELL_SIZE = 2 * R; 
+    const MAX_PARTICLES = 20000; 
+    
+    let currentCluster = [];
+    let spatialGrid = new Map();
+    let rBoundSq = 0; 
+    
+    // Geometries & Materials
+    const geoHigh = new THREE.SphereGeometry(R, 16, 16); 
+    const geoLow  = new THREE.SphereGeometry(R, 8, 8);    
+    const colorCluster = 0x4CAF50; 
+    const colorWalker  = 0x2196F3; 
+    const matCluster = new THREE.MeshLambertMaterial({ color: colorCluster });
+    const matWalker  = new THREE.MeshLambertMaterial({ color: colorWalker });
+    
+    let instancedMeshCluster = null;
+    let walkerMesh = new THREE.Mesh(geoHigh, matWalker);
+    scene.add(walkerMesh);
+    walkerMesh.visible = false;
+
+    const dummy = new THREE.Object3D();
+
+    let walkerPos = new THREE.Vector3();
+    
+    // Fly-around states
+    let isFlyingAround = false;
+    let flyProgress = 0;
+    let flyRadius = 0;
+    let flyPolar = 0;
+    let flyAngleStart = 0;
+    let nextFlyAroundMass = 64; 
+
+    // --- DLA Math & Systems ---
+
+    function randomUnitVector() {
+        const theta = Math.random() * 2 * Math.PI;
+        const phi = Math.acos(2 * Math.random() - 1);
+        return new THREE.Vector3(
+            Math.sin(phi) * Math.cos(theta),
+            Math.sin(phi) * Math.sin(theta),
+            Math.cos(phi)
+        );
+    }
+
+    function spawnWalker() {
+        walkerMesh.visible = true;
+        const rBound = Math.sqrt(rBoundSq);
+        const spawnDist = Math.max(rBound + 5 * R, 15 * R); 
+        walkerPos.copy(randomUnitVector().multiplyScalar(spawnDist));
+        walkerMesh.position.copy(walkerPos);
+    }
+
+    function addParticleToSystem(pos) {
+        const index = currentCluster.length;
+        const p = { x: pos.x, y: pos.y, z: pos.z };
+        currentCluster.push(p);
+
+        const cx = Math.floor(p.x / CELL_SIZE);
+        const cy = Math.floor(p.y / CELL_SIZE);
+        const cz = Math.floor(p.z / CELL_SIZE);
+        const key = `${cx},${cy},${cz}`;
+        if (!spatialGrid.has(key)) spatialGrid.set(key, []);
+        spatialGrid.get(key).push(p);
+
+        const sq = p.x*p.x + p.y*p.y + p.z*p.z;
+        if (sq > rBoundSq) {
+            rBoundSq = sq;
+            // Dynamic Camera & Fog Updates
+            const rBound = Math.sqrt(rBoundSq);
+            const reqDist = rBound * 2.5 + 20;
+            if (camera.position.length() < reqDist) {
+                camera.position.setLength(reqDist);
+            }
+            scene.fog.density = 0.05 / (rBound + 10);
+        }
+
+        // Dynamic LOD Swap
+        if (index === 10000) {
+            scene.remove(instancedMeshCluster);
+            instancedMeshCluster.dispose();
+            
+            instancedMeshCluster = new THREE.InstancedMesh(geoLow, matCluster, MAX_PARTICLES);
+            instancedMeshCluster.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+            
+            for(let i = 0; i < currentCluster.length; i++) {
+                dummy.position.copy(currentCluster[i]);
+                dummy.updateMatrix();
+                instancedMeshCluster.setMatrixAt(i, dummy.matrix);
+            }
+            scene.add(instancedMeshCluster);
+            walkerMesh.geometry = geoLow;
+        }
+
+        dummy.position.copy(p);
+        dummy.updateMatrix();
+        instancedMeshCluster.setMatrixAt(index, dummy.matrix);
+        instancedMeshCluster.count = currentCluster.length;
+        instancedMeshCluster.instanceMatrix.needsUpdate = true;
+
+        updateStats();
+    }
+
+    function updateStats() {
+        const n = currentCluster.length;
+        document.getElementById('particleCount').innerText = n.toLocaleString();
+
+        if (n <= 1) {
+            document.getElementById('fractalDim').innerText = "N/A";
+            document.getElementById('fillingFactor').innerText = "100.000%";
+            return;
+        }
+
+        let sumSq = 0;
+        for (let i = 0; i < n; i++) {
+            const p = currentCluster[i];
+            sumSq += (p.x*p.x + p.y*p.y + p.z*p.z);
+        }
+
+        // Radius of Gyration calculation
+        const Rg = Math.sqrt(sumSq / n);
+        
+        // Fractal Dimension
+        const df = (Rg <= 1.01) ? "N/A" : (Math.log(n) / Math.log(Rg / R)).toFixed(3);
+        
+        // Filling Factor (Rg based)
+        const volumeParticles = n * Math.pow(R, 3);
+        const volumeRg = Math.pow(Rg, 3);
+        const ff = (volumeParticles / volumeRg * 100).toFixed(3) + "%";
+
+        document.getElementById('fractalDim').innerText = df;
+        document.getElementById('fillingFactor').innerText = ff;
+    }
+
+    // Mathematical Raycast for Exact Surface Snapping
+    function calculateExactHit(prevPos, nextPos) {
+        const cx = Math.floor(nextPos.x / CELL_SIZE);
+        const cy = Math.floor(nextPos.y / CELL_SIZE);
+        const cz = Math.floor(nextPos.z / CELL_SIZE);
+
+        let minT = Infinity;
+
+        const d = new THREE.Vector3().subVectors(nextPos, prevPos);
+        const a = d.lengthSq();
+        
+        if (a === 0) return null; 
+
+        for (let nx = cx - 1; nx <= cx + 1; nx++) {
+            for (let ny = cy - 1; ny <= cy + 1; ny++) {
+                for (let nz = cz - 1; nz <= cz + 1; nz++) {
+                    const key = `${nx},${ny},${nz}`;
+                    const cell = spatialGrid.get(key);
+                    if (cell) {
+                        for (let i = 0; i < cell.length; i++) {
+                            const c = cell[i];
+                            
+                            const ocx = prevPos.x - c.x;
+                            const ocy = prevPos.y - c.y;
+                            const ocz = prevPos.z - c.z;
+                            
+                            const b = ocx * d.x + ocy * d.y + ocz * d.z;
+                            const c_val = (ocx*ocx + ocy*ocy + ocz*ocz) - D_SQ;
+
+                            if (c_val <= 0) return { pos: prevPos.clone() };
+
+                            const discriminant = b * b - a * c_val;
+                            if (discriminant >= 0) {
+                                const t = (-b - Math.sqrt(discriminant)) / a;
+                                if (t >= 0 && t <= 1 && t < minT) {
+                                    minT = t;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (minT <= 1.0) {
+            return {
+                pos: new THREE.Vector3().copy(prevPos).addScaledVector(d, minT)
+            };
+        }
+        return null;
+    }
+
+    function startFlyAround() {
+        walkerMesh.visible = false;
+        statusText.innerText = "Mass Doubled! Scanning Structure...";
+        statusText.style.color = "#4CAF50";
+        
+        const spherical = new THREE.Spherical().setFromVector3(camera.position);
+        flyRadius = spherical.radius;
+        flyPolar = spherical.phi;
+        flyAngleStart = spherical.theta;
+
+        scene.fog.density = 0.15 / flyRadius;
+
+        flyProgress = 0;
+        isFlyingAround = true;
+        controls.enabled = false; 
+    }
+
+    function processRandomWalk() {
+        if (!isRunning || isFlyingAround) return;
+        
+        if (currentCluster.length >= MAX_PARTICLES) {
+            statusText.innerText = "Limit Reached.";
+            statusText.style.color = "#4CAF50";
+            walkerMesh.visible = false;
+            isRunning = false;
+            actionBtn.innerText = "Reset Simulation";
+            return;
+        }
+
+        const rBound = Math.sqrt(rBoundSq);
+        const killDist = Math.max(rBound + 15 * R, 25 * R);
+
+        for (let step = 0; step < stepsPerFrame; step++) {
+            let distToCenter = walkerPos.length();
+            
+            if (distToCenter > killDist) {
+                spawnWalker();
+                continue;
+            }
+
+            let safeDistance = distToCenter - rBound - 2 * R;
+            let stepSize = R * 0.5; 
+
+            if (safeDistance > 2 * R) {
+                if (stepsPerFrame < 50) {
+                    stepSize = Math.min(safeDistance, R * 1.5); 
+                } else {
+                    stepSize = safeDistance; 
+                }
+            }
+
+            const prevPos = walkerPos.clone();
+            const jumpVec = randomUnitVector().multiplyScalar(stepSize);
+            walkerPos.add(jumpVec);
+
+            if (safeDistance <= 2 * R) {
+                const hit = calculateExactHit(prevPos, walkerPos);
+                
+                if (hit) {
+                    if (Math.random() <= stickingProb) {
+                        addParticleToSystem(hit.pos);
+                        
+                        if (currentCluster.length === nextFlyAroundMass) {
+                            nextFlyAroundMass *= 2;
+                            startFlyAround();
+                            break; 
+                        } else {
+                            spawnWalker();
+                            break; 
+                        }
+                    } else {
+                        walkerPos.copy(prevPos);
+                    }
+                }
+            }
+        }
+
+        walkerMesh.position.copy(walkerPos);
+    }
+
+    function resetSimulation() {
+        isFlyingAround = false;
+        controls.enabled = true;
+        
+        currentCluster = [];
+        spatialGrid.clear();
+        rBoundSq = 0;
+        nextFlyAroundMass = 64; 
+
+        if (instancedMeshCluster) {
+            scene.remove(instancedMeshCluster);
+            instancedMeshCluster.dispose();
+        }
+        
+        instancedMeshCluster = new THREE.InstancedMesh(geoHigh, matCluster, MAX_PARTICLES);
+        instancedMeshCluster.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        scene.add(instancedMeshCluster);
+
+        walkerMesh.visible = false;
+        walkerMesh.geometry = geoHigh;
+
+        camera.position.set(0, 0, 30);
+        scene.fog.density = 0.002;
+
+        statusText.innerText = "Awaiting Start...";
+        statusText.style.color = "#aaa";
+        speedHint.style.opacity = '1';
+
+        addParticleToSystem(new THREE.Vector3(0, 0, 0)); 
+    }
+
+    // --- Main Loop ---
+    const clock = new THREE.Clock();
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const delta = clock.getDelta();
+
+        if (isFlyingAround) {
+            flyProgress += delta * 0.4; 
+
+            if (flyProgress >= 1) {
+                flyProgress = 1;
+                isFlyingAround = false;
+                controls.enabled = true; 
+                statusText.innerText = "Walking...";
+                statusText.style.color = "#2196F3";
+                
+                const rBound = Math.sqrt(rBoundSq);
+                scene.fog.density = 0.05 / (rBound + 10);
+                
+                if (isRunning) spawnWalker();
+            }
+
+            const t = flyProgress * flyProgress * (3 - 2 * flyProgress);
+            const currentTheta = flyAngleStart + (t * Math.PI * 2);
+
+            const spherical = new THREE.Spherical(flyRadius, flyPolar, currentTheta);
+            camera.position.setFromSpherical(spherical);
+            camera.lookAt(0, 0, 0);
+        } else {
+            processRandomWalk();
+        }
+
+        controls.update();
+        renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    resetSimulation();
+    animate();
+
+</script>
+</body>
+</html>
