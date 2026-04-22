@@ -5,3 +5,8 @@ This repo serves some simple apps.
 - [[file:draw_aggregate.html][Drawing an aggregate]] in a web interface
 
 - [[file:gallery.html][Aggregation Webapp gallery]]
+
+- [[file:planet_visibility.html][Planet Sky Visibility]]
+
+  # Link: https://claude.ai/public/artifacts/ccd29b93-dcd0-431a-90c4-95359e4f29e5
+  # Embed: <iframe src="https://claude.site/public/artifacts/ccd29b93-dcd0-431a-90c4-95359e4f29e5/embed" title="Planet Visibility Calendar (2020–2040)" width="100%" height="600" frameborder="0" allow="clipboard-write" allowfullscreen></iframe>
