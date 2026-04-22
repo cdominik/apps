@@ -15,7 +15,7 @@
   .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
   h1 { font-weight: 300; font-size: clamp(20px, 3vw, 28px); letter-spacing: 0.02em; margin-bottom: 4px; }
   .subtitle { font-size: 13px; color: #94a3b8; margin-bottom: 20px; }
-  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 20px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
   .controls label { font-size: 12px; color: #94a3b8; margin-right: 4px; }
   select, .loc-input {
     background: #1e293b; color: #e8ecf5; border: 1px solid #334155;
@@ -27,96 +27,69 @@
   .mode-btn {
     background: transparent; color: #cbd5e1; border: 1px solid #334155;
     padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer;
-    font-family: inherit; display: inline-flex; align-items: center; gap: 6px;
+    font-family: inherit;
   }
   .mode-btn:hover { border-color: #64748b; }
   .mode-btn.active { background: #e2e8f0; color: #0f172a; border-color: #e2e8f0; }
-
+  .loc-row { display: flex; gap: 10px; align-items: center; font-size: 12px; color: #94a3b8; margin-bottom: 20px; }
+  .loc-input { width: 90px; }
   .legend { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-bottom: 18px; font-size: 12px; color: #cbd5e1; }
   .legend-label { color: #94a3b8; }
   .legend-item { display: flex; align-items: center; gap: 6px; }
   .swatch { width: 16px; height: 16px; border-radius: 3px; border: 1px solid #334155; }
-
-  .chart-container {
-    border: 1px solid #1e293b; background: rgba(2,6,23,0.45);
-    border-radius: 8px; overflow-x: auto;
-  }
+  .chart-container { border: 1px solid #1e293b; background: rgba(2,6,23,0.45); border-radius: 8px; overflow-x: auto; }
   table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 12px; }
   th, td { padding: 0; }
-  th.planet-col, td.planet-col {
-    padding: 4px 12px; text-align: left;
-    position: sticky; left: 0; background: rgba(2,6,23,0.92); z-index: 2;
-    min-width: 130px;
-  }
-  thead th.day-col {
-    font-weight: normal; color: #475569; font-size: 10px; text-align: center;
-    padding: 6px 0; min-width: 18px;
-  }
+  th.planet-col, td.planet-col { padding: 4px 12px; text-align: left; position: sticky; left: 0; background: rgba(2,6,23,0.92); z-index: 2; min-width: 150px; }
+  thead th.day-col { font-weight: normal; color: #475569; font-size: 10px; text-align: center; padding: 6px 0; min-width: 18px; }
   thead th.day-col.major { color: #94a3b8; }
   tbody tr.last-row td { border-bottom: 1px solid rgba(30, 41, 59, 0.6); }
   .planet-name { display: flex; align-items: center; gap: 8px; color: #e2e8f0; }
   .planet-symbol { font-size: 16px; }
-  .track-icon {
-    margin-left: auto; font-size: 10px; color: #94a3b8;
-    letter-spacing: 0.05em; text-transform: uppercase;
-    padding: 1px 6px; border-radius: 3px;
-    background: rgba(148, 163, 184, 0.1);
-    border: 1px solid rgba(148, 163, 184, 0.2);
-  }
-  .track-icon.eve { color: #fbbf24; background: rgba(251, 191, 36, 0.08); border-color: rgba(251, 191, 36, 0.25); }
-  .track-icon.mor { color: #60a5fa; background: rgba(96, 165, 250, 0.08); border-color: rgba(96, 165, 250, 0.25); }
-  .cell {
-    display: block; height: 16px; margin: 1px; border-radius: 2px; cursor: pointer;
-    position: relative;
-  }
+  .track-icon { margin-left: auto; font-size: 10px; letter-spacing: 0.05em; padding: 1px 6px; border-radius: 3px; }
+  .track-icon.eve { color: #fbbf24; background: rgba(251, 191, 36, 0.08); border: 1px solid rgba(251, 191, 36, 0.25); }
+  .track-icon.mor { color: #60a5fa; background: rgba(96, 165, 250, 0.08); border: 1px solid rgba(96, 165, 250, 0.25); }
+  .cell { display: block; height: 16px; margin: 1px; border-radius: 2px; cursor: pointer; }
   .cell.event { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.45); }
-
   .events { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 11px; color: #94a3b8; }
   .events .date { color: #e2e8f0; font-weight: 500; }
-
   .tooltip {
     position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
     background: rgba(15, 23, 42, 0.96); border: 1px solid #334155;
     border-radius: 8px; padding: 10px 14px; font-size: 13px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.5); backdrop-filter: blur(6px);
-    z-index: 50; max-width: 520px; display: none;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5); z-index: 50; max-width: 520px; display: none;
   }
   .tooltip .hdr { display: flex; align-items: center; gap: 8px; }
   .tooltip .sym { font-size: 18px; }
   .tooltip .sep { color: #64748b; }
   .tooltip .sub { font-size: 11px; color: #94a3b8; margin-top: 2px; }
-
   .footnote { margin-top: 24px; font-size: 11px; color: #64748b; line-height: 1.6; }
-
-  .loc-row { margin-top: 8px; display: flex; gap: 10px; align-items: center; font-size: 12px; color: #94a3b8; }
-  .loc-input { width: 90px; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Planet Visibility Calendar</h1>
-  <div class="subtitle" id="subtitle">Daily visibility for each planet — select a month between January 2020 and December 2040.</div>
+  <div class="subtitle" id="subtitle"></div>
 
   <div class="controls">
     <label for="month-select">Month</label>
     <select id="month-select"></select>
     <label for="year-select" style="margin-left:8px">Year</label>
     <select id="year-select"></select>
-
     <div class="mode-toggle" style="margin-left:12px">
       <button class="mode-btn active" data-mode="both">Evening + Morning</button>
-      <button class="mode-btn" data-mode="evening">🌇 Evening</button>
-      <button class="mode-btn" data-mode="morning">🌅 Morning</button>
+      <button class="mode-btn" data-mode="evening">Evening only</button>
+      <button class="mode-btn" data-mode="morning">Morning only</button>
     </div>
   </div>
 
   <div class="loc-row">
     <label for="lat-input">Observer latitude (°N)</label>
     <input id="lat-input" class="loc-input" type="number" value="52" step="1" min="-60" max="70" />
-    <span style="color:#475569">default: 52° N (NW Europe)</span>
+    <span style="color:#475569">positive = northern hemisphere</span>
   </div>
 
-  <div class="legend" style="margin-top:18px">
+  <div class="legend">
     <span class="legend-label">Visibility:</span>
     <div class="legend-item"><span class="swatch" style="background: rgba(255,255,255,0.03)"></span>Not visible</div>
     <div class="legend-item"><span class="swatch" style="background: #cbd5e1; opacity: 0.36"></span>Telescope</div>
@@ -125,13 +98,11 @@
     <div class="legend-item"><span class="swatch" style="background: #cbd5e1; opacity: 1.0"></span>Naked eye (bright)</div>
   </div>
 
-  <div class="chart-container">
-    <table id="chart"></table>
-  </div>
+  <div class="chart-container"><table id="chart"></table></div>
   <div class="events" id="events"></div>
 
   <div class="footnote">
-    Visibility is computed from low-precision Keplerian orbital elements (VSOP-style approximations) and the planet's altitude above the horizon at civil twilight (sun 6° below horizon). A planet is considered visible if it is high enough for its apparent magnitude to overcome twilight and airmass extinction. Evening = after sunset; morning = before sunrise. Event markers (outlined cells) flag conjunctions within 3° and oppositions / greatest elongations. For exact rise/set times at your location, use a planetarium app such as Stellarium. Calculations give a reliable qualitative picture but may differ from published almanacs by a day or two at apparition edges.
+    Visibility is computed from low-precision Keplerian orbital elements (Schlyter/Meeus) and the planet's altitude at civil twilight (sun 6° below horizon). A planet is considered visible if it is high enough for its apparent magnitude to overcome twilight brightness. Evening = after sunset; morning = before sunrise. Outlined cells mark days with a notable event (conjunction, opposition, greatest elongation). Accuracy is sufficient for categorising visibility — for precise rise/set times use a planetarium app such as Stellarium.
   </div>
 </div>
 
@@ -148,27 +119,16 @@
 </div>
 
 <script>
-/* =========================================================
-   Astronomy core — low-precision Keplerian positions.
-   Based on formulae from Jean Meeus ("Astronomical Algorithms")
-   and Paul Schlyter's tutorial (stjarnhimlen.se/comp/tutorial.html).
-   Accuracy: a few arc-minutes 2020–2040, fine for visibility categorisation.
-========================================================= */
-
 const DEG = Math.PI / 180;
 const RAD = 180 / Math.PI;
+function rev(d){ d = d % 360; return d < 0 ? d + 360 : d; }
+function jdOf(date){ return date.getTime() / 86400000 + 2440587.5; }
+function daysSinceJ2000(date){ return jdOf(date) - 2451545.0; }
 
-function norm360(d){ d = d % 360; return d < 0 ? d + 360 : d; }
-function rev(d){ return norm360(d); }
-
-// Days since J2000.0 (1 Jan 2000 12:00 UT) at given date (UTC).
-function daysSinceJ2000(date){
-  return (date.getTime() / 86400000) - 10957.5;
-  // 10957.5 = (days between 1970-01-01 00:00 and 2000-01-01 12:00)
-}
-
-// Orbital elements at time d (days since J2000), linear rates.
-// Elements from Schlyter's tutorial (simple model).
+// Orbital elements from Paul Schlyter (stjarnhimlen.se/comp/tutorial.html).
+// NOTE: the "earth" entry is actually the elements of the Sun's apparent
+// geocentric orbit around Earth, so heliocentric('earth', d) returns the
+// Sun's geocentric ecliptic position. Earth's true heliocentric position is -S.
 function elems(body, d){
   const E = {
     mercury: { N: 48.3313 + 3.24587e-5*d, i: 7.0047 + 5.00e-8*d, w: 29.1241 + 1.01444e-5*d, a: 0.387098, e: 0.205635 + 5.59e-10*d, M: 168.6562 + 4.0923344368*d },
@@ -185,9 +145,7 @@ function elems(body, d){
   return el;
 }
 
-// Solve Kepler's equation M = E - e*sin(E) (M, E in degrees)
 function solveKepler(M, e){
-  // initial
   let E0 = M + (e*RAD) * Math.sin(M*DEG) * (1.0 + e*Math.cos(M*DEG));
   for (let i=0;i<8;i++){
     const dM = M - (E0 - (e*RAD)*Math.sin(E0*DEG));
@@ -198,7 +156,6 @@ function solveKepler(M, e){
   return E0;
 }
 
-// Heliocentric ecliptic coordinates (x,y,z in AU, J2000-ish ecliptic)
 function heliocentric(body, d){
   const el = elems(body, d);
   const E = solveKepler(el.M, el.e);
@@ -213,68 +170,51 @@ function heliocentric(body, d){
   return { x: xh, y: yh, z: zh, r };
 }
 
-// Geocentric ecliptic -> RA, Dec, distance
 function geoEquatorial(body, d){
-  // Earth heliocentric (using sun-earth formulation: earth's helio = -sun's geo)
-  // We'll compute earth heliocentric from earth elements above.
-  const E = heliocentric('earth', d);
+  const S = heliocentric('earth', d); // really the sun's geocentric position
   let X, Y, Z;
   if (body === 'sun') {
-    X = -E.x; Y = -E.y; Z = -E.z;
+    X = S.x; Y = S.y; Z = S.z;
   } else {
     const P = heliocentric(body, d);
-    X = P.x - E.x;
-    Y = P.y - E.y;
-    Z = P.z - E.z;
+    // Earth helio = -S, so planet geocentric = P - (-S) = P + S
+    X = P.x + S.x; Y = P.y + S.y; Z = P.z + S.z;
   }
-  // ecliptic obliquity
   const ecl = 23.4393 - 3.563e-7 * d;
   const xe = X;
   const ye = Y*Math.cos(ecl*DEG) - Z*Math.sin(ecl*DEG);
   const ze = Y*Math.sin(ecl*DEG) + Z*Math.cos(ecl*DEG);
-  let RA = Math.atan2(ye, xe) * RAD;
+  const RA = rev(Math.atan2(ye, xe) * RAD);
   const Dec = Math.atan2(ze, Math.sqrt(xe*xe + ye*ye)) * RAD;
-  const dist = Math.sqrt(xe*xe + ye*ye + ze*ze);
-  RA = rev(RA);
-  // ecliptic longitude/latitude
-  let eclLon = rev(Math.atan2(Y, X) * RAD);
-  const eclLat = Math.atan2(Z, Math.sqrt(X*X + Y*Y)) * RAD;
-  return { RA, Dec, dist, eclLon, eclLat, helio: body === 'sun' ? null : heliocentric(body, d) };
+  const eclLon = rev(Math.atan2(Y, X) * RAD);
+  return { RA, Dec, eclLon };
 }
 
-// Local sidereal time (degrees) for given UT date and longitude (east positive)
+// Meeus "Astronomical Algorithms" eq. 12.4 — Greenwich Mean Sidereal Time (deg)
 function localSiderealTime(date, lonDeg){
-  const d = daysSinceJ2000(date);
-  // UT hours of day
-  const ut = (date.getUTCHours() + date.getUTCMinutes()/60 + date.getUTCSeconds()/3600);
-  // GMST formula (approx)
-  // From Meeus simplified: GMST(0h UT) = 6.697374558 + 0.06570982441908*d0 + ...
-  // Simpler Schlyter: GMST0 (in degrees) = L + 180 where L = sun mean longitude
-  const earthEl = elems('earth', d);
-  const L = rev(earthEl.M + earthEl.w); // mean longitude of sun
-  const GMST0 = rev(L + 180);
-  const GMST = rev(GMST0 + ut * 15);
-  const LST = rev(GMST + lonDeg);
-  return LST;
+  const jd = jdOf(date);
+  const T = (jd - 2451545.0) / 36525.0;
+  let GMST = 280.46061837 + 360.98564736629 * (jd - 2451545.0)
+           + 0.000387933 * T * T - (T * T * T) / 38710000.0;
+  return rev(rev(GMST) + lonDeg);
 }
 
-// Altitude of body given RA/Dec, observer lat, LST (all in deg)
 function altitude(RA, Dec, latDeg, LST){
   const HA = rev(LST - RA);
-  const sinAlt = Math.sin(latDeg*DEG)*Math.sin(Dec*DEG) + Math.cos(latDeg*DEG)*Math.cos(Dec*DEG)*Math.cos(HA*DEG);
+  const sinAlt = Math.sin(latDeg*DEG)*Math.sin(Dec*DEG)
+               + Math.cos(latDeg*DEG)*Math.cos(Dec*DEG)*Math.cos(HA*DEG);
   return Math.asin(Math.max(-1, Math.min(1, sinAlt))) * RAD;
 }
 
-// Apparent visual magnitude (standard formulae, Meeus)
 function magnitude(body, d){
   if (body === 'sun' || body === 'earth') return -100;
   const p = heliocentric(body, d);
-  const e = heliocentric('earth', d);
-  const dx = p.x - e.x, dy = p.y - e.y, dz = p.z - e.z;
-  const Delta = Math.sqrt(dx*dx + dy*dy + dz*dz);
+  const S = heliocentric('earth', d);
+  const gx = p.x + S.x, gy = p.y + S.y, gz = p.z + S.z;
+  const Delta = Math.sqrt(gx*gx + gy*gy + gz*gz);
   const r = p.r;
-  // phase angle
-  const cosPhase = (r*r + Delta*Delta - (e.x*e.x + e.y*e.y + e.z*e.z)) / (2*r*Delta);
+  const R = Math.sqrt(S.x*S.x + S.y*S.y + S.z*S.z);
+  const cosPhase = (r*r + Delta*Delta - R*R) / (2*r*Delta);
   const phase = Math.acos(Math.max(-1, Math.min(1, cosPhase))) * RAD;
   const fiveLog = 5*Math.log10(r*Delta);
   switch(body){
@@ -282,48 +222,19 @@ function magnitude(body, d){
     case 'venus':   return -4.40 + fiveLog + 0.0009*phase + 0.000239*phase*phase - 6.5e-7*phase*phase*phase;
     case 'mars':    return -1.52 + fiveLog + 0.016*phase;
     case 'jupiter': return -9.40 + fiveLog + 0.005*phase;
-    case 'saturn':  return -8.88 + fiveLog; // ignoring rings
+    case 'saturn':  return -8.88 + fiveLog;
     case 'uranus':  return -7.19 + fiveLog;
     case 'neptune': return -6.87 + fiveLog;
   }
   return 0;
 }
 
-/* =========================================================
-   Find sunrise / sunset times for a date at observer lat/lon.
-   Simple iterative approach: search for sun altitude = -0.833°.
-========================================================= */
 function sunAltitude(date, lat, lon){
   const d = daysSinceJ2000(date);
   const s = geoEquatorial('sun', d);
-  const LST = localSiderealTime(date, lon);
-  return altitude(s.RA, s.Dec, lat, LST);
+  return altitude(s.RA, s.Dec, lat, localSiderealTime(date, lon));
 }
 
-// Return sunset (UTC Date) and sunrise (UTC Date, next day) for a given local date
-function sunriseSunsetUTC(y, m, day, lat, lon){
-  // Search inside 0-24 UT with fine stepping
-  const base = Date.UTC(y, m, day, 0, 0, 0);
-  let setT = null, riseT = null;
-  let prev = sunAltitude(new Date(base), lat, lon);
-  for (let min = 10; min <= 24*60 + 10; min += 10){
-    const t = new Date(base + min*60000);
-    const cur = sunAltitude(t, lat, lon);
-    if (setT === null && prev > -0.833 && cur <= -0.833) setT = new Date(base + (min-5)*60000);
-    if (riseT === null && prev <= -0.833 && cur > -0.833 && setT !== null) {
-      riseT = new Date(base + (min-5)*60000);
-    }
-    prev = cur;
-  }
-  // If no rise after set (e.g. polar regions), fall back
-  return { sunset: setT, sunrise: riseT };
-}
-
-// Find when sun is 6° below horizon.
-// "evening" = end of evening civil twilight (sun drops through -6° going down, after sunset)
-// "morning" = start of morning civil twilight (sun rises through -6° going up, before sunrise)
-// Search a 36-hour window starting at 00:00 UT of the given calendar day so both events
-// for that evening are captured even if evening twilight ends after 24:00 UT.
 function civilTwilightTimes(y, m, day, lat, lon){
   const base = Date.UTC(y, m, day, 0, 0, 0);
   let evening = null, morning = null;
@@ -331,74 +242,41 @@ function civilTwilightTimes(y, m, day, lat, lon){
   for (let min = 10; min <= 36*60; min += 10){
     const t = new Date(base + min*60000);
     const cur = sunAltitude(t, lat, lon);
-    // Evening: sun descending through -6°
     if (evening === null && prev > -6 && cur <= -6) evening = t;
-    // Morning: sun ascending through -6° (take the first one within the window —
-    // that's the morning twilight of the following day)
     if (morning === null && prev <= -6 && cur > -6 && evening !== null) morning = t;
     prev = cur;
   }
   return { evening, morning };
 }
 
-/* =========================================================
-   Visibility categorisation per planet per day.
-   Returns object { evening: 0-4, morning: 0-4 }.
-   Levels:
-     0 = not visible
-     1 = telescope only
-     2 = binoculars
-     3 = naked eye but difficult (low altitude / bright twilight)
-     4 = naked eye, prominent
-========================================================= */
 function planetVisibilityOnDate(body, y, m, day, lat, lon){
   const twi = civilTwilightTimes(y, m, day, lat, lon);
   const result = { evening: 0, morning: 0, altEve: null, altMor: null, mag: null, elong: null };
-
   const d0 = daysSinceJ2000(new Date(Date.UTC(y, m, day, 12, 0, 0)));
-  const mag = magnitude(body, d0);
-  result.mag = mag;
-
-  // Elongation from sun (angular separation in ecliptic lon)
+  result.mag = magnitude(body, d0);
   const s = geoEquatorial('sun', d0);
   const p = geoEquatorial(body, d0);
   let elong = p.eclLon - s.eclLon;
   if (elong > 180) elong -= 360;
   if (elong < -180) elong += 360;
   result.elong = elong;
-
-  // Evening: check altitude at civil twilight end (sun -6°)
   if (twi.evening) {
-    const dEve = daysSinceJ2000(twi.evening);
-    const pE = geoEquatorial(body, dEve);
-    const LST = localSiderealTime(twi.evening, lon);
-    const altE = altitude(pE.RA, pE.Dec, lat, LST);
+    const pE = geoEquatorial(body, daysSinceJ2000(twi.evening));
+    const altE = altitude(pE.RA, pE.Dec, lat, localSiderealTime(twi.evening, lon));
     result.altEve = altE;
-    result.evening = scoreVisibility(altE, mag, body, elong, 'evening');
+    result.evening = scoreVisibility(altE, result.mag);
   }
   if (twi.morning) {
-    // Evaluate at dawn start (sun -6°, morning)
-    const dMor = daysSinceJ2000(twi.morning);
-    const pM = geoEquatorial(body, dMor);
-    const LST = localSiderealTime(twi.morning, lon);
-    const altM = altitude(pM.RA, pM.Dec, lat, LST);
+    const pM = geoEquatorial(body, daysSinceJ2000(twi.morning));
+    const altM = altitude(pM.RA, pM.Dec, lat, localSiderealTime(twi.morning, lon));
     result.altMor = altM;
-    result.morning = scoreVisibility(altM, mag, body, elong, 'morning');
+    result.morning = scoreVisibility(altM, result.mag);
   }
   return result;
 }
 
-// Heuristic: turn (altitude, magnitude) into visibility level 0-4
-function scoreVisibility(alt, mag, body, elong, track){
-  if (alt <= 0) return 0; // below horizon at civil twilight
-  // Require correct side: evening -> elong > 0 (east of sun... wait: evening means planet sets after sun)
-  // Evening visibility: planet east of sun in ecliptic lon? For inferior+superior planets alike,
-  // we just use altitude at twilight, which automatically handles this.
-  // But to avoid false positives at opposition edges, no extra filter needed.
-
-  // Find threshold magnitude based on altitude (airmass + twilight brightness)
-  // At civil twilight the sky is already bright; limiting mag rises quickly with altitude
-  // Rough model for limiting magnitude at civil twilight end:
+function scoreVisibility(alt, mag){
+  if (alt <= 0) return 0;
   let limMag;
   if (alt < 3) limMag = -2.0;
   else if (alt < 6) limMag = -0.5;
@@ -406,42 +284,19 @@ function scoreVisibility(alt, mag, body, elong, track){
   else if (alt < 15) limMag = 2.5;
   else if (alt < 25) limMag = 3.5;
   else limMag = 4.5;
-
-  // Compare
-  if (mag < limMag - 2.5) {
-    // comfortably brighter than limit -> naked eye prominent
-    if (alt >= 20) return 4;
-    if (alt >= 10) return 3;
-    return 3;
-  }
-  if (mag < limMag) {
-    // naked eye, maybe low
-    if (alt >= 15) return 3;
-    return 3;
-  }
-  if (mag < limMag + 2) {
-    // binoculars
-    return 2;
-  }
-  if (mag < limMag + 5) {
-    // telescope only (Uranus, Neptune)
-    return alt >= 5 ? 1 : 0;
-  }
+  if (mag < limMag - 2.5) return alt >= 20 ? 4 : 3;
+  if (mag < limMag) return 3;
+  if (mag < limMag + 2) return 2;
+  if (mag < limMag + 5) return alt >= 5 ? 1 : 0;
   return 0;
 }
 
-/* =========================================================
-   Events: find notable dates in a month
-========================================================= */
-function findEvents(y, m, lat, lon){
+function findEvents(y, m){
   const daysInMonth = new Date(y, m+1, 0).getDate();
   const events = [];
-
-  // Daily elongations and positions for each planet
   const bodies = ['mercury','venus','mars','jupiter','saturn','uranus','neptune'];
   const data = {};
   for (const b of bodies) data[b] = [];
-
   for (let day = 1; day <= daysInMonth; day++){
     const d = daysSinceJ2000(new Date(Date.UTC(y, m, day, 12, 0, 0)));
     const s = geoEquatorial('sun', d);
@@ -450,11 +305,9 @@ function findEvents(y, m, lat, lon){
       let elong = p.eclLon - s.eclLon;
       if (elong > 180) elong -= 360;
       if (elong < -180) elong += 360;
-      data[b].push({ day, RA: p.RA, Dec: p.Dec, elong, eclLon: p.eclLon, eclLat: p.eclLat });
+      data[b].push({ day, RA: p.RA, Dec: p.Dec, elong });
     }
   }
-
-  // Conjunctions between pairs: where angular separation < 3° AND local minimum
   function angSep(a, b){
     const dRA = (a.RA - b.RA) * DEG;
     const sinA = Math.sin(a.Dec*DEG)*Math.sin(b.Dec*DEG)
@@ -469,56 +322,37 @@ function findEvents(y, m, lat, lon){
         const s = angSep(A[k], B[k]);
         const sNext = angSep(A[k+1], B[k+1]);
         if (s < 5 && s <= sPrev && s <= sNext){
-          events.push({
-            day: A[k].day,
-            text: `${capitalize(bodies[i])}–${capitalize(bodies[j])} conjunction (${s.toFixed(1)}°)`,
-            planets: [bodies[i], bodies[j]],
-          });
+          events.push({ day: A[k].day, text: `${cap(bodies[i])}–${cap(bodies[j])} conjunction (${s.toFixed(1)}°)`, planets: [bodies[i], bodies[j]] });
         }
       }
     }
   }
-  // Greatest elongations for Mercury, Venus
   for (const b of ['mercury','venus']){
     const arr = data[b];
     for (let k=1;k<arr.length-1;k++){
       const e = Math.abs(arr[k].elong);
       if (e > Math.abs(arr[k-1].elong) && e > Math.abs(arr[k+1].elong) && e > 10){
         const dir = arr[k].elong > 0 ? 'eastern' : 'western';
-        events.push({
-          day: arr[k].day,
-          text: `${capitalize(b)} greatest ${dir} elongation (${e.toFixed(0)}°)`,
-          planets: [b],
-        });
+        events.push({ day: arr[k].day, text: `${cap(b)} greatest ${dir} elongation (${e.toFixed(0)}°)`, planets: [b] });
       }
     }
   }
-  // Opposition / solar conjunction for outer planets
   for (const b of ['mars','jupiter','saturn','uranus','neptune']){
     const arr = data[b];
     for (let k=1;k<arr.length-1;k++){
-      const e = arr[k].elong;
-      const ep = arr[k-1].elong, en = arr[k+1].elong;
-      // sign change or zero crossing
-      if (Math.sign(ep) !== Math.sign(en)){
-        // solar conjunction or opposition
-        if (Math.abs(e) > 90){
-          events.push({ day: arr[k].day, text: `${capitalize(b)} at opposition`, planets: [b] });
+      if (Math.sign(arr[k-1].elong) !== Math.sign(arr[k+1].elong)){
+        if (Math.abs(arr[k].elong) > 90){
+          events.push({ day: arr[k].day, text: `${cap(b)} at opposition`, planets: [b] });
         } else {
-          events.push({ day: arr[k].day, text: `${capitalize(b)} solar conjunction`, planets: [b] });
+          events.push({ day: arr[k].day, text: `${cap(b)} solar conjunction`, planets: [b] });
         }
       }
     }
   }
-  // Sort by day
   events.sort((a,b)=>a.day-b.day);
   return events;
 }
-function capitalize(s){ return s[0].toUpperCase() + s.slice(1); }
-
-/* =========================================================
-   UI
-========================================================= */
+function cap(s){ return s[0].toUpperCase() + s.slice(1); }
 
 const PLANETS = [
   { key: 'mercury', name: 'Mercury', color: '#b8a590', symbol: '☿' },
@@ -532,21 +366,21 @@ const PLANETS = [
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const LEVEL_LABEL = ['Not visible', 'Telescope only', 'Binoculars', 'Naked eye (low/difficult)', 'Naked eye (bright)'];
 
-// populate selectors
 const monthSel = document.getElementById('month-select');
 const yearSel = document.getElementById('year-select');
-MONTHS.forEach((m, i) => {
-  const o = document.createElement('option');
-  o.value = i; o.textContent = m; monthSel.appendChild(o);
-});
-for (let y = 2020; y <= 2040; y++){
-  const o = document.createElement('option');
-  o.value = y; o.textContent = y; yearSel.appendChild(o);
-}
-// default: April 2026
+MONTHS.forEach((m, i) => { const o = document.createElement('option'); o.value = i; o.textContent = m; monthSel.appendChild(o); });
+for (let y = 2020; y <= 2040; y++){ const o = document.createElement('option'); o.value = y; o.textContent = y; yearSel.appendChild(o); }
+
+// Default: current month if in range, else April 2026
 const now = new Date();
-monthSel.value = 3;
-yearSel.value = 2026;
+const curY = now.getFullYear();
+if (curY >= 2020 && curY <= 2040) {
+  monthSel.value = now.getMonth();
+  yearSel.value = curY;
+} else {
+  monthSel.value = 3;
+  yearSel.value = 2026;
+}
 
 let currentMode = 'both';
 document.querySelectorAll('.mode-btn').forEach(btn => {
@@ -557,7 +391,6 @@ document.querySelectorAll('.mode-btn').forEach(btn => {
     render();
   });
 });
-
 monthSel.addEventListener('change', render);
 yearSel.addEventListener('change', render);
 document.getElementById('lat-input').addEventListener('change', render);
@@ -572,25 +405,21 @@ function render(){
   const y = parseInt(yearSel.value, 10);
   const m = parseInt(monthSel.value, 10);
   const lat = parseFloat(document.getElementById('lat-input').value) || 52;
-  const lon = 0; // longitude only affects twilight TIME, not daily visibility categorisation materially
+  const lon = 0;
   const daysInMonth = new Date(y, m+1, 0).getDate();
 
   document.getElementById('subtitle').textContent =
-    `${MONTHS[m]} ${y} — visibility computed for observer at ${lat.toFixed(0)}° N. Hover any cell for details.`;
+    `${MONTHS[m]} ${y} — computed for observer at ${lat.toFixed(0)}°N. Hover any cell for details.`;
 
-  // Compute all data
-  const visData = {}; // planet -> [{eve,mor}, ...]
+  const visData = {};
   for (const p of PLANETS){
     visData[p.key] = [];
     for (let day=1; day<=daysInMonth; day++){
-      const v = planetVisibilityOnDate(p.key, y, m, day, lat, lon);
-      visData[p.key].push(v);
+      visData[p.key].push(planetVisibilityOnDate(p.key, y, m, day, lat, lon));
     }
   }
 
-  // Events
-  const events = findEvents(y, m, lat, lon);
-  // map day -> planet -> has event
+  const events = findEvents(y, m);
   const eventMarks = {};
   for (const e of events){
     if (!eventMarks[e.day]) eventMarks[e.day] = { planets: new Set(), texts: [] };
@@ -598,11 +427,8 @@ function render(){
     eventMarks[e.day].texts.push(e.text);
   }
 
-  // Build table
   const table = document.getElementById('chart');
   table.innerHTML = '';
-
-  // Header row
   const thead = document.createElement('thead');
   const hr = document.createElement('tr');
   const th0 = document.createElement('th');
@@ -617,12 +443,11 @@ function render(){
   thead.appendChild(hr);
   table.appendChild(thead);
 
-  // Body
   const tbody = document.createElement('tbody');
   for (const planet of PLANETS){
     const tracks = [];
-    if (currentMode === 'both' || currentMode === 'evening') tracks.push({ key: 'evening', label: '🌇', name: 'Evening' });
-    if (currentMode === 'both' || currentMode === 'morning') tracks.push({ key: 'morning', label: '🌅', name: 'Morning' });
+    if (currentMode === 'both' || currentMode === 'evening') tracks.push({ key: 'evening', label: 'evening' });
+    if (currentMode === 'both' || currentMode === 'morning') tracks.push({ key: 'morning', label: 'morning' });
 
     tracks.forEach((track, tIdx) => {
       const tr = document.createElement('tr');
@@ -630,17 +455,10 @@ function render(){
       const td0 = document.createElement('td');
       td0.className = 'planet-col';
       const trackClass = track.key === 'evening' ? 'eve' : 'mor';
-      const trackLabel = track.key === 'evening' ? 'evening' : 'morning';
       if (tIdx === 0){
-        td0.innerHTML = `<div class="planet-name">
-          <span class="planet-symbol" style="color:${planet.color}">${planet.symbol}</span>
-          <span>${planet.name}</span>
-          <span class="track-icon ${trackClass}">${trackLabel}</span>
-        </div>`;
+        td0.innerHTML = `<div class="planet-name"><span class="planet-symbol" style="color:${planet.color}">${planet.symbol}</span><span>${planet.name}</span><span class="track-icon ${trackClass}">${track.label}</span></div>`;
       } else {
-        td0.innerHTML = `<div class="planet-name" style="padding-left:26px">
-          <span class="track-icon ${trackClass}" style="margin-left:auto">${trackLabel}</span>
-        </div>`;
+        td0.innerHTML = `<div class="planet-name" style="padding-left:26px"><span class="track-icon ${trackClass}" style="margin-left:auto">${track.label}</span></div>`;
       }
       tr.appendChild(td0);
 
@@ -654,17 +472,10 @@ function render(){
         cell.className = 'cell' + (hasEvent ? ' event' : '');
         cell.setAttribute('style', cellStyle(level, planet.color));
         cell.dataset.info = JSON.stringify({
-          planet: planet.name,
-          symbol: planet.symbol,
-          color: planet.color,
-          date: `${MONTHS[m]} ${day}, ${y}`,
-          track: track.name,
-          level: LEVEL_LABEL[level],
-          mag: v.mag,
-          altEve: v.altEve,
-          altMor: v.altMor,
-          elong: v.elong,
-          event: extraText,
+          planet: planet.name, symbol: planet.symbol, color: planet.color,
+          date: `${MONTHS[m]} ${day}, ${y}`, track: track.label,
+          level: LEVEL_LABEL[level], mag: v.mag, altEve: v.altEve, altMor: v.altMor,
+          elong: v.elong, event: extraText,
         });
         td.appendChild(cell);
         tr.appendChild(td);
@@ -674,11 +485,10 @@ function render(){
   }
   table.appendChild(tbody);
 
-  // Events list
   const evDiv = document.getElementById('events');
   evDiv.innerHTML = '';
   if (events.length === 0){
-    evDiv.innerHTML = '<span style="color:#475569">No notable conjunctions, oppositions or elongations this month.</span>';
+    evDiv.innerHTML = '<span style="color:#475569">No notable events this month.</span>';
   } else {
     events.forEach(e => {
       const span = document.createElement('span');
@@ -687,7 +497,6 @@ function render(){
     });
   }
 
-  // Tooltip handlers
   const tip = document.getElementById('tooltip');
   document.querySelectorAll('.cell').forEach(cell => {
     cell.addEventListener('mouseenter', () => {
@@ -697,7 +506,7 @@ function render(){
       document.getElementById('tip-planet').textContent = info.planet;
       document.getElementById('tip-date').textContent = info.date;
       document.getElementById('tip-track').textContent = info.track + ' sky';
-      const altTxt = info.track === 'Evening'
+      const altTxt = info.track === 'evening'
         ? (info.altEve !== null ? `alt ${info.altEve.toFixed(0)}°` : '—')
         : (info.altMor !== null ? `alt ${info.altMor.toFixed(0)}°` : '—');
       const magTxt = (info.mag !== null && Math.abs(info.mag) < 50) ? `mag ${info.mag.toFixed(1)}` : '';
@@ -706,12 +515,9 @@ function render(){
         `${info.level}${magTxt ? ' · ' + magTxt : ''} · ${altTxt}${elongTxt ? ' · ' + elongTxt : ''}${info.event ? ' · ' + info.event : ''}`;
       tip.style.display = 'block';
     });
-    cell.addEventListener('mouseleave', () => {
-      tip.style.display = 'none';
-    });
+    cell.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
   });
 }
-
 render();
 </script>
 </body>
