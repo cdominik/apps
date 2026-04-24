@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Particle Levitation Drum</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-select: none; touch-action: none; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #0a0a0c;
+    font-family: 'Courier New', monospace;
+    color: #d0d0d0;
+  }
+  #app {
+    position: relative;
+    width: 100vw; height: 100vh;
+    background: radial-gradient(ellipse at center, #1a1a1f 0%, #08080a 100%);
+  }
+  canvas { display: block; position: absolute; inset: 0; }
+
+  /* Top-right control buttons */
+  .controls {
+    position: absolute;
+    top: 12px; right: 12px;
+    display: flex; gap: 6px;
+    z-index: 20;
+  }
+  button.ctl {
+    padding: 8px 12px;
+    background: linear-gradient(180deg, #2a2a32, #18181e);
+    color: #d0d0d0;
+    border: 1px solid #3a3a44;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    box-shadow: inset 0 1px 0 #4a4a54, 0 2px 4px rgba(0,0,0,0.5);
+  }
+  button.ctl:hover { background: linear-gradient(180deg, #32323a, #20202a); color: #ffcc33; }
+  button.ctl:active { transform: translateY(1px); }
+
+  /* Curved Ω control arrows */
+  .omega-ctl {
+    position: absolute;
+    pointer-events: none;
+    z-index: 9;
+    left: 0; top: 0;
+  }
+  .omega-ctl .btn { pointer-events: auto; cursor: pointer; }
+  .omega-ctl .btn-arrow {
+    stroke: #2a2a32;
+    stroke-width: 1.5;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.7));
+    transition: filter 0.1s;
+  }
+  #btnOmegaPlus  .btn-arrow { fill: url(#gradGreen); }
+  #btnOmegaMinus .btn-arrow { fill: url(#gradRed); }
+  #btnOmegaPlus:hover  .btn-arrow { fill: url(#gradGreenHover); }
+  #btnOmegaMinus:hover .btn-arrow { fill: url(#gradRedHover); }
+  .omega-ctl .btn:active .btn-arrow { filter: drop-shadow(0 1px 1px rgba(0,0,0,0.7)); }
+  .omega-ctl .btn-label {
+    fill: #ffffff;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    font-size: 16px;
+    pointer-events: none;
+    paint-order: stroke;
+    stroke: #000;
+    stroke-width: 3;
+  }
+
+  /* Gauge overlays (sit on top of the canvas-drawn bar) */
+  .gauges {
+    position: absolute;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    padding: 0 20px;
+    box-sizing: border-box;
+    z-index: 10;
+    pointer-events: none;
+  }
+  .gauge {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    min-width: 78px;
+  }
+  .disp {
+    position: relative;
+    width: 78px; height: 36px;
+    border-radius: 4px;
+    padding: 3px;
+    background: linear-gradient(180deg, #d9b76a 0%, #8a6b2e 40%, #5a4418 70%, #8a6b2e 100%);
+    box-shadow: inset 0 1px 0 rgba(255,230,150,0.5), inset 0 -1px 0 rgba(0,0,0,0.6), 0 2px 3px rgba(0,0,0,0.6);
+  }
+  .scr {
+    width: 100%; height: 100%;
+    border-radius: 2px;
+    background: radial-gradient(ellipse at 50% 30%, #143018 0%, #0a1a0e 70%, #050a06 100%);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.9);
+    color: #6fff8a;
+    font-family: 'Courier New', monospace;
+    font-weight: bold; font-size: 16px; letter-spacing: 1px;
+    display: flex; align-items: center; justify-content: center;
+    text-shadow: 0 0 4px rgba(111,255,138,0.6), 0 0 10px rgba(111,255,138,0.25);
+    font-variant-numeric: tabular-nums;
+  }
+  .scr.warn { color: #ff7a5a; text-shadow: 0 0 4px rgba(255,122,90,0.7); background: radial-gradient(ellipse at 50% 30%, #30140a 0%, #1a0a06 70%, #0a0302 100%); }
+  .scr.rot  { color: #5ad0ff; text-shadow: 0 0 4px rgba(90,208,255,0.6); background: radial-gradient(ellipse at 50% 30%, #0a2034 0%, #061020 70%, #02060a 100%); }
+  .scr.gold { color: #ffcc55; text-shadow: 0 0 4px rgba(255,204,85,0.6); background: radial-gradient(ellipse at 50% 30%, #2a1c06 0%, #1a1204 70%, #0a0602 100%); }
+  .lbl {
+    font-family: 'Courier New', monospace;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    color: #d8c18a;
+    text-transform: uppercase;
+    text-shadow: 0 1px 0 #000;
+    white-space: nowrap;
+  }
+  .title-plate {
+    padding: 5px 10px;
+    background: linear-gradient(180deg, #d9b76a, #8a6b2e);
+    border: 1px solid #5a4418;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 10px; font-weight: bold; letter-spacing: 2px;
+    color: #2a1a06;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+    box-shadow: inset 0 1px 0 rgba(255,230,150,0.5), 0 1px 2px rgba(0,0,0,0.6);
+    margin-right: 6px;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="cv"></canvas>
+
+  <svg id="omegaCtl" class="omega-ctl" xmlns="http://www.w3.org/2000/svg"></svg>
+
+  <div class="gauges" id="gauges">
+    <div class="title-plate">LEVITATION&nbsp;LAB&nbsp;· LV.1</div>
+    <div class="gauge"><div class="disp"><div class="scr rot" id="omega">0.000</div></div><div class="lbl">Ω rad/s</div></div>
+    <div class="gauge"><div class="disp"><div class="scr rot" id="period">∞</div></div><div class="lbl">Period s</div></div>
+    <div class="gauge"><div class="disp"><div class="scr" id="floating">0</div></div><div class="lbl">Floating</div></div>
+    <div class="gauge"><div class="disp"><div class="scr warn" id="captured">0</div></div><div class="lbl">Captured</div></div>
+    <div class="gauge"><div class="disp"><div class="scr" id="remaining">3</div></div><div class="lbl">Remaining</div></div>
+    <div class="gauge"><div class="disp"><div class="scr gold">30.0</div></div><div class="lbl">v_t cm/s</div></div>
+  </div>
+
+  <div class="controls">
+    <button class="ctl" id="btnStart">▶ RELEASE</button>
+    <button class="ctl" id="btnReset">↻ RESET</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ===== Physics config (cgs) =====
+  const CFG = {
+    R_DRUM: 100, R_AXIS: 5, DEPTH: 20, PARTICLE_R: 0.5,
+    N_P: 3, V_T: 30, DT_INJECT: 1.0,
+    RELEASE_Y: 80, RELEASE_X_MIN: 0, RELEASE_X_MAX: 50,
+    BRAKE_DAMP: 1.2, SLIP_RATE: 2.8,
+    MAX_DT: 0.033,
+  };
+
+  // ===== Canvas =====
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  let W = 800, H = 600, DPR = 1;
+  let CX = 400, CY = 300, SCALE = 2; // cm -> px
+
+  // ===== Layout geometry for the Ω assembly =====
+  const GEO = {
+    barTop: 0, barBot: 0, barHalfW: 0,
+    footTopY: 0, footBotY: 0, footTopHalfW: 0, footBotHalfW: 0,
+  };
+
+  function layout() {
+    DPR = Math.max(1, window.devicePixelRatio || 1);
+    W = Math.max(200, window.innerWidth);
+    H = Math.max(200, window.innerHeight);
+    cv.width = W * DPR; cv.height = H * DPR;
+    cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+    const BAND_OUTSIDE = 32;
+    const TOP_MARGIN   = 40;
+    const BOT_MARGIN   = 30;
+    const SIDE_MARGIN  = 90;
+    const FOOT_HEIGHT  = 70;
+    const BAR_HEIGHT   = 96;
+
+    const vBudget = Math.max(140, H - TOP_MARGIN - BOT_MARGIN - FOOT_HEIGHT - BAR_HEIGHT);
+    const hBudget = Math.max(140, W - 2 * SIDE_MARGIN);
+    const outerDia = Math.min(hBudget, vBudget);
+    const rDrumPx = Math.max(40, outerDia * 0.5 - BAND_OUTSIDE);
+    SCALE = Math.max(0.2, rDrumPx / CFG.R_DRUM);
+
+    CX = W * 0.5;
+    const dPx = CFG.R_DRUM * SCALE;
+    CY = TOP_MARGIN + BAND_OUTSIDE + dPx;
+    const bandBot = CY + dPx + BAND_OUTSIDE;
+    const barTop = bandBot + FOOT_HEIGHT;
+    const barBot = barTop + BAR_HEIGHT;
+    const halfW = Math.min(W * 0.44, Math.max(dPx * 1.3, (dPx + BAND_OUTSIDE) * 1.15));
+
+    GEO.barTop = barTop;
+    GEO.barBot = barBot;
+    GEO.barHalfW = halfW;
+    GEO.footTopY = bandBot - 2;
+    GEO.footBotY = barTop + 2;
+    GEO.footTopHalfW = (dPx + BAND_OUTSIDE) * Math.sin(28 * Math.PI / 180);
+    GEO.footBotHalfW = halfW * 0.92;
+
+    // Position HTML gauge overlay on top of the canvas-drawn bar
+    const g = document.getElementById('gauges');
+    if (g) {
+      g.style.left = (CX - halfW) + 'px';
+      g.style.top = barTop + 'px';
+      g.style.width = (2 * halfW) + 'px';
+      g.style.height = BAR_HEIGHT + 'px';
+    }
+
+    // Rebuild curved Ω controls so they track the drum
+    buildOmegaControls();
+  }
+
+  // ===== State =====
+  const state = {
+    running: false, particles: [], toInject: [],
+    t: 0, omega: 0, omegaTarget: 0, drumAngle: 0,
+    pointers: new Map(), holding: false,
+  };
+
+  function initLevel() {
+    state.running = false;
+    state.particles = [];
+    state.toInject = [];
+    state.t = 0;
+    state.omega = 0;
+    state.omegaTarget = 0;
+    state.drumAngle = 0;
+    updateHUD();
+  }
+
+  function scheduleInjections() {
+    state.toInject = [];
+    const N = CFG.N_P;
+    for (let i = 0; i < N; i++) {
+      const t = (N === 1) ? 0 : (i / (N - 1)) * CFG.DT_INJECT;
+      const x = CFG.RELEASE_X_MIN + Math.random() * (CFG.RELEASE_X_MAX - CFG.RELEASE_X_MIN);
+      state.toInject.push({ t, x });
+    }
+    state.toInject.sort((a, b) => a.t - b.t);
+  }
+
+  function startRelease() {
+    const savedOmega = state.omega;
+    const savedTarget = state.omegaTarget;
+    const savedAngle = state.drumAngle;
+    initLevel();
+    state.omega = savedOmega;
+    state.omegaTarget = savedTarget;
+    state.drumAngle = savedAngle;
+    scheduleInjections();
+    state.running = true;
+  }
+
+  // ===== Physics =====
+  function updateDrum(dt) {
+    if (state.holding) {
+      state.omegaTarget *= Math.exp(-CFG.BRAKE_DAMP * dt);
+      state.omega *= Math.exp(-CFG.BRAKE_DAMP * dt);
+    } else {
+      const a = 1 - Math.exp(-CFG.SLIP_RATE * dt);
+      state.omega += (state.omegaTarget - state.omega) * a;
+    }
+    if (Math.abs(state.omega) < 1e-4 && Math.abs(state.omegaTarget) < 1e-4) {
+      state.omega = 0;
+      state.omegaTarget = 0;
+    }
+    state.drumAngle += state.omega * dt;
+  }
+
+  function step(dt) {
+    while (state.toInject.length && state.toInject[0].t <= state.t) {
+      const inj = state.toInject.shift();
+      state.particles.push({
+        x: inj.x, y: CFG.RELEASE_Y,
+        vx: 0, vy: 0, stuck: false, stuckAngle: 0, alive: true,
+      });
+    }
+    const omega = state.omega;
+    for (const p of state.particles) {
+      if (!p.alive) continue;
+      if (p.stuck) {
+        p.stuckAngle += omega * dt;
+        p.x = CFG.R_DRUM * Math.cos(p.stuckAngle);
+        p.y = CFG.R_DRUM * Math.sin(p.stuckAngle);
+        continue;
+      }
+      const vxg = -omega * p.y;
+      const vyg =  omega * p.x;
+      p.vx = vxg;
+      p.vy = vyg - CFG.V_T;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+
+      const Rwall = CFG.R_DRUM - CFG.PARTICLE_R;
+      if (p.x * p.x + p.y * p.y >= Rwall * Rwall) {
+        const ang = Math.atan2(p.y, p.x);
+        p.stuck = true;
+        p.stuckAngle = ang;
+        p.x = Rwall * Math.cos(ang);
+        p.y = Rwall * Math.sin(ang);
+      }
+    }
+    state.t += dt;
+  }
+
+  // ===== Drawing =====
+  function X2px(x) { return CX + x * SCALE; }
+  function Y2px(y) { return CY - y * SCALE; }
+  function pxDist(cm) { return cm * SCALE; }
+
+  function rivet(x, y, r) {
+    const rr = Math.max(0.5, r);
+    const g = ctx.createRadialGradient(x - rr * 0.4, y - rr * 0.4, 0, x, y, rr);
+    g.addColorStop(0, '#9a9aa2');
+    g.addColorStop(0.6, '#3a3a44');
+    g.addColorStop(1, '#101014');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, rr, 0, Math.PI * 2); ctx.fill();
+  }
+
+  function drawLabBackground() {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+    ctx.lineWidth = 1;
+    const gs = 40;
+    for (let x = 0; x < W; x += gs) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    for (let y = 0; y < H; y += gs) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+    ctx.fillStyle = '#1c1c22';
+    ctx.fillRect(0, 0, 50, H);
+    ctx.fillRect(W - 50, 0, 50, H);
+    ctx.fillStyle = '#2a2a32';
+    for (let y = 30; y < H; y += 40) {
+      rivet(15, y, 3);
+      rivet(W - 15, y, 3);
+    }
+    ctx.restore();
+  }
+
+  function drawOmegaFeet() {
+    const yTop = GEO.footTopY;
+    const yBot = GEO.footBotY;
+    if (!isFinite(yTop) || !isFinite(yBot) || yBot <= yTop) return;
+
+    const xTopInner = GEO.footTopHalfW * 0.55;
+    const xTopOuter = GEO.footTopHalfW;
+    const xBotInner = GEO.footBotHalfW * 0.55;
+    const xBotOuter = GEO.footBotHalfW;
+
+    const sg = ctx.createLinearGradient(0, yTop, 0, yBot);
+    sg.addColorStop(0.00, '#6a6a72');
+    sg.addColorStop(0.25, '#4a4a52');
+    sg.addColorStop(0.55, '#2a2a32');
+    sg.addColorStop(1.00, '#1a1a22');
+
+    for (const sign of [-1, +1]) {
+      ctx.beginPath();
+      ctx.moveTo(CX + sign * xTopInner, yTop);
+      ctx.lineTo(CX + sign * xTopOuter, yTop);
+      ctx.lineTo(CX + sign * xBotOuter, yBot);
+      ctx.lineTo(CX + sign * xBotInner, yBot);
+      ctx.closePath();
+      ctx.fillStyle = sg;
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(210,210,220,0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(CX + sign * xTopOuter, yTop);
+      ctx.lineTo(CX + sign * xBotOuter, yBot);
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(CX + sign * xTopInner, yTop);
+      ctx.lineTo(CX + sign * xBotInner, yBot);
+      ctx.stroke();
+
+      const midTop = (xTopInner + xTopOuter) * 0.5;
+      const midBot = (xBotInner + xBotOuter) * 0.5;
+      rivet(CX + sign * midTop, yTop + 6, 3.5);
+      rivet(CX + sign * midBot, yBot - 8, 3.5);
+    }
+  }
+
+  function drawOmegaBar() {
+    const x0 = CX - GEO.barHalfW;
+    const x1 = CX + GEO.barHalfW;
+    const y0 = GEO.barTop;
+    const y1 = GEO.barBot;
+    if (!isFinite(x0) || !isFinite(x1) || !isFinite(y0) || !isFinite(y1) || y1 <= y0 || x1 <= x0) return;
+
+    const g = ctx.createLinearGradient(0, y0, 0, y1);
+    g.addColorStop(0.00, '#6a6a72');
+    g.addColorStop(0.05, '#8a8a92');
+    g.addColorStop(0.20, '#4a4a52');
+    g.addColorStop(0.55, '#2e2e34');
+    g.addColorStop(0.85, '#1a1a22');
+    g.addColorStop(1.00, '#0e0e14');
+    ctx.fillStyle = g;
+    ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x0, y0 + 0.5); ctx.lineTo(x1, y0 + 0.5); ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(0,0,0,0.9)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(x0, y1 - 0.5); ctx.lineTo(x1, y1 - 0.5); ctx.stroke();
+
+    ctx.save();
+    ctx.globalAlpha = 0.08;
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    for (let x = x0; x < x1; x += 2) {
+      ctx.beginPath(); ctx.moveTo(x, y0 + 2); ctx.lineTo(x, y1 - 2); ctx.stroke();
+    }
+    ctx.restore();
+
+    const rivStep = 28;
+    for (let x = x0 + 14; x < x1 - 10; x += rivStep) {
+      rivet(x, y0 + 8, 3);
+      rivet(x, y1 - 8, 3);
+    }
+
+    const capW = 6;
+    const capA = ctx.createLinearGradient(x0, 0, x0 + capW, 0);
+    capA.addColorStop(0, 'rgba(0,0,0,0.55)'); capA.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = capA; ctx.fillRect(x0, y0, capW, y1 - y0);
+    const capB = ctx.createLinearGradient(x1 - capW, 0, x1, 0);
+    capB.addColorStop(0, 'rgba(0,0,0,0)'); capB.addColorStop(1, 'rgba(0,0,0,0.55)');
+    ctx.fillStyle = capB; ctx.fillRect(x1 - capW, y0, capW, y1 - y0);
+  }
+
+  function drawSteelBand() {
+    const rInner = Math.max(1, pxDist(CFG.R_DRUM));
+    const rOuter = rInner + 32;
+
+    // Feet drawn behind the band (so band covers the top of the feet)
+    drawOmegaFeet();
+
+    const g = ctx.createRadialGradient(CX, CY, rInner, CX, CY, rOuter);
+    g.addColorStop(0, '#6a6a72');
+    g.addColorStop(0.4, '#3a3a42');
+    g.addColorStop(0.7, '#55555c');
+    g.addColorStop(1, '#202028');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(CX, CY, rOuter, 0, Math.PI * 2);
+    ctx.arc(CX, CY, rInner, 0, Math.PI * 2, true);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(CX, CY, rInner, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = 'rgba(200,200,210,0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(CX, CY, rOuter - 1, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  function drawBoltRing() {
+    const r = pxDist(CFG.R_DRUM) + 16;
+    const N = 24;
+    for (let i = 0; i < N; i++) {
+      const a = (i / N) * Math.PI * 2;
+      rivet(CX + r * Math.cos(a), CY + r * Math.sin(a), 4);
+    }
+  }
+
+  function drawBackplate() {
+    const r = Math.max(1, pxDist(CFG.R_DRUM));
+    const g = ctx.createRadialGradient(CX, CY, 0, CX, CY, r);
+    g.addColorStop(0, '#0e0e14');
+    g.addColorStop(0.7, '#080810');
+    g.addColorStop(1, '#030306');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(CX, CY, r, 0, Math.PI * 2); ctx.fill();
+
+    // Highlight: a filled grey circle at (x=50, y=0) cm, radius 50 cm.
+    // Lighter than the backplate, darker than the steel band — reads as a visual hint only.
+    const hx = X2px(50);
+    const hy = Y2px(0);
+    const hr = Math.max(1, pxDist(50));
+    ctx.save();
+    ctx.beginPath(); ctx.arc(CX, CY, r, 0, Math.PI * 2); ctx.clip(); // keep it inside the drum
+    ctx.fillStyle = '#22222a';
+    ctx.beginPath(); ctx.arc(hx, hy, hr, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawDrumInterior() {
+    const r = pxDist(CFG.R_DRUM);
+    ctx.save();
+    ctx.translate(CX, CY);
+    ctx.rotate(-state.drumAngle);
+    ctx.strokeStyle = 'rgba(80,80,100,0.18)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * pxDist(8), Math.sin(a) * pxDist(8));
+      ctx.lineTo(Math.cos(a) * r * 0.98, Math.sin(a) * r * 0.98);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(255,204,51,0.18)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(pxDist(8), 0);
+    ctx.lineTo(r * 0.98, 0);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawAxis() {
+    const r = Math.max(3, pxDist(CFG.R_AXIS));
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.beginPath(); ctx.arc(CX, CY + 2, r + 4, 0, Math.PI * 2); ctx.fill();
+    const g = ctx.createRadialGradient(CX - r * 0.4, CY - r * 0.4, 0, CX, CY, r);
+    g.addColorStop(0, '#b8b8c0');
+    g.addColorStop(0.5, '#6a6a72');
+    g.addColorStop(1, '#2a2a32');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(CX, CY, r, 0, Math.PI * 2); ctx.fill();
+    ctx.save();
+    ctx.translate(CX, CY);
+    ctx.rotate(-state.drumAngle);
+    ctx.strokeStyle = 'rgba(20,20,26,0.9)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.7, 0); ctx.lineTo(r * 0.7, 0);
+    ctx.moveTo(0, -r * 0.7); ctx.lineTo(0, r * 0.7);
+    ctx.stroke();
+    ctx.restore();
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 - state.drumAngle;
+      rivet(CX + Math.cos(a) * r * 0.65, CY + Math.sin(a) * r * 0.65, 2);
+    }
+    ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(CX, CY, r, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  function drawParticles() {
+    for (const p of state.particles) {
+      if (!p.alive) continue;
+      const x = X2px(p.x);
+      const y = Y2px(p.y);
+      const rpx = Math.max(2, pxDist(CFG.PARTICLE_R) * 2);
+      const color = p.stuck ? '#ff4040' : '#ffee33';
+      const glow = p.stuck ? 'rgba(255,64,64,0.35)' : 'rgba(255,238,51,0.45)';
+      const glowR = Math.max(rpx + 1, rpx * 3);
+      const g = ctx.createRadialGradient(x, y, 0, x, y, glowR);
+      g.addColorStop(0, glow);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, glowR, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(x, y, rpx, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.beginPath(); ctx.arc(x - rpx * 0.3, y - rpx * 0.3, rpx * 0.35, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  function drawGlare() {
+    const r = pxDist(CFG.R_DRUM);
+    const g = ctx.createLinearGradient(CX - r, CY - r, CX + r, CY + r);
+    g.addColorStop(0, 'rgba(255,255,255,0.05)');
+    g.addColorStop(0.3, 'rgba(255,255,255,0)');
+    g.addColorStop(0.55, 'rgba(255,255,255,0.03)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.save();
+    ctx.beginPath(); ctx.arc(CX, CY, r, 0, Math.PI * 2); ctx.clip();
+    ctx.fillStyle = g;
+    ctx.fillRect(CX - r, CY - r, r * 2, r * 2);
+    ctx.restore();
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    drawLabBackground();
+    drawSteelBand();     // includes Ω feet behind the band
+    drawOmegaBar();      // horizontal bar at the bottom of the Ω
+    drawBackplate();
+    drawDrumInterior();
+    drawAxis();
+    drawParticles();
+    drawGlare();
+    drawBoltRing();
+  }
+
+  // ===== Input =====
+  function getLocalCoords(clientX, clientY) {
+    const rect = cv.getBoundingClientRect();
+    const px = clientX - rect.left;
+    const py = clientY - rect.top;
+    return { x: (px - CX) / SCALE, y: (CY - py) / SCALE, px, py };
+  }
+  function insideDrum(x, y) { return x * x + y * y <= CFG.R_DRUM * CFG.R_DRUM; }
+
+  function onDown(id, clientX, clientY) {
+    const c = getLocalCoords(clientX, clientY);
+    if (!insideDrum(c.x, c.y)) return;
+    state.pointers.set(id, { x: c.x, y: c.y, lastT: performance.now() / 1000 });
+    state.holding = true;
+  }
+  function onMove(id, clientX, clientY) {
+    const p = state.pointers.get(id);
+    if (!p) return;
+    const c = getLocalCoords(clientX, clientY);
+    const now = performance.now() / 1000;
+    const dx = c.x - p.x;
+    const dy = c.y - p.y;
+    const mx = (p.x + c.x) * 0.5;
+    const my = (p.y + c.y) * 0.5;
+    const r = Math.hypot(mx, my);
+    if (r > 5) {
+      const tx = -my / r, ty = mx / r;
+      const tang = dx * tx + dy * ty;
+      const SWIPE_GAIN = 0.004;
+      state.omegaTarget += tang * SWIPE_GAIN / Math.max(0.3, r / CFG.R_DRUM);
+      const OMAX = 2 * Math.PI * 1.5;
+      if (state.omegaTarget > OMAX) state.omegaTarget = OMAX;
+      if (state.omegaTarget < -OMAX) state.omegaTarget = -OMAX;
+    }
+    p.x = c.x; p.y = c.y; p.lastT = now;
+  }
+  function onUp(id) {
+    state.pointers.delete(id);
+    if (state.pointers.size === 0) state.holding = false;
+  }
+
+  cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); onDown(e.pointerId, e.clientX, e.clientY); });
+  cv.addEventListener('pointermove', e => { if (state.pointers.has(e.pointerId)) onMove(e.pointerId, e.clientX, e.clientY); });
+  cv.addEventListener('pointerup', e => onUp(e.pointerId));
+  cv.addEventListener('pointercancel', e => onUp(e.pointerId));
+  cv.addEventListener('pointerleave', e => onUp(e.pointerId));
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+
+  // ===== Ω curved buttons =====
+  const OMEGA_STEP = 2 * Math.PI / 100;
+  const OMAX = 2 * Math.PI * 1.5;
+  function bumpOmega(sign) {
+    state.omegaTarget += sign * OMEGA_STEP;
+    if (state.omegaTarget >  OMAX) state.omegaTarget =  OMAX;
+    if (state.omegaTarget < -OMAX) state.omegaTarget = -OMAX;
+  }
+  function wirePressHold(btn, fn) {
+    let timer = null, iv = null;
+    const start = (e) => {
+      e.preventDefault(); fn();
+      timer = setTimeout(() => { iv = setInterval(fn, 90); }, 350);
+    };
+    const stop = () => {
+      if (timer) { clearTimeout(timer); timer = null; }
+      if (iv) { clearInterval(iv); iv = null; }
+    };
+    btn.addEventListener('pointerdown', start);
+    btn.addEventListener('pointerup', stop);
+    btn.addEventListener('pointerleave', stop);
+    btn.addEventListener('pointercancel', stop);
+  }
+
+  function curvedArrowPath(cx, cy, R, a0, a1, thickness, direction) {
+    const toPt = (ang, r) => [cx + r * Math.cos(ang), cy - r * Math.sin(ang)];
+    const rOut = R + thickness;
+    const rIn = R - thickness;
+    const headSpan = Math.min(0.35, Math.abs(a1 - a0) * 0.35);
+    const aHeadTip = (direction > 0) ? a1 : a0;
+    const aHeadBase = (direction > 0) ? (a1 - Math.sign(a1 - a0) * headSpan) : (a0 + Math.sign(a1 - a0) * headSpan);
+    const aBody0 = (direction > 0) ? a0 : a1;
+    const aBody1 = aHeadBase;
+    const sweepOuter = (aBody1 > aBody0) ? 0 : 1;
+    const sweepInner = 1 - sweepOuter;
+    const [pOut0x, pOut0y] = toPt(aBody0, rOut);
+    const [pOut1x, pOut1y] = toPt(aBody1, rOut);
+    const [pIn1x, pIn1y] = toPt(aBody1, rIn);
+    const [pIn0x, pIn0y] = toPt(aBody0, rIn);
+    const headT = thickness * 1.9;
+    const [tipX, tipY] = toPt(aHeadTip, R);
+    const [baseOutX, baseOutY] = toPt(aHeadBase, R + headT);
+    const [baseInX, baseInY] = toPt(aHeadBase, R - headT);
+
+    let d = `M ${pOut0x.toFixed(2)} ${pOut0y.toFixed(2)} `;
+    d += `A ${rOut} ${rOut} 0 0 ${sweepOuter} ${pOut1x.toFixed(2)} ${pOut1y.toFixed(2)} `;
+    d += `L ${baseOutX.toFixed(2)} ${baseOutY.toFixed(2)} `;
+    d += `L ${tipX.toFixed(2)} ${tipY.toFixed(2)} `;
+    d += `L ${baseInX.toFixed(2)} ${baseInY.toFixed(2)} `;
+    d += `L ${pIn1x.toFixed(2)} ${pIn1y.toFixed(2)} `;
+    d += `A ${rIn} ${rIn} 0 0 ${sweepInner} ${pIn0x.toFixed(2)} ${pIn0y.toFixed(2)} `;
+    d += `Z`;
+    return d;
+  }
+
+  function buildOmegaControls() {
+    const svg = document.getElementById('omegaCtl');
+    if (!svg) return;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.style.width = W + 'px';
+    svg.style.height = H + 'px';
+
+    const drumPx = pxDist(CFG.R_DRUM);
+    const R = drumPx + 60;
+    const thickness = 22;
+    const gap = 12 * Math.PI / 180;
+    const span = 45 * Math.PI / 180;
+    const aPlusStart = Math.PI + gap;
+    const aPlusEnd   = Math.PI + gap + span;
+    const aMinusStart = Math.PI - gap - span;
+    const aMinusEnd   = Math.PI - gap;
+
+    const plusD  = curvedArrowPath(CX, CY, R, aPlusStart, aPlusEnd, thickness, +1);
+    const minusD = curvedArrowPath(CX, CY, R, aMinusEnd, aMinusStart, thickness, +1);
+
+    const labelR = R + thickness + 14;
+    const aPM = (aPlusStart + aPlusEnd) / 2;
+    const aMM = (aMinusStart + aMinusEnd) / 2;
+    const pL = { x: CX + labelR * Math.cos(aPM), y: CY - labelR * Math.sin(aPM) };
+    const mL = { x: CX + labelR * Math.cos(aMM), y: CY - labelR * Math.sin(aMM) };
+
+    svg.innerHTML = `
+      <defs>
+        <linearGradient id="gradRed" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#ff6a5a"/>
+          <stop offset="0.5" stop-color="#d22818"/>
+          <stop offset="1" stop-color="#6a0a0a"/>
+        </linearGradient>
+        <linearGradient id="gradRedHover" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#ff8876"/>
+          <stop offset="0.5" stop-color="#e63a22"/>
+          <stop offset="1" stop-color="#801010"/>
+        </linearGradient>
+        <linearGradient id="gradGreen" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#7ef09a"/>
+          <stop offset="0.5" stop-color="#22a04a"/>
+          <stop offset="1" stop-color="#0a4018"/>
+        </linearGradient>
+        <linearGradient id="gradGreenHover" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#a0ffb8"/>
+          <stop offset="0.5" stop-color="#2cc058"/>
+          <stop offset="1" stop-color="#0e5020"/>
+        </linearGradient>
+      </defs>
+      <g class="btn" id="btnOmegaPlus">
+        <path class="btn-arrow" d="${plusD}"/>
+        <text class="btn-label" x="${pL.x.toFixed(1)}" y="${pL.y.toFixed(1)}" text-anchor="middle" dominant-baseline="middle">+Ω</text>
+      </g>
+      <g class="btn" id="btnOmegaMinus">
+        <path class="btn-arrow" d="${minusD}"/>
+        <text class="btn-label" x="${mL.x.toFixed(1)}" y="${mL.y.toFixed(1)}" text-anchor="middle" dominant-baseline="middle">−Ω</text>
+      </g>
+    `;
+    wirePressHold(document.getElementById('btnOmegaPlus'),  () => bumpOmega(+1));
+    wirePressHold(document.getElementById('btnOmegaMinus'), () => bumpOmega(-1));
+  }
+
+  // ===== HUD =====
+  const elOmega = document.getElementById('omega');
+  const elPeriod = document.getElementById('period');
+  const elFloating = document.getElementById('floating');
+  const elCaptured = document.getElementById('captured');
+  const elRemaining = document.getElementById('remaining');
+
+  function updateHUD() {
+    elOmega.textContent = state.omega.toFixed(3);
+    const T = Math.abs(state.omega) < 1e-3 ? Infinity : (2 * Math.PI / Math.abs(state.omega));
+    elPeriod.textContent = isFinite(T) ? T.toFixed(2) : '∞';
+    let floating = 0, captured = 0;
+    for (const p of state.particles) {
+      if (!p.alive) continue;
+      if (p.stuck) captured++; else floating++;
+    }
+    elFloating.textContent = floating;
+    elCaptured.textContent = captured;
+    elRemaining.textContent = state.toInject.length;
+  }
+
+  // ===== Buttons =====
+  document.getElementById('btnStart').addEventListener('click', startRelease);
+  document.getElementById('btnReset').addEventListener('click', initLevel);
+
+  // ===== Main =====
+  window.addEventListener('resize', layout);
+  layout();
+  initLevel();
+
+  let lastT = performance.now() / 1000;
+  function loop() {
+    const now = performance.now() / 1000;
+    let dt = now - lastT;
+    lastT = now;
+    if (dt > CFG.MAX_DT) dt = CFG.MAX_DT;
+    const sub = Math.max(1, Math.ceil(dt / 0.01));
+    const h = dt / sub;
+    for (let i = 0; i < sub; i++) updateDrum(h);
+    if (state.running) { for (let i = 0; i < sub; i++) step(h); }
+    draw();
+    updateHUD();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
