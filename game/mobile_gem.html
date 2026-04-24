@@ -23,7 +23,7 @@
   .wing {
     position: absolute;
     display: flex; flex-direction: column; align-items: center;
-    justify-content: center;          /* vertically center the control block */
+    justify-content: center;
     padding: 10px 8px; gap: 10px; box-sizing: border-box;
     z-index: 10;
   }
@@ -38,10 +38,7 @@
     padding: 3px;
     border-radius: 3px;
     background: linear-gradient(180deg, #e8c77a 0%, #c9a858 20%, #8a6b2e 60%, #5a4418 100%);
-    box-shadow:
-      inset 0 1px 0 rgba(255,235,170,0.7),
-      inset 0 -1px 0 rgba(0,0,0,0.6),
-      0 2px 3px rgba(0,0,0,0.6);
+    box-shadow: inset 0 1px 0 rgba(255,235,170,0.7), inset 0 -1px 0 rgba(0,0,0,0.6), 0 2px 3px rgba(0,0,0,0.6);
     width: 88px;
     display: flex; align-items: center; justify-content: center;
     cursor: pointer;
@@ -50,105 +47,42 @@
   }
   .wing-logo:hover {
     filter: brightness(1.15);
-    box-shadow:
-      inset 0 1px 0 rgba(255,245,190,0.9),
-      inset 0 -1px 0 rgba(0,0,0,0.6),
-      0 0 8px rgba(255,204,85,0.5),
-      0 2px 3px rgba(0,0,0,0.6);
+    box-shadow: inset 0 1px 0 rgba(255,245,190,0.9), inset 0 -1px 0 rgba(0,0,0,0.6), 0 0 8px rgba(255,204,85,0.5), 0 2px 3px rgba(0,0,0,0.6);
   }
   .wing-logo:active { transform: translateY(1px); }
-  .wing-logo img {
-    display: block;
-    width: 100%;
-    height: auto;
-    max-height: 72px;
-    border-radius: 2px;
-    background: #1a1a22; /* dark backing so a transparent logo still reads */
-  }
+  .wing-logo img { display: block; width: 100%; height: auto; max-height: 72px; border-radius: 2px; background: #1a1a22; }
   .wing-logo img.broken { display: none; }
-  .wing-logo:has(img.broken) { display: none; } /* hide frame entirely if logo missing */
+  .wing-logo:has(img.broken) { display: none; }
 
   /* Manual overlay */
   .manual-overlay {
-    position: absolute;
-    inset: 0;
-    background: rgba(8, 8, 12, 0.75);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 50;
+    position: absolute; inset: 0; background: rgba(8, 8, 12, 0.75);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center; z-index: 50;
   }
   .manual-overlay[hidden] { display: none; }
   .manual-box {
-    position: relative;
-    max-width: 640px;
-    width: calc(100% - 64px);
-    max-height: calc(100% - 64px);
-    overflow-y: auto;
-    padding: 28px 32px;
-    background:
-      linear-gradient(180deg,
-        #3a3a44 0%,
-        #2a2a32 30%,
-        #1e1e26 80%,
-        #12121a 100%);
-    border: 1px solid #5a4418;
-    border-radius: 6px;
-    box-shadow:
-      inset 0 1px 0 rgba(255,235,170,0.25),
-      inset 0 -2px 6px rgba(0,0,0,0.7),
-      0 10px 30px rgba(0,0,0,0.8);
-    color: #d8d0c0;
-    font-family: 'Courier New', monospace;
-    font-size: 12px;
-    line-height: 1.65;
-    letter-spacing: 0.3px;
+    position: relative; max-width: 640px; width: calc(100% - 64px); max-height: calc(100% - 64px);
+    overflow-y: auto; padding: 28px 32px;
+    background: linear-gradient(180deg, #3a3a44 0%, #2a2a32 30%, #1e1e26 80%, #12121a 100%);
+    border: 1px solid #5a4418; border-radius: 6px;
+    box-shadow: inset 0 1px 0 rgba(255,235,170,0.25), inset 0 -2px 6px rgba(0,0,0,0.7), 0 10px 30px rgba(0,0,0,0.8);
+    color: #d8d0c0; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.65; letter-spacing: 0.3px;
   }
-  .manual-box h2 {
-    font-size: 15px;
-    letter-spacing: 3px;
-    color: #ffcc55;
-    text-transform: uppercase;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #5a4418;
-    text-shadow: 0 1px 0 #000;
-  }
-  .manual-box h3 {
-    font-size: 11px;
-    letter-spacing: 2px;
-    color: #d9b76a;
-    text-transform: uppercase;
-    margin: 16px 0 6px;
-    text-shadow: 0 1px 0 #000;
-  }
+  .manual-box h2 { font-size: 15px; letter-spacing: 3px; color: #ffcc55; text-transform: uppercase; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #5a4418; text-shadow: 0 1px 0 #000; }
+  .manual-box h3 { font-size: 11px; letter-spacing: 2px; color: #d9b76a; text-transform: uppercase; margin: 16px 0 6px; text-shadow: 0 1px 0 #000; }
   .manual-box p { margin: 0 0 10px; }
   .manual-box ul { margin: 0 0 8px 18px; }
   .manual-box li { margin-bottom: 5px; }
   .manual-box strong { color: #ffcc55; font-weight: bold; }
   .manual-box em { color: #a0c0ff; font-style: normal; }
-  .manual-box kbd {
-    display: inline-block;
-    padding: 1px 6px;
-    background: linear-gradient(180deg, #4a4a54, #2a2a32);
-    border: 1px solid #1a1a22;
-    border-radius: 3px;
-    color: #ffcc55;
-    font-family: 'Courier New', monospace;
-    font-size: 11px;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 1px 1px rgba(0,0,0,0.6);
-  }
+  .manual-box kbd { display: inline-block; padding: 1px 6px; background: linear-gradient(180deg, #4a4a54, #2a2a32); border: 1px solid #1a1a22; border-radius: 3px; color: #ffcc55; font-family: 'Courier New', monospace; font-size: 11px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 1px 1px rgba(0,0,0,0.6); }
   .manual-footer { color: #888; margin-top: 12px; font-size: 11px; }
   .manual-close {
-    position: absolute;
-    top: 10px; right: 12px;
-    width: 28px; height: 28px;
+    position: absolute; top: 10px; right: 12px; width: 28px; height: 28px;
     border: 1px solid #5a4418; border-radius: 3px;
-    background: linear-gradient(180deg, #d9b76a, #8a6b2e);
-    color: #2a1a06;
-    font-family: 'Courier New', monospace;
-    font-size: 18px; font-weight: bold; line-height: 1;
-    cursor: pointer;
+    background: linear-gradient(180deg, #d9b76a, #8a6b2e); color: #2a1a06;
+    font-family: 'Courier New', monospace; font-size: 18px; font-weight: bold; line-height: 1; cursor: pointer;
     box-shadow: inset 0 1px 0 rgba(255,235,170,0.5), 0 1px 2px rgba(0,0,0,0.6);
   }
   .manual-close:hover { background: linear-gradient(180deg, #e8c77a, #9a7a38); color: #000; }
@@ -164,23 +98,16 @@
   }
   .sel .chev {
     width: 16px; display: flex; align-items: center; justify-content: center;
-    background: linear-gradient(180deg, #c9a85a 0%, #8a6b2e 70%);
-    border-radius: 2px; color: #2a1a06; font-size: 11px; font-weight: bold; cursor: pointer;
-    box-shadow: inset 0 1px 0 rgba(255,230,150,0.5), inset 0 -1px 0 rgba(0,0,0,0.4);
-    user-select: none; -webkit-user-select: none;
+    background: linear-gradient(180deg, #c9a85a 0%, #8a6b2e 70%); border-radius: 2px; color: #2a1a06; font-size: 11px; font-weight: bold; cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(255,230,150,0.5), inset 0 -1px 0 rgba(0,0,0,0.4); user-select: none; -webkit-user-select: none;
   }
   .sel .chev:hover { background: linear-gradient(180deg, #e0c078, #9a7a38); }
   .sel .chev:active { box-shadow: inset 0 2px 3px rgba(0,0,0,0.5); }
   .sel .win {
-    flex: 1; border-radius: 2px;
-    background: radial-gradient(ellipse at 50% 30%, #143018 0%, #0a1a0e 70%, #050a06 100%);
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.9);
-    color: #6fff8a; font-family: 'Courier New', monospace;
-    font-weight: bold; font-size: 14px; letter-spacing: 1px;
-    display: flex; align-items: center; justify-content: center;
-    text-shadow: 0 0 4px rgba(111,255,138,0.6), 0 0 8px rgba(111,255,138,0.25);
-    font-variant-numeric: tabular-nums; cursor: pointer;
-    user-select: none; -webkit-user-select: none;
+    flex: 1; border-radius: 2px; background: radial-gradient(ellipse at 50% 30%, #143018 0%, #0a1a0e 70%, #050a06 100%);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.9); color: #6fff8a; font-family: 'Courier New', monospace;
+    font-weight: bold; font-size: 14px; letter-spacing: 1px; display: flex; align-items: center; justify-content: center;
+    text-shadow: 0 0 4px rgba(111,255,138,0.6), 0 0 8px rgba(111,255,138,0.25); font-variant-numeric: tabular-nums; cursor: pointer;
   }
   .sel .sel-lbl { font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 1.5px; color: #d8c18a; text-transform: uppercase; text-shadow: 0 1px 0 #000; white-space: nowrap; }
 
@@ -202,13 +129,11 @@
     position: absolute; left: 10px; right: 10px; top: 10px; bottom: 10px; border-radius: 4px;
     background: radial-gradient(ellipse at 50% 30%, #2a1810 0%, #180c08 70%, #080404 100%);
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), inset 0 -1px 0 rgba(0,0,0,0.8), inset 0 2px 5px rgba(0,0,0,0.7);
-    display: flex; align-items: center; justify-content: center;
-    transition: transform 0.05s ease-out, box-shadow 0.05s ease-out, background 0.12s ease-out;
+    display: flex; align-items: center; justify-content: center; transition: transform 0.05s ease-out, box-shadow 0.05s ease-out, background 0.12s ease-out;
   }
   .btnind .cap-label {
     font-family: 'Courier New', monospace; font-size: 12px; font-weight: bold; letter-spacing: 1.5px; text-transform: uppercase;
-    color: #ffb070; text-shadow: 0 1px 0 #000, 0 0 4px rgba(255,140,60,0.35);
-    transition: color 0.12s ease-out, text-shadow 0.12s ease-out;
+    color: #ffb070; text-shadow: 0 1px 0 #000, 0 0 4px rgba(255,140,60,0.35); transition: color 0.12s ease-out, text-shadow 0.12s ease-out;
   }
   .btnind:hover .cap { background: radial-gradient(ellipse at 50% 30%, #4a2a1a 0%, #2a140a 70%, #140604 100%); }
   .btnind:hover .cap-label { color: #ffd0a0; text-shadow: 0 1px 0 #000, 0 0 6px rgba(255,180,90,0.6); }
@@ -249,35 +174,53 @@
     width: 100%; height: 100%; border-radius: 2px;
     background: radial-gradient(ellipse at 50% 30%, #143018 0%, #0a1a0e 70%, #050a06 100%);
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.9);
-    color: #6fff8a; font-family: 'Courier New', monospace;
-    font-weight: bold; font-size: 16px; letter-spacing: 1px;
+    color: #6fff8a; font-family: 'Courier New', monospace; font-weight: bold; font-size: 16px; letter-spacing: 1px;
     display: flex; align-items: center; justify-content: center;
-    text-shadow: 0 0 4px rgba(111,255,138,0.6), 0 0 10px rgba(111,255,138,0.25);
-    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 4px rgba(111,255,138,0.6), 0 0 10px rgba(111,255,138,0.25); font-variant-numeric: tabular-nums;
   }
   .scr.warn { color: #ff7a5a; text-shadow: 0 0 4px rgba(255,122,90,0.7); background: radial-gradient(ellipse at 50% 30%, #30140a 0%, #1a0a06 70%, #0a0302 100%); }
   .scr.rot  { color: #5ad0ff; text-shadow: 0 0 4px rgba(90,208,255,0.6); background: radial-gradient(ellipse at 50% 30%, #0a2034 0%, #061020 70%, #02060a 100%); }
   .scr.gold { color: #ffcc55; text-shadow: 0 0 4px rgba(255,204,85,0.6); background: radial-gradient(ellipse at 50% 30%, #2a1c06 0%, #1a1204 70%, #0a0602 100%); }
   .lbl { font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 1.5px; color: #d8c18a; text-transform: uppercase; text-shadow: 0 1px 0 #000; white-space: nowrap; }
   .title-plate {
-    padding: 4px 8px;
-    background: linear-gradient(180deg, #d9b76a, #8a6b2e);
-    border: 1px solid #5a4418; border-radius: 3px;
-    box-shadow: inset 0 1px 0 rgba(255,230,150,0.5), 0 1px 2px rgba(0,0,0,0.6);
-    margin-right: 6px;
-    display: flex; align-items: center; gap: 8px;
-    height: 44px;
+    padding: 4px 8px; background: linear-gradient(180deg, #d9b76a, #8a6b2e);
+    border: 1px solid #5a4418; border-radius: 3px; box-shadow: inset 0 1px 0 rgba(255,230,150,0.5), 0 1px 2px rgba(0,0,0,0.6);
+    margin-right: 6px; display: flex; align-items: center; gap: 8px; height: 44px;
   }
-  .title-plate img {
-    height: 32px; width: auto; display: block;
-    /* If the logo is missing, fall back to the text — img stays invisible but won't break layout */
-    background: transparent;
-  }
+  .title-plate img { height: 32px; width: auto; display: block; background: transparent; }
   .title-plate img.broken { display: none; }
-  .title-plate .title-text {
-    font-family: 'Courier New', monospace; font-size: 10px; font-weight: bold; letter-spacing: 2px;
-    color: #2a1a06; text-shadow: 0 1px 0 rgba(255,255,255,0.3);
-    white-space: nowrap;
+  .title-plate .title-text { font-family: 'Courier New', monospace; font-size: 10px; font-weight: bold; letter-spacing: 2px; color: #2a1a06; text-shadow: 0 1px 0 rgba(255,255,255,0.3); white-space: nowrap; }
+
+  /* ========== MOBILE RESPONSIVE OVERRIDES ========== */
+  @media (max-width: 600px) {
+    .wing { padding: 4px; gap: 6px; }
+    .wing-logo { width: 56px; margin-bottom: 2px; padding: 2px; }
+    .wing-logo img { max-height: 48px; }
+    .sel { width: 56px; gap: 2px; }
+    .sel .sel-body { height: 26px; padding: 2px; border-radius: 3px; }
+    .sel .win { font-size: 11px; letter-spacing: 0px; }
+    .sel .chev { width: 14px; font-size: 10px; }
+    .sel .sel-lbl { font-size: 7px; letter-spacing: 0.5px; }
+
+    .btnind { width: 56px; height: 44px; border-radius: 4px; }
+    .btnind.inject { width: 56px; height: 56px; margin-bottom: 2px; }
+    .btnind .cap { left: 4px; right: 4px; top: 4px; bottom: 4px; border-radius: 3px; }
+    .btnind .cap-label { font-size: 9px; letter-spacing: 0px; }
+    .btnind::before { top: 2px; left: 2px; width: 3px; height: 3px; }
+    .btnind::after { bottom: 2px; right: 2px; width: 3px; height: 3px; }
+
+    .gauges { gap: 4px; padding: 0; width: 100%; justify-content: space-evenly; }
+    .gauge { min-width: 0; flex: 1; max-width: 64px; }
+    .disp { width: 100%; height: 26px; padding: 2px; }
+    .scr { font-size: 11px; letter-spacing: 0; }
+    .lbl { font-size: 7px; letter-spacing: 0; }
+    .title-plate { display: none; }
+
+    .omega-ctl .btn-label { font-size: 16px; stroke-width: 3; }
+
+    .manual-box { width: calc(100% - 24px); padding: 20px 16px; font-size: 11px; }
+    .manual-box h2 { font-size: 13px; }
+    .manual-close { top: 6px; right: 8px; width: 24px; height: 24px; font-size: 16px; }
   }
 </style>
 </head>
@@ -471,14 +414,16 @@
     cv.style.width = W + 'px'; cv.style.height = H + 'px';
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 
-    const BAND_OUTSIDE = 32;
-    const TOP_MARGIN   = 40;   // small gap above the injector bar
-    const BOT_MARGIN   = 30;
-    const FOOT_HEIGHT  = 70;
-    const BAR_HEIGHT   = 96;
-    const WING_WIDTH   = 120;
-    const WING_GAP     = 40;
-    const ARROW_ROOM   = 84;
+    const isMob = W < 600;
+    const BAND_OUTSIDE = isMob ? 16 : 32;
+    let TOP_MARGIN     = isMob ? 20 : 40;
+    const BOT_MARGIN   = isMob ? 10 : 30;
+    let FOOT_HEIGHT    = isMob ? 40 : 70;
+    const BAR_HEIGHT   = isMob ? 60 : 96;
+    const WING_WIDTH   = isMob ? 64 : 120;
+    const WING_GAP     = isMob ? 10 : 40;
+    const ARROW_ROOM   = isMob ? 30 : 84;
+    
     const SIDE_RESERVE = WING_WIDTH + WING_GAP + ARROW_ROOM;
 
     const vBudget = Math.max(140, H - TOP_MARGIN - BOT_MARGIN - FOOT_HEIGHT - BAR_HEIGHT);
@@ -489,11 +434,22 @@
 
     CX = W * 0.5;
     const dPx = CFG.R_DRUM * SCALE;
+
+    // Distribute excess vertical screen space by pushing the bottom bar down
+    // and slightly dropping the drum on tall/narrow screens.
+    const raw_vSpace = H - (TOP_MARGIN + BAND_OUTSIDE*2 + dPx*2 + FOOT_HEIGHT + BAR_HEIGHT + BOT_MARGIN);
+    if (raw_vSpace > 0) {
+      const topStretch = raw_vSpace * (isMob ? 0.3 : 0.2);
+      TOP_MARGIN += topStretch;
+      FOOT_HEIGHT += raw_vSpace - topStretch;
+    }
+
     CY = TOP_MARGIN + BAND_OUTSIDE + dPx;
     const bandBot = CY + dPx + BAND_OUTSIDE;
     const barTop = bandBot + FOOT_HEIGHT;
     const barBot = barTop + BAR_HEIGHT;
-    const halfW = Math.min(W * 0.44, Math.max(dPx * 1.3, (dPx + BAND_OUTSIDE) * 1.15));
+    let halfW = Math.min(W * 0.44, Math.max(dPx * 1.3, (dPx + BAND_OUTSIDE) * 1.15));
+    if (isMob) halfW = Math.max(halfW, W * 0.48);
 
     GEO.barTop = barTop;
     GEO.barBot = barBot;
@@ -505,8 +461,8 @@
     GEO.wingW = WING_WIDTH;
     GEO.wingTop = TOP_MARGIN;
     GEO.wingBot = barBot;
-    GEO.wingLeftX = 20;
-    GEO.wingRightX = W - 20 - WING_WIDTH;
+    GEO.wingLeftX = isMob ? 4 : 20;
+    GEO.wingRightX = W - (isMob ? 4 : 20) - WING_WIDTH;
 
     const g = document.getElementById('gauges');
     if (g) {
@@ -930,8 +886,8 @@
       const age = state.t - pf.bornAt;
       if (age < 0 || age > pf.life) continue;
       const u = age / pf.life;                     // 0 → 1
-      const rise = u * 18;                          // px upward drift
-      const r0 = 4 + u * 18;                        // px radius
+      const rise = u * 18;                         // px upward drift
+      const r0 = 4 + u * 18;                       // px radius
       const cy = pf.y + 2 - rise;
       const alpha = (1 - u) * 0.55;
       // Main puff: soft white/grey with warm highlight
@@ -979,7 +935,7 @@
     for (const sign of [-1, +1]) {
       ctx.beginPath();
       ctx.moveTo(CX + sign * xTopInner, yTop);
-      ctx.lineTo(CX + sign * xTopOuter, yTop);
+      ctx.lineTo(CX + sign * sign * xTopOuter, yTop);
       ctx.lineTo(CX + sign * xBotOuter, yBot);
       ctx.lineTo(CX + sign * xBotInner, yBot);
       ctx.closePath();
@@ -1398,8 +1354,9 @@
     svg.style.width = W + 'px';
     svg.style.height = H + 'px';
     const drumPx = pxDist(CFG.R_DRUM);
-    const R = drumPx + 60;
-    const thickness = 22;
+    const isMob = window.innerWidth < 600;
+    const R = drumPx + (isMob ? 40 : 60);
+    const thickness = isMob ? 16 : 22;
     const gap = 12 * Math.PI / 180;
     const span = 45 * Math.PI / 180;
     const aPlusStart = Math.PI + gap;

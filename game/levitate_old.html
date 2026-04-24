@@ -6,19 +6,9 @@
 <title>Particle Levitation Drum</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-select: none; touch-action: none; }
-  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-root, #0a0a0c); font-family: 'Courier New', monospace; color: #d0d0d0; }
-  #app { position: relative; width: 100vw; height: 100vh; background: var(--bg-app, radial-gradient(ellipse at center, #1a1a1f 0%, #08080a 100%)); }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0c; font-family: 'Courier New', monospace; color: #d0d0d0; }
+  #app { position: relative; width: 100vw; height: 100vh; background: radial-gradient(ellipse at center, #1a1a1f 0%, #08080a 100%); }
   canvas { display: block; position: absolute; inset: 0; }
-
-  /* Theme tokens — dark is the default. body.theme-light overrides. */
-  :root {
-    --bg-root: #0a0a0c;
-    --bg-app: radial-gradient(ellipse at center, #1a1a1f 0%, #08080a 100%);
-  }
-  body.theme-light {
-    --bg-root: #d8d4c8;
-    --bg-app: radial-gradient(ellipse at center, #e8e4dc 0%, #c8c4b8 100%);
-  }
 
   .wing {
     position: absolute;
@@ -315,7 +305,6 @@
     <button class="btnind" id="btnOmegaCtl"><span class="cap"><span class="cap-label">Ω Ctrl</span></span></button>
     <button class="btnind" id="btnSound"><span class="cap"><span class="cap-label">Sound</span></span></button>
     <button class="btnind" id="btnFlow"><span class="cap"><span class="cap-label">Gas Flow</span></span></button>
-    <button class="btnind" id="btnTheme"><span class="cap"><span class="cap-label">Theme</span></span></button>
     <button class="btnind" id="btnManual"><span class="cap"><span class="cap-label">Manual</span></span></button>
   </div>
 
@@ -335,14 +324,13 @@
         <li><strong>Set up</strong> the run with the left wing:
           number of particles (1–100), settling velocity
           <em>v<sub>t</sub></em>, optional spread of <em>v<sub>t</sub></em> across particles,
-          and the time interval over which particles are injected.
-          Particles with larger <em>v<sub>t</sub></em> appear visibly larger.</li>
+          and the time interval over which particles are injected.</li>
         <li><strong>Inject</strong> particles with the right-wing button.
           You can start rotating the drum <em>before or after</em> injection.</li>
         <li><strong>Rotate the drum</strong> by swiping across it, or by clicking the
           +Ω / −Ω curved arrows on the left side of the drum (enable them with the
           <strong>Ω Ctrl</strong> button first).
-          To slow the drum down, swipe in the opposite direction of its spin.</li>
+          Hold your finger on the drum to brake it.</li>
         <li>Particles that hit the wall become <span style="color:#ff6060">red</span>
           (<strong>LOST</strong>). Particles floating are <span style="color:#ffcc55">yellow</span>.
           A particle that stays in the highlighted region for at least one full rotation
@@ -358,8 +346,6 @@
         <li><strong>Sound</strong> — motor hum (pitch tracks rotation speed),
           a dull plonk when a particle is lost, and a soft chime when one becomes
           levitated.</li>
-        <li><strong>Theme</strong> — switch between dark (night lab) and light
-          (day lab) ambient lighting.</li>
       </ul>
       <p class="manual-footer">Press <kbd>Esc</kbd> or × to close.</p>
     </div>
@@ -387,68 +373,9 @@
     RELEASE_Y: 110, RELEASE_X_MIN: 0, RELEASE_X_MAX: 100,
     BRAKE_DAMP: 1.2, SLIP_RATE: 2.8,
     MAX_DT: 0.033,
-    VT_REF: 30,          // reference v_t for visual size scaling
-    VSIZE_MIN: 0.55,     // clamp on (v_t/VT_REF)^0.5 visual scale
-    VSIZE_MAX: 1.8,
   };
 
   const LASER_OMEGA = 2 * Math.PI / 1.2;
-
-  // ===== Theme palette =====
-  // Canvas colors switch via PAL. CSS chrome switches via body.theme-light.
-  const PAL_DARK = {
-    name: 'dark',
-    labBgSide: '#1c1c22',
-    labRivet: true,          // side beams get rivets in both, style differs
-    gridStroke: 'rgba(255,255,255,0.03)',
-    wingStops: [
-      [0.00, '#1a1a22'],
-      [0.05, '#3a3a42'],
-      [0.20, '#4a4a52'],
-      [0.50, '#2e2e34'],
-      [0.85, '#1a1a22'],
-      [1.00, '#0e0e14'],
-    ],
-    wingTopLine: 'rgba(255,255,255,0.22)',
-    wingBotLine: 'rgba(0,0,0,0.9)',
-    bandInner: '#6a6a72',
-    bandMid1: '#3a3a42',
-    bandMid2: '#55555c',
-    bandOuter: '#202028',
-    bandInnerLine: 'rgba(0,0,0,0.8)',
-    bandOuterLine: 'rgba(200,200,210,0.35)',
-    backplateInner: '#0e0e14',
-    backplateMid:   '#080810',
-    backplateOuter: '#030306',
-    highlightFill:  '#22222a',
-  };
-  const PAL_LIGHT = {
-    name: 'light',
-    labBgSide: '#bab5a8',      // slightly darker than background for side beams
-    labRivet: true,
-    gridStroke: 'rgba(60,50,30,0.05)',
-    wingStops: [
-      [0.00, '#9a968a'],
-      [0.05, '#cfc9bc'],
-      [0.20, '#d8d2c4'],
-      [0.50, '#b0aa9c'],
-      [0.85, '#888274'],
-      [1.00, '#6a6558'],
-    ],
-    wingTopLine: 'rgba(255,255,255,0.55)',
-    wingBotLine: 'rgba(0,0,0,0.35)',
-    bandInner: '#b8b8c0',
-    bandMid1: '#8a8a92',
-    bandMid2: '#a0a0a8',
-    bandOuter: '#5a5a62',
-    bandInnerLine: 'rgba(30,30,40,0.7)',
-    bandOuterLine: 'rgba(255,255,255,0.55)',
-    backplateInner: '#0e0e14', // drum interior stays dark in both themes
-    backplateMid:   '#080810',
-    backplateOuter: '#030306',
-    highlightFill:  '#16161e', // slightly lighter dark than backplate
-  };
-  let PAL = PAL_DARK;
 
   const cv = document.getElementById('cv');
   const ctx = cv.getContext('2d');
@@ -459,8 +386,6 @@
     barTop: 0, barBot: 0, barHalfW: 0,
     footTopY: 0, footBotY: 0, footTopHalfW: 0, footBotHalfW: 0,
     wingW: 120, wingTop: 60, wingBot: 0, wingLeftX: 20, wingRightX: 0,
-    nozzleXs: [],  // screen-space nozzle tip x positions (for puffs)
-    nozzleTipY: 0,
   };
 
   function layout() {
@@ -532,7 +457,6 @@
     laserAngle: 0, laserOn: false,
     gasFlowOn: true,
     pointers: new Map(), holding: false,
-    puffs: [],            // steam vent puffs at nozzles
   };
 
   function initLevel() {
@@ -543,7 +467,6 @@
     state.omega = 0;
     state.omegaTarget = 0;
     state.drumAngle = 0;
-    state.puffs = [];
     updateHUD();
   }
 
@@ -568,20 +491,6 @@
       state.toInject.push({ t, x, vt });
     }
     state.toInject.sort((a, b) => a.t - b.t);
-  }
-
-  function spawnPuffAtNozzle(particleX_cm) {
-    // Find nearest nozzle to the cm-space release x of the particle.
-    if (!GEO.nozzleXs.length) return;
-    const particleX_px = X2px(particleX_cm);
-    let bestIdx = 0, bestD = Infinity;
-    for (let i = 0; i < GEO.nozzleXs.length; i++) {
-      const d = Math.abs(GEO.nozzleXs[i] - particleX_px);
-      if (d < bestD) { bestD = d; bestIdx = i; }
-    }
-    const x = GEO.nozzleXs[bestIdx];
-    const y = GEO.nozzleTipY;
-    state.puffs.push({ x, y, bornAt: state.t, life: 0.42 });
   }
 
   function startRelease() {
@@ -618,7 +527,6 @@
         inHighlightSince: null, flashEndsAt: -1, insideOnce: false,
         vt: inj.vt, trail: [], trailTick: 0,
       });
-      spawnPuffAtNozzle(inj.x);
     }
     const omega = state.omega;
     const HX = 50, HY = 0, HR2 = 50 * 50;
@@ -692,12 +600,6 @@
         if (p.trail.length) p.trail.length = 0;
       }
     }
-
-    // Expire old puffs
-    if (state.puffs.length) {
-      state.puffs = state.puffs.filter(pf => (state.t - pf.bornAt) < pf.life);
-    }
-
     state.t += dt;
   }
 
@@ -717,14 +619,6 @@
   function Y2px(y) { return CY - y * SCALE; }
   function pxDist(cm) { return cm * SCALE; }
 
-  function visualSizeFactor(vt) {
-    // Sublinear mapping so visuals feel proportional but never extreme.
-    let s = Math.sqrt(Math.max(0.01, vt) / CFG.VT_REF);
-    if (s < CFG.VSIZE_MIN) s = CFG.VSIZE_MIN;
-    if (s > CFG.VSIZE_MAX) s = CFG.VSIZE_MAX;
-    return s;
-  }
-
   function rivet(x, y, r) {
     const rr = Math.max(0.5, r);
     const g = ctx.createRadialGradient(x - rr * 0.4, y - rr * 0.4, 0, x, y, rr);
@@ -737,12 +631,12 @@
 
   function drawLabBackground() {
     ctx.save();
-    ctx.strokeStyle = PAL.gridStroke;
+    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
     ctx.lineWidth = 1;
     const gs = 40;
     for (let x = 0; x < W; x += gs) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
     for (let y = 0; y < H; y += gs) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
-    ctx.fillStyle = PAL.labBgSide;
+    ctx.fillStyle = '#1c1c22';
     ctx.fillRect(0, 0, 50, H);
     ctx.fillRect(W - 50, 0, 50, H);
     for (let y = 30; y < H; y += 40) {
@@ -755,13 +649,18 @@
   function drawWing(x, y, w, h) {
     if (w <= 0 || h <= 0) return;
     const g = ctx.createLinearGradient(x, 0, x + w, 0);
-    for (const [pos, col] of PAL.wingStops) g.addColorStop(pos, col);
+    g.addColorStop(0.00, '#1a1a22');
+    g.addColorStop(0.05, '#3a3a42');
+    g.addColorStop(0.20, '#4a4a52');
+    g.addColorStop(0.50, '#2e2e34');
+    g.addColorStop(0.85, '#1a1a22');
+    g.addColorStop(1.00, '#0e0e14');
     ctx.fillStyle = g;
     ctx.fillRect(x, y, w, h);
-    ctx.strokeStyle = PAL.wingTopLine;
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)';
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(x, y + 0.5); ctx.lineTo(x + w, y + 0.5); ctx.stroke();
-    ctx.strokeStyle = PAL.wingBotLine;
+    ctx.strokeStyle = 'rgba(0,0,0,0.9)';
     ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(x, y + h - 0.5); ctx.lineTo(x + w, y + h - 0.5); ctx.stroke();
     ctx.save();
@@ -792,12 +691,12 @@
     const yBar = yNozzleTip;
     const x0 = X2px(CFG.RELEASE_X_MIN - 6);
     const x1 = X2px(CFG.RELEASE_X_MAX + 6);
-    if (!isFinite(yBar) || !isFinite(x0) || !isFinite(x1) || x1 <= x0) { GEO.nozzleXs = []; return; }
+    if (!isFinite(yBar) || !isFinite(x0) || !isFinite(x1) || x1 <= x0) return;
 
     const barH = Math.max(8, pxDist(barHeightCm));
     const yTop = yBar - barH;
     const yBot = yBar;
-    if (yBot < 0) { GEO.nozzleXs = []; return; }
+    if (yBot < 0) return;
 
     const capW = Math.max(4, pxDist(3));
 
@@ -830,7 +729,9 @@
       ctx.fillStyle = '#5a4418';
       ctx.fillRect(pipeX0 - 2, pipeY - pipeH * 0.75, 3, pipeH * 1.5);
 
-      // Mounting clamp on the wing
+      // Mounting clamp on the wing: a brass strap that passes OVER the pipe and
+      // is bolted down into the top of the wing with two steel bolts driven
+      // vertically from above.
       const clampX = GEO.wingRightX + 4;
       const clampW = Math.max(12, pxDist(6));
       const clampTopY = pipeY - pipeH * 0.9;
@@ -841,22 +742,28 @@
       cg.addColorStop(1, '#5a4418');
       ctx.fillStyle = cg;
       ctx.fillRect(clampX, clampTopY, clampW, clampBotY - clampTopY);
+      // Dark outline on the clamp's lower edge
       ctx.strokeStyle = 'rgba(0,0,0,0.5)';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(clampX, clampBotY - 0.5); ctx.lineTo(clampX + clampW, clampBotY - 0.5);
       ctx.stroke();
 
+      // Bolts driven vertically downward from the top of the clamp into the wing.
+      // The bolt heads sit on top of the clamp, a little above pipeY, and we
+      // draw a short vertical shaft suggesting they pass into the metal.
       const boltR = Math.max(2.5, pipeH * 0.45);
       const boltL_x = clampX + clampW * 0.25;
       const boltR_x = clampX + clampW * 0.75;
       const boltHeadY = clampTopY - boltR * 0.4;
+      // Short shafts (going down into the clamp)
       ctx.strokeStyle = '#2a1a06';
       ctx.lineWidth = Math.max(1.5, boltR * 0.5);
       ctx.beginPath();
       ctx.moveTo(boltL_x, boltHeadY); ctx.lineTo(boltL_x, clampTopY + 2);
       ctx.moveTo(boltR_x, boltHeadY); ctx.lineTo(boltR_x, clampTopY + 2);
       ctx.stroke();
+      // Bolt heads (hexagon-ish circles)
       rivet(boltL_x, boltHeadY, boltR);
       rivet(boltR_x, boltHeadY, boltR);
     }
@@ -892,10 +799,8 @@
     const nozzleAreaX1 = X2px(CFG.RELEASE_X_MAX - 5);
     const nozzleH = Math.max(3, pxDist(2));
     const nozzleHalfW = Math.max(2, pxDist(1.8));
-    GEO.nozzleXs = [];
     for (let i = 0; i < nozzleCount; i++) {
       const cx = nozzleAreaX0 + (i + 0.5) * (nozzleAreaX1 - nozzleAreaX0) / nozzleCount;
-      GEO.nozzleXs.push(cx);
       const tipHalfW = nozzleHalfW * 0.6;
       const nGrad = ctx.createLinearGradient(0, yBot, 0, yBot + nozzleH);
       nGrad.addColorStop(0, '#8a6b2e');
@@ -920,41 +825,6 @@
       ctx.lineTo(cx - tipHalfW + 0.5, yBot + nozzleH);
       ctx.stroke();
     }
-    GEO.nozzleTipY = yBot + nozzleH - 1;
-  }
-
-  function drawPuffs() {
-    if (!state.puffs.length) return;
-    ctx.save();
-    for (const pf of state.puffs) {
-      const age = state.t - pf.bornAt;
-      if (age < 0 || age > pf.life) continue;
-      const u = age / pf.life;                     // 0 → 1
-      const rise = u * 18;                          // px upward drift
-      const r0 = 4 + u * 18;                        // px radius
-      const cy = pf.y + 2 - rise;
-      const alpha = (1 - u) * 0.55;
-      // Main puff: soft white/grey with warm highlight
-      const g = ctx.createRadialGradient(pf.x, cy, 0, pf.x, cy, r0);
-      g.addColorStop(0.00, `rgba(255, 245, 225, ${alpha})`);
-      g.addColorStop(0.35, `rgba(230, 225, 215, ${alpha * 0.6})`);
-      g.addColorStop(1.00, 'rgba(200, 200, 200, 0)');
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(pf.x, cy, r0, 0, Math.PI * 2); ctx.fill();
-      // Small secondary lobes for a gas-jet look
-      const lobeR = r0 * 0.55;
-      const g2 = ctx.createRadialGradient(pf.x - r0 * 0.3, cy + 2, 0, pf.x - r0 * 0.3, cy + 2, lobeR);
-      g2.addColorStop(0, `rgba(240, 235, 225, ${alpha * 0.5})`);
-      g2.addColorStop(1, 'rgba(200, 200, 200, 0)');
-      ctx.fillStyle = g2;
-      ctx.beginPath(); ctx.arc(pf.x - r0 * 0.3, cy + 2, lobeR, 0, Math.PI * 2); ctx.fill();
-      const g3 = ctx.createRadialGradient(pf.x + r0 * 0.35, cy + 1, 0, pf.x + r0 * 0.35, cy + 1, lobeR * 0.9);
-      g3.addColorStop(0, `rgba(240, 235, 225, ${alpha * 0.45})`);
-      g3.addColorStop(1, 'rgba(200, 200, 200, 0)');
-      ctx.fillStyle = g3;
-      ctx.beginPath(); ctx.arc(pf.x + r0 * 0.35, cy + 1, lobeR * 0.9, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.restore();
   }
 
   function drawOmegaFeet() {
@@ -965,17 +835,10 @@
     const xBotInner = GEO.footBotHalfW * 0.55;
     const xBotOuter = GEO.footBotHalfW;
     const sg = ctx.createLinearGradient(0, yTop, 0, yBot);
-    if (PAL.name === 'light') {
-      sg.addColorStop(0.00, '#d0ccbc');
-      sg.addColorStop(0.25, '#b0ac9c');
-      sg.addColorStop(0.55, '#8a8678');
-      sg.addColorStop(1.00, '#6a6658');
-    } else {
-      sg.addColorStop(0.00, '#6a6a72');
-      sg.addColorStop(0.25, '#4a4a52');
-      sg.addColorStop(0.55, '#2a2a32');
-      sg.addColorStop(1.00, '#1a1a22');
-    }
+    sg.addColorStop(0.00, '#6a6a72');
+    sg.addColorStop(0.25, '#4a4a52');
+    sg.addColorStop(0.55, '#2a2a32');
+    sg.addColorStop(1.00, '#1a1a22');
     for (const sign of [-1, +1]) {
       ctx.beginPath();
       ctx.moveTo(CX + sign * xTopInner, yTop);
@@ -984,11 +847,9 @@
       ctx.lineTo(CX + sign * xBotInner, yBot);
       ctx.closePath();
       ctx.fillStyle = sg; ctx.fill();
-      ctx.strokeStyle = (PAL.name === 'light') ? 'rgba(255,255,255,0.55)' : 'rgba(210,210,220,0.35)';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(210,210,220,0.35)'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(CX + sign * xTopOuter, yTop); ctx.lineTo(CX + sign * xBotOuter, yBot); ctx.stroke();
-      ctx.strokeStyle = (PAL.name === 'light') ? 'rgba(20,20,30,0.45)' : 'rgba(0,0,0,0.55)';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(CX + sign * xTopInner, yTop); ctx.lineTo(CX + sign * xBotInner, yBot); ctx.stroke();
       const midTop = (xTopInner + xTopOuter) * 0.5;
       const midBot = (xBotInner + xBotOuter) * 0.5;
@@ -1002,27 +863,16 @@
     const y0 = GEO.barTop, y1 = GEO.barBot;
     if (!isFinite(x0) || !isFinite(x1) || !isFinite(y0) || !isFinite(y1) || y1 <= y0 || x1 <= x0) return;
     const g = ctx.createLinearGradient(0, y0, 0, y1);
-    if (PAL.name === 'light') {
-      g.addColorStop(0.00, '#d6d2c2');
-      g.addColorStop(0.05, '#e2dece');
-      g.addColorStop(0.20, '#b4ae9e');
-      g.addColorStop(0.55, '#928c7c');
-      g.addColorStop(0.85, '#6e6858');
-      g.addColorStop(1.00, '#54503f');
-    } else {
-      g.addColorStop(0.00, '#6a6a72');
-      g.addColorStop(0.05, '#8a8a92');
-      g.addColorStop(0.20, '#4a4a52');
-      g.addColorStop(0.55, '#2e2e34');
-      g.addColorStop(0.85, '#1a1a22');
-      g.addColorStop(1.00, '#0e0e14');
-    }
+    g.addColorStop(0.00, '#6a6a72');
+    g.addColorStop(0.05, '#8a8a92');
+    g.addColorStop(0.20, '#4a4a52');
+    g.addColorStop(0.55, '#2e2e34');
+    g.addColorStop(0.85, '#1a1a22');
+    g.addColorStop(1.00, '#0e0e14');
     ctx.fillStyle = g; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
-    ctx.strokeStyle = (PAL.name === 'light') ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.22)';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(x0, y0 + 0.5); ctx.lineTo(x1, y0 + 0.5); ctx.stroke();
-    ctx.strokeStyle = (PAL.name === 'light') ? 'rgba(20,20,30,0.45)' : 'rgba(0,0,0,0.9)';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(0,0,0,0.9)'; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(x0, y1 - 0.5); ctx.lineTo(x1, y1 - 0.5); ctx.stroke();
     ctx.save();
     ctx.globalAlpha = 0.08; ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
@@ -1043,18 +893,18 @@
     const rOuter = rInner + 32;
     drawOmegaFeet();
     const g = ctx.createRadialGradient(CX, CY, rInner, CX, CY, rOuter);
-    g.addColorStop(0, PAL.bandInner);
-    g.addColorStop(0.4, PAL.bandMid1);
-    g.addColorStop(0.7, PAL.bandMid2);
-    g.addColorStop(1, PAL.bandOuter);
+    g.addColorStop(0, '#6a6a72');
+    g.addColorStop(0.4, '#3a3a42');
+    g.addColorStop(0.7, '#55555c');
+    g.addColorStop(1, '#202028');
     ctx.fillStyle = g;
     ctx.beginPath();
     ctx.arc(CX, CY, rOuter, 0, Math.PI * 2);
     ctx.arc(CX, CY, rInner, 0, Math.PI * 2, true);
     ctx.fill();
-    ctx.strokeStyle = PAL.bandInnerLine; ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(CX, CY, rInner, 0, Math.PI * 2); ctx.stroke();
-    ctx.strokeStyle = PAL.bandOuterLine; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(200,200,210,0.35)'; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.arc(CX, CY, rOuter - 1, 0, Math.PI * 2); ctx.stroke();
   }
 
@@ -1070,15 +920,15 @@
   function drawBackplate() {
     const r = Math.max(1, pxDist(CFG.R_DRUM));
     const g = ctx.createRadialGradient(CX, CY, 0, CX, CY, r);
-    g.addColorStop(0, PAL.backplateInner);
-    g.addColorStop(0.7, PAL.backplateMid);
-    g.addColorStop(1, PAL.backplateOuter);
+    g.addColorStop(0, '#0e0e14');
+    g.addColorStop(0.7, '#080810');
+    g.addColorStop(1, '#030306');
     ctx.fillStyle = g;
     ctx.beginPath(); ctx.arc(CX, CY, r, 0, Math.PI * 2); ctx.fill();
     const hx = X2px(50), hy = Y2px(0), hr = Math.max(1, pxDist(50));
     ctx.save();
     ctx.beginPath(); ctx.arc(CX, CY, r, 0, Math.PI * 2); ctx.clip();
-    ctx.fillStyle = PAL.highlightFill;
+    ctx.fillStyle = '#22222a';
     ctx.beginPath(); ctx.arc(hx, hy, hr, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
   }
@@ -1176,8 +1026,7 @@
 
   function drawOneParticle(p) {
     const x = X2px(p.x), y = Y2px(p.y);
-    const sizeFac = visualSizeFactor(p.vt);
-    const rpx = Math.max(2, pxDist(CFG.PARTICLE_R) * 2 * sizeFac);
+    const rpx = Math.max(2, pxDist(CFG.PARTICLE_R) * 2);
 
     const FLASH_DUR = 0.40;
     let flash = 0;
@@ -1285,7 +1134,6 @@
     drawWing(GEO.wingLeftX, GEO.wingTop, GEO.wingW, GEO.wingBot - GEO.wingTop);
     drawWing(GEO.wingRightX, GEO.wingTop, GEO.wingW, GEO.wingBot - GEO.wingTop);
     drawInjector();
-    drawPuffs();
     drawSteelBand();
     drawOmegaBar();
     drawBackplate();
@@ -1504,111 +1352,6 @@
     o1.start(t); o1.stop(t + 0.3);
     n.start(t); n.stop(t + 0.05);
   }
-  // Coffee-mill sound for particle injection. Duration is set at start;
-  // if durationS === 0, a short fixed burst is played.
-  let MILL_HANDLE = null;
-  function soundMillStart(durationS) {
-    if (!AUDIO.ctx) return;
-    // Cancel any previous mill cleanly before starting a new one.
-    if (MILL_HANDLE) { soundMillStop(MILL_HANDLE); MILL_HANDLE = null; }
-    const t0 = AUDIO.ctx.currentTime;
-    const minBurst = 0.18;            // floor so zero-duration injects are still audible
-    const sustain = Math.max(durationS, minBurst);
-    const attack = 0.06;
-    const release = 0.12;
-    const tEnd = t0 + attack + sustain + release;
-
-    // === Blade whine: two detuned square-ish tones ===
-    const blade1 = AUDIO.ctx.createOscillator();
-    const blade2 = AUDIO.ctx.createOscillator();
-    blade1.type = 'square';
-    blade2.type = 'square';
-    const bladeBase = 1800;
-    blade1.frequency.setValueAtTime(bladeBase, t0);
-    blade2.frequency.setValueAtTime(bladeBase * 1.012, t0);
-    // Gentle LFO wobble on both (±2%), via scheduled ramps for determinism
-    const wobSteps = 10;
-    for (let i = 1; i <= wobSteps; i++) {
-      const ti = t0 + (i / wobSteps) * (attack + sustain);
-      const w = 1 + 0.02 * Math.sin(i * 1.7);
-      blade1.frequency.linearRampToValueAtTime(bladeBase * w, ti);
-      blade2.frequency.linearRampToValueAtTime(bladeBase * 1.012 * w, ti);
-    }
-
-    // Low-pass to soften the square buzz into a whine
-    const bladeLP = AUDIO.ctx.createBiquadFilter();
-    bladeLP.type = 'lowpass';
-    bladeLP.frequency.value = 3500;
-    bladeLP.Q.value = 0.7;
-
-    const bladeGain = AUDIO.ctx.createGain();
-    bladeGain.gain.setValueAtTime(0, t0);
-    bladeGain.gain.linearRampToValueAtTime(0.085, t0 + attack);
-    bladeGain.gain.setValueAtTime(0.085, t0 + attack + sustain);
-    bladeGain.gain.exponentialRampToValueAtTime(0.0005, tEnd);
-
-    blade1.connect(bladeLP); blade2.connect(bladeLP);
-    bladeLP.connect(bladeGain); bladeGain.connect(AUDIO.master);
-
-    // === Shearing hiss: bandpassed white noise around 2.5 kHz ===
-    const noiseLen = Math.ceil((attack + sustain + release) * AUDIO.ctx.sampleRate);
-    const nb = AUDIO.ctx.createBuffer(1, Math.max(1, noiseLen), AUDIO.ctx.sampleRate);
-    const nd = nb.getChannelData(0);
-    for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
-    const noise = AUDIO.ctx.createBufferSource(); noise.buffer = nb;
-    const noiseBP = AUDIO.ctx.createBiquadFilter();
-    noiseBP.type = 'bandpass';
-    noiseBP.frequency.value = 2500;
-    noiseBP.Q.value = 1.4;
-    const noiseGain = AUDIO.ctx.createGain();
-    noiseGain.gain.setValueAtTime(0, t0);
-    noiseGain.gain.linearRampToValueAtTime(0.12, t0 + attack);
-    noiseGain.gain.setValueAtTime(0.12, t0 + attack + sustain);
-    noiseGain.gain.exponentialRampToValueAtTime(0.0005, tEnd);
-    noise.connect(noiseBP); noiseBP.connect(noiseGain); noiseGain.connect(AUDIO.master);
-
-    // === Body rumble: very quiet low sine ===
-    const body = AUDIO.ctx.createOscillator();
-    body.type = 'sine';
-    body.frequency.value = 90;
-    const bodyGain = AUDIO.ctx.createGain();
-    bodyGain.gain.setValueAtTime(0, t0);
-    bodyGain.gain.linearRampToValueAtTime(0.035, t0 + attack);
-    bodyGain.gain.setValueAtTime(0.035, t0 + attack + sustain);
-    bodyGain.gain.exponentialRampToValueAtTime(0.0005, tEnd);
-    body.connect(bodyGain); bodyGain.connect(AUDIO.master);
-
-    blade1.start(t0); blade2.start(t0); noise.start(t0); body.start(t0);
-    blade1.stop(tEnd + 0.02);
-    blade2.stop(tEnd + 0.02);
-    noise.stop(tEnd + 0.02);
-    body.stop(tEnd + 0.02);
-
-    MILL_HANDLE = { blade1, blade2, noise, body, bladeGain, noiseGain, bodyGain, tEnd };
-    setTimeout(() => { if (MILL_HANDLE && MILL_HANDLE.tEnd <= AUDIO.ctx.currentTime + 0.01) MILL_HANDLE = null; },
-               (attack + sustain + release) * 1000 + 50);
-  }
-  function soundMillStop(h) {
-    if (!AUDIO.ctx || !h) return;
-    const t = AUDIO.ctx.currentTime;
-    const tail = 0.05;
-    try {
-      h.bladeGain.gain.cancelScheduledValues(t);
-      h.noiseGain.gain.cancelScheduledValues(t);
-      h.bodyGain.gain.cancelScheduledValues(t);
-      h.bladeGain.gain.setValueAtTime(h.bladeGain.gain.value, t);
-      h.noiseGain.gain.setValueAtTime(h.noiseGain.gain.value, t);
-      h.bodyGain.gain.setValueAtTime(h.bodyGain.gain.value, t);
-      h.bladeGain.gain.exponentialRampToValueAtTime(0.0005, t + tail);
-      h.noiseGain.gain.exponentialRampToValueAtTime(0.0005, t + tail);
-      h.bodyGain.gain.exponentialRampToValueAtTime(0.0005, t + tail);
-      h.blade1.stop(t + tail + 0.02);
-      h.blade2.stop(t + tail + 0.02);
-      h.noise.stop(t + tail + 0.02);
-      h.body.stop(t + tail + 0.02);
-    } catch (e) { /* node may already be stopped */ }
-  }
-
   function soundChime() {
     if (!AUDIO.ctx) return;
     const t = AUDIO.ctx.currentTime;
@@ -1704,14 +1447,7 @@
   const btnLaser = document.getElementById('btnLaser');
   const btnOmegaCtl = document.getElementById('btnOmegaCtl');
   const btnSound = document.getElementById('btnSound');
-  btnStart.addEventListener('click', () => {
-    startRelease();
-    btnStart.classList.add('on');
-    // Coffee-mill sound for the duration of the injection window.
-    ensureAudio();
-    const dur = (CFG.N_P <= 1) ? 0 : CFG.DT_INJECT;
-    soundMillStart(dur);
-  });
+  btnStart.addEventListener('click', () => { startRelease(); btnStart.classList.add('on'); });
   btnReset.addEventListener('click', () => {
     initLevel();
     btnStart.classList.remove('on');
@@ -1747,24 +1483,6 @@
     state.gasFlowOn = !state.gasFlowOn;
     btnFlow.classList.toggle('on', state.gasFlowOn);
   });
-
-  // Theme toggle
-  const btnTheme = document.getElementById('btnTheme');
-  function applyTheme(name) {
-    if (name === 'light') {
-      document.body.classList.add('theme-light');
-      PAL = PAL_LIGHT;
-      btnTheme.classList.add('on');
-    } else {
-      document.body.classList.remove('theme-light');
-      PAL = PAL_DARK;
-      btnTheme.classList.remove('on');
-    }
-  }
-  btnTheme.addEventListener('click', () => {
-    applyTheme(PAL.name === 'dark' ? 'light' : 'dark');
-  });
-  // Default stays dark — no call to applyTheme('light').
 
   // Manual overlay
   const btnManual = document.getElementById('btnManual');
