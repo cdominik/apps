@@ -13,68 +13,47 @@
     color: #d0d0d0;
   }
   #app {
-    position: relative;
-    width: 100vw; height: 100vh;
+    position: relative; width: 100vw; height: 100vh;
     background: radial-gradient(ellipse at center, #1a1a1f 0%, #08080a 100%);
   }
   canvas { display: block; position: absolute; inset: 0; }
 
-  /* Top-left settings panel */
   .settings {
-    position: absolute;
-    top: 12px; left: 12px;
+    position: absolute; top: 12px; left: 12px;
     display: flex; flex-direction: column; gap: 6px;
     padding: 10px 12px;
     background: linear-gradient(180deg, rgba(30,30,36,0.85), rgba(20,20,26,0.85));
-    border: 1px solid #3a3a44;
-    border-radius: 4px;
-    box-shadow:
-      inset 0 1px 0 #4a4a54,
-      inset 0 -1px 0 #0a0a0e,
-      0 4px 10px rgba(0,0,0,0.6);
+    border: 1px solid #3a3a44; border-radius: 4px;
+    box-shadow: inset 0 1px 0 #4a4a54, inset 0 -1px 0 #0a0a0e, 0 4px 10px rgba(0,0,0,0.6);
     z-index: 20;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
   }
   .settings .row { display: flex; align-items: center; gap: 8px; }
   .settings label {
     font-family: 'Courier New', monospace;
     font-size: 10px; letter-spacing: 1px;
-    color: #888; text-transform: uppercase;
-    min-width: 64px;
+    color: #888; text-transform: uppercase; min-width: 64px;
   }
   .settings select {
     padding: 4px 6px;
     background: linear-gradient(180deg, #2a2a32, #18181e);
-    color: #d0d0d0;
-    border: 1px solid #3a3a44;
-    border-radius: 3px;
+    color: #d0d0d0; border: 1px solid #3a3a44; border-radius: 3px;
     font-family: 'Courier New', monospace;
-    font-size: 11px;
-    letter-spacing: 0.5px;
-    cursor: pointer;
-    box-shadow: inset 0 1px 0 #4a4a54;
-    min-width: 76px;
+    font-size: 11px; letter-spacing: 0.5px; cursor: pointer;
+    box-shadow: inset 0 1px 0 #4a4a54; min-width: 76px;
   }
   .settings select:hover { color: #ffcc33; border-color: #5a5a64; }
   .settings select:focus { outline: none; border-color: #7fffaa; }
 
   .controls {
-    position: absolute;
-    top: 12px; right: 12px;
-    display: flex; gap: 6px;
-    z-index: 20;
+    position: absolute; top: 12px; right: 12px;
+    display: flex; gap: 6px; z-index: 20;
   }
   button.ctl {
     padding: 8px 12px;
     background: linear-gradient(180deg, #2a2a32, #18181e);
-    color: #d0d0d0;
-    border: 1px solid #3a3a44;
-    border-radius: 4px;
-    font-family: inherit;
-    font-size: 11px;
-    letter-spacing: 1px;
-    cursor: pointer;
+    color: #d0d0d0; border: 1px solid #3a3a44; border-radius: 4px;
+    font-family: inherit; font-size: 11px; letter-spacing: 1px; cursor: pointer;
     box-shadow: inset 0 1px 0 #4a4a54, 0 2px 4px rgba(0,0,0,0.5);
   }
   button.ctl:hover { background: linear-gradient(180deg, #32323a, #20202a); color: #ffcc33; }
@@ -93,24 +72,19 @@
   #btnOmegaMinus:hover .btn-arrow { fill: url(#gradRedHover); }
   .omega-ctl .btn:active .btn-arrow { filter: drop-shadow(0 1px 1px rgba(0,0,0,0.7)); }
   .omega-ctl .btn-label {
-    fill: #ffffff;
-    font-family: 'Courier New', monospace;
-    font-weight: bold; font-size: 16px;
-    pointer-events: none;
+    fill: #ffffff; font-family: 'Courier New', monospace;
+    font-weight: bold; font-size: 16px; pointer-events: none;
     paint-order: stroke; stroke: #000; stroke-width: 3;
   }
 
   .gauges {
-    position: absolute;
-    display: flex; justify-content: center; align-items: center;
+    position: absolute; display: flex; justify-content: center; align-items: center;
     gap: 10px; padding: 0 20px; box-sizing: border-box;
     z-index: 10; pointer-events: none;
   }
   .gauge { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 78px; }
   .disp {
-    position: relative;
-    width: 78px; height: 36px;
-    border-radius: 4px; padding: 3px;
+    position: relative; width: 78px; height: 36px; border-radius: 4px; padding: 3px;
     background: linear-gradient(180deg, #d9b76a 0%, #8a6b2e 40%, #5a4418 70%, #8a6b2e 100%);
     box-shadow: inset 0 1px 0 rgba(255,230,150,0.5), inset 0 -1px 0 rgba(0,0,0,0.6), 0 2px 3px rgba(0,0,0,0.6);
   }
@@ -118,8 +92,7 @@
     width: 100%; height: 100%; border-radius: 2px;
     background: radial-gradient(ellipse at 50% 30%, #143018 0%, #0a1a0e 70%, #050a06 100%);
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.9);
-    color: #6fff8a;
-    font-family: 'Courier New', monospace;
+    color: #6fff8a; font-family: 'Courier New', monospace;
     font-weight: bold; font-size: 16px; letter-spacing: 1px;
     display: flex; align-items: center; justify-content: center;
     text-shadow: 0 0 4px rgba(111,255,138,0.6), 0 0 10px rgba(111,255,138,0.25);
@@ -129,20 +102,15 @@
   .scr.rot  { color: #5ad0ff; text-shadow: 0 0 4px rgba(90,208,255,0.6); background: radial-gradient(ellipse at 50% 30%, #0a2034 0%, #061020 70%, #02060a 100%); }
   .scr.gold { color: #ffcc55; text-shadow: 0 0 4px rgba(255,204,85,0.6); background: radial-gradient(ellipse at 50% 30%, #2a1c06 0%, #1a1204 70%, #0a0602 100%); }
   .lbl {
-    font-family: 'Courier New', monospace;
-    font-size: 9px; letter-spacing: 1.5px;
-    color: #d8c18a; text-transform: uppercase;
-    text-shadow: 0 1px 0 #000; white-space: nowrap;
+    font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 1.5px;
+    color: #d8c18a; text-transform: uppercase; text-shadow: 0 1px 0 #000; white-space: nowrap;
   }
   .title-plate {
     padding: 5px 10px;
     background: linear-gradient(180deg, #d9b76a, #8a6b2e);
-    border: 1px solid #5a4418;
-    border-radius: 3px;
-    font-family: 'Courier New', monospace;
-    font-size: 10px; font-weight: bold; letter-spacing: 2px;
-    color: #2a1a06;
-    text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+    border: 1px solid #5a4418; border-radius: 3px;
+    font-family: 'Courier New', monospace; font-size: 10px; font-weight: bold; letter-spacing: 2px;
+    color: #2a1a06; text-shadow: 0 1px 0 rgba(255,255,255,0.3);
     box-shadow: inset 0 1px 0 rgba(255,230,150,0.5), 0 1px 2px rgba(0,0,0,0.6);
     margin-right: 6px;
   }
@@ -171,6 +139,17 @@
         <option value="10">10</option>
         <option value="30" selected>30</option>
         <option value="50">50</option>
+      </select>
+    </div>
+    <div class="row">
+      <label for="selSpread">v_t spread</label>
+      <select id="selSpread">
+        <option value="0" selected>0 %</option>
+        <option value="0.01">1 %</option>
+        <option value="0.02">2 %</option>
+        <option value="0.05">5 %</option>
+        <option value="0.10">10 %</option>
+        <option value="0.20">20 %</option>
       </select>
     </div>
     <div class="row">
@@ -207,6 +186,7 @@
   const CFG = {
     R_DRUM: 100, R_AXIS: 5, DEPTH: 20, PARTICLE_R: 0.5,
     N_P: 3, V_T: 30, DT_INJECT: 1.0,
+    VT_SPREAD: 0,
     RELEASE_Y: 100, RELEASE_X_MIN: 0, RELEASE_X_MAX: 100,
     BRAKE_DAMP: 1.2, SLIP_RATE: 2.8,
     MAX_DT: 0.033,
@@ -289,13 +269,27 @@
     updateHUD();
   }
 
+  // Box–Muller standard normal
+  function randn() {
+    let u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
   function scheduleInjections() {
     state.toInject = [];
     const N = CFG.N_P;
     for (let i = 0; i < N; i++) {
-      const t = (N === 1) ? 0 : (i / (N - 1)) * CFG.DT_INJECT;
+      const t = (N === 1 || CFG.DT_INJECT === 0) ? 0 : (i / (N - 1)) * CFG.DT_INJECT;
       const x = CFG.RELEASE_X_MIN + Math.random() * (CFG.RELEASE_X_MAX - CFG.RELEASE_X_MIN);
-      state.toInject.push({ t, x });
+      // Assign v_t per particle with optional Gaussian fractional spread.
+      let vt = CFG.V_T;
+      if (CFG.VT_SPREAD > 0) {
+        vt = CFG.V_T * (1 + CFG.VT_SPREAD * randn());
+        if (vt < 0.1) vt = 0.1;
+      }
+      state.toInject.push({ t, x, vt });
     }
     state.toInject.sort((a, b) => a.t - b.t);
   }
@@ -334,6 +328,7 @@
         x: inj.x, y: CFG.RELEASE_Y,
         vx: 0, vy: 0, stuck: false, stuckAngle: 0, alive: true,
         inHighlightSince: null, flashEndsAt: -1, insideOnce: false,
+        vt: inj.vt,
       });
     }
     const omega = state.omega;
@@ -352,7 +347,7 @@
         const vxg = -omega * p.y;
         const vyg =  omega * p.x;
         p.vx = vxg;
-        p.vy = vyg - CFG.V_T;
+        p.vy = vyg - p.vt;
         p.x += p.vx * dt;
         p.y += p.vy * dt;
 
@@ -560,7 +555,7 @@
     ctx.fillStyle = g;
     ctx.beginPath(); ctx.arc(CX, CY, r, 0, Math.PI * 2); ctx.fill();
 
-    // Grey highlight circle around (50,0) cm, radius 50 cm — visual hint, drum-clipped.
+    // Grey highlight circle at (50,0) cm, radius 50 cm, clipped to drum.
     const hx = X2px(50);
     const hy = Y2px(0);
     const hr = Math.max(1, pxDist(50));
@@ -611,15 +606,10 @@
       ctx.shadowBlur = 8;
       ctx.strokeStyle = 'rgba(150, 255, 180, 0.95)';
       ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(innerR, 0);
-      ctx.lineTo(outerR, 0);
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(innerR, 0); ctx.lineTo(outerR, 0); ctx.stroke();
       ctx.shadowBlur = 10;
       ctx.fillStyle = 'rgba(180, 255, 200, 1)';
-      ctx.beginPath();
-      ctx.arc(innerR + 2, 0, 2, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.beginPath(); ctx.arc(innerR + 2, 0, 2, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     }
   }
@@ -653,7 +643,6 @@
     ctx.beginPath(); ctx.arc(CX, CY, r, 0, Math.PI * 2); ctx.stroke();
   }
 
-  // Draw a single particle at its current (x,y) with its flash/stuck state.
   function drawOneParticle(p) {
     const x = X2px(p.x);
     const y = Y2px(p.y);
@@ -667,8 +656,6 @@
       if (flash < 0) flash = 0;
     }
 
-    // Is this particle currently counted as "levitated"? (Inside the highlight region
-    // for at least one full rotation period.)
     const absOm = Math.abs(state.omega);
     const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
     const levitated = !p.stuck && isFinite(T) && p.inHighlightSince !== null
@@ -681,7 +668,6 @@
         ? `rgba(${rgbLerp(0xff, 0x60, flash)}, ${rgbLerp(0x40, 0xff, flash)}, ${rgbLerp(0x40, 0x90, flash)}, ${0.35 + 0.55 * flash})`
         : 'rgba(255,64,64,0.35)';
     } else if (levitated) {
-      // Bright steady green for levitated particles
       coreColor = flash > 0 ? mixHex('#40ff70', '#e6ffea', flash) : '#40ff70';
       glowColor = flash > 0
         ? `rgba(${rgbLerp(0x60, 0xb0, flash)}, 255, ${rgbLerp(0x80, 0xd0, flash)}, ${0.55 + 0.35 * flash})`
@@ -716,14 +702,10 @@
   }
 
   function drawParticles() {
-    // Visible regions: (a) inside the drum interior, (b) outside the steel band.
-    // We split into two passes, each with a simple single-path clip.
     const rInnerPx = pxDist(CFG.R_DRUM) + 2;
-    const rOuterPx = pxDist(CFG.R_DRUM) + 32;
     const R_DRUM_CM = CFG.R_DRUM;
-    const R_BAND_OUT_CM = CFG.R_DRUM + 30 / SCALE; // slightly inside rOuter so particles don't peek in
+    const R_BAND_OUT_CM = CFG.R_DRUM + 30 / SCALE;
 
-    // Pass 1: particles inside the drum — clip to drum interior.
     ctx.save();
     ctx.beginPath();
     ctx.arc(CX, CY, rInnerPx, 0, Math.PI * 2);
@@ -735,7 +717,6 @@
     }
     ctx.restore();
 
-    // Pass 2: particles outside the band — no clip needed (only draw those particles).
     for (const p of state.particles) {
       if (!p.alive) continue;
       if (Math.hypot(p.x, p.y) <= R_BAND_OUT_CM) continue;
@@ -782,9 +763,7 @@
   // ===== Input =====
   function getLocalCoords(clientX, clientY) {
     const rect = cv.getBoundingClientRect();
-    const px = clientX - rect.left;
-    const py = clientY - rect.top;
-    return { x: (px - CX) / SCALE, y: (CY - py) / SCALE, px, py };
+    return { x: (clientX - rect.left - CX) / SCALE, y: (CY - (clientY - rect.top)) / SCALE };
   }
   function insideDrum(x, y) { return x * x + y * y <= CFG.R_DRUM * CFG.R_DRUM; }
 
@@ -940,6 +919,7 @@
   const elFloating = document.getElementById('floating');
   const elCaptured = document.getElementById('captured');
   const elRemaining = document.getElementById('remaining');
+  const elVT = document.getElementById('vt');
 
   function updateHUD() {
     const absOm = Math.abs(state.omega);
@@ -959,7 +939,7 @@
     elRemaining.textContent = levitated;
   }
 
-  // ===== Buttons =====
+  // ===== Buttons & dropdowns =====
   document.getElementById('btnStart').addEventListener('click', startRelease);
   document.getElementById('btnReset').addEventListener('click', initLevel);
   const btnLaser = document.getElementById('btnLaser');
@@ -970,18 +950,17 @@
   });
   btnLaser.style.color = '#888';
 
-  // ===== Settings dropdowns =====
-  const elVT = document.getElementById('vt');
   const selNP = document.getElementById('selNP');
   const selVT = document.getElementById('selVT');
   const selDT = document.getElementById('selDT');
+  const selSpread = document.getElementById('selSpread');
   selNP.addEventListener('change', () => { CFG.N_P = parseInt(selNP.value, 10); });
   selVT.addEventListener('change', () => {
     CFG.V_T = parseFloat(selVT.value);
     elVT.textContent = CFG.V_T.toFixed(1);
   });
   selDT.addEventListener('change', () => { CFG.DT_INJECT = parseFloat(selDT.value); });
-  // Initialize the v_t display to the current value
+  selSpread.addEventListener('change', () => { CFG.VT_SPREAD = parseFloat(selSpread.value); });
   elVT.textContent = CFG.V_T.toFixed(1);
 
   // ===== Main =====
