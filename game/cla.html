@@ -12,10 +12,137 @@
 
   .wing {
     position: absolute;
-    display: flex; flex-direction: column; align-items: stretch;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center;          /* vertically center the control block */
     padding: 10px 8px; gap: 10px; box-sizing: border-box;
     z-index: 10;
   }
+
+  /* INJECT button — square and bigger to stand out from the rest. */
+  .btnind.inject { width: 96px; height: 96px; margin-bottom: 4px; }
+  .btnind.inject .cap-label { font-size: 15px; letter-spacing: 2px; }
+
+  /* Logo frame mounted on the left wing */
+  .wing-logo {
+    margin-bottom: 8px;
+    padding: 3px;
+    border-radius: 3px;
+    background: linear-gradient(180deg, #e8c77a 0%, #c9a858 20%, #8a6b2e 60%, #5a4418 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255,235,170,0.7),
+      inset 0 -1px 0 rgba(0,0,0,0.6),
+      0 2px 3px rgba(0,0,0,0.6);
+    width: 88px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: filter 0.1s, transform 0.05s;
+    text-decoration: none;
+  }
+  .wing-logo:hover {
+    filter: brightness(1.15);
+    box-shadow:
+      inset 0 1px 0 rgba(255,245,190,0.9),
+      inset 0 -1px 0 rgba(0,0,0,0.6),
+      0 0 8px rgba(255,204,85,0.5),
+      0 2px 3px rgba(0,0,0,0.6);
+  }
+  .wing-logo:active { transform: translateY(1px); }
+  .wing-logo img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 72px;
+    border-radius: 2px;
+    background: #1a1a22; /* dark backing so a transparent logo still reads */
+  }
+  .wing-logo img.broken { display: none; }
+  .wing-logo:has(img.broken) { display: none; } /* hide frame entirely if logo missing */
+
+  /* Manual overlay */
+  .manual-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(8, 8, 12, 0.75);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 50;
+  }
+  .manual-overlay[hidden] { display: none; }
+  .manual-box {
+    position: relative;
+    max-width: 640px;
+    width: calc(100% - 64px);
+    max-height: calc(100% - 64px);
+    overflow-y: auto;
+    padding: 28px 32px;
+    background:
+      linear-gradient(180deg,
+        #3a3a44 0%,
+        #2a2a32 30%,
+        #1e1e26 80%,
+        #12121a 100%);
+    border: 1px solid #5a4418;
+    border-radius: 6px;
+    box-shadow:
+      inset 0 1px 0 rgba(255,235,170,0.25),
+      inset 0 -2px 6px rgba(0,0,0,0.7),
+      0 10px 30px rgba(0,0,0,0.8);
+    color: #d8d0c0;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.65;
+    letter-spacing: 0.3px;
+  }
+  .manual-box h2 {
+    font-size: 15px;
+    letter-spacing: 3px;
+    color: #ffcc55;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #5a4418;
+    text-shadow: 0 1px 0 #000;
+  }
+  .manual-box h3 {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #d9b76a;
+    text-transform: uppercase;
+    margin: 16px 0 6px;
+    text-shadow: 0 1px 0 #000;
+  }
+  .manual-box p { margin: 0 0 10px; }
+  .manual-box ul { margin: 0 0 8px 18px; }
+  .manual-box li { margin-bottom: 5px; }
+  .manual-box strong { color: #ffcc55; font-weight: bold; }
+  .manual-box em { color: #a0c0ff; font-style: normal; }
+  .manual-box kbd {
+    display: inline-block;
+    padding: 1px 6px;
+    background: linear-gradient(180deg, #4a4a54, #2a2a32);
+    border: 1px solid #1a1a22;
+    border-radius: 3px;
+    color: #ffcc55;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 1px 1px rgba(0,0,0,0.6);
+  }
+  .manual-footer { color: #888; margin-top: 12px; font-size: 11px; }
+  .manual-close {
+    position: absolute;
+    top: 10px; right: 12px;
+    width: 28px; height: 28px;
+    border: 1px solid #5a4418; border-radius: 3px;
+    background: linear-gradient(180deg, #d9b76a, #8a6b2e);
+    color: #2a1a06;
+    font-family: 'Courier New', monospace;
+    font-size: 18px; font-weight: bold; line-height: 1;
+    cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(255,235,170,0.5), 0 1px 2px rgba(0,0,0,0.6);
+  }
+  .manual-close:hover { background: linear-gradient(180deg, #e8c77a, #9a7a38); color: #000; }
+  .manual-close:active { box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); }
 
   /* Brass selector widget (left wing) */
   .sel { position: relative; width: 96px; display: flex; flex-direction: column; align-items: center; gap: 3px; pointer-events: auto; }
@@ -123,12 +250,24 @@
   .scr.gold { color: #ffcc55; text-shadow: 0 0 4px rgba(255,204,85,0.6); background: radial-gradient(ellipse at 50% 30%, #2a1c06 0%, #1a1204 70%, #0a0602 100%); }
   .lbl { font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 1.5px; color: #d8c18a; text-transform: uppercase; text-shadow: 0 1px 0 #000; white-space: nowrap; }
   .title-plate {
-    padding: 5px 10px; background: linear-gradient(180deg, #d9b76a, #8a6b2e);
+    padding: 4px 8px;
+    background: linear-gradient(180deg, #d9b76a, #8a6b2e);
     border: 1px solid #5a4418; border-radius: 3px;
-    font-family: 'Courier New', monospace; font-size: 10px; font-weight: bold; letter-spacing: 2px;
-    color: #2a1a06; text-shadow: 0 1px 0 rgba(255,255,255,0.3);
     box-shadow: inset 0 1px 0 rgba(255,230,150,0.5), 0 1px 2px rgba(0,0,0,0.6);
     margin-right: 6px;
+    display: flex; align-items: center; gap: 8px;
+    height: 44px;
+  }
+  .title-plate img {
+    height: 32px; width: auto; display: block;
+    /* If the logo is missing, fall back to the text — img stays invisible but won't break layout */
+    background: transparent;
+  }
+  .title-plate img.broken { display: none; }
+  .title-plate .title-text {
+    font-family: 'Courier New', monospace; font-size: 10px; font-weight: bold; letter-spacing: 2px;
+    color: #2a1a06; text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+    white-space: nowrap;
   }
 </style>
 </head>
@@ -138,6 +277,9 @@
   <svg id="omegaCtl" class="omega-ctl" xmlns="http://www.w3.org/2000/svg"></svg>
 
   <div class="wing" id="wingLeft">
+    <a class="wing-logo" href="https://gt4pebbles.github.io/Website/" target="_blank" rel="noopener noreferrer">
+      <img src="logoi.png" alt="logo" onerror="this.classList.add('broken')">
+    </a>
     <div class="sel" data-key="NP">
       <div class="sel-body"><div class="chev" data-dir="-1">◀</div><div class="win" id="winNP">3</div><div class="chev" data-dir="+1">▶</div></div>
       <div class="sel-lbl">Particles</div>
@@ -157,20 +299,66 @@
   </div>
 
   <div class="wing" id="wingRight">
-    <button class="btnind" id="btnStart"><span class="cap"><span class="cap-label">Release</span></span></button>
+    <button class="btnind inject" id="btnStart"><span class="cap"><span class="cap-label">Inject</span></span></button>
     <button class="btnind" id="btnReset"><span class="cap"><span class="cap-label">Reset</span></span></button>
     <button class="btnind" id="btnLaser"><span class="cap"><span class="cap-label">Laser</span></span></button>
     <button class="btnind" id="btnOmegaCtl"><span class="cap"><span class="cap-label">Ω Ctrl</span></span></button>
     <button class="btnind" id="btnSound"><span class="cap"><span class="cap-label">Sound</span></span></button>
+    <button class="btnind" id="btnFlow"><span class="cap"><span class="cap-label">Gas Flow</span></span></button>
+    <button class="btnind" id="btnManual"><span class="cap"><span class="cap-label">Manual</span></span></button>
+  </div>
+
+  <div class="manual-overlay" id="manualOverlay" hidden>
+    <div class="manual-box">
+      <button class="manual-close" id="manualClose" aria-label="Close manual">×</button>
+      <h2>LEVITATION LAB · Manual</h2>
+      <p>
+        The drum is a cylindrical gas chamber viewed head-on. Particles are injected
+        from the brass manifold above the drum and fall through nitrogen gas toward
+        the bottom wall. By rotating the drum, you rotate the gas with it, which
+        drags particles into orbits. The goal is to <em>levitate</em> as many particles
+        as possible in the highlighted region on the right of the drum.
+      </p>
+      <h3>How to play</h3>
+      <ul>
+        <li><strong>Set up</strong> the run with the left wing:
+          number of particles (1–100), settling velocity
+          <em>v<sub>t</sub></em>, optional spread of <em>v<sub>t</sub></em> across particles,
+          and the time interval over which particles are injected.</li>
+        <li><strong>Inject</strong> particles with the right-wing button.
+          You can start rotating the drum <em>before or after</em> injection.</li>
+        <li><strong>Rotate the drum</strong> by swiping across it, or by clicking the
+          +Ω / −Ω curved arrows on the left side of the drum (enable them with the
+          <strong>Ω Ctrl</strong> button first).
+          Hold your finger on the drum to brake it.</li>
+        <li>Particles that hit the wall become <span style="color:#ff6060">red</span>
+          (<strong>LOST</strong>). Particles floating are <span style="color:#ffcc55">yellow</span>.
+          A particle that stays in the highlighted region for at least one full rotation
+          period turns <span style="color:#60ff90">green</span> and counts as
+          <strong>LEVITATED</strong>.</li>
+      </ul>
+      <h3>Optional instruments</h3>
+      <ul>
+        <li><strong>Laser</strong> — a scanning green beam sweeps the drum; particles
+          briefly flash when illuminated.</li>
+        <li><strong>Gas Flow</strong> — shows subtle streamlines of the rotating gas
+          inside the drum.</li>
+        <li><strong>Sound</strong> — motor hum (pitch tracks rotation speed),
+          a dull plonk when a particle is lost, and a soft chime when one becomes
+          levitated.</li>
+      </ul>
+      <p class="manual-footer">Press <kbd>Esc</kbd> or × to close.</p>
+    </div>
   </div>
 
   <div class="gauges" id="gauges">
-    <div class="title-plate">LEVITATION&nbsp;LAB&nbsp;· LV.1</div>
+    <div class="title-plate">
+      <span class="title-text">LEVITATION&nbsp;LAB</span>
+    </div>
     <div class="gauge"><div class="disp"><div class="scr rot" id="period">∞</div></div><div class="lbl">Period s</div></div>
     <div class="gauge"><div class="disp"><div class="scr warn" id="captured">0</div></div><div class="lbl">Lost</div></div>
     <div class="gauge"><div class="disp"><div class="scr gold" id="floating">0</div></div><div class="lbl">Floating</div></div>
     <div class="gauge"><div class="disp"><div class="scr" id="remaining">0</div></div><div class="lbl">Levitated</div></div>
-    <div class="gauge"><div class="disp"><div class="scr gold" id="vt">30.0</div></div><div class="lbl">v_t cm/s</div></div>
   </div>
 </div>
 
@@ -182,7 +370,7 @@
     R_DRUM: 100, R_AXIS: 5, DEPTH: 20, PARTICLE_R: 0.5,
     N_P: 3, V_T: 30, DT_INJECT: 1.0,
     VT_SPREAD: 0,
-    RELEASE_Y: 100, RELEASE_X_MIN: 0, RELEASE_X_MAX: 100,
+    RELEASE_Y: 110, RELEASE_X_MIN: 0, RELEASE_X_MAX: 100,
     BRAKE_DAMP: 1.2, SLIP_RATE: 2.8,
     MAX_DT: 0.033,
   };
@@ -209,7 +397,7 @@
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 
     const BAND_OUTSIDE = 32;
-    const TOP_MARGIN   = 90;   // generous room for the injector manifold + supply pipe
+    const TOP_MARGIN   = 40;   // small gap above the injector bar
     const BOT_MARGIN   = 30;
     const FOOT_HEIGHT  = 70;
     const BAR_HEIGHT   = 96;
@@ -267,6 +455,7 @@
     running: false, particles: [], toInject: [],
     t: 0, omega: 0, omegaTarget: 0, drumAngle: 0,
     laserAngle: 0, laserOn: false,
+    gasFlowOn: true,
     pointers: new Map(), holding: false,
   };
 
@@ -317,13 +506,11 @@
   }
 
   function updateDrum(dt) {
-    if (state.holding) {
-      state.omegaTarget *= Math.exp(-CFG.BRAKE_DAMP * dt);
-      state.omega *= Math.exp(-CFG.BRAKE_DAMP * dt);
-    } else {
-      const a = 1 - Math.exp(-CFG.SLIP_RATE * dt);
-      state.omega += (state.omegaTarget - state.omega) * a;
-    }
+    // Ω tracks its target with slip. No passive decay, no friction — holding a
+    // finger on the drum does nothing by itself; only actual swipe motion
+    // changes omegaTarget.
+    const a = 1 - Math.exp(-CFG.SLIP_RATE * dt);
+    state.omega += (state.omegaTarget - state.omega) * a;
     if (Math.abs(state.omega) < 1e-4 && Math.abs(state.omegaTarget) < 1e-4) {
       state.omega = 0; state.omegaTarget = 0;
     }
@@ -363,10 +550,18 @@
 
         const r2 = p.x * p.x + p.y * p.y;
         const Rwall = CFG.R_DRUM - CFG.PARTICLE_R;
-        const R_ENTRY = CFG.R_DRUM * 0.90;
-        if (!p.insideOnce && r2 < R_ENTRY * R_ENTRY) p.insideOnce = true;
+        // First-entry detection: reaching r <= R_DRUM is enough.
+        const wasInside = p.insideOnce;
+        if (!p.insideOnce && r2 <= CFG.R_DRUM * CFG.R_DRUM) p.insideOnce = true;
 
-        if (p.insideOnce && r2 >= Rwall * Rwall) {
+        // Wall-stick fires only on an inside-to-outside transition, i.e., the
+        // particle was strictly inside the drum on the PREVIOUS step and has
+        // now reached the wall. This way a particle that entered the drum at
+        // the right edge (r ≈ R_DRUM) does not immediately stick — it has to
+        // first be clearly inside (p.prevR2 < Rwall^2) before a wall crossing
+        // counts as a loss.
+        const prevR2 = p.prevR2 === undefined ? (CFG.R_DRUM + 1) * (CFG.R_DRUM + 1) : p.prevR2;
+        if (wasInside && prevR2 < Rwall * Rwall && r2 >= Rwall * Rwall) {
           const ang = Math.atan2(p.y, p.x);
           p.stuck = true;
           p.stuckAngle = ang;
@@ -383,6 +578,8 @@
             p.inHighlightSince = null;
           }
         }
+        // Record current radius² for next step's transition check.
+        p.prevR2 = r2;
 
         if (p.y < -CFG.R_DRUM * 1.5) p.alive = false;
       }
@@ -485,39 +682,90 @@
   }
 
   function drawInjector() {
-    // Brass manifold at y = RELEASE_Y cm, spanning x in [RELEASE_X_MIN..MAX]
-    // with a slight overhang, supply pipe going up, and nozzles pointing down.
-    const yBar = Y2px(CFG.RELEASE_Y);
+    // Brass manifold: its BOTTOM edge (where nozzles are) sits at y = RELEASE_Y
+    // (which is above the drum). Particles spawn at y = RELEASE_Y (the nozzle
+    // tips) so they visually emerge from the manifold. The manifold is fed by
+    // a horizontal brass pipe that runs from its RIGHT end into the right wing.
+    const barHeightCm = 6;
+    const yNozzleTip = Y2px(CFG.RELEASE_Y);
+    const yBar = yNozzleTip;
     const x0 = X2px(CFG.RELEASE_X_MIN - 6);
     const x1 = X2px(CFG.RELEASE_X_MAX + 6);
     if (!isFinite(yBar) || !isFinite(x0) || !isFinite(x1) || x1 <= x0) return;
 
-    const barH = Math.max(8, pxDist(6));
+    const barH = Math.max(8, pxDist(barHeightCm));
     const yTop = yBar - barH;
     const yBot = yBar;
     if (yBot < 0) return;
 
-    // Supply pipe from left end of manifold up to the top of the viewport.
     const capW = Math.max(4, pxDist(3));
-    const pipeX = x0 + capW * 1.6;
-    const pipeW = Math.max(4, pxDist(3));
-    if (yTop > 0) {
-      const pg = ctx.createLinearGradient(pipeX - pipeW/2, 0, pipeX + pipeW/2, 0);
+
+    // Horizontal supply pipe: from the right end of the manifold into the right wing.
+    // Centered vertically on the bar.
+    const pipeY = yTop + barH * 0.5;
+    const pipeH = Math.max(4, pxDist(3));
+    const pipeX0 = x1 - capW * 0.3;                 // start just inside the right cap
+    const pipeX1 = GEO.wingRightX + 28;             // extend well into the wing
+    if (pipeX1 > pipeX0) {
+      // Vertical-gradient pipe body (rounded specular effect)
+      const pg = ctx.createLinearGradient(0, pipeY - pipeH / 2, 0, pipeY + pipeH / 2);
       pg.addColorStop(0, '#8a6b2e');
       pg.addColorStop(0.4, '#d9b76a');
       pg.addColorStop(0.7, '#8a6b2e');
       pg.addColorStop(1, '#5a4418');
       ctx.fillStyle = pg;
-      ctx.fillRect(pipeX - pipeW / 2, 0, pipeW, yTop);
+      ctx.fillRect(pipeX0, pipeY - pipeH / 2, pipeX1 - pipeX0, pipeH);
+      // Thin outlines
+      ctx.strokeStyle = 'rgba(255,235,170,0.45)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(pipeX0, pipeY - pipeH / 2 + 0.5); ctx.lineTo(pipeX1, pipeY - pipeH / 2 + 0.5);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+      ctx.beginPath();
+      ctx.moveTo(pipeX0, pipeY + pipeH / 2 - 0.5); ctx.lineTo(pipeX1, pipeY + pipeH / 2 - 0.5);
+      ctx.stroke();
+      // Collar where the pipe meets the manifold
+      ctx.fillStyle = '#5a4418';
+      ctx.fillRect(pipeX0 - 2, pipeY - pipeH * 0.75, 3, pipeH * 1.5);
+
+      // Mounting clamp on the wing: a brass strap that passes OVER the pipe and
+      // is bolted down into the top of the wing with two steel bolts driven
+      // vertically from above.
+      const clampX = GEO.wingRightX + 4;
+      const clampW = Math.max(12, pxDist(6));
+      const clampTopY = pipeY - pipeH * 0.9;
+      const clampBotY = pipeY + pipeH * 0.9;
+      const cg = ctx.createLinearGradient(0, clampTopY, 0, clampBotY);
+      cg.addColorStop(0, '#e8c77a');
+      cg.addColorStop(0.5, '#8a6b2e');
+      cg.addColorStop(1, '#5a4418');
+      ctx.fillStyle = cg;
+      ctx.fillRect(clampX, clampTopY, clampW, clampBotY - clampTopY);
+      // Dark outline on the clamp's lower edge
       ctx.strokeStyle = 'rgba(0,0,0,0.5)';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(pipeX - pipeW / 2 + 0.5, 0); ctx.lineTo(pipeX - pipeW / 2 + 0.5, yTop);
-      ctx.moveTo(pipeX + pipeW / 2 - 0.5, 0); ctx.lineTo(pipeX + pipeW / 2 - 0.5, yTop);
+      ctx.moveTo(clampX, clampBotY - 0.5); ctx.lineTo(clampX + clampW, clampBotY - 0.5);
       ctx.stroke();
-      // Collar where pipe meets the manifold
-      ctx.fillStyle = '#5a4418';
-      ctx.fillRect(pipeX - pipeW * 0.75, yTop - 2, pipeW * 1.5, 3);
+
+      // Bolts driven vertically downward from the top of the clamp into the wing.
+      // The bolt heads sit on top of the clamp, a little above pipeY, and we
+      // draw a short vertical shaft suggesting they pass into the metal.
+      const boltR = Math.max(2.5, pipeH * 0.45);
+      const boltL_x = clampX + clampW * 0.25;
+      const boltR_x = clampX + clampW * 0.75;
+      const boltHeadY = clampTopY - boltR * 0.4;
+      // Short shafts (going down into the clamp)
+      ctx.strokeStyle = '#2a1a06';
+      ctx.lineWidth = Math.max(1.5, boltR * 0.5);
+      ctx.beginPath();
+      ctx.moveTo(boltL_x, boltHeadY); ctx.lineTo(boltL_x, clampTopY + 2);
+      ctx.moveTo(boltR_x, boltHeadY); ctx.lineTo(boltR_x, clampTopY + 2);
+      ctx.stroke();
+      // Bolt heads (hexagon-ish circles)
+      rivet(boltL_x, boltHeadY, boltR);
+      rivet(boltR_x, boltHeadY, boltR);
     }
 
     // Manifold bar body
@@ -529,7 +777,6 @@
     ctx.fillStyle = gBrass;
     ctx.fillRect(x0, yTop, x1 - x0, yBot - yTop);
 
-    // Top highlight + bottom shadow
     ctx.strokeStyle = 'rgba(255,235,170,0.7)';
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(x0, yTop + 0.5); ctx.lineTo(x1, yTop + 0.5); ctx.stroke();
@@ -537,7 +784,6 @@
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(x0, yBot - 0.5); ctx.lineTo(x1, yBot - 0.5); ctx.stroke();
 
-    // End bevels
     const capA = ctx.createLinearGradient(x0, 0, x0 + capW, 0);
     capA.addColorStop(0, 'rgba(0,0,0,0.45)'); capA.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = capA; ctx.fillRect(x0, yTop, capW, yBot - yTop);
@@ -545,11 +791,9 @@
     capB.addColorStop(0, 'rgba(0,0,0,0)'); capB.addColorStop(1, 'rgba(0,0,0,0.45)');
     ctx.fillStyle = capB; ctx.fillRect(x1 - capW, yTop, capW, yBot - yTop);
 
-    // Steel rivets on the caps
     rivet(x0 + capW * 0.5, yTop + barH * 0.5, Math.max(2, barH * 0.22));
     rivet(x1 - capW * 0.5, yTop + barH * 0.5, Math.max(2, barH * 0.22));
 
-    // Downward nozzles
     const nozzleCount = 6;
     const nozzleAreaX0 = X2px(CFG.RELEASE_X_MIN + 5);
     const nozzleAreaX1 = X2px(CFG.RELEASE_X_MAX - 5);
@@ -690,6 +934,7 @@
   }
 
   function drawGasFlow() {
+    if (!state.gasFlowOn) return;
     const absOm = Math.abs(state.omega);
     if (absOm < 0.02) return;
     const r = pxDist(CFG.R_DRUM);
@@ -1133,7 +1378,7 @@
   const elFloating = document.getElementById('floating');
   const elCaptured = document.getElementById('captured');
   const elRemaining = document.getElementById('remaining');
-  const elVT = document.getElementById('vt');
+  const elVT = null; // v_t gauge removed from the bottom bar
 
   function updateHUD() {
     const absOm = Math.abs(state.omega);
@@ -1160,7 +1405,7 @@
   // ===== Dropdowns =====
   const SETTINGS = {
     NP:     { values: [1, 2, 3, 10, 30, 100], idx: 2, apply: (v) => { CFG.N_P = v; }, label: (v) => String(v) },
-    VT:     { values: [10, 30, 50], idx: 1, apply: (v) => { CFG.V_T = v; elVT.textContent = v.toFixed(1); }, label: (v) => String(v) },
+    VT:     { values: [10, 20, 30, 40, 50], idx: 2, apply: (v) => { CFG.V_T = v; if (elVT) elVT.textContent = v.toFixed(1); }, label: (v) => String(v) },
     SPREAD: { values: [0, 0.01, 0.02, 0.05, 0.10, 0.20], idx: 0, apply: (v) => { CFG.VT_SPREAD = v; }, label: (v) => Math.round(v * 100) + '%' },
     DT:     { values: [0, 0.5, 1, 2], idx: 2, apply: (v) => { CFG.DT_INJECT = v; }, label: (v) => (v + ' s') },
   };
@@ -1229,6 +1474,30 @@
       const t = AUDIO.ctx.currentTime;
       AUDIO.master.gain.setTargetAtTime(AUDIO.enabled ? 0.6 : 0.0, t, 0.05);
     }
+  });
+
+  // Gas flow toggle
+  const btnFlow = document.getElementById('btnFlow');
+  btnFlow.classList.add('on');
+  btnFlow.addEventListener('click', () => {
+    state.gasFlowOn = !state.gasFlowOn;
+    btnFlow.classList.toggle('on', state.gasFlowOn);
+  });
+
+  // Manual overlay
+  const btnManual = document.getElementById('btnManual');
+  const manualOverlay = document.getElementById('manualOverlay');
+  const manualClose = document.getElementById('manualClose');
+  function openManual() { manualOverlay.hidden = false; }
+  function closeManual() { manualOverlay.hidden = true; }
+  btnManual.addEventListener('click', openManual);
+  manualClose.addEventListener('click', closeManual);
+  manualOverlay.addEventListener('click', (e) => {
+    // Click outside the box closes it too
+    if (e.target === manualOverlay) closeManual();
+  });
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !manualOverlay.hidden) closeManual();
   });
 
   // ===== Main =====
