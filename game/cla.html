@@ -19,7 +19,46 @@
   }
   canvas { display: block; position: absolute; inset: 0; }
 
-  /* Top-right control buttons */
+  /* Top-left settings panel */
+  .settings {
+    position: absolute;
+    top: 12px; left: 12px;
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 10px 12px;
+    background: linear-gradient(180deg, rgba(30,30,36,0.85), rgba(20,20,26,0.85));
+    border: 1px solid #3a3a44;
+    border-radius: 4px;
+    box-shadow:
+      inset 0 1px 0 #4a4a54,
+      inset 0 -1px 0 #0a0a0e,
+      0 4px 10px rgba(0,0,0,0.6);
+    z-index: 20;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  .settings .row { display: flex; align-items: center; gap: 8px; }
+  .settings label {
+    font-family: 'Courier New', monospace;
+    font-size: 10px; letter-spacing: 1px;
+    color: #888; text-transform: uppercase;
+    min-width: 64px;
+  }
+  .settings select {
+    padding: 4px 6px;
+    background: linear-gradient(180deg, #2a2a32, #18181e);
+    color: #d0d0d0;
+    border: 1px solid #3a3a44;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    box-shadow: inset 0 1px 0 #4a4a54;
+    min-width: 76px;
+  }
+  .settings select:hover { color: #ffcc33; border-color: #5a5a64; }
+  .settings select:focus { outline: none; border-color: #7fffaa; }
+
   .controls {
     position: absolute;
     top: 12px; right: 12px;
@@ -41,17 +80,10 @@
   button.ctl:hover { background: linear-gradient(180deg, #32323a, #20202a); color: #ffcc33; }
   button.ctl:active { transform: translateY(1px); }
 
-  /* Curved Ω control arrows */
-  .omega-ctl {
-    position: absolute;
-    pointer-events: none;
-    z-index: 9;
-    left: 0; top: 0;
-  }
+  .omega-ctl { position: absolute; pointer-events: none; z-index: 9; left: 0; top: 0; }
   .omega-ctl .btn { pointer-events: auto; cursor: pointer; }
   .omega-ctl .btn-arrow {
-    stroke: #2a2a32;
-    stroke-width: 1.5;
+    stroke: #2a2a32; stroke-width: 1.5;
     filter: drop-shadow(0 2px 3px rgba(0,0,0,0.7));
     transition: filter 0.1s;
   }
@@ -63,41 +95,27 @@
   .omega-ctl .btn-label {
     fill: #ffffff;
     font-family: 'Courier New', monospace;
-    font-weight: bold;
-    font-size: 16px;
+    font-weight: bold; font-size: 16px;
     pointer-events: none;
-    paint-order: stroke;
-    stroke: #000;
-    stroke-width: 3;
+    paint-order: stroke; stroke: #000; stroke-width: 3;
   }
 
-  /* Gauge overlays (sit on top of the canvas-drawn bar) */
   .gauges {
     position: absolute;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 10px;
-    padding: 0 20px;
-    box-sizing: border-box;
-    z-index: 10;
-    pointer-events: none;
+    display: flex; justify-content: center; align-items: center;
+    gap: 10px; padding: 0 20px; box-sizing: border-box;
+    z-index: 10; pointer-events: none;
   }
-  .gauge {
-    display: flex; flex-direction: column; align-items: center; gap: 4px;
-    min-width: 78px;
-  }
+  .gauge { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 78px; }
   .disp {
     position: relative;
     width: 78px; height: 36px;
-    border-radius: 4px;
-    padding: 3px;
+    border-radius: 4px; padding: 3px;
     background: linear-gradient(180deg, #d9b76a 0%, #8a6b2e 40%, #5a4418 70%, #8a6b2e 100%);
     box-shadow: inset 0 1px 0 rgba(255,230,150,0.5), inset 0 -1px 0 rgba(0,0,0,0.6), 0 2px 3px rgba(0,0,0,0.6);
   }
   .scr {
-    width: 100%; height: 100%;
-    border-radius: 2px;
+    width: 100%; height: 100%; border-radius: 2px;
     background: radial-gradient(ellipse at 50% 30%, #143018 0%, #0a1a0e 70%, #050a06 100%);
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.9);
     color: #6fff8a;
@@ -112,12 +130,9 @@
   .scr.gold { color: #ffcc55; text-shadow: 0 0 4px rgba(255,204,85,0.6); background: radial-gradient(ellipse at 50% 30%, #2a1c06 0%, #1a1204 70%, #0a0602 100%); }
   .lbl {
     font-family: 'Courier New', monospace;
-    font-size: 9px;
-    letter-spacing: 1.5px;
-    color: #d8c18a;
-    text-transform: uppercase;
-    text-shadow: 0 1px 0 #000;
-    white-space: nowrap;
+    font-size: 9px; letter-spacing: 1.5px;
+    color: #d8c18a; text-transform: uppercase;
+    text-shadow: 0 1px 0 #000; white-space: nowrap;
   }
   .title-plate {
     padding: 5px 10px;
@@ -136,17 +151,46 @@
 <body>
 <div id="app">
   <canvas id="cv"></canvas>
-
   <svg id="omegaCtl" class="omega-ctl" xmlns="http://www.w3.org/2000/svg"></svg>
+
+  <div class="settings">
+    <div class="row">
+      <label for="selNP">Particles</label>
+      <select id="selNP">
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3" selected>3</option>
+        <option value="10">10</option>
+        <option value="30">30</option>
+        <option value="100">100</option>
+      </select>
+    </div>
+    <div class="row">
+      <label for="selVT">v_t cm/s</label>
+      <select id="selVT">
+        <option value="10">10</option>
+        <option value="30" selected>30</option>
+        <option value="50">50</option>
+      </select>
+    </div>
+    <div class="row">
+      <label for="selDT">Δt inject</label>
+      <select id="selDT">
+        <option value="0">0 s</option>
+        <option value="0.5">0.5 s</option>
+        <option value="1" selected>1 s</option>
+        <option value="2">2 s</option>
+      </select>
+    </div>
+  </div>
 
   <div class="gauges" id="gauges">
     <div class="title-plate">LEVITATION&nbsp;LAB&nbsp;· LV.1</div>
-    <div class="gauge"><div class="disp"><div class="scr rot" id="omega">0.000</div></div><div class="lbl">Ω rad/s</div></div>
     <div class="gauge"><div class="disp"><div class="scr rot" id="period">∞</div></div><div class="lbl">Period s</div></div>
     <div class="gauge"><div class="disp"><div class="scr warn" id="captured">0</div></div><div class="lbl">Lost</div></div>
     <div class="gauge"><div class="disp"><div class="scr gold" id="floating">0</div></div><div class="lbl">Floating</div></div>
     <div class="gauge"><div class="disp"><div class="scr" id="remaining">0</div></div><div class="lbl">Levitated</div></div>
-    <div class="gauge"><div class="disp"><div class="scr gold">30.0</div></div><div class="lbl">v_t cm/s</div></div>
+    <div class="gauge"><div class="disp"><div class="scr gold" id="vt">30.0</div></div><div class="lbl">v_t cm/s</div></div>
   </div>
 
   <div class="controls">
@@ -160,22 +204,21 @@
 (() => {
   'use strict';
 
-  // ===== Physics config (cgs) =====
   const CFG = {
     R_DRUM: 100, R_AXIS: 5, DEPTH: 20, PARTICLE_R: 0.5,
     N_P: 3, V_T: 30, DT_INJECT: 1.0,
-    RELEASE_Y: 80, RELEASE_X_MIN: 0, RELEASE_X_MAX: 50,
+    RELEASE_Y: 100, RELEASE_X_MIN: 0, RELEASE_X_MAX: 100,
     BRAKE_DAMP: 1.2, SLIP_RATE: 2.8,
     MAX_DT: 0.033,
   };
 
-  // ===== Canvas =====
+  const LASER_OMEGA = 2 * Math.PI / 1.2;
+
   const cv = document.getElementById('cv');
   const ctx = cv.getContext('2d');
   let W = 800, H = 600, DPR = 1;
-  let CX = 400, CY = 300, SCALE = 2; // cm -> px
+  let CX = 400, CY = 300, SCALE = 2;
 
-  // ===== Layout geometry for the Ω assembly =====
   const GEO = {
     barTop: 0, barBot: 0, barHalfW: 0,
     footTopY: 0, footBotY: 0, footTopHalfW: 0, footBotHalfW: 0,
@@ -218,7 +261,6 @@
     GEO.footTopHalfW = (dPx + BAND_OUTSIDE) * Math.sin(28 * Math.PI / 180);
     GEO.footBotHalfW = halfW * 0.92;
 
-    // Position HTML gauge overlay on top of the canvas-drawn bar
     const g = document.getElementById('gauges');
     if (g) {
       g.style.left = (CX - halfW) + 'px';
@@ -226,17 +268,13 @@
       g.style.width = (2 * halfW) + 'px';
       g.style.height = BAR_HEIGHT + 'px';
     }
-
-    // Rebuild curved Ω controls so they track the drum
     buildOmegaControls();
   }
 
-  // ===== State =====
   const state = {
     running: false, particles: [], toInject: [],
     t: 0, omega: 0, omegaTarget: 0, drumAngle: 0,
-    laserAngle: 0,
-    laserOn: false,
+    laserAngle: 0, laserOn: false,
     pointers: new Map(), holding: false,
   };
 
@@ -274,10 +312,6 @@
     state.running = true;
   }
 
-  // The laser scanner has its own rotation in the world frame, independent of the drum.
-  // This way it sweeps over particles regardless of whether the drum is spinning.
-  const LASER_OMEGA = 2 * Math.PI / 1.2; // ~0.83 Hz, one sweep per 1.2 s
-  // state.laserAngle tracks the current beam direction in world coords.
   function updateDrum(dt) {
     if (state.holding) {
       state.omegaTarget *= Math.exp(-CFG.BRAKE_DAMP * dt);
@@ -287,11 +321,10 @@
       state.omega += (state.omegaTarget - state.omega) * a;
     }
     if (Math.abs(state.omega) < 1e-4 && Math.abs(state.omegaTarget) < 1e-4) {
-      state.omega = 0;
-      state.omegaTarget = 0;
+      state.omega = 0; state.omegaTarget = 0;
     }
     state.drumAngle += state.omega * dt;
-    state.laserAngle += LASER_OMEGA * dt; // laser scans independently
+    state.laserAngle += LASER_OMEGA * dt;
   }
 
   function step(dt) {
@@ -300,14 +333,11 @@
       state.particles.push({
         x: inj.x, y: CFG.RELEASE_Y,
         vx: 0, vy: 0, stuck: false, stuckAngle: 0, alive: true,
-        inHighlightSince: null,
-        flashEndsAt: -1,
+        inHighlightSince: null, flashEndsAt: -1, insideOnce: false,
       });
     }
     const omega = state.omega;
     const HX = 50, HY = 0, HR2 = 50 * 50;
-
-    // Laser angular sweep this step (already advanced in updateDrum)
     const laser1 = state.laserAngle;
     const laser0 = laser1 - LASER_OMEGA * dt;
 
@@ -326,15 +356,19 @@
         p.x += p.vx * dt;
         p.y += p.vy * dt;
 
+        const r2 = p.x * p.x + p.y * p.y;
         const Rwall = CFG.R_DRUM - CFG.PARTICLE_R;
-        if (p.x * p.x + p.y * p.y >= Rwall * Rwall) {
+        const R_ENTRY = CFG.R_DRUM * 0.90;
+        if (!p.insideOnce && r2 < R_ENTRY * R_ENTRY) p.insideOnce = true;
+
+        if (p.insideOnce && r2 >= Rwall * Rwall) {
           const ang = Math.atan2(p.y, p.x);
           p.stuck = true;
           p.stuckAngle = ang;
           p.x = Rwall * Math.cos(ang);
           p.y = Rwall * Math.sin(ang);
           p.inHighlightSince = null;
-        } else {
+        } else if (p.insideOnce) {
           const dxh = p.x - HX, dyh = p.y - HY;
           const inside = (dxh * dxh + dyh * dyh) <= HR2;
           if (inside) {
@@ -343,14 +377,13 @@
             p.inHighlightSince = null;
           }
         }
+
+        if (p.y < -CFG.R_DRUM * 1.5) p.alive = false;
       }
 
-      // Laser sweep detection — only floating particles flash; stuck ("lost") ones don't.
-      if (state.laserOn && !p.stuck) {
+      if (state.laserOn && !p.stuck && p.insideOnce) {
         const pa = Math.atan2(p.y, p.x);
-        if (angleSwept(laser0, laser1, pa)) {
-          p.flashEndsAt = state.t + 0.40;
-        }
+        if (angleSwept(laser0, laser1, pa)) p.flashEndsAt = state.t + 0.40;
       }
     }
     state.t += dt;
@@ -360,7 +393,6 @@
     let d = a1 - a0;
     if (d === 0) return false;
     if (Math.abs(d) >= 2 * Math.PI) return true;
-    // Shift so a0 is at 0; then normalize t and d into (-π, π] deltas.
     const TAU = 2 * Math.PI;
     const norm = (x) => { let r = x % TAU; if (r > Math.PI) r -= TAU; if (r <= -Math.PI) r += TAU; return r; };
     const dN = norm(d);
@@ -369,7 +401,6 @@
     else        return tN <= 0 && tN >= dN;
   }
 
-  // ===== Drawing =====
   function X2px(x) { return CX + x * SCALE; }
   function Y2px(y) { return CY - y * SCALE; }
   function pxDist(cm) { return cm * SCALE; }
@@ -394,7 +425,6 @@
     ctx.fillStyle = '#1c1c22';
     ctx.fillRect(0, 0, 50, H);
     ctx.fillRect(W - 50, 0, 50, H);
-    ctx.fillStyle = '#2a2a32';
     for (let y = 30; y < H; y += 40) {
       rivet(15, y, 3);
       rivet(W - 15, y, 3);
@@ -406,7 +436,6 @@
     const yTop = GEO.footTopY;
     const yBot = GEO.footBotY;
     if (!isFinite(yTop) || !isFinite(yBot) || yBot <= yTop) return;
-
     const xTopInner = GEO.footTopHalfW * 0.55;
     const xTopOuter = GEO.footTopHalfW;
     const xBotInner = GEO.footBotHalfW * 0.55;
@@ -427,21 +456,18 @@
       ctx.closePath();
       ctx.fillStyle = sg;
       ctx.fill();
-
       ctx.strokeStyle = 'rgba(210,210,220,0.35)';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(CX + sign * xTopOuter, yTop);
       ctx.lineTo(CX + sign * xBotOuter, yBot);
       ctx.stroke();
-
       ctx.strokeStyle = 'rgba(0,0,0,0.55)';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(CX + sign * xTopInner, yTop);
       ctx.lineTo(CX + sign * xBotInner, yBot);
       ctx.stroke();
-
       const midTop = (xTopInner + xTopOuter) * 0.5;
       const midBot = (xBotInner + xBotOuter) * 0.5;
       rivet(CX + sign * midTop, yTop + 6, 3.5);
@@ -469,7 +495,6 @@
     ctx.strokeStyle = 'rgba(255,255,255,0.22)';
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(x0, y0 + 0.5); ctx.lineTo(x1, y0 + 0.5); ctx.stroke();
-
     ctx.strokeStyle = 'rgba(0,0,0,0.9)';
     ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(x0, y1 - 0.5); ctx.lineTo(x1, y1 - 0.5); ctx.stroke();
@@ -478,13 +503,10 @@
     ctx.globalAlpha = 0.08;
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 1;
-    for (let x = x0; x < x1; x += 2) {
-      ctx.beginPath(); ctx.moveTo(x, y0 + 2); ctx.lineTo(x, y1 - 2); ctx.stroke();
-    }
+    for (let x = x0; x < x1; x += 2) { ctx.beginPath(); ctx.moveTo(x, y0 + 2); ctx.lineTo(x, y1 - 2); ctx.stroke(); }
     ctx.restore();
 
-    const rivStep = 28;
-    for (let x = x0 + 14; x < x1 - 10; x += rivStep) {
+    for (let x = x0 + 14; x < x1 - 10; x += 28) {
       rivet(x, y0 + 8, 3);
       rivet(x, y1 - 8, 3);
     }
@@ -501,10 +523,7 @@
   function drawSteelBand() {
     const rInner = Math.max(1, pxDist(CFG.R_DRUM));
     const rOuter = rInner + 32;
-
-    // Feet drawn behind the band (so band covers the top of the feet)
     drawOmegaFeet();
-
     const g = ctx.createRadialGradient(CX, CY, rInner, CX, CY, rOuter);
     g.addColorStop(0, '#6a6a72');
     g.addColorStop(0.4, '#3a3a42');
@@ -527,7 +546,7 @@
     const r = pxDist(CFG.R_DRUM) + 16;
     const N = 24;
     for (let i = 0; i < N; i++) {
-      const a = (i / N) * Math.PI * 2;
+      const a = (i / N) * Math.PI * 2 - state.drumAngle;
       rivet(CX + r * Math.cos(a), CY + r * Math.sin(a), 4);
     }
   }
@@ -541,13 +560,12 @@
     ctx.fillStyle = g;
     ctx.beginPath(); ctx.arc(CX, CY, r, 0, Math.PI * 2); ctx.fill();
 
-    // Highlight: a filled grey circle at (x=50, y=0) cm, radius 50 cm.
-    // Lighter than the backplate, darker than the steel band — reads as a visual hint only.
+    // Grey highlight circle around (50,0) cm, radius 50 cm — visual hint, drum-clipped.
     const hx = X2px(50);
     const hy = Y2px(0);
     const hr = Math.max(1, pxDist(50));
     ctx.save();
-    ctx.beginPath(); ctx.arc(CX, CY, r, 0, Math.PI * 2); ctx.clip(); // keep it inside the drum
+    ctx.beginPath(); ctx.arc(CX, CY, r, 0, Math.PI * 2); ctx.clip();
     ctx.fillStyle = '#22222a';
     ctx.beginPath(); ctx.arc(hx, hy, hr, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
@@ -558,7 +576,6 @@
     ctx.save();
     ctx.translate(CX, CY);
     ctx.rotate(-state.drumAngle);
-    // Faint rotating spokes (12 of them)
     ctx.strokeStyle = 'rgba(80,80,100,0.18)';
     ctx.lineWidth = 1;
     for (let i = 0; i < 12; i++) {
@@ -570,44 +587,40 @@
     }
     ctx.restore();
 
-    // Green scanning laser — its own independent rotation (not tied to drum).
     if (state.laserOn) {
-    ctx.save();
-    ctx.translate(CX, CY);
-    ctx.rotate(-state.laserAngle);
-
-    const fanHalfAngle = 0.025;
-    const innerR = pxDist(8);
-    const outerR = r * 0.99;
-    ctx.beginPath();
-    ctx.moveTo(Math.cos(-fanHalfAngle) * innerR, Math.sin(-fanHalfAngle) * innerR);
-    ctx.arc(0, 0, outerR, -fanHalfAngle, fanHalfAngle, false);
-    ctx.lineTo(Math.cos(fanHalfAngle) * innerR, Math.sin(fanHalfAngle) * innerR);
-    ctx.arc(0, 0, innerR, fanHalfAngle, -fanHalfAngle, true);
-    ctx.closePath();
-    const grad = ctx.createLinearGradient(innerR, 0, outerR, 0);
-    grad.addColorStop(0.0, 'rgba(60, 255, 120, 0.0)');
-    grad.addColorStop(0.1, 'rgba(60, 255, 120, 0.18)');
-    grad.addColorStop(0.7, 'rgba(60, 255, 120, 0.10)');
-    grad.addColorStop(1.0, 'rgba(60, 255, 120, 0.0)');
-    ctx.fillStyle = grad;
-    ctx.fill();
-
-    ctx.shadowColor = 'rgba(60, 255, 120, 0.9)';
-    ctx.shadowBlur = 8;
-    ctx.strokeStyle = 'rgba(150, 255, 180, 0.95)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(innerR, 0);
-    ctx.lineTo(outerR, 0);
-    ctx.stroke();
-
-    ctx.shadowBlur = 10;
-    ctx.fillStyle = 'rgba(180, 255, 200, 1)';
-    ctx.beginPath();
-    ctx.arc(innerR + 2, 0, 2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+      ctx.save();
+      ctx.translate(CX, CY);
+      ctx.rotate(-state.laserAngle);
+      const fanHalfAngle = 0.025;
+      const innerR = pxDist(8);
+      const outerR = r * 0.99;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(-fanHalfAngle) * innerR, Math.sin(-fanHalfAngle) * innerR);
+      ctx.arc(0, 0, outerR, -fanHalfAngle, fanHalfAngle, false);
+      ctx.lineTo(Math.cos(fanHalfAngle) * innerR, Math.sin(fanHalfAngle) * innerR);
+      ctx.arc(0, 0, innerR, fanHalfAngle, -fanHalfAngle, true);
+      ctx.closePath();
+      const grad = ctx.createLinearGradient(innerR, 0, outerR, 0);
+      grad.addColorStop(0.0, 'rgba(60, 255, 120, 0.0)');
+      grad.addColorStop(0.1, 'rgba(60, 255, 120, 0.18)');
+      grad.addColorStop(0.7, 'rgba(60, 255, 120, 0.10)');
+      grad.addColorStop(1.0, 'rgba(60, 255, 120, 0.0)');
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.shadowColor = 'rgba(60, 255, 120, 0.9)';
+      ctx.shadowBlur = 8;
+      ctx.strokeStyle = 'rgba(150, 255, 180, 0.95)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(innerR, 0);
+      ctx.lineTo(outerR, 0);
+      ctx.stroke();
+      ctx.shadowBlur = 10;
+      ctx.fillStyle = 'rgba(180, 255, 200, 1)';
+      ctx.beginPath();
+      ctx.arc(innerR + 2, 0, 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     }
   }
 
@@ -640,73 +653,81 @@
     ctx.beginPath(); ctx.arc(CX, CY, r, 0, Math.PI * 2); ctx.stroke();
   }
 
-  function drawParticles() {
-    for (const p of state.particles) {
-      if (!p.alive) continue;
-      const x = X2px(p.x);
-      const y = Y2px(p.y);
-      const rpx = Math.max(2, pxDist(CFG.PARTICLE_R) * 2);
+  // Draw a single particle at its current (x,y) with its flash/stuck state.
+  function drawOneParticle(p) {
+    const x = X2px(p.x);
+    const y = Y2px(p.y);
+    const rpx = Math.max(2, pxDist(CFG.PARTICLE_R) * 2);
 
-      // Flash intensity from laser sweep: 0..1
-      const FLASH_DUR = 0.40;
-      let flash = 0;
-      if (p.flashEndsAt && state.t < p.flashEndsAt) {
-        const raw = (p.flashEndsAt - state.t) / FLASH_DUR;
-        // Steep ramp-up then linear decay for a brighter-looking flash
-        flash = Math.max(0, Math.min(1, raw));
-        flash = flash * flash * (3 - 2 * flash); // smoothstep-ish curve, keeps peak near 1
-      }
-
-      // Base color depends on stuck state; flash biases toward bright green.
-      let coreColor, glowColor;
-      if (p.stuck) {
-        coreColor = flash > 0
-          ? mixHex('#ff4040', '#e6ffea', flash)
-          : '#ff4040';
-        glowColor = flash > 0
-          ? `rgba(${rgbLerp(0xff, 0x60, flash)}, ${rgbLerp(0x40, 0xff, flash)}, ${rgbLerp(0x40, 0x90, flash)}, ${0.35 + 0.55 * flash})`
-          : 'rgba(255,64,64,0.35)';
-      } else {
-        coreColor = flash > 0
-          ? mixHex('#ffee33', '#e6ffea', flash)
-          : '#ffee33';
-        glowColor = flash > 0
-          ? `rgba(${rgbLerp(0xff, 0x60, flash)}, ${rgbLerp(0xee, 0xff, flash)}, ${rgbLerp(0x33, 0x90, flash)}, ${0.45 + 0.55 * flash})`
-          : 'rgba(255,238,51,0.45)';
-      }
-      const glowR = Math.max(rpx + 1, rpx * (3 + flash * 3.5));
-      const g = ctx.createRadialGradient(x, y, 0, x, y, glowR);
-      g.addColorStop(0, glowColor);
-      g.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(x, y, glowR, 0, Math.PI * 2); ctx.fill();
-
-      // Extra bright green halo layer during flash
-      if (flash > 0) {
-        const hr = rpx * (2.2 + flash * 2.5);
-        const hg = ctx.createRadialGradient(x, y, 0, x, y, hr);
-        hg.addColorStop(0, `rgba(180, 255, 210, ${0.5 * flash})`);
-        hg.addColorStop(0.6, `rgba(80, 255, 130, ${0.25 * flash})`);
-        hg.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = hg;
-        ctx.beginPath(); ctx.arc(x, y, hr, 0, Math.PI * 2); ctx.fill();
-      }
-
-      ctx.fillStyle = coreColor;
-      ctx.beginPath(); ctx.arc(x, y, rpx * (1 + flash * 0.3), 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,' + (0.7 + flash * 0.3) + ')';
-      ctx.beginPath(); ctx.arc(x - rpx * 0.3, y - rpx * 0.3, rpx * 0.35, 0, Math.PI * 2); ctx.fill();
+    const FLASH_DUR = 0.40;
+    let flash = 0;
+    if (state.t < p.flashEndsAt) {
+      flash = (p.flashEndsAt - state.t) / FLASH_DUR;
+      if (flash > 1) flash = 1;
+      if (flash < 0) flash = 0;
     }
+
+    let coreColor, glowColor;
+    if (p.stuck) {
+      coreColor = flash > 0 ? mixHex('#ff4040', '#e6ffea', flash) : '#ff4040';
+      glowColor = flash > 0
+        ? `rgba(${rgbLerp(0xff, 0x60, flash)}, ${rgbLerp(0x40, 0xff, flash)}, ${rgbLerp(0x40, 0x90, flash)}, ${0.35 + 0.55 * flash})`
+        : 'rgba(255,64,64,0.35)';
+    } else {
+      coreColor = flash > 0 ? mixHex('#ffee33', '#e6ffea', flash) : '#ffee33';
+      glowColor = flash > 0
+        ? `rgba(${rgbLerp(0xff, 0x60, flash)}, ${rgbLerp(0xee, 0xff, flash)}, ${rgbLerp(0x33, 0x90, flash)}, ${0.45 + 0.55 * flash})`
+        : 'rgba(255,238,51,0.45)';
+    }
+    const glowR = Math.max(rpx + 1, rpx * (3 + flash * 3.5));
+    const g = ctx.createRadialGradient(x, y, 0, x, y, glowR);
+    g.addColorStop(0, glowColor);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, glowR, 0, Math.PI * 2); ctx.fill();
+
+    if (flash > 0) {
+      const hr = rpx * (2.2 + flash * 2.5);
+      const hg = ctx.createRadialGradient(x, y, 0, x, y, hr);
+      hg.addColorStop(0, `rgba(180, 255, 210, ${0.5 * flash})`);
+      hg.addColorStop(0.6, `rgba(80, 255, 130, ${0.25 * flash})`);
+      hg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = hg;
+      ctx.beginPath(); ctx.arc(x, y, hr, 0, Math.PI * 2); ctx.fill();
+    }
+
+    ctx.fillStyle = coreColor;
+    ctx.beginPath(); ctx.arc(x, y, rpx * (1 + flash * 0.3), 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,' + (0.7 + flash * 0.3) + ')';
+    ctx.beginPath(); ctx.arc(x - rpx * 0.3, y - rpx * 0.3, rpx * 0.35, 0, Math.PI * 2); ctx.fill();
   }
 
-  // Small color helpers
-  function rgbLerp(a, b, t) { return Math.round(a + (b - a) * t); }
-  function mixHex(h1, h2, t) {
-    const c1 = parseInt(h1.slice(1), 16), c2 = parseInt(h2.slice(1), 16);
-    const r = rgbLerp((c1>>16)&0xff, (c2>>16)&0xff, t);
-    const g = rgbLerp((c1>>8)&0xff, (c2>>8)&0xff, t);
-    const b = rgbLerp(c1&0xff, c2&0xff, t);
-    return '#' + ((1<<24) | (r<<16) | (g<<8) | b).toString(16).slice(1);
+  function drawParticles() {
+    // Visible regions: (a) inside the drum interior, (b) outside the steel band.
+    // We split into two passes, each with a simple single-path clip.
+    const rInnerPx = pxDist(CFG.R_DRUM) + 2;
+    const rOuterPx = pxDist(CFG.R_DRUM) + 32;
+    const R_DRUM_CM = CFG.R_DRUM;
+    const R_BAND_OUT_CM = CFG.R_DRUM + 30 / SCALE; // slightly inside rOuter so particles don't peek in
+
+    // Pass 1: particles inside the drum — clip to drum interior.
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(CX, CY, rInnerPx, 0, Math.PI * 2);
+    ctx.clip();
+    for (const p of state.particles) {
+      if (!p.alive) continue;
+      if (Math.hypot(p.x, p.y) > R_DRUM_CM + 0.5) continue;
+      drawOneParticle(p);
+    }
+    ctx.restore();
+
+    // Pass 2: particles outside the band — no clip needed (only draw those particles).
+    for (const p of state.particles) {
+      if (!p.alive) continue;
+      if (Math.hypot(p.x, p.y) <= R_BAND_OUT_CM) continue;
+      drawOneParticle(p);
+    }
   }
 
   function drawGlare() {
@@ -726,14 +747,23 @@
   function draw() {
     ctx.clearRect(0, 0, W, H);
     drawLabBackground();
-    drawSteelBand();     // includes Ω feet behind the band
-    drawOmegaBar();      // horizontal bar at the bottom of the Ω
+    drawSteelBand();
+    drawOmegaBar();
     drawBackplate();
     drawDrumInterior();
     drawAxis();
     drawParticles();
     drawGlare();
     drawBoltRing();
+  }
+
+  function rgbLerp(a, b, t) { return Math.round(a + (b - a) * t); }
+  function mixHex(h1, h2, t) {
+    const c1 = parseInt(h1.slice(1), 16), c2 = parseInt(h2.slice(1), 16);
+    const r = rgbLerp((c1>>16)&0xff, (c2>>16)&0xff, t);
+    const g = rgbLerp((c1>>8)&0xff, (c2>>8)&0xff, t);
+    const b = rgbLerp(c1&0xff, c2&0xff, t);
+    return '#' + ((1<<24) | (r<<16) | (g<<8) | b).toString(16).slice(1);
   }
 
   // ===== Input =====
@@ -785,7 +815,7 @@
   document.addEventListener('gesturestart', e => e.preventDefault());
   document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
 
-  // ===== Ω curved buttons =====
+  // ===== Ω buttons =====
   const OMEGA_STEP = 2 * Math.PI / 100;
   const OMAX = 2 * Math.PI * 1.5;
   function bumpOmega(sign) {
@@ -795,14 +825,8 @@
   }
   function wirePressHold(btn, fn) {
     let timer = null, iv = null;
-    const start = (e) => {
-      e.preventDefault(); fn();
-      timer = setTimeout(() => { iv = setInterval(fn, 90); }, 350);
-    };
-    const stop = () => {
-      if (timer) { clearTimeout(timer); timer = null; }
-      if (iv) { clearInterval(iv); iv = null; }
-    };
+    const start = (e) => { e.preventDefault(); fn(); timer = setTimeout(() => { iv = setInterval(fn, 90); }, 350); };
+    const stop = () => { if (timer) { clearTimeout(timer); timer = null; } if (iv) { clearInterval(iv); iv = null; } };
     btn.addEventListener('pointerdown', start);
     btn.addEventListener('pointerup', stop);
     btn.addEventListener('pointerleave', stop);
@@ -828,7 +852,6 @@
     const [tipX, tipY] = toPt(aHeadTip, R);
     const [baseOutX, baseOutY] = toPt(aHeadBase, R + headT);
     const [baseInX, baseInY] = toPt(aHeadBase, R - headT);
-
     let d = `M ${pOut0x.toFixed(2)} ${pOut0y.toFixed(2)} `;
     d += `A ${rOut} ${rOut} 0 0 ${sweepOuter} ${pOut1x.toFixed(2)} ${pOut1y.toFixed(2)} `;
     d += `L ${baseOutX.toFixed(2)} ${baseOutY.toFixed(2)} `;
@@ -846,7 +869,6 @@
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
     svg.style.width = W + 'px';
     svg.style.height = H + 'px';
-
     const drumPx = pxDist(CFG.R_DRUM);
     const R = drumPx + 60;
     const thickness = 22;
@@ -856,10 +878,8 @@
     const aPlusEnd   = Math.PI + gap + span;
     const aMinusStart = Math.PI - gap - span;
     const aMinusEnd   = Math.PI - gap;
-
     const plusD  = curvedArrowPath(CX, CY, R, aPlusStart, aPlusEnd, thickness, +1);
     const minusD = curvedArrowPath(CX, CY, R, aMinusEnd, aMinusStart, thickness, +1);
-
     const labelR = R + thickness + 14;
     const aPM = (aPlusStart + aPlusEnd) / 2;
     const aMM = (aMinusStart + aMinusEnd) / 2;
@@ -903,14 +923,12 @@
   }
 
   // ===== HUD =====
-  const elOmega = document.getElementById('omega');
   const elPeriod = document.getElementById('period');
   const elFloating = document.getElementById('floating');
   const elCaptured = document.getElementById('captured');
   const elRemaining = document.getElementById('remaining');
 
   function updateHUD() {
-    elOmega.textContent = state.omega.toFixed(3);
     const absOm = Math.abs(state.omega);
     const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
     elPeriod.textContent = isFinite(T) ? T.toFixed(2) : '∞';
@@ -938,6 +956,20 @@
     btnLaser.style.color = state.laserOn ? '#7fffaa' : '#888';
   });
   btnLaser.style.color = '#888';
+
+  // ===== Settings dropdowns =====
+  const elVT = document.getElementById('vt');
+  const selNP = document.getElementById('selNP');
+  const selVT = document.getElementById('selVT');
+  const selDT = document.getElementById('selDT');
+  selNP.addEventListener('change', () => { CFG.N_P = parseInt(selNP.value, 10); });
+  selVT.addEventListener('change', () => {
+    CFG.V_T = parseFloat(selVT.value);
+    elVT.textContent = CFG.V_T.toFixed(1);
+  });
+  selDT.addEventListener('change', () => { CFG.DT_INJECT = parseFloat(selDT.value); });
+  // Initialize the v_t display to the current value
+  elVT.textContent = CFG.V_T.toFixed(1);
 
   // ===== Main =====
   window.addEventListener('resize', layout);
