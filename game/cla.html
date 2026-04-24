@@ -143,9 +143,9 @@
     <div class="title-plate">LEVITATION&nbsp;LAB&nbsp;· LV.1</div>
     <div class="gauge"><div class="disp"><div class="scr rot" id="omega">0.000</div></div><div class="lbl">Ω rad/s</div></div>
     <div class="gauge"><div class="disp"><div class="scr rot" id="period">∞</div></div><div class="lbl">Period s</div></div>
-    <div class="gauge"><div class="disp"><div class="scr" id="floating">0</div></div><div class="lbl">Floating</div></div>
-    <div class="gauge"><div class="disp"><div class="scr warn" id="captured">0</div></div><div class="lbl">Captured</div></div>
-    <div class="gauge"><div class="disp"><div class="scr" id="remaining">3</div></div><div class="lbl">Remaining</div></div>
+    <div class="gauge"><div class="disp"><div class="scr warn" id="captured">0</div></div><div class="lbl">Lost</div></div>
+    <div class="gauge"><div class="disp"><div class="scr gold" id="floating">0</div></div><div class="lbl">Floating</div></div>
+    <div class="gauge"><div class="disp"><div class="scr" id="remaining">0</div></div><div class="lbl">Levitated</div></div>
     <div class="gauge"><div class="disp"><div class="scr gold">30.0</div></div><div class="lbl">v_t cm/s</div></div>
   </div>
 
@@ -293,15 +293,19 @@
       state.particles.push({
         x: inj.x, y: CFG.RELEASE_Y,
         vx: 0, vy: 0, stuck: false, stuckAngle: 0, alive: true,
+        inHighlightSince: null, // time the particle (continuously) entered the highlight region
       });
     }
     const omega = state.omega;
+    // Highlight region parameters (center 50,0 cm; radius 50 cm)
+    const HX = 50, HY = 0, HR2 = 50 * 50;
     for (const p of state.particles) {
       if (!p.alive) continue;
       if (p.stuck) {
         p.stuckAngle += omega * dt;
         p.x = CFG.R_DRUM * Math.cos(p.stuckAngle);
         p.y = CFG.R_DRUM * Math.sin(p.stuckAngle);
+        p.inHighlightSince = null; // stuck particles can't count as levitated
         continue;
       }
       const vxg = -omega * p.y;
@@ -318,6 +322,17 @@
         p.stuckAngle = ang;
         p.x = Rwall * Math.cos(ang);
         p.y = Rwall * Math.sin(ang);
+        p.inHighlightSince = null;
+        continue;
+      }
+
+      // Highlight-residency tracking
+      const dxh = p.x - HX, dyh = p.y - HY;
+      const inside = (dxh * dxh + dyh * dyh) <= HR2;
+      if (inside) {
+        if (p.inHighlightSince === null) p.inHighlightSince = state.t;
+      } else {
+        p.inHighlightSince = null;
       }
     }
     state.t += dt;
@@ -782,16 +797,21 @@
 
   function updateHUD() {
     elOmega.textContent = state.omega.toFixed(3);
-    const T = Math.abs(state.omega) < 1e-3 ? Infinity : (2 * Math.PI / Math.abs(state.omega));
+    const absOm = Math.abs(state.omega);
+    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
     elPeriod.textContent = isFinite(T) ? T.toFixed(2) : '∞';
-    let floating = 0, captured = 0;
+    let floating = 0, captured = 0, levitated = 0;
     for (const p of state.particles) {
       if (!p.alive) continue;
-      if (p.stuck) captured++; else floating++;
+      if (p.stuck) { captured++; continue; }
+      floating++;
+      if (isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T) {
+        levitated++;
+      }
     }
     elFloating.textContent = floating;
     elCaptured.textContent = captured;
-    elRemaining.textContent = state.toInject.length;
+    elRemaining.textContent = levitated;
   }
 
   // ===== Buttons =====
