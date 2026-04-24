@@ -667,12 +667,25 @@
       if (flash < 0) flash = 0;
     }
 
+    // Is this particle currently counted as "levitated"? (Inside the highlight region
+    // for at least one full rotation period.)
+    const absOm = Math.abs(state.omega);
+    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+    const levitated = !p.stuck && isFinite(T) && p.inHighlightSince !== null
+                       && (state.t - p.inHighlightSince) >= T;
+
     let coreColor, glowColor;
     if (p.stuck) {
       coreColor = flash > 0 ? mixHex('#ff4040', '#e6ffea', flash) : '#ff4040';
       glowColor = flash > 0
         ? `rgba(${rgbLerp(0xff, 0x60, flash)}, ${rgbLerp(0x40, 0xff, flash)}, ${rgbLerp(0x40, 0x90, flash)}, ${0.35 + 0.55 * flash})`
         : 'rgba(255,64,64,0.35)';
+    } else if (levitated) {
+      // Bright steady green for levitated particles
+      coreColor = flash > 0 ? mixHex('#40ff70', '#e6ffea', flash) : '#40ff70';
+      glowColor = flash > 0
+        ? `rgba(${rgbLerp(0x60, 0xb0, flash)}, 255, ${rgbLerp(0x80, 0xd0, flash)}, ${0.55 + 0.35 * flash})`
+        : 'rgba(80, 255, 130, 0.55)';
     } else {
       coreColor = flash > 0 ? mixHex('#ffee33', '#e6ffea', flash) : '#ffee33';
       glowColor = flash > 0
