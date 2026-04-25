@@ -224,6 +224,37 @@
   }
   .btnind.flash .cap-label { color: #3a2208; text-shadow: 0 1px 0 rgba(255,255,255,0.5), 0 0 4px rgba(255,255,255,0.5); }
 
+  .btnind.disabled { cursor: not-allowed; filter: brightness(0.55) saturate(0.55); }
+  .btnind.disabled:hover .cap { background: radial-gradient(ellipse at 50% 30%, #2a1810 0%, #180c08 70%, #080404 100%); }
+  .btnind.disabled:hover .cap-label { color: #ffb070; text-shadow: 0 1px 0 #000, 0 0 4px rgba(255,140,60,0.35); }
+
+  /* 2x2 block of square instrument toggles */
+  .btn-grid2x2 {
+    display: grid;
+    grid-template-columns: 46px 46px;
+    grid-template-rows: 46px 46px;
+    gap: 4px;
+    width: 96px;
+  }
+  .btnind.btnsq {
+    width: 46px; height: 46px;
+  }
+  .btnind.btnsq .cap {
+    left: 6px; right: 6px; top: 6px; bottom: 6px;
+    border-radius: 3px;
+  }
+  .btnind.btnsq::before { top: 3px; left: 3px; }
+  .btnind.btnsq::after  { bottom: 3px; right: 3px; }
+  .cap-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    color: #ffb070;
+    line-height: 0;
+    transition: color 0.12s ease-out, filter 0.12s ease-out;
+    filter: drop-shadow(0 1px 0 #000);
+  }
+  .btnind:hover .cap-icon { color: #ffd0a0; filter: drop-shadow(0 1px 0 #000) drop-shadow(0 0 4px rgba(255,180,90,0.6)); }
+  .btnind.on .cap-icon { color: #0a3018; filter: drop-shadow(0 1px 0 rgba(255,255,255,0.4)); }
+
   /* Curved Ω buttons on the drum */
   .omega-ctl { position: absolute; pointer-events: none; z-index: 9; left: 0; top: 0; }
   .omega-ctl .btn { pointer-events: auto; cursor: pointer; }
@@ -279,6 +310,107 @@
     color: #2a1a06; text-shadow: 0 1px 0 rgba(255,255,255,0.3);
     white-space: nowrap;
   }
+
+  /* Game-mode panel — replaces the title plate when Game Mode is on. */
+  .game-panel {
+    pointer-events: auto;
+    display: flex; flex-direction: column; gap: 3px;
+    padding: 4px 8px;
+    margin-right: 6px;
+    height: 44px;
+    background: linear-gradient(180deg, #d9b76a, #8a6b2e);
+    border: 1px solid #5a4418; border-radius: 3px;
+    box-shadow: inset 0 1px 0 rgba(255,230,150,0.5), 0 1px 2px rgba(0,0,0,0.6);
+    font-family: 'Courier New', monospace;
+    color: #2a1a06;
+  }
+  .game-panel[hidden] { display: none; }
+  .gp-row { display: flex; align-items: center; gap: 6px; }
+  .gp-row-top { flex: 0 0 auto; }
+  .gp-lvlsel {
+    display: flex; align-items: center;
+    background: radial-gradient(ellipse at 50% 30%, #143018 0%, #0a1a0e 70%, #050a06 100%);
+    border-radius: 2px;
+    padding: 1px 2px;
+    box-shadow: inset 0 2px 3px rgba(0,0,0,0.9);
+  }
+  .gp-chev {
+    width: 14px; height: 18px;
+    display: flex; align-items: center; justify-content: center;
+    color: #6fff8a; font-size: 10px; font-weight: bold; cursor: pointer;
+    user-select: none; -webkit-user-select: none;
+    text-shadow: 0 0 4px rgba(111,255,138,0.6);
+  }
+  .gp-chev:hover { color: #bfffc8; }
+  .gp-chev:active { color: #40cf60; }
+  .gp-lvl {
+    min-width: 26px; text-align: center;
+    color: #6fff8a; font-weight: bold; font-size: 13px; letter-spacing: 1px;
+    text-shadow: 0 0 4px rgba(111,255,138,0.6), 0 0 8px rgba(111,255,138,0.25);
+    font-variant-numeric: tabular-nums;
+  }
+  .gp-titles {
+    flex: 1;
+    display: flex; flex-direction: column; justify-content: center;
+    min-width: 150px;
+    overflow: hidden;
+  }
+  .gp-name {
+    font-size: 10px; font-weight: bold; letter-spacing: 1.2px;
+    color: #2a1a06;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    line-height: 1.1;
+  }
+  .gp-goal {
+    font-size: 9px; font-weight: normal; letter-spacing: 1px;
+    color: #3a2a10;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.25);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    line-height: 1.15;
+    opacity: 0.9;
+  }
+  .gp-start {
+    flex: 0 0 auto;
+    border: none; padding: 0;
+    height: 22px; min-width: 56px; padding: 0 10px;
+    border-radius: 3px;
+    background: linear-gradient(180deg, #e8c77a 0%, #c9a858 18%, #8a6b2e 60%, #5a4418 100%);
+    box-shadow: inset 0 1px 0 rgba(255,235,170,0.7), inset 0 -1px 2px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.5);
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .gp-start-lbl {
+    font-family: 'Courier New', monospace;
+    font-size: 10px; font-weight: bold; letter-spacing: 1.5px; text-transform: uppercase;
+    color: #2a1a06; text-shadow: 0 1px 0 rgba(255,255,255,0.35);
+  }
+  .gp-start:hover { filter: brightness(1.1); }
+  .gp-start:active { box-shadow: inset 0 2px 3px rgba(0,0,0,0.5); }
+  .gp-start.primary {
+    /* Green Start when a new attempt is ready to launch */
+    background: linear-gradient(180deg, #9cf0b4 0%, #40c860 40%, #1e7838 85%, #0a3a18 100%);
+    box-shadow: inset 0 1px 0 rgba(220,255,230,0.7), inset 0 -1px 2px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.5), 0 0 6px rgba(80,255,130,0.35);
+  }
+  .gp-start.primary .gp-start-lbl { color: #0a2818; }
+  .gp-start.retry {
+    background: linear-gradient(180deg, #ffb080 0%, #e06840 40%, #883014 85%, #3c1006 100%);
+    box-shadow: inset 0 1px 0 rgba(255,220,200,0.6), inset 0 -1px 2px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.5), 0 0 6px rgba(255,120,60,0.3);
+  }
+  .gp-start.retry .gp-start-lbl { color: #2a1006; }
+  .gp-status {
+    flex: 0 0 auto;
+    font-size: 9px; letter-spacing: 1.2px; text-transform: uppercase;
+    color: #2a1a06; opacity: 0.85;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.25);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .gp-status.win  { color: #0a3a18; font-weight: bold; opacity: 1; }
+  .gp-status.lose { color: #4a0a0a; font-weight: bold; opacity: 1; }
+
+  /* Locked left-wing selectors while a game run is in progress */
+  .sel.locked { pointer-events: none; filter: brightness(0.7) saturate(0.7); }
+  .sel.locked .chev { cursor: default; }
 </style>
 </head>
 <body>
@@ -311,11 +443,24 @@
   <div class="wing" id="wingRight">
     <button class="btnind inject" id="btnStart"><span class="cap"><span class="cap-label">Inject</span></span></button>
     <button class="btnind" id="btnReset"><span class="cap"><span class="cap-label">Reset</span></span></button>
-    <button class="btnind" id="btnLaser"><span class="cap"><span class="cap-label">Laser</span></span></button>
-    <button class="btnind" id="btnOmegaCtl"><span class="cap"><span class="cap-label">Ω Ctrl</span></span></button>
-    <button class="btnind" id="btnSound"><span class="cap"><span class="cap-label">Sound</span></span></button>
-    <button class="btnind" id="btnFlow"><span class="cap"><span class="cap-label">Gas Flow</span></span></button>
-    <button class="btnind" id="btnTheme"><span class="cap"><span class="cap-label">Theme</span></span></button>
+    <div class="btn-grid2x2">
+      <button class="btnind btnsq" id="btnLaser" title="Laser"><span class="cap"><span class="cap-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="2.2" fill="currentColor"/><g stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"><path d="M12 9.8 L12 1.5"/><path d="M12 14.2 L12 22.5"/><path d="M9.8 12 L1.5 12"/><path d="M14.2 12 L22.5 12"/><path d="M10.44 10.44 L4.57 4.57"/><path d="M13.56 13.56 L19.43 19.43"/><path d="M13.56 10.44 L19.43 4.57"/><path d="M10.44 13.56 L4.57 19.43"/><path d="M11.16 9.96 L10.34 5.85"/><path d="M12.84 14.04 L13.66 18.15"/><path d="M9.96 12.84 L5.85 13.66"/><path d="M14.04 11.16 L18.15 10.34"/><path d="M12.84 9.96 L13.66 5.85"/><path d="M11.16 14.04 L10.34 18.15"/><path d="M9.96 11.16 L5.85 10.34"/><path d="M14.04 12.84 L18.15 13.66"/></g></svg>
+      </span></span></button>
+      <button class="btnind btnsq" id="btnOmegaCtl" title="Ω rotation control"><span class="cap"><span class="cap-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><text x="12" y="17" text-anchor="middle" font-family="serif" font-size="18" font-weight="bold" fill="currentColor">Ω</text></svg>
+      </span></span></button>
+      <button class="btnind btnsq" id="btnSound" title="Sound"><span class="cap"><span class="cap-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 9 L4 15 L8 15 L13 19 L13 5 L8 9 Z" fill="currentColor"/><path d="M16 8 Q19 12 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M18.5 6 Q22 12 18.5 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </span></span></button>
+      <button class="btnind btnsq" id="btnFlow" title="Gas flow streamlines"><span class="cap"><span class="cap-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path d="M3 7 Q8 4 12 7 T21 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M3 12 Q8 9 12 12 T21 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M3 17 Q8 14 12 17 T21 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </span></span></button>
+    </div>
+    <button class="btnind" id="btnTheme" title="Lighting (dark / light)"><span class="cap"><span class="cap-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="22" height="22"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17 L15 17"/><path d="M9.5 19 L14.5 19"/><path d="M10.5 21 L13.5 21"/><path d="M8.5 15.5 C 7 14 6.2 12.2 6.2 10.3 C 6.2 7 8.8 4.3 12 4.3 C 15.2 4.3 17.8 7 17.8 10.3 C 17.8 12.2 17 14 15.5 15.5 Z"/><path d="M10 15.5 C 10 13 11 11 12 9 C 13 11 14 13 14 15.5"/></g></svg>
+    </span></span></button>
+    <button class="btnind" id="btnGameMode"><span class="cap"><span class="cap-label">Game</span></span></button>
     <button class="btnind" id="btnManual"><span class="cap"><span class="cap-label">Manual</span></span></button>
   </div>
 
@@ -366,8 +511,23 @@
   </div>
 
   <div class="gauges" id="gauges">
-    <div class="title-plate">
-      <span class="title-text">LEVITATION&nbsp;LAB</span>
+    <div class="title-plate" id="titlePlate">
+      <span class="title-text" id="titleText">LEVITATION&nbsp;LAB</span>
+    </div>
+    <div class="game-panel" id="gamePanel" hidden>
+      <div class="gp-row gp-row-top">
+        <div class="gp-lvlsel">
+          <div class="gp-chev" data-dir="-1">◀</div>
+          <div class="gp-lvl" id="gpLvl">1</div>
+          <div class="gp-chev" data-dir="+1">▶</div>
+        </div>
+        <div class="gp-titles">
+          <div class="gp-name" id="gpName">Level name</div>
+          <div class="gp-goal" id="gpGoal">Goal</div>
+        </div>
+        <button class="gp-start" id="gpStart"><span class="gp-start-lbl" id="gpStartLbl">Start</span></button>
+      </div>
+      <div class="gp-status" id="gpStatus">Ready</div>
     </div>
     <div class="gauge"><div class="disp"><div class="scr rot" id="period">∞</div></div><div class="lbl">Period s</div></div>
     <div class="gauge"><div class="disp"><div class="scr warn" id="captured">0</div></div><div class="lbl">Lost</div></div>
@@ -1782,6 +1942,246 @@
     if (e.key === 'Escape' && !manualOverlay.hidden) closeManual();
   });
 
+  // ===== Game Mode =====
+  const GAME = {
+    on: false,
+    levelIdx: 0,
+    phase: 'idle',           // idle | playing | won | lost
+    goalHoldSince: null,     // timestamp when simultaneous-levitated first reached threshold
+    levels: [
+      { name: 'First levitation',
+        params: { NP: 3,  VT: 30, SPREAD: 0,    DT: 1 },
+        goal:   { minLevitated: 1, holdSeconds: 3 },
+        describe: function () { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + ' s'; },
+      },
+      { name: 'Steady hand',
+        params: { NP: 3,  VT: 30, SPREAD: 0,    DT: 1 },
+        goal:   { minLevitated: 2, holdSeconds: 5 },
+        describe: function () { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + ' s'; },
+      },
+      { name: 'Patience',
+        params: { NP: 3,  VT: 30, SPREAD: 0,    DT: 1 },
+        goal:   { minLevitated: 3, holdSeconds: 8 },
+        describe: function () { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + ' s'; },
+      },
+      { name: 'Faster falls',
+        params: { NP: 3,  VT: 50, SPREAD: 0,    DT: 1 },
+        goal:   { minLevitated: 2, holdSeconds: 5 },
+        describe: function () { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + ' s'; },
+      },
+      { name: 'A mixed batch',
+        params: { NP: 10, VT: 30, SPREAD: 0.05, DT: 2 },
+        goal:   { minLevitated: 4, holdSeconds: 5 },
+        describe: function () { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + ' s'; },
+      },
+      { name: 'Slow drift',
+        params: { NP: 10, VT: 10, SPREAD: 0,    DT: 2 },
+        goal:   { minLevitated: 6, holdSeconds: 8 },
+        describe: function () { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + ' s'; },
+      },
+      { name: 'The swarm',
+        params: { NP: 30, VT: 30, SPREAD: 0.10, DT: 2 },
+        goal:   { minLevitated: 10, holdSeconds: 10 },
+        describe: function () { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + ' s'; },
+      },
+    ],
+  };
+
+  const elGamePanel = document.getElementById('gamePanel');
+  const elTitlePlate = document.getElementById('titlePlate');
+  const elGpLvl = document.getElementById('gpLvl');
+  const elGpGoal = document.getElementById('gpGoal');
+  const elGpStatus = document.getElementById('gpStatus');
+  const elGpStart = document.getElementById('gpStart');
+  const elGpStartLbl = document.getElementById('gpStartLbl');
+  const btnGameMode = document.getElementById('btnGameMode');
+
+  // Map a SETTINGS value to its dropdown index; create the value if missing.
+  function setSettingByValue(key, value) {
+    const s = SETTINGS[key];
+    let idx = s.values.indexOf(value);
+    if (idx < 0) {
+      // Insert value into the list in sorted order so the user can still cycle through.
+      s.values = s.values.concat([value]).sort((a, b) => a - b);
+      idx = s.values.indexOf(value);
+    }
+    s.idx = idx;
+    s.apply(value);
+    SEL_WIN[key].textContent = s.label(value);
+  }
+
+  function applyLevelParams(level) {
+    setSettingByValue('NP', level.params.NP);
+    setSettingByValue('VT', level.params.VT);
+    setSettingByValue('SPREAD', level.params.SPREAD);
+    setSettingByValue('DT', level.params.DT);
+  }
+
+  function lockSelectors(lock) {
+    document.querySelectorAll('.sel').forEach(el => el.classList.toggle('locked', lock));
+  }
+
+  function currentLevel() { return GAME.levels[GAME.levelIdx]; }
+
+  function refreshGamePanel() {
+    const lv = currentLevel();
+    elGpLvl.textContent = String(GAME.levelIdx + 1);
+    elGpGoal.textContent = lv.describe();
+    if (GAME.phase === 'idle') {
+      elGpStartLbl.textContent = 'Start';
+      elGpStart.className = 'gp-start primary';
+      elGpStatus.className = 'gp-status';
+      elGpStatus.textContent = 'Ready';
+    } else if (GAME.phase === 'playing') {
+      elGpStartLbl.textContent = 'Abort';
+      elGpStart.className = 'gp-start';
+      elGpStatus.className = 'gp-status';
+      // status filled in by updateGame each frame
+    } else if (GAME.phase === 'won') {
+      elGpStartLbl.textContent = 'Next ▶';
+      elGpStart.className = 'gp-start primary';
+      elGpStatus.className = 'gp-status win';
+      elGpStatus.textContent = 'Level complete';
+    } else if (GAME.phase === 'lost') {
+      elGpStartLbl.textContent = 'Retry';
+      elGpStart.className = 'gp-start retry';
+      elGpStatus.className = 'gp-status lose';
+      elGpStatus.textContent = 'Failed';
+    }
+  }
+
+  function enterIdle() {
+    GAME.phase = 'idle';
+    GAME.goalHoldSince = null;
+    lockSelectors(false);
+    applyLevelParams(currentLevel());
+    refreshGamePanel();
+  }
+
+  function enterGameMode(on) {
+    GAME.on = on;
+    btnGameMode.classList.toggle('on', on);
+    elGamePanel.hidden = !on;
+    elTitlePlate.hidden = on;
+    if (on) {
+      enterIdle();
+    } else {
+      // Leaving game mode: end any ongoing run gracefully.
+      lockSelectors(false);
+      GAME.phase = 'idle';
+      GAME.goalHoldSince = null;
+    }
+  }
+
+  function startGameRun() {
+    // Assumes selectors already match the current level (set in enterIdle).
+    GAME.phase = 'playing';
+    GAME.goalHoldSince = null;
+    lockSelectors(true);
+    startRelease();
+    btnStart.classList.add('on');
+    ensureAudio();
+    const dur = (CFG.N_P <= 1) ? 0 : CFG.DT_INJECT;
+    soundMillStart(dur);
+    refreshGamePanel();
+  }
+
+  function endGameRun(outcome) {
+    // outcome: 'won' | 'lost' | 'aborted'
+    GAME.phase = (outcome === 'won') ? 'won' : (outcome === 'lost') ? 'lost' : 'idle';
+    GAME.goalHoldSince = null;
+    lockSelectors(false);
+    // Stop further injections and let the drum coast — do not wipe particles.
+    state.running = false;
+    if (GAME.phase === 'idle') {
+      // Aborted → also reset the run so the user can try again cleanly.
+      initLevel();
+      btnStart.classList.remove('on');
+    }
+    refreshGamePanel();
+  }
+
+  function changeLevel(dir) {
+    if (GAME.phase === 'playing') return;   // don't change level mid-run
+    const n = GAME.levels.length;
+    GAME.levelIdx = (GAME.levelIdx + dir + n) % n;
+    enterIdle();
+    initLevel();
+    btnStart.classList.remove('on');
+  }
+
+  function onGpStart() {
+    if (!GAME.on) return;
+    if (GAME.phase === 'idle') {
+      initLevel();
+      applyLevelParams(currentLevel());
+      startGameRun();
+    } else if (GAME.phase === 'playing') {
+      endGameRun('aborted');
+    } else if (GAME.phase === 'won') {
+      // Advance if possible; else wrap to first.
+      GAME.levelIdx = (GAME.levelIdx + 1) % GAME.levels.length;
+      enterIdle();
+      initLevel();
+      btnStart.classList.remove('on');
+    } else if (GAME.phase === 'lost') {
+      enterIdle();
+      initLevel();
+      btnStart.classList.remove('on');
+    }
+  }
+
+  function updateGame() {
+    if (!GAME.on || GAME.phase !== 'playing') return;
+    const lv = currentLevel();
+    // Count simultaneous levitated, floating, lost.
+    const absOm = Math.abs(state.omega);
+    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+    let lev = 0, captured = 0, floating = 0;
+    for (const p of state.particles) {
+      if (!p.alive) continue;
+      if (p.stuck) { captured++; continue; }
+      floating++;
+      if (isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T) lev++;
+    }
+    // Goal: hold ≥ minLevitated for holdSeconds.
+    if (lev >= lv.goal.minLevitated) {
+      if (GAME.goalHoldSince === null) GAME.goalHoldSince = state.t;
+      const held = state.t - GAME.goalHoldSince;
+      if (held >= lv.goal.holdSeconds) {
+        endGameRun('won');
+        return;
+      }
+      elGpStatus.textContent = 'Holding ' + held.toFixed(1) + ' / ' + lv.goal.holdSeconds.toFixed(1) + ' s';
+    } else {
+      GAME.goalHoldSince = null;
+      // Lose condition: all scheduled particles dispatched AND none floating AND levitated target unreachable.
+      const allInjected = state.toInject.length === 0;
+      if (allInjected && floating === 0) {
+        endGameRun('lost');
+        return;
+      }
+      elGpStatus.textContent = lev + ' / ' + lv.goal.minLevitated + ' levitated';
+    }
+  }
+
+  // Panel wiring
+  elGpStart.addEventListener('click', onGpStart);
+  document.querySelectorAll('#gamePanel .gp-chev').forEach(ch => {
+    ch.addEventListener('click', () => changeLevel(parseInt(ch.getAttribute('data-dir'), 10)));
+  });
+  btnGameMode.addEventListener('click', () => {
+    // Game mode is temporarily disabled while gameplay is being refined.
+    // Machinery is preserved; re-enable by replacing this handler with:
+    //   enterGameMode(!GAME.on)
+  });
+  btnGameMode.classList.add('disabled');
+
+  // Reset behavior in game mode: treat like "abort the current attempt".
+  btnReset.addEventListener('click', () => {
+    if (GAME.on && GAME.phase === 'playing') endGameRun('aborted');
+  });
+
   // ===== Main =====
   window.addEventListener('resize', layout);
   layout();
@@ -1800,6 +2200,7 @@
     updateMotorSound();
     draw();
     updateHUD();
+    updateGame();
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
