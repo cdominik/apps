@@ -1267,7 +1267,7 @@
           inHighlightSince: state.t
         });
         state.aggMerging.splice(i, 1);
-        soundSwoosh();
+        soundSnap();
       }
     }
 
@@ -1341,6 +1341,7 @@
         spawnGoldenBall(m.target.x, m.target.y);
         state.eggMerging = null;
         state.eggBallCount++;
+        soundCrunch();
       }
       return;
     }
@@ -1566,6 +1567,49 @@
 
   function drawGoldenBalls() {
     for (const b of state.goldenBalls) drawOneGoldenBall(b);
+    drawSuccessText(); // <--- ADD THIS LINE
+  }
+
+  function drawSuccessText() {
+    // For each ball, between t = bornAt + 1 and t = bornAt + 3, flash a
+    // two-line "Success! / Pebble formed!" message in the upper drum.
+    for (const b of state.goldenBalls) {
+      const age = state.t - b.bornAt;
+      if (age < 1 || age > 3) continue;
+      // Visible window is 2 s long. Fade-in 0.15 s, hold, fade-out 0.15 s.
+      const u = (age - 1) / 2;        // 0..1 within the visible window
+      let alpha;
+      if (u < 0.075)      alpha = u / 0.075;
+      else if (u > 0.925) alpha = (1 - u) / 0.075;
+      else                alpha = 1;
+      if (alpha <= 0) continue;
+
+      const cxScreen = X2px(0);
+      const cyScreen = Y2px(50);     // upper half of the drum (y = +50 cm)
+      const big = Math.max(14, pxDist(16));    // ~16 cm tall headline
+      const small = Math.max(10, pxDist(9));   // ~9 cm subtitle
+
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.globalAlpha = alpha;
+
+      // Headline "Success!" — bright gold with glow.
+      ctx.font = 'bold ' + big + 'px "Courier New", monospace';
+      ctx.shadowColor = 'rgba(255, 200, 80, 0.9)';
+      ctx.shadowBlur = big * 0.6;
+      ctx.fillStyle = '#fff2c0';
+      ctx.fillText('Success!', cxScreen, cyScreen - big * 0.55);
+
+      // Subtitle "Pebble formed!" — deeper gold, smaller.
+      ctx.font = 'bold ' + small + 'px "Courier New", monospace';
+      ctx.shadowColor = 'rgba(255, 180, 60, 0.7)';
+      ctx.shadowBlur = small * 0.5;
+      ctx.fillStyle = '#ffcc55';
+      ctx.fillText('Pebble formed!', cxScreen, cyScreen + small * 0.7);
+
+      ctx.restore();
+    }
   }
 
   function drawOneGoldenBall(b) {
@@ -2570,7 +2614,137 @@
   }
   let MILL_HANDLE = null;
 
-function soundSwoosh() {
+  function soundSnap() {
+    if (!AUDIO.ctx) return;
+    const t = AUDIO.ctx.currentTime;
+    
+    const numClicks = 9;
+    const initialGap = 0.04; 
+    const acceleration = 0.85; 
+    
+    let currentOffset = 0;
+    let currentGap = initialGap;
+
+    for (let i = 0; i < numClicks; i++) {
+        const clickTime = t + currentOffset;
+        
+        const osc = AUDIO.ctx.createOscillator();
+        const gain = AUDIO.ctx.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(2500 + (i * 200), clickTime); 
+        osc.frequency.exponentialRampToValueAtTime(100, clickTime + 0.015);
+
+        gain.gain.setValueAtTime(0, clickTime);
+        gain.gain.linearRampToValueAtTime(0.6, clickTime + 0.001);
+        gain.gain.exponentialRampToValueAtTime(0.001, clickTime + 0.015);
+
+        const noiseBuf = AUDIO.ctx.createBuffer(1, AUDIO.ctx.sampleRate * 0.02, AUDIO.ctx.sampleRate);
+        const noiseData = noiseBuf.getChannelData(0);
+        for(let j=0; j<noiseData.length; j++) noiseData[j] = Math.random() * 2 - 1;
+        
+        const noiseSource = AUDIO.ctx.createBufferSource();
+        noiseSource.buffer = noiseBuf;
+        const noiseGain = AUDIO.ctx.createGain();
+        
+        noiseGain.gain.setValueAtTime(0.3, clickTime);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, clickTime + 0.01);
+
+        const filter = AUDIO.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 3000;
+        filter.Q.value = 1;
+
+        osc.connect(gain);
+        gain.connect(AUDIO.master);
+        
+        noiseSource.connect(filter);
+        filter.connect(noiseGain);
+        noiseGain.connect(AUDIO.master);
+
+        osc.start(clickTime);
+        osc.stop(clickTime + 0.02);
+        noiseSource.start(clickTime);
+        noiseSource.stop(clickTime + 0.02);
+
+        currentOffset += currentGap;
+        currentGap *= acceleration;
+    }
+  }
+
+function soundCrunch() {
+    if (!AUDIO.ctx) return;
+    const t = AUDIO.ctx.currentTime;
+    
+    const numFolds = 35;
+    const initialGap = 0.08; 
+    const acceleration = 0.92; 
+    
+    let currentOffset = 0;
+    let currentGap = initialGap;
+
+    const totalEstimatedDuration = 1.2;
+    const bufSize = AUDIO.ctx.sampleRate * totalEstimatedDuration;
+    const buffer = AUDIO.ctx.createBuffer(1, bufSize, AUDIO.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    
+    // Pink noise generation for organic paper texture
+    let b0, b1, b2, b3, b4, b5, b6;
+    b0 = b1 = b2 = b3 = b4 = b5 = b6 = 0.0;
+    for (let i = 0; i < bufSize; i++) {
+        const white = Math.random() * 2 - 1;
+        b0 = 0.99886 * b0 + white * 0.0555179;
+        b1 = 0.99332 * b1 + white * 0.0750759;
+        b2 = 0.96900 * b2 + white * 0.1538520;
+        b3 = 0.86650 * b3 + white * 0.3104856;
+        b4 = 0.55000 * b4 + white * 0.5329522;
+        b5 = -0.7616 * b5 - white * 0.0168980;
+        data[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+        data[i] *= 0.11; 
+        b6 = white * 0.115926;
+    }
+
+    const gain = AUDIO.ctx.createGain();
+    gain.gain.setValueAtTime(0, t);
+
+    for (let i = 0; i < numFolds; i++) {
+        const foldTime = t + currentOffset;
+        const volume = 0.5 + Math.random() * 0.5;
+        
+        gain.gain.linearRampToValueAtTime(volume, foldTime + 0.004);
+        gain.gain.linearRampToValueAtTime(volume * 0.1, foldTime + 0.02);
+
+        currentOffset += currentGap;
+        currentGap *= acceleration;
+    }
+
+    const finalDuration = currentOffset + 0.05;
+    gain.gain.exponentialRampToValueAtTime(0.001, t + finalDuration);
+
+    const noise = AUDIO.ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const hp = AUDIO.ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.setValueAtTime(1000, t);
+    hp.frequency.exponentialRampToValueAtTime(400, t + finalDuration);
+
+    const bp = AUDIO.ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.Q.value = 0.8;
+    bp.frequency.setValueAtTime(2200, t);
+    bp.frequency.exponentialRampToValueAtTime(800, t + finalDuration);
+
+    noise.connect(hp);
+    hp.connect(bp);
+    bp.connect(gain);
+    gain.connect(AUDIO.master);
+
+    noise.start(t);
+    noise.stop(t + finalDuration);
+  }
+
+  function soundSwoosh() {
     if (!AUDIO.ctx) return;
     const t = AUDIO.ctx.currentTime;
     const dur = 1.; // duration of the swoosh
