@@ -14,8 +14,20 @@
             --border: #333;
         }
 
-        body { margin: 0; background-color: var(--bg-color); color: var(--text-main); font-family: 'Segoe UI', sans-serif; line-height: 1.6; }
-        header { padding: 60px 20px; text-align: center; background: linear-gradient(to bottom, #161616, #0d0d0d); border-bottom: 1px solid var(--border); }
+        body { margin: 0; background-color: var(--bg-color); color: var(--text-main); font-family: 'Segoe UI', sans-serif; line-height: 1.6; position: relative; }
+        
+        /* Brand Logo Styling */
+        .brand-link {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            transition: transform 0.2s ease;
+        }
+        .brand-link:hover { transform: scale(1.05); }
+        .brand-link img { height: 50px; width: auto; }
+
+        header { padding: 80px 20px 60px 20px; text-align: center; background: linear-gradient(to bottom, #161616, #0d0d0d); border-bottom: 1px solid var(--border); }
         h1 { margin: 0; font-size: 2.5rem; color: var(--accent-color); letter-spacing: 2px; text-transform: uppercase; }
         .subtitle { color: var(--text-dim); margin-top: 10px; font-size: 1.1rem; }
 
@@ -77,9 +89,19 @@
         th { color: #fff; background: rgba(255,255,255,0.05); }
 
         footer { text-align: center; padding: 40px; color: #555; font-size: 0.8rem; border-top: 1px solid var(--border); }
+
+        @media (max-width: 600px) {
+            header { padding-top: 100px; }
+            .brand-link { left: 50%; transform: translateX(-50%); }
+            .brand-link:hover { transform: translateX(-50%) scale(1.05); }
+        }
     </style>
 </head>
 <body>
+
+<a href="https://gt4pebbles.github.io/Website/index.html" class="brand-link">
+    <img src="logoi.png" alt="GT4Pebbles Logo">
+</a>
 
 <header>
     <h1>The Aggregation Gallery</h1>
