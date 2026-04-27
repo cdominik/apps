@@ -513,9 +513,7 @@
           <strong>LEVITATED</strong>.</li>
       </ul>
 
-
-
-<h3>Optional instruments</h3>
+      <h3>Optional instruments</h3>
       <ul>
         <li><strong>Sound</strong> — motor hum (pitch tracks rotation speed),
           a dull plonk when a particle is lost, and a soft chime when one becomes
@@ -592,12 +590,6 @@
 (() => {
   'use strict';
 
-  // =========================================================================
-  // TUNING — single place for all gameplay-tuning knobs.
-  // Exposed on window so values can be edited live from the browser dev console:
-  //   TUNING.drum.swipeGain = 0.005
-  //   TUNING.ball.gravity = 350
-  // =========================================================================
   const TUNING = {
     drum: {
       slipRate:   0.7,                 // how fast omega tracks omegaTarget (1/s); higher = more responsive
@@ -653,10 +645,6 @@
       millBody:   0.035,   // mill: 90 Hz body-rumble sustain gain
     },
     fog: {
-      // "Fog mode" activates whenever the laser is on. The drum interior goes
-      // dark; non-stuck, non-levitated particles are invisible except where the
-      // laser sweeps. Stuck (lost) and levitated particles stay dimly visible
-      // so the player can still read the run state.
       backplateDim:   0.35,   // multiplier on backplate brightness (1 = unchanged)
       highlightDim:   0.55,   // multiplier on highlight-zone brightness
       stuckAlpha:     0.45,   // alpha for stuck (red) particles in fog
@@ -666,9 +654,6 @@
       laserAlphaMul:  1.5,    // multiply the laser fan brightness in fog
     },
     trails: {
-      // Each particle leaves a fading trail of its recent positions, so orbits
-      // become visible. Trails are skipped at very high particle counts to
-      // keep the frame rate up.
       durationS:  1.0,    // how long (s) of history each trail covers
       maxN:       300,    // disable trails when N_P >= this value
       lineWidth:  1.5,    // base trail line width in CSS pixels
@@ -681,7 +666,7 @@
   const CFG = {
     R_DRUM: 100, R_AXIS: 5, DEPTH: 20,
     N_P: 3, V_T: 30, DT_INJECT: 1.0,
-    VT_SPREAD: 0,
+    VT_SPREAD: 0.20,
     RELEASE_Y: 110, RELEASE_X_MIN: 0, RELEASE_X_MAX: 100,
     BRAKE_DAMP: 1.2,
     MAX_DT: 0.033,
@@ -754,11 +739,7 @@
     wingW: 120, wingTop: 60, wingBot: 0, wingLeftX: 20, wingRightX: 0,
     nozzleXs: [], nozzleTipY: 0,
     drawFeet: true, drawSideBeams: true,
-    // Cached Inject-button rect (px, canvas coords) used to route the
-    // injector pipe down to the button. Measured at layout() time.
     injectBtnX: 0, injectBtnY: 0, injectBtnW: 0, injectBtnH: 0,
-    // Cached left-wing top-center used as the dock point for the second
-    // injector pipe. Measured at layout() time.
     leftWingTopX: 0, leftWingTopY: 0,
   };
 
@@ -782,7 +763,6 @@
     document.body.classList.toggle('regime-compact',  REGIME === 'compact');
     document.body.classList.toggle('regime-portrait', REGIME === 'portrait');
 
-    // Reparent the instrument block based on regime.
     const instrBlock = document.getElementById('instrumentBlock');
     const wMiddle = document.getElementById('wingMiddle');
     const wRight = document.getElementById('wingRight');
@@ -803,7 +783,6 @@
     if (REGIME === 'portrait') layoutPortrait();
     else                       layoutSideWings(REGIME);
 
-    // Cache the Inject button's rect so the injector pipe can dock onto it.
     const startBtn = document.getElementById('btnStart');
     if (startBtn) {
       const r = startBtn.getBoundingClientRect();
@@ -812,7 +791,6 @@
       GEO.injectBtnW = r.width;
       GEO.injectBtnH = r.height;
     }
-    // Left-wing top-center for the second injector pipe.
     GEO.leftWingTopX = GEO.wingLeftX + GEO.wingW * 0.5;
     GEO.leftWingTopY = GEO.wingTop;
 
@@ -996,11 +974,14 @@
     pointers: new Map(), holding: false,
     puffs: [],
     lostCount: 0,
-    // === Easter egg: the golden balls ===
-    eggHoldRevs: 0,              // accumulated "rotations worth of time" while count ≥ N_crit
-    eggBallCount: 0,             // how many balls already formed this run
-    eggMerging: null,            // {particles: [...], spawnAt: t, dur: 0.4} during merge
-    goldenBalls: [],             // active balls
+    eggHoldRevs: 0,
+    eggBallCount: 0,
+    eggMerging: null,
+    goldenBalls: [],
+    aggregates: [],
+    aggHoldRevs: 0,
+    aggCount: 0,
+    aggMerging: null,
   };
   
   const imgAggregate = new Image();
@@ -1076,9 +1057,7 @@
   }
 
   function updateDrum(dt) {
-    // Passive bearing drag: target slowly winds down on its own.
     state.omegaTarget *= Math.exp(-TUNING.drum.omegaDecay * dt);
-    // Omega tracks its target with a slow slip — heavy wheel feel.
     const a = 1 - Math.exp(-TUNING.drum.slipRate * dt);
     state.omega += (state.omegaTarget - state.omega) * a;
     if (Math.abs(state.omega) < 1e-4 && Math.abs(state.omegaTarget) < 1e-4) {
@@ -1108,17 +1087,14 @@
 
     for (const p of state.particles) {
       if (!p.alive) continue;
-      if (p.merging) continue;     // animated separately by the merge logic
+      if (p.merging) continue;     
       if (p.stuck) {
         p.stuckAngle += omega * dt;
         p.x = CFG.R_DRUM * Math.cos(p.stuckAngle);
         p.y = CFG.R_DRUM * Math.sin(p.stuckAngle);
         p.inHighlightSince = null;
-        // Expire after 5 s on the wall.
         if (state.t - p.stuckAt >= 5) p.alive = false;
       } else {
-        // Gas only couples to the particle once it's inside the drum.
-        // Before entry, the particle just falls vertically at v_t.
         if (p.insideOnce) {
           const vxg = -omega * p.y;
           const vyg =  omega * p.x;
@@ -1159,9 +1135,6 @@
         p.prevR2 = r2;
 
         if (p.y < -CFG.R_DRUM * 1.5) p.alive = false;
-        // Backstop: any particle that has been inside the drum and is now
-        // clearly outside the wall is treated as a silent loss — counted but
-        // never shown. Catches tunnelers without putting them on the wall.
         if (p.insideOnce && !p.stuck && r2 > (CFG.R_DRUM * 1.05) * (CFG.R_DRUM * 1.05)) {
           state.lostCount++;
           p.alive = false;
@@ -1180,9 +1153,7 @@
     if (state.puffs.length) {
       state.puffs = state.puffs.filter(pf => (state.t - pf.bornAt) < pf.life);
     }
-    // Cull dead particles so the per-frame loop stays tight.
     if (state.particles.length > 0) {
-      // Only allocate a new array if at least one is dead (cheap check).
       let anyDead = false;
       for (let i = 0; i < state.particles.length; i++) {
         if (!state.particles[i].alive) { anyDead = true; break; }
@@ -1193,7 +1164,6 @@
     state.t += dt;
   }
 
-  // ===== Easter egg: golden ball formation =====
   function eggLevitatedParticles() {
     const absOm = Math.abs(state.omega);
     const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
@@ -1222,17 +1192,11 @@
     return out;
   }
 
-function updateEgg(dt) {
-    // 1. Integrate each ball (gravity, wall coupling — but no wall collision yet).
+  function updateEgg(dt) {
     for (const b of state.goldenBalls) integrateGoldenBall(b, dt);
-
-    // 2. Resolve ball-ball collisions (positions + velocities).
     if (state.goldenBalls.length > 1) resolveBallBallCollisions();
-
-    // 3. Resolve ball-wall collisions (after ball-ball, so the wall gets the last word).
     for (const b of state.goldenBalls) resolveWallCollision(b);
 
-    // 4. Drive the merge animation if active.
     if (state.eggMerging) {
       const m = state.eggMerging;
       const u = (state.t - m.startedAt) / m.dur;
@@ -1245,15 +1209,12 @@ function updateEgg(dt) {
       return;
     }
 
-    // 5. Cap on number of balls.
     if (state.eggBallCount >= TUNING.egg.maxBalls) return;
 
-    // 6. Threshold depends on whether this is the first ball or a subsequent one.
     const target = (state.eggBallCount === 0)
       ? TUNING.egg.holdTarget
       : TUNING.egg.holdSubseq;
 
-    // 7. Accumulate rotations of hold time when live levitated count >= N_crit AND spread is high enough.
     const lev = eggLevitatedAggregates();
     const absOm = Math.abs(state.omega);
     const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
@@ -1270,13 +1231,10 @@ function updateEgg(dt) {
   }
 
   function integrateGoldenBall(b, dt) {
-    // Gravity.
     b.vy -= TUNING.ball.gravity * dt;
-
     b.x += b.vx * dt;
     b.y += b.vy * dt;
 
-    // Wall coupling (gentle — gravity dominates so the ball settles near the bottom).
     const r = Math.hypot(b.x, b.y);
     const rMax = CFG.R_DRUM - b.r;
     const contactMargin = 1.0;
@@ -1308,7 +1266,6 @@ function updateEgg(dt) {
     const r = Math.hypot(b.x, b.y);
     const rMax = CFG.R_DRUM - b.r;
     if (r <= rMax) {
-      // Only kill very slow residual motion at the bottom.
       const sv = TUNING.ball.settleVel;
       if (Math.abs(b.vx) < sv && Math.abs(b.vy) < sv && r > rMax - 0.5) {
         b.vx *= 0.85; b.vy *= 0.85;
@@ -1343,28 +1300,22 @@ function updateEgg(dt) {
         const minD = A.r + B.r;
         if (d2 >= minD * minD) continue;
         const d = Math.sqrt(d2);
-        // Avoid divide-by-zero: if perfectly coincident, push apart in a fixed direction.
         let nx, ny;
         if (d < 1e-6) { nx = 1; ny = 0; }
         else { nx = dx / d; ny = dy / d; }
-        // Position resolution: push each ball half the overlap along the line of centers.
         const overlap = minD - d;
         const half = overlap * 0.5;
         A.x -= nx * half; A.y -= ny * half;
         B.x += nx * half; B.y += ny * half;
-        // Velocity response: equal masses → exchange normal components, with restitution
-        // on the approach component only.
         const vAn = A.vx * nx + A.vy * ny;
         const vBn = B.vx * nx + B.vy * ny;
-        // Approach speed (positive when approaching).
         const vRel = vAn - vBn;
-        if (vRel <= 0) continue;          // already separating; only resolve positions
+        if (vRel <= 0) continue;          
         const impulse = (1 + e) * vRel * 0.5;
         A.vx -= impulse * nx;
         A.vy -= impulse * ny;
         B.vx += impulse * nx;
         B.vy += impulse * ny;
-        // Soft thud on contact, scaled by the approach speed.
         if (vRel > 30) soundGoldenThud(vRel * 0.6);
       }
     }
@@ -1392,10 +1343,6 @@ function updateEgg(dt) {
     const chosen = pool.slice(0, Math.min(N, pool.length));
     if (chosen.length === 0) return;
 
-    // Convergence target: pick the levitated particle whose 3rd-nearest
-    // neighbor (among all levitated) is closest — i.e. the one in the
-    // densest local cluster. With few levitated particles, fall back to
-    // the centroid.
     let target;
     if (levList.length <= 3) {
       let cx = 0, cy = 0;
@@ -1450,12 +1397,17 @@ function updateEgg(dt) {
       const absOm = Math.abs(state.omega);
       const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
 
-      // Check against minLevitated, finite period, AND minimum required spread
       if (lev.length >= TUNING.aggregate.minLevitated && isFinite(T) && CFG.VT_SPREAD >= TUNING.aggregate.minSpread) {
         state.aggHoldRevs += dt / T;
         const target = state.aggCount === 0 ? TUNING.aggregate.initialHoldRevs : TUNING.aggregate.subseqHoldRevs;
         if (state.aggHoldRevs >= target) {
-          startAggregateMerge(lev);
+          const pool = [];
+          for (const p of state.particles) {
+            if (p.alive && !p.stuck && !p.merging && p.inHighlightSince !== null) {
+              pool.push(p);
+            }
+          }
+          startAggregateMerge(lev, pool);
           state.aggHoldRevs = 0;
         }
       } else {
@@ -1470,47 +1422,62 @@ function updateEgg(dt) {
     for (const agg of state.aggregates) {
       if (agg.merging) continue;
       
-      if (agg.stuck) {
-         agg.stuckAngle += state.omega * dt;
-         agg.x = CFG.R_DRUM * Math.cos(agg.stuckAngle);
-         agg.y = CFG.R_DRUM * Math.sin(agg.stuckAngle);
-         agg.inHighlightSince = null;
+      if (agg.stuck) continue; 
+
+      agg.vx = -state.omega * agg.y;
+      agg.vy = state.omega * agg.x - agg.vt;
+      agg.x += agg.vx * dt;
+      agg.y += agg.vy * dt;
+      agg.rot += agg.rotSpeed * dt;
+      
+      const r2 = agg.x * agg.x + agg.y * agg.y;
+      const Rwall = CFG.R_DRUM - agg.r;
+      
+      if (r2 >= Rwall * Rwall) {
+        agg.alive = false;
+        const baseAngle = Math.atan2(agg.y, agg.x);
+        const pRwall = CFG.R_DRUM - TUNING.particle.collisionR;
+        
+        for (let i = 0; i < 10; i++) {
+          const spread = (Math.random() - 0.5) * (agg.r / CFG.R_DRUM) * 2.5;
+          const pAngle = baseAngle + spread;
+          state.particles.push({
+            x: pRwall * Math.cos(pAngle),
+            y: pRwall * Math.sin(pAngle),
+            vx: 0, vy: 0,
+            vt: agg.vt,
+            stuck: true,
+            stuckAngle: pAngle,
+            stuckAt: state.t,
+            alive: true,
+            inHighlightSince: null,
+            flashEndsAt: -1,
+            insideOnce: true
+          });
+          state.lostCount++;
+        }
+        soundCrunch();
       } else {
-         agg.vx = -state.omega * agg.y;
-         agg.vy = state.omega * agg.x - agg.vt;
-         agg.x += agg.vx * dt;
-         agg.y += agg.vy * dt;
-         agg.rot += agg.rotSpeed * dt;
-         
-         const r2 = agg.x * agg.x + agg.y * agg.y;
-         const Rwall = CFG.R_DRUM - agg.r;
-         if (r2 >= Rwall * Rwall) {
-           agg.stuck = true;
-           agg.stuckAngle = Math.atan2(agg.y, agg.x);
-           agg.x = Rwall * Math.cos(agg.stuckAngle);
-           agg.y = Rwall * Math.sin(agg.stuckAngle);
-           agg.inHighlightSince = null;
-         } else {
-           const dxh = agg.x - HX, dyh = agg.y - HY;
-           if (dxh * dxh + dyh * dyh <= HR2) {
-             if (agg.inHighlightSince === null) agg.inHighlightSince = state.t;
-           } else {
-             agg.inHighlightSince = null;
-           }
-         }
-         if (agg.y < -CFG.R_DRUM * 1.5) agg.alive = false;
+        const dxh = agg.x - HX, dyh = agg.y - HY;
+        if (dxh * dxh + dyh * dyh <= HR2) {
+          if (agg.inHighlightSince === null) agg.inHighlightSince = state.t;
+        } else {
+          agg.inHighlightSince = null;
+        }
       }
+      if (agg.y < -CFG.R_DRUM * 1.5) agg.alive = false;
     }
+    
     if (state.aggregates.length > 0) {
       state.aggregates = state.aggregates.filter(a => a.alive);
     }
   }
 
-  function startAggregateMerge(levList) {
+  function startAggregateMerge(levList, pool) {
     const centerIdx = Math.floor(Math.random() * levList.length);
     const centerP = levList[centerIdx];
     
-    const dists = levList.map(p => {
+    const dists = pool.map(p => {
       const dx = p.x - centerP.x;
       const dy = p.y - centerP.y;
       return { p, d2: dx * dx + dy * dy };
@@ -1556,7 +1523,7 @@ function updateEgg(dt) {
     });
     soundSnap();
   }
-  
+
   function drawMergeStreaks() {
     if (!state.eggMerging) return;
     const m = state.eggMerging;
@@ -1601,7 +1568,6 @@ function updateEgg(dt) {
     const rpx = pxDist(b.r);
     const age = state.t - b.bornAt;
 
-    // Outer aura — pulses subtly.
     const pulse = 0.85 + 0.15 * Math.sin(state.t * 4);
     const auraR = rpx * (3.5 + 0.2 * Math.sin(state.t * 2));
     const aura = ctx.createRadialGradient(cx, cy, rpx * 0.9, cx, cy, auraR);
@@ -1611,7 +1577,6 @@ function updateEgg(dt) {
     ctx.fillStyle = aura;
     ctx.beginPath(); ctx.arc(cx, cy, auraR, 0, Math.PI * 2); ctx.fill();
 
-    // Spawn flash — bright burst that fades over 250 ms.
     if (age < 0.25) {
       const f = 1 - age / 0.25;
       const flashR = rpx * (2.0 + 6 * (1 - f));
@@ -1623,8 +1588,6 @@ function updateEgg(dt) {
       ctx.beginPath(); ctx.arc(cx, cy, flashR, 0, Math.PI * 2); ctx.fill();
     }
 
-    // Body: radial gradient from pale highlight (upper-left) to deep amber rim.
-    // Highlight center offset to give a sphere look.
     const hlx = cx - rpx * 0.35, hly = cy - rpx * 0.4;
     const body = ctx.createRadialGradient(hlx, hly, 0, cx, cy, rpx);
     body.addColorStop(0.00, '#fff8d8');
@@ -1635,7 +1598,6 @@ function updateEgg(dt) {
     ctx.fillStyle = body;
     ctx.beginPath(); ctx.arc(cx, cy, rpx, 0, Math.PI * 2); ctx.fill();
 
-    // Rim shadow on the lower-right for sphericity.
     const rim = ctx.createRadialGradient(cx + rpx * 0.3, cy + rpx * 0.4, rpx * 0.6, cx, cy, rpx * 1.05);
     rim.addColorStop(0, 'rgba(0,0,0,0)');
     rim.addColorStop(0.7, 'rgba(60, 30, 5, 0)');
@@ -1643,7 +1605,6 @@ function updateEgg(dt) {
     ctx.fillStyle = rim;
     ctx.beginPath(); ctx.arc(cx, cy, rpx, 0, Math.PI * 2); ctx.fill();
 
-    // Specular highlight — bright crescent near upper-left.
     ctx.save();
     ctx.beginPath(); ctx.arc(cx, cy, rpx, 0, Math.PI * 2); ctx.clip();
     const spec = ctx.createRadialGradient(cx - rpx * 0.4, cy - rpx * 0.5, 0, cx - rpx * 0.4, cy - rpx * 0.5, rpx * 0.7);
@@ -1653,7 +1614,6 @@ function updateEgg(dt) {
     ctx.fillStyle = spec;
     ctx.beginPath(); ctx.arc(cx - rpx * 0.4, cy - rpx * 0.5, rpx * 0.7, 0, Math.PI * 2); ctx.fill();
 
-    // A few tiny sparkle points that rotate with the ball.
     const sparkles = [
       { ang: 0.3, rad: 0.55, sz: 0.10 },
       { ang: 1.7, rad: 0.42, sz: 0.08 },
@@ -1674,7 +1634,6 @@ function updateEgg(dt) {
     }
     ctx.restore();
 
-    // Outline — thin dark for definition.
     ctx.strokeStyle = 'rgba(40, 20, 5, 0.7)';
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.arc(cx, cy, rpx, 0, Math.PI * 2); ctx.stroke();
@@ -1719,13 +1678,10 @@ function updateEgg(dt) {
   }
 
   function drawSuccessText() {
-    // For each ball, between t = bornAt + 1 and t = bornAt + 3, flash a
-    // two-line "Success! / Pebble formed!" message in the upper drum.
     for (const b of state.goldenBalls) {
       const age = state.t - b.bornAt;
       if (age < 1 || age > 3) continue;
-      // Visible window is 2 s long. Fade-in 0.15 s, hold, fade-out 0.15 s.
-      const u = (age - 1) / 2;        // 0..1 within the visible window
+      const u = (age - 1) / 2;        
       let alpha;
       if (u < 0.075)      alpha = u / 0.075;
       else if (u > 0.925) alpha = (1 - u) / 0.075;
@@ -1733,23 +1689,21 @@ function updateEgg(dt) {
       if (alpha <= 0) continue;
 
       const cxScreen = X2px(0);
-      const cyScreen = Y2px(50);     // upper half of the drum (y = +50 cm)
-      const big = Math.max(14, pxDist(16));    // ~16 cm tall headline
-      const small = Math.max(10, pxDist(9));   // ~9 cm subtitle
+      const cyScreen = Y2px(50);     
+      const big = Math.max(14, pxDist(16));    
+      const small = Math.max(10, pxDist(9));   
 
       ctx.save();
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.globalAlpha = alpha;
 
-      // Headline "Success!" — bright gold with glow.
       ctx.font = 'bold ' + big + 'px "Courier New", monospace';
       ctx.shadowColor = 'rgba(255, 200, 80, 0.9)';
       ctx.shadowBlur = big * 0.6;
       ctx.fillStyle = '#fff2c0';
       ctx.fillText('Success!', cxScreen, cyScreen - big * 0.55);
 
-      // Subtitle "Pebble formed!" — deeper gold, smaller.
       ctx.font = 'bold ' + small + 'px "Courier New", monospace';
       ctx.shadowColor = 'rgba(255, 180, 60, 0.7)';
       ctx.shadowBlur = small * 0.5;
@@ -1760,11 +1714,9 @@ function updateEgg(dt) {
     }
   }
 
-  // Sounds for the easter egg.
   function soundGoldenChime() {
     if (!AUDIO.ctx) return;
     const t = AUDIO.ctx.currentTime;
-    // Major triad arpe arpeggio: C5, E5, G5 (523, 659, 784 Hz), then a high D6 (1175) shimmer.
     const notes = [523.25, 659.25, 783.99, 1174.66];
     notes.forEach((f, i) => {
       const o = AUDIO.ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
@@ -1812,7 +1764,6 @@ function updateEgg(dt) {
     let s = Math.sqrt(Math.max(0.01, vt) / TUNING.particle.sizeRefVt);
     if (s < TUNING.particle.sizeMin) s = TUNING.particle.sizeMin;
     if (s > TUNING.particle.sizeMax) s = TUNING.particle.sizeMax;
-    // Shrink when the cloud is dense to reduce visual overlap.
     if (CFG.N_P >= 1000)      s *= 0.50;
     else if (CFG.N_P >= 300)  s *= 0.70;
     return s;
@@ -1836,8 +1787,6 @@ function updateEgg(dt) {
     for (let x = 0; x < W; x += gs) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
     for (let y = 0; y < H; y += gs) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
     ctx.restore();
-    // Floor (landscape only) — a thin strip at the bottom of the screen
-    // that the apparatus visually rests on.
     if (REGIME !== 'portrait') drawFloor();
   }
 
@@ -1859,11 +1808,9 @@ function updateEgg(dt) {
     }
     ctx.fillStyle = g;
     ctx.fillRect(0, floorTop, W, floorH);
-    // Top edge highlight
     ctx.strokeStyle = isLight ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.10)';
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(0, floorTop + 0.5); ctx.lineTo(W, floorTop + 0.5); ctx.stroke();
-    // Subtle horizontal grain
     ctx.save();
     ctx.globalAlpha = isLight ? 0.10 : 0.18;
     ctx.strokeStyle = '#000';
@@ -1872,7 +1819,6 @@ function updateEgg(dt) {
       ctx.beginPath(); ctx.moveTo(8, yy); ctx.lineTo(W - 8, yy); ctx.stroke();
     }
     ctx.restore();
-    // A few rivets along the floor's top edge
     const rivetSpacing = (REGIME === 'wide') ? 80 : 60;
     for (let x = 30; x < W - 20; x += rivetSpacing) {
       rivet(x, floorTop + Math.max(5, floorH * 0.45), Math.max(2, floorH * 0.18));
@@ -1924,7 +1870,6 @@ function updateEgg(dt) {
 
     const capW = Math.max(6, pxDist(4));
 
-    // ===== Vertical mounting beams to ceiling =====
     const beamW = Math.max(8, pxDist(5));
     const beam1X = x0 + capW + barH * 1.5;
     const beam2X = x1 - capW - barH * 1.5 - beamW;
@@ -1945,18 +1890,15 @@ function updateEgg(dt) {
           bg.addColorStop(1.00, '#1a1a22');
         }
 
-        // Beam body
         ctx.fillStyle = bg;
         ctx.fillRect(bx, 0, beamW, yTop);
 
-        // Edge highlights
         ctx.strokeStyle = isLight ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.3)';
         ctx.lineWidth = 1.2;
         ctx.beginPath(); ctx.moveTo(bx + 0.5, 0); ctx.lineTo(bx + 0.5, yTop); ctx.stroke();
         ctx.strokeStyle = 'rgba(0,0,0,0.7)';
         ctx.beginPath(); ctx.moveTo(bx + beamW - 0.5, 0); ctx.lineTo(bx + beamW - 0.5, yTop); ctx.stroke();
 
-        // Flange connecting beam to the manifold
         const flW = beamW * 1.8;
         const flH = Math.max(4, pxDist(2.5));
         const flX = bx - (flW - beamW) / 2;
@@ -1981,11 +1923,9 @@ function updateEgg(dt) {
       }
     }
 
-    // ===== Manifold bar drop-shadow =====
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.fillRect(x0 + 3, yBot + 1, x1 - x0, 4);
 
-    // ===== Brass manifold bar =====
     const gBrass = ctx.createLinearGradient(0, yTop, 0, yBot);
     gBrass.addColorStop(0.00, '#f0d088');
     gBrass.addColorStop(0.10, '#e8c77a');
@@ -1996,7 +1936,6 @@ function updateEgg(dt) {
     ctx.fillStyle = gBrass;
     ctx.fillRect(x0, yTop, x1 - x0, yBot - yTop);
 
-    // Top and bottom edge highlights
     ctx.strokeStyle = 'rgba(255,245,200,0.75)';
     ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.moveTo(x0, yTop + 0.6); ctx.lineTo(x1, yTop + 0.6); ctx.stroke();
@@ -2004,7 +1943,6 @@ function updateEgg(dt) {
     ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.moveTo(x0, yBot - 0.6); ctx.lineTo(x1, yBot - 0.6); ctx.stroke();
 
-    // Rounded end-cap shading on left and right
     const capA = ctx.createLinearGradient(x0, 0, x0 + capW, 0);
     capA.addColorStop(0, 'rgba(0,0,0,0.55)'); capA.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = capA; ctx.fillRect(x0, yTop, capW, yBot - yTop);
@@ -2012,14 +1950,12 @@ function updateEgg(dt) {
     capB.addColorStop(0, 'rgba(0,0,0,0)'); capB.addColorStop(1, 'rgba(0,0,0,0.55)');
     ctx.fillStyle = capB; ctx.fillRect(x1 - capW, yTop, capW, yBot - yTop);
 
-    // End-cap rivets
     const endBoltR = Math.max(2.2, barH * 0.16);
     rivet(x0 + capW * 0.5, yTop + barH * 0.25, endBoltR);
     rivet(x0 + capW * 0.5, yTop + barH * 0.75, endBoltR);
     rivet(x1 - capW * 0.5, yTop + barH * 0.25, endBoltR);
     rivet(x1 - capW * 0.5, yTop + barH * 0.75, endBoltR);
 
-    // ===== Reinforcement ribs along the bar =====
     const ribCount = 5;
     const ribAreaX0 = x0 + capW;
     const ribAreaX1 = x1 - capW;
@@ -2038,7 +1974,6 @@ function updateEgg(dt) {
       rivet(cx, yTop + barH * 0.82, ribBoltR);
     }
 
-    // ===== Nozzles =====
     const nozzleCount = 6;
     const nozzleAreaX0 = X2px(CFG.RELEASE_X_MIN + 5);
     const nozzleAreaX1 = X2px(CFG.RELEASE_X_MAX - 5);
@@ -2260,14 +2195,11 @@ function updateEgg(dt) {
   function drawTrails() {
     if (!state.trailsOn) return;
     if (CFG.N_P >= TUNING.trails.maxN) return;
-    // Trails are suppressed entirely in fog mode — only the laser flash on the
-    // particle itself reveals position.
     if (state.laserOn) return;
     const dur = TUNING.trails.durationS;
     const headA = TUNING.trails.headAlpha;
     const tailA = TUNING.trails.tailAlpha;
 
-    // Clip drawing to the drum interior so trails don't bleed onto the band.
     const rInnerPx = pxDist(CFG.R_DRUM) + 2;
     ctx.save();
     ctx.beginPath(); ctx.arc(CX, CY, rInnerPx, 0, Math.PI * 2); ctx.clip();
@@ -2277,7 +2209,6 @@ function updateEgg(dt) {
       const trail = p.trail;
       if (!trail || trail.length < 2) continue;
 
-      // Pick the trail color from the particle's *current* state.
       const absOm = Math.abs(state.omega);
       const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
       const levitated = isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
@@ -2285,18 +2216,17 @@ function updateEgg(dt) {
       if (levitated)        { r = 0x40; g = 0xff; b = 0x70; }
       else                  { r = 0xff; g = 0xee; b = 0x33; }
 
-      // Walk the trail head→tail, drawing each segment with alpha based on age.
       ctx.lineWidth = TUNING.trails.lineWidth;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       const n = trail.length;
       for (let i = n - 1; i > 0; i--) {
-        const s1 = trail[i];     // newer
-        const s0 = trail[i - 1]; // older
+        const s1 = trail[i];     
+        const s0 = trail[i - 1]; 
         const age = state.t - s1.t;
         if (age > dur) break;
 
-        const u = age / dur;                 // 0 at head, 1 at tail
+        const u = age / dur;                 
         const a = headA + (tailA - headA) * u;
         if (a <= 0.01) continue;
         ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${a.toFixed(3)})`;
@@ -2309,8 +2239,6 @@ function updateEgg(dt) {
     ctx.restore();
   }
 
-  // Push a position sample onto each particle's trail. Called once per frame
-  // from the draw loop — sub-frame physics steps don't get their own samples.
   function recordTrails() {
     if (!state.trailsOn) return;
     if (CFG.N_P >= TUNING.trails.maxN) return;
@@ -2318,18 +2246,12 @@ function updateEgg(dt) {
     for (const p of state.particles) {
       if (!p.alive) continue;
       if (p.stuck) {
-        // Don't accumulate a trail at the wall; clear what's there so a
-        // particle that just got stuck doesn't drag a ghost arc.
         if (p.trail && p.trail.length) p.trail.length = 0;
         continue;
       }
-      // Skip trails for particles that haven't entered the drum yet — the
-      // straight fall above the drum looks like a column of dashes otherwise.
       if (!p.insideOnce) continue;
       if (!p.trail) p.trail = [];
       p.trail.push({ x: p.x, y: p.y, t: state.t });
-      // Drop expired samples from the front. Trail is small (~60 entries) so
-      // shift() is fine here.
       while (p.trail.length && (state.t - p.trail[0].t) > dur) p.trail.shift();
     }
   }
@@ -2419,7 +2341,6 @@ function updateEgg(dt) {
     const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
     const levitated = !p.stuck && isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
 
-    // Stuck particles fade out over the last 1 s of their 5 s wall life.
     let alphaMul = 1;
     if (p.stuck && p.stuckAt !== undefined) {
       const age = state.t - p.stuckAt;
@@ -2427,18 +2348,11 @@ function updateEgg(dt) {
       if (alphaMul <= 0) return;
     }
 
-    // Fog mode: only stuck (lost) particles stay dimly visible without the
-    // laser — they're at the wall and not gameplay-relevant to hunt for.
-    // Floating and levitated particles are only visible while the laser flash
-    // is on them, so the player must sweep to read the run state.
     if (fog) {
       if (!p.stuck && flash <= 0) return;
       if (p.stuck) alphaMul *= TUNING.fog.stuckAlpha;
     }
 
-    // Outside fog, the dense-cloud render path skips the soft glow for
-    // performance. In fog mode glows are essential (they ARE the visibility),
-    // so always draw them when fog is on.
     const drawGlow = fog || (CFG.N_P < 300);
 
     let coreColor, glowColor;
@@ -2561,9 +2475,7 @@ function updateEgg(dt) {
     return { x: (clientX - rect.left - CX) / SCALE, y: (CY - (clientY - rect.top)) / SCALE };
   }
   function insideDrumOrBand(x, y) {
-    // Accept the drum interior plus the rotating steel band around it,
-    // so the user can spin the drum by swiping the band too.
-    const rMax = CFG.R_DRUM * 1.34;  // slightly past the steel band's outer edge
+    const rMax = CFG.R_DRUM * 1.34;  
     return x * x + y * y <= rMax * rMax;
   }
   function onDown(id, clientX, clientY) {
@@ -2831,7 +2743,6 @@ function updateEgg(dt) {
     const buffer = AUDIO.ctx.createBuffer(1, bufSize, AUDIO.ctx.sampleRate);
     const data = buffer.getChannelData(0);
     
-    // Pink noise generation for organic paper texture
     let b0, b1, b2, b3, b4, b5, b6;
     b0 = b1 = b2 = b3 = b4 = b5 = b6 = 0.0;
     for (let i = 0; i < bufSize; i++) {
@@ -3071,9 +2982,12 @@ function updateEgg(dt) {
     const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
     elPeriod.textContent = isFinite(T) ? T.toFixed(2) : '∞';
     let floating = 0, levitated = 0;
+    
     for (const p of state.particles) {
       if (!p.alive) continue;
       if (p.stuck) { p.wasLevitated = false; continue; }
+      if (p.merging) continue; 
+      
       floating++;
       const nowLev = isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
       if (nowLev) {
@@ -3083,6 +2997,7 @@ function updateEgg(dt) {
         p.wasLevitated = false;
       }
     }
+    
     elFloating.textContent = floating;
     elCaptured.textContent = state.lostCount;
     elRemaining.textContent = levitated;
@@ -3091,7 +3006,7 @@ function updateEgg(dt) {
   const SETTINGS = {
     NP:     { values: [1, 2, 3, 10, 30, 100, 300, 1000], idx: 2, apply: (v) => { CFG.N_P = v; }, label: (v) => String(v) },
     VT:     { values: [10, 20, 30, 40, 50], idx: 1, apply: (v) => { CFG.V_T = v; if (elVT) elVT.textContent = v.toFixed(1); }, label: (v) => String(v) },
-    SPREAD: { values: [0, 0.01, 0.02, 0.05, 0.10, 0.20, 0.50], idx: 4, apply: (v) => { CFG.VT_SPREAD = v; }, label: (v) => Math.round(v * 100) + '%' },
+    SPREAD: { values: [0, 0.01, 0.02, 0.05, 0.10, 0.20, 0.50], idx: 5, apply: (v) => { CFG.VT_SPREAD = v; }, label: (v) => Math.round(v * 100) + '%' },
     DT:     { values: [0, 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], idx: 2, apply: (v) => { CFG.DT_INJECT = v; }, label: (v) => (v + ' s') },
   };
   const SEL_WIN = {
@@ -3246,8 +3161,6 @@ function updateEgg(dt) {
     if (e.key === 'Escape' && !manualOverlay.hidden) closeManual();
   });
 
-  // ===== Game Mode =====
-  // Add new levels by adding objects to the levels array below.
   const GAME = {
     on: false,
     levelIdx: 0,
@@ -3379,7 +3292,6 @@ function updateEgg(dt) {
     lockSelectors(true);
     startRelease();
     
-    // Stop the drum before injection
     state.omega = 0;
     state.omegaTarget = 0;
     
@@ -3401,7 +3313,6 @@ function updateEgg(dt) {
     state.running = false;
     btnStart.classList.remove('on');
 
-    // Stop the drum immediately
     state.omega = 0;
     state.omegaTarget = 0;
 
@@ -3451,7 +3362,6 @@ function updateEgg(dt) {
   btnGameMode.addEventListener('click', () => enterGameMode(!GAME.on));
   btnGameMode.classList.remove('disabled');
 
-  // ===== Challenge Mode (Outreach Highscore) =====
   const CHALLENGE = {
     on: false,
     phase: 'idle',
