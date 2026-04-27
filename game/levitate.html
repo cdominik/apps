@@ -1376,7 +1376,7 @@
       spinRate: 0,
       bornAt: state.t,
     });
-    soundGoldenChime();
+    soundCrunch(); 
   }
 
   function startMerge(levList) {
@@ -1549,8 +1549,9 @@
       inHighlightSince: null,
       merging: false
     });
+    soundSnap();
   }
-
+  
   function drawMergeStreaks() {
     if (!state.eggMerging) return;
     const m = state.eggMerging;
