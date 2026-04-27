@@ -984,8 +984,12 @@
     aggMerging: null,
   };
   
-  const imgAggregate = new Image();
-  imgAggregate.src = 'aggregate.png';
+  const aggregateImages = [];
+  for (let i = 0; i < 5; i++) {
+    const img = new Image();
+    img.src = `aggregate${i}.png`;
+    aggregateImages.push(img);
+  }
 
   function initLevel() {
     state.running = false;
@@ -1068,13 +1072,15 @@
   }
 
   function step(dt) {
-    while (state.toInject.length && state.toInject[0].t <= state.t) {
+  while (state.toInject.length && state.toInject[0].t <= state.t) {
       const inj = state.toInject.shift();
       state.particles.push({
         x: inj.x, y: CFG.RELEASE_Y,
         vx: 0, vy: 0, stuck: false, stuckAngle: 0, alive: true,
         inHighlightSince: null, flashEndsAt: -1, insideOnce: false,
         vt: inj.vt,
+        // Assign random image index
+        imgIdx: Math.floor(Math.random() * aggregateImages.length) 
       });
       spawnPuffAtNozzle(inj.x);
     }
@@ -1386,7 +1392,7 @@
       const u = (state.t - m.startedAt) / m.dur;
       if (u >= 1) {
         for (const p of m.particles) p.alive = false;
-        spawnAggregate(m.target.x, m.target.y, m.meanVt, m.sizeFac);
+        spawnAggregate(m.target.x, m.target.y, m.meanVt, m.sizeFac, m.targetImgIdx);
         state.aggMerging = null;
         state.aggCount++;
       }
@@ -1452,11 +1458,15 @@
             alive: true,
             inHighlightSince: null,
             flashEndsAt: -1,
-            insideOnce: true
+            insideOnce: true,
+            // Assign random image index
+            imgIdx: Math.floor(Math.random() * aggregateImages.length) 
           });
           state.lostCount++;
         }
-        soundCrunch();
+        soundTink();
+        soundTink();
+        soundTink();
       } else {
         const dxh = agg.x - HX, dyh = agg.y - HY;
         if (dxh * dxh + dyh * dyh <= HR2) {
@@ -1487,6 +1497,9 @@
     const chosen = dists.slice(0, TUNING.aggregate.mergeCount).map(item => item.p);
     let cx = 0, cy = 0, sumVt = 0, sumSizeFac = 0;
     
+    // Pick the random image index for the resulting aggregate
+    const targetImgIdx = Math.floor(Math.random() * aggregateImages.length);
+
     for (const p of chosen) {
       p.merging = true;
       p.mergeStart = { x: p.x, y: p.y };
@@ -1501,14 +1514,18 @@
       meanVt: sumVt / chosen.length,
       sizeFac: sumSizeFac / chosen.length,
       startedAt: state.t,
-      dur: TUNING.aggregate.mergeDur
+      dur: TUNING.aggregate.mergeDur,
+      targetImgIdx: targetImgIdx // Store it in the merge state
     };
   }
 
-  function spawnAggregate(x, y, vt, sizeFac) {
+  function spawnAggregate(x, y, vt, sizeFac, presetImgIdx) {
     const baseR = TUNING.particle.collisionR * sizeFac * TUNING.aggregate.sizeMult;
     const speedMag = Math.abs(state.omega) * (1 + Math.random() * 2);
     const dir = Math.random() < 0.5 ? 1 : -1;
+    
+    // Use the preset index if it came from a merge, otherwise pick a random one
+    const finalImgIdx = presetImgIdx !== undefined ? presetImgIdx : Math.floor(Math.random() * aggregateImages.length);
     
     state.aggregates.push({
       x, y, vt, 
@@ -1519,7 +1536,8 @@
       stuck: false,
       alive: true,
       inHighlightSince: null,
-      merging: false
+      merging: false,
+      imgIdx: finalImgIdx
     });
     soundSnap();
   }
@@ -1548,8 +1566,15 @@
       ctx.translate(ax, ay);
       ctx.rotate(-agg.rot);
       ctx.globalAlpha = scale;
-      if (imgAggregate.complete && imgAggregate.naturalHeight !== 0) {
-        ctx.drawImage(imgAggregate, -ar, -ar, ar * 2, ar * 2);
+
+      const img = aggregateImages[agg.imgIdx !== undefined ? agg.imgIdx : 0];
+      if (img && img.complete && img.naturalHeight !== 0) {
+        
+        // Scale based strictly on height
+        const drawH = ar * 2;
+        const drawW = drawH * (img.naturalWidth / img.naturalHeight);
+        
+        ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
       } else {
         ctx.fillStyle = '#6a6a72';
         ctx.beginPath(); ctx.arc(0, 0, ar, 0, Math.PI * 2); ctx.fill();
@@ -1666,8 +1691,17 @@
       ctx.save();
       ctx.translate(ax, ay);
       ctx.rotate(-agg.rot);
-      if (imgAggregate.complete && imgAggregate.naturalHeight !== 0) {
-        ctx.drawImage(imgAggregate, -ar, -ar, ar * 2, ar * 2);
+
+      // Retrieve the specifically assigned image
+      const img = aggregateImages[agg.imgIdx !== undefined ? agg.imgIdx : 0];
+      if (img && img.complete && img.naturalHeight !== 0) {
+        
+        // Scale based strictly on height (radius * 2)
+        const drawH = ar * 2;
+        // Calculate width to maintain original aspect ratio based on the forced height
+        const drawW = drawH * (img.naturalWidth / img.naturalHeight);
+        
+        ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
       } else {
         ctx.fillStyle = '#6a6a72';
         ctx.beginPath(); ctx.arc(0, 0, ar, 0, Math.PI * 2); ctx.fill();
