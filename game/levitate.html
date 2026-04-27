@@ -624,14 +624,16 @@
       holdSubseq: 3,      // 3 rotations for subsequent pebbles
       maxBalls:   10,
       mergeDur:   0.6,
+      minSpread:  0.20,   // Minimum v_t spread required to form pebbles
     },
     aggregate: {
       minLevitated: 30,
       mergeCount: 10,
       initialHoldRevs: 3,
       subseqHoldRevs: 1,
-      sizeMult: 5,
-      mergeDur: 0.6
+      sizeMult: 10,
+      mergeDur: 0.6,
+      minSpread: 0.20     // Minimum v_t spread required to form aggregates
     },
     ball: {
       gravity:      200,   // gravity acting on golden balls (cm/s^2)
@@ -1220,7 +1222,7 @@
     return out;
   }
 
-  function updateEgg(dt) {
+function updateEgg(dt) {
     // 1. Integrate each ball (gravity, wall coupling — but no wall collision yet).
     for (const b of state.goldenBalls) integrateGoldenBall(b, dt);
 
@@ -1251,11 +1253,12 @@
       ? TUNING.egg.holdTarget
       : TUNING.egg.holdSubseq;
 
-    // 7. Accumulate rotations of hold time when live levitated count ≥ N_crit.
+    // 7. Accumulate rotations of hold time when live levitated count >= N_crit AND spread is high enough.
     const lev = eggLevitatedAggregates();
     const absOm = Math.abs(state.omega);
     const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
-    if (lev.length >= TUNING.egg.nCrit && isFinite(T)) {
+    
+    if (lev.length >= TUNING.egg.nCrit && isFinite(T) && CFG.VT_SPREAD >= TUNING.egg.minSpread) {
       state.eggHoldRevs += dt / T;
       if (state.eggHoldRevs >= target) {
         startMerge(lev);
@@ -1431,7 +1434,6 @@
   }
   
   function updateAggregates(dt) {
-    // 1. Handle active merge animation
     if (state.aggMerging) {
       const m = state.aggMerging;
       const u = (state.t - m.startedAt) / m.dur;
@@ -1443,13 +1445,13 @@
       }
     }
 
-    // 2. Check for new merges only if we aren't already merging
     if (!state.aggMerging) {
       const lev = eggLevitatedParticles();
       const absOm = Math.abs(state.omega);
       const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
 
-      if (lev.length >= TUNING.aggregate.minLevitated && isFinite(T)) {
+      // Check against minLevitated, finite period, AND minimum required spread
+      if (lev.length >= TUNING.aggregate.minLevitated && isFinite(T) && CFG.VT_SPREAD >= TUNING.aggregate.minSpread) {
         state.aggHoldRevs += dt / T;
         const target = state.aggCount === 0 ? TUNING.aggregate.initialHoldRevs : TUNING.aggregate.subseqHoldRevs;
         if (state.aggHoldRevs >= target) {
@@ -1461,7 +1463,6 @@
       }
     }
 
-    // 3. Always run physics for non-merging aggregates
     const HX = TUNING.highlight.cx;
     const HY = TUNING.highlight.cy;
     const HR2 = TUNING.highlight.radius * TUNING.highlight.radius;
