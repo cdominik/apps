@@ -4186,10 +4186,12 @@
   const btnMicro = document.getElementById('btnMicro');
   const btnChart = document.getElementById('btnChart');
   btnMicro.addEventListener('click', () => {
+    if (btnMicro.classList.contains('disabled')) return;
     if (VIEWPORT.active === 'microscope') deactivateViewport();
     else activateViewport('microscope');
   });
   btnChart.addEventListener('click', () => {
+    if (btnChart.classList.contains('disabled')) return;
     if (VIEWPORT.active === 'chart') deactivateViewport();
     else activateViewport('chart');
   });
