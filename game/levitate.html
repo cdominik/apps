@@ -625,6 +625,14 @@
       maxBalls:   10,     // maximum number of golden balls per run
       mergeDur:   0.45,   // duration (s) of the merge animation before a ball appears
     },
+    aggregate: {
+      minLevitated: 30,
+      mergeCount: 10,
+      initialHoldRevs: 3,
+      subseqHoldRevs: 1,
+      sizeMult: 5,
+      mergeDur: 0.6
+    },
     ball: {
       gravity:      200,   // gravity acting on golden balls (cm/s^2)
       radius:       2.5,   // golden ball radius (cm)
@@ -992,6 +1000,9 @@
     eggMerging: null,            // {particles: [...], spawnAt: t, dur: 0.4} during merge
     goldenBalls: [],             // active balls
   };
+  
+  const imgAggregate = new Image();
+  imgAggregate.src = 'aggregate.png';
 
   function initLevel() {
     state.running = false;
@@ -1007,6 +1018,10 @@
     state.eggBallCount = 0;
     state.eggMerging = null;
     state.goldenBalls = [];
+    state.aggregates = [];
+    state.aggHoldRevs = 0;
+    state.aggCount = 0;
+    state.aggMerging = null;
     updateHUD();
   }
 
@@ -1400,6 +1415,110 @@
       dur: TUNING.egg.mergeDur,
     };
   }
+  
+  function updateAggregates(dt) {
+    if (state.aggMerging) {
+      const m = state.aggMerging;
+      const u = (state.t - m.startedAt) / m.dur;
+      if (u >= 1) {
+        for (const p of m.particles) p.alive = false;
+        spawnAggregate(m.target.x, m.target.y, m.meanVt, m.sizeFac);
+        state.aggMerging = null;
+        state.aggCount++;
+      }
+      return;
+    }
+
+    const lev = eggLevitatedParticles();
+    const absOm = Math.abs(state.omega);
+    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+
+    if (lev.length >= TUNING.aggregate.minLevitated && isFinite(T)) {
+      state.aggHoldRevs += dt / T;
+      const target = state.aggCount === 0 ? TUNING.aggregate.initialHoldRevs : TUNING.aggregate.subseqHoldRevs;
+      if (state.aggHoldRevs >= target) {
+        startAggregateMerge(lev);
+        state.aggHoldRevs = 0;
+      }
+    } else {
+      state.aggHoldRevs = 0;
+    }
+
+    for (const agg of state.aggregates) {
+      if (agg.stuck) {
+         agg.stuckAngle += state.omega * dt;
+         agg.x = CFG.R_DRUM * Math.cos(agg.stuckAngle);
+         agg.y = CFG.R_DRUM * Math.sin(agg.stuckAngle);
+      } else {
+         agg.vx = -state.omega * agg.y;
+         agg.vy = state.omega * agg.x - agg.vt;
+         agg.x += agg.vx * dt;
+         agg.y += agg.vy * dt;
+         agg.rot += agg.rotSpeed * dt;
+         
+         const r2 = agg.x * agg.x + agg.y * agg.y;
+         const Rwall = CFG.R_DRUM - agg.r;
+         if (r2 >= Rwall * Rwall) {
+           agg.stuck = true;
+           agg.stuckAngle = Math.atan2(agg.y, agg.x);
+           agg.x = Rwall * Math.cos(agg.stuckAngle);
+           agg.y = Rwall * Math.sin(agg.stuckAngle);
+         }
+         if (agg.y < -CFG.R_DRUM * 1.5) agg.alive = false;
+      }
+    }
+    if (state.aggregates.length > 0) {
+      state.aggregates = state.aggregates.filter(a => a.alive);
+    }
+  }
+
+  function startAggregateMerge(levList) {
+    const centerIdx = Math.floor(Math.random() * levList.length);
+    const centerP = levList[centerIdx];
+    
+    const dists = levList.map(p => {
+      const dx = p.x - centerP.x;
+      const dy = p.y - centerP.y;
+      return { p, d2: dx * dx + dy * dy };
+    });
+    dists.sort((a, b) => a.d2 - b.d2);
+    
+    const chosen = dists.slice(0, TUNING.aggregate.mergeCount).map(item => item.p);
+    let cx = 0, cy = 0, sumVt = 0, sumSizeFac = 0;
+    
+    for (const p of chosen) {
+      p.merging = true;
+      p.mergeStart = { x: p.x, y: p.y };
+      cx += p.x; cy += p.y;
+      sumVt += p.vt;
+      sumSizeFac += visualSizeFactor(p.vt);
+    }
+    
+    state.aggMerging = {
+      particles: chosen,
+      target: { x: cx / chosen.length, y: cy / chosen.length },
+      meanVt: sumVt / chosen.length,
+      sizeFac: sumSizeFac / chosen.length,
+      startedAt: state.t,
+      dur: TUNING.aggregate.mergeDur
+    };
+  }
+
+  function spawnAggregate(x, y, vt, sizeFac) {
+    const baseR = TUNING.particle.collisionR * sizeFac * TUNING.aggregate.sizeMult;
+    const speedMag = Math.abs(state.omega) * (1 + Math.random() * 2);
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    
+    state.aggregates.push({
+      x, y, vt, 
+      vx: 0, vy: 0,
+      r: baseR,
+      rot: Math.random() * Math.PI * 2,
+      rotSpeed: speedMag * dir,
+      stuck: false,
+      alive: true
+    });
+  }
 
   function drawMergeStreaks() {
     if (!state.eggMerging) return;
@@ -1436,48 +1555,6 @@
   function drawGoldenBalls() {
     for (const b of state.goldenBalls) drawOneGoldenBall(b);
     drawSuccessText();
-  }
-
-  function drawSuccessText() {
-    // For each ball, between t = bornAt + 1 and t = bornAt + 3, flash a
-    // two-line "Success! / Pebble formed!" message in the upper drum.
-    for (const b of state.goldenBalls) {
-      const age = state.t - b.bornAt;
-      if (age < 1 || age > 3) continue;
-      // Visible window is 2 s long. Fade-in 0.15 s, hold, fade-out 0.15 s.
-      const u = (age - 1) / 2;        // 0..1 within the visible window
-      let alpha;
-      if (u < 0.075)      alpha = u / 0.075;
-      else if (u > 0.925) alpha = (1 - u) / 0.075;
-      else                alpha = 1;
-      if (alpha <= 0) continue;
-
-      const cxScreen = X2px(0);
-      const cyScreen = Y2px(50);     // upper half of the drum (y = +50 cm)
-      const big = Math.max(14, pxDist(16));    // ~16 cm tall headline
-      const small = Math.max(10, pxDist(9));   // ~9 cm subtitle
-
-      ctx.save();
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.globalAlpha = alpha;
-
-      // Headline "Success!" — bright gold with glow.
-      ctx.font = 'bold ' + big + 'px "Courier New", monospace';
-      ctx.shadowColor = 'rgba(255, 200, 80, 0.9)';
-      ctx.shadowBlur = big * 0.6;
-      ctx.fillStyle = '#fff2c0';
-      ctx.fillText('Success!', cxScreen, cyScreen - big * 0.55);
-
-      // Subtitle "Pebble formed!" — deeper gold, smaller.
-      ctx.font = 'bold ' + small + 'px "Courier New", monospace';
-      ctx.shadowColor = 'rgba(255, 180, 60, 0.7)';
-      ctx.shadowBlur = small * 0.5;
-      ctx.fillStyle = '#ffcc55';
-      ctx.fillText('Pebble formed!', cxScreen, cyScreen + small * 0.7);
-
-      ctx.restore();
-    }
   }
 
   function drawOneGoldenBall(b) {
@@ -1562,6 +1639,85 @@
     ctx.strokeStyle = 'rgba(40, 20, 5, 0.7)';
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.arc(cx, cy, rpx, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  function drawAggregates() {
+    if (state.aggMerging) {
+      const m = state.aggMerging;
+      const u = Math.min(1, (state.t - m.startedAt) / m.dur);
+      const ease = u * u * (3 - 2 * u);
+      for (const p of m.particles) {
+        const sx = p.mergeStart.x, sy = p.mergeStart.y;
+        const cx = sx + (m.target.x - sx) * ease;
+        const cy = sy + (m.target.y - sy) * ease;
+        p.x = cx; p.y = cy;
+        ctx.strokeStyle = `rgba(180, 220, 255, ${1 - u})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(X2px(sx), Y2px(sy)); ctx.lineTo(X2px(cx), Y2px(cy)); ctx.stroke();
+      }
+    }
+
+    const rInnerPx = pxDist(CFG.R_DRUM) + 2;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(CX, CY, rInnerPx, 0, Math.PI * 2); ctx.clip();
+    
+    for (const agg of state.aggregates) {
+      const ax = X2px(agg.x), ay = Y2px(agg.y);
+      const ar = pxDist(agg.r);
+      ctx.save();
+      ctx.translate(ax, ay);
+      ctx.rotate(-agg.rot);
+      if (imgAggregate.complete && imgAggregate.naturalHeight !== 0) {
+        ctx.drawImage(imgAggregate, -ar, -ar, ar * 2, ar * 2);
+      } else {
+        ctx.fillStyle = '#6a6a72';
+        ctx.beginPath(); ctx.arc(0, 0, ar, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  function drawSuccessText() {
+    // For each ball, between t = bornAt + 1 and t = bornAt + 3, flash a
+    // two-line "Success! / Pebble formed!" message in the upper drum.
+    for (const b of state.goldenBalls) {
+      const age = state.t - b.bornAt;
+      if (age < 1 || age > 3) continue;
+      // Visible window is 2 s long. Fade-in 0.15 s, hold, fade-out 0.15 s.
+      const u = (age - 1) / 2;        // 0..1 within the visible window
+      let alpha;
+      if (u < 0.075)      alpha = u / 0.075;
+      else if (u > 0.925) alpha = (1 - u) / 0.075;
+      else                alpha = 1;
+      if (alpha <= 0) continue;
+
+      const cxScreen = X2px(0);
+      const cyScreen = Y2px(50);     // upper half of the drum (y = +50 cm)
+      const big = Math.max(14, pxDist(16));    // ~16 cm tall headline
+      const small = Math.max(10, pxDist(9));   // ~9 cm subtitle
+
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.globalAlpha = alpha;
+
+      // Headline "Success!" — bright gold with glow.
+      ctx.font = 'bold ' + big + 'px "Courier New", monospace';
+      ctx.shadowColor = 'rgba(255, 200, 80, 0.9)';
+      ctx.shadowBlur = big * 0.6;
+      ctx.fillStyle = '#fff2c0';
+      ctx.fillText('Success!', cxScreen, cyScreen - big * 0.55);
+
+      // Subtitle "Pebble formed!" — deeper gold, smaller.
+      ctx.font = 'bold ' + small + 'px "Courier New", monospace';
+      ctx.shadowColor = 'rgba(255, 180, 60, 0.7)';
+      ctx.shadowBlur = small * 0.5;
+      ctx.fillStyle = '#ffcc55';
+      ctx.fillText('Pebble formed!', cxScreen, cyScreen + small * 0.7);
+
+      ctx.restore();
+    }
   }
 
   // Sounds for the easter egg.
@@ -2344,6 +2500,7 @@
     drawDrumInterior();
     drawAxis();
     drawParticles();
+    drawAggregates();
     drawMergeStreaks();
     drawGoldenBalls();
     drawGlare();
@@ -3298,6 +3455,7 @@
     for (let i = 0; i < sub; i++) updateDrum(h);
     if (state.running) { for (let i = 0; i < sub; i++) step(h); }
     for (let i = 0; i < sub; i++) updateEgg(h);
+    for (let i = 0; i < sub; i++) updateAggregates(h);
     updateMotorSound();
     recordTrails();
     draw();
