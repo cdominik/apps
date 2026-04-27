@@ -656,7 +656,8 @@
       subseqHoldRevs: 1,
       sizeMult: 10,
       mergeDur: 0.6,
-      minSpread: 0.20
+      minSpread: 0.20,
+      vtFactor: 1.2
     },
     ball: {
       gravity:      200,
@@ -1543,7 +1544,7 @@
     state.aggMerging = {
       particles: chosen,
       target: { x: cx / chosen.length, y: cy / chosen.length },
-      meanVt: sumVt / chosen.length,
+      meanVt: sumVt / chosen.length * TUNING.aggregate.vtFactor,
       sizeFac: sumSizeFac / chosen.length,
       startedAt: state.t,
       dur: TUNING.aggregate.mergeDur,
@@ -3266,7 +3267,12 @@
 
     state.laserOn = !!level.params.laser;
     btnLaser.classList.toggle('on', state.laserOn);
-  }
+
+    // Aggregate vtFactor: level can override the global default.
+    TUNING.aggregate.vtFactor = (level.params.vtFactor != null)
+      ? level.params.vtFactor
+      : (GAME._savedVtFactor != null ? GAME._savedVtFactor : 1.0);
+    }
 
   function lockSelectors(lock) {
     document.querySelectorAll('.sel').forEach(el => el.classList.toggle('locked', lock));
@@ -3305,6 +3311,7 @@
     if (elTitlePlate) elTitlePlate.hidden = on || (typeof CHALLENGE !== 'undefined' && CHALLENGE.on);
 
     if (on) {
+      GAME._savedVtFactor = TUNING.aggregate.vtFactor;   // remember user's setting
       GAME.levelIdx = 0;
       enterIdle();
     } else {
@@ -3312,6 +3319,9 @@
       GAME.phase = 'idle';
       GAME.goalHoldSince = null;
       gameSheet.hidden = true;
+      if (GAME._savedVtFactor != null) {
+        TUNING.aggregate.vtFactor = GAME._savedVtFactor;   // restore user's setting
+      }
       initLevel();
     }
   }
