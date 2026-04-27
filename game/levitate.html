@@ -34,7 +34,7 @@
   .btnind.inject .cap-label { font-size: 15px; letter-spacing: 2px; }
 
   .wing-logo {
-    margin-bottom: 4px;
+    margin-bottom: 8px;
     padding: 3px;
     border-radius: 3px;
     background: linear-gradient(180deg, #e8c77a 0%, #c9a858 20%, #8a6b2e 60%, #5a4418 100%);
@@ -42,7 +42,7 @@
       inset 0 1px 0 rgba(255,235,170,0.7),
       inset 0 -1px 0 rgba(0,0,0,0.6),
       0 2px 3px rgba(0,0,0,0.6);
-    width: 100px;
+    width: 88px;
     display: flex; align-items: center; justify-content: center;
     cursor: pointer;
     transition: filter 0.1s, transform 0.05s;
@@ -221,45 +221,14 @@
   }
   .btnind.flash .cap-label { color: #3a2208; text-shadow: 0 1px 0 rgba(255,255,255,0.5), 0 0 4px rgba(255,255,255,0.5); }
 
+  /* Cheat indicator (orange glow) — wins over .on so it shows even when the
+     button is also "on". Used by the 5-second hold cheat on btnOmegaCtl. */
   .btnind.cheat .cap {
     background: radial-gradient(ellipse at 50% 35%, #ffe0a8 0%, #ff8c30 40%, #a04408 85%, #3a1804 100%);
     box-shadow: inset 0 1px 1px rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.4), inset 0 0 10px rgba(255,170,80,0.65), 0 0 8px rgba(255,140,40,0.55);
   }
   .btnind.cheat .cap-label { color: #3a1804; text-shadow: 0 1px 0 rgba(255,255,255,0.4), 0 0 6px rgba(255,255,255,0.55); }
   .btnind.cheat .cap-icon { color: #3a1804; filter: drop-shadow(0 1px 0 rgba(255,255,255,0.4)); }
-
-  /* === Challenge Mode Additions === */
-  /* === Game & Challenge Mode Orange Active State === */
-  #btnGameMode.on .cap, #btnChallenge.on .cap {
-    background: radial-gradient(ellipse at 50% 35%, #ffe0a8 0%, #ff8c30 40%, #a04408 85%, #3a1804 100%);
-    box-shadow: inset 0 1px 1px rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.4), inset 0 0 10px rgba(255,170,80,0.65), 0 0 8px rgba(255,140,40,0.55);
-  }
-  #btnGameMode.on .cap-label, #btnChallenge.on .cap-label {
-    color: #3a1804; text-shadow: 0 1px 0 rgba(255,255,255,0.4), 0 0 6px rgba(255,255,255,0.55);
-  }
-  /* === Fit 'CHALLENGE' text on the button === */
-  #btnChallenge .cap-label {
-    font-size: 11px;
-    letter-spacing: 0.5px;
-  }
-  
-  body.regime-compact #btnChallenge .cap-label {
-    font-size: 10px;
-    letter-spacing: 0px;
-  }
-  
-  body.regime-portrait #btnChallenge .cap-label {
-    font-size: 8.5px;
-    letter-spacing: -0.2px;
-  }
-  .highscore-table { width: 100%; margin: 16px 0; border-collapse: collapse; color: #d8c18a; font-family: 'Courier New', monospace; font-size: 14px; }
-  .highscore-table th { border-bottom: 1px solid #5a4418; padding: 4px; text-align: left; color: #ffcc55; }
-  .highscore-table td { padding: 4px; border-bottom: 1px solid rgba(90, 68, 24, 0.3); }
-  .highscore-table tr:nth-child(even) td { background: rgba(255,255,255,0.03); }
-  .highscore-table .score-col { text-align: right; font-weight: bold; color: #60ff90; }
-
-  .name-input { background: #1a1a22; border: 1px solid #5a4418; color: #fff; padding: 8px 12px; font-family: 'Courier New', monospace; font-size: 16px; width: 100%; border-radius: 4px; margin-bottom: 16px; text-align: center; }
-  .name-input:focus { outline: none; border-color: #ffcc55; box-shadow: 0 0 8px rgba(255,204,85,0.4); }
 
   .btnind.disabled { cursor: not-allowed; filter: brightness(0.55) saturate(0.55); }
   .btnind.disabled:hover .cap { background: radial-gradient(ellipse at 50% 30%, #2a1810 0%, #180c08 70%, #080404 100%); }
@@ -324,8 +293,6 @@
   .scr.rot  { color: #5ad0ff; text-shadow: 0 0 4px rgba(90,208,255,0.6); background: radial-gradient(ellipse at 50% 30%, #0a2034 0%, #061020 70%, #02060a 100%); }
   .scr.gold { color: #ffcc55; text-shadow: 0 0 4px rgba(255,204,85,0.6); background: radial-gradient(ellipse at 50% 30%, #2a1c06 0%, #1a1204 70%, #0a0602 100%); }
   .lbl { font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 1.5px; color: #d8c18a; text-transform: uppercase; text-shadow: 0 1px 0 #000; white-space: nowrap; }
-
-
   .title-plate {
     padding: 4px 8px;
     background: linear-gradient(180deg, #d9b76a, #8a6b2e);
@@ -334,14 +301,7 @@
     margin-right: 6px;
     display: flex; align-items: center; gap: 8px;
     height: 44px;
-    text-decoration: none;
-    cursor: pointer;
-    transition: filter 0.1s, transform 0.05s;
-    pointer-events: auto; /* <--- THIS FIXES THE CLICKS */
   }
-  .title-plate:hover { filter: brightness(1.15); }
-  .title-plate:active { transform: translateY(1px); box-shadow: inset 0 2px 3px rgba(0,0,0,0.5); }
-  
   .title-plate img {
     height: 32px; width: auto; display: block;
     background: transparent;
@@ -352,29 +312,102 @@
     color: #2a1a06; text-shadow: 0 1px 0 rgba(255,255,255,0.3);
     white-space: nowrap;
   }
-  
-  /* Game sheet overlay styles */
-  .game-sheet {
-    position: absolute; inset: 0;
-    background: rgba(8, 8, 12, 0.85); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-    display: flex; align-items: center; justify-content: center; z-index: 100;
+
+  /* Game-mode panel */
+  .game-panel {
+    pointer-events: auto;
+    display: flex; flex-direction: column; gap: 3px;
+    padding: 4px 8px;
+    margin-right: 6px;
+    height: 44px;
+    background: linear-gradient(180deg, #d9b76a, #8a6b2e);
+    border: 1px solid #5a4418; border-radius: 3px;
+    box-shadow: inset 0 1px 0 rgba(255,230,150,0.5), 0 1px 2px rgba(0,0,0,0.6);
+    font-family: 'Courier New', monospace;
+    color: #2a1a06;
   }
-  .game-sheet[hidden] { display: none; }
-  .sheet-content {
-    background: linear-gradient(180deg, #3a3a44 0%, #1e1e26 100%);
-    border: 1px solid #5a4418; border-radius: 6px; padding: 30px 40px;
-    text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-    max-width: 400px; width: 90%;
+  .game-panel[hidden] { display: none; }
+  .gp-row { display: flex; align-items: center; gap: 6px; }
+  .gp-row-top { flex: 0 0 auto; }
+  .gp-lvlsel {
+    display: flex; align-items: center;
+    background: radial-gradient(ellipse at 50% 30%, #143018 0%, #0a1a0e 70%, #050a06 100%);
+    border-radius: 2px;
+    padding: 1px 2px;
+    box-shadow: inset 0 2px 3px rgba(0,0,0,0.9);
   }
-  .sheet-title { color: #ffcc55; font-size: 20px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 12px; font-family: 'Courier New', monospace; font-weight: bold; }
-  .sheet-desc { color: #d8c18a; font-size: 14px; margin-bottom: 24px; line-height: 1.5; font-family: 'Courier New', monospace; }
-  .sheet-btn {
-    background: linear-gradient(180deg, #e8c77a 0%, #8a6b2e 100%); border: none; border-radius: 4px;
-    padding: 10px 24px; font-family: 'Courier New', monospace; font-size: 16px; font-weight: bold; color: #2a1a06;
-    cursor: pointer; box-shadow: inset 0 1px 0 rgba(255,235,170,0.7), 0 2px 4px rgba(0,0,0,0.6);
+  .gp-chev {
+    width: 14px; height: 18px;
+    display: flex; align-items: center; justify-content: center;
+    color: #6fff8a; font-size: 10px; font-weight: bold; cursor: pointer;
+    user-select: none; -webkit-user-select: none;
+    text-shadow: 0 0 4px rgba(111,255,138,0.6);
   }
-  .sheet-btn:hover { filter: brightness(1.15); }
-  .sheet-btn:active { transform: translateY(1px); box-shadow: inset 0 2px 3px rgba(0,0,0,0.5); }
+  .gp-chev:hover { color: #bfffc8; }
+  .gp-chev:active { color: #40cf60; }
+  .gp-lvl {
+    min-width: 26px; text-align: center;
+    color: #6fff8a; font-weight: bold; font-size: 13px; letter-spacing: 1px;
+    text-shadow: 0 0 4px rgba(111,255,138,0.6), 0 0 8px rgba(111,255,138,0.25);
+    font-variant-numeric: tabular-nums;
+  }
+  .gp-titles {
+    flex: 1;
+    display: flex; flex-direction: column; justify-content: center;
+    min-width: 150px;
+    overflow: hidden;
+  }
+  .gp-name {
+    font-size: 10px; font-weight: bold; letter-spacing: 1.2px;
+    color: #2a1a06;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    line-height: 1.1;
+  }
+  .gp-goal {
+    font-size: 9px; font-weight: normal; letter-spacing: 1px;
+    color: #3a2a10;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.25);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    line-height: 1.15;
+    opacity: 0.9;
+  }
+  .gp-start {
+    flex: 0 0 auto;
+    border: none; padding: 0;
+    height: 22px; min-width: 56px; padding: 0 10px;
+    border-radius: 3px;
+    background: linear-gradient(180deg, #e8c77a 0%, #c9a858 18%, #8a6b2e 60%, #5a4418 100%);
+    box-shadow: inset 0 1px 0 rgba(255,235,170,0.7), inset 0 -1px 2px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.5);
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .gp-start-lbl {
+    font-family: 'Courier New', monospace;
+    font-size: 10px; font-weight: bold; letter-spacing: 1.5px; text-transform: uppercase;
+    color: #2a1a06; text-shadow: 0 1px 0 rgba(255,255,255,0.35);
+  }
+  .gp-start:hover { filter: brightness(1.1); }
+  .gp-start:active { box-shadow: inset 0 2px 3px rgba(0,0,0,0.5); }
+  .gp-start.primary {
+    background: linear-gradient(180deg, #9cf0b4 0%, #40c860 40%, #1e7838 85%, #0a3a18 100%);
+    box-shadow: inset 0 1px 0 rgba(220,255,230,0.7), inset 0 -1px 2px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.5), 0 0 6px rgba(80,255,130,0.35);
+  }
+  .gp-start.primary .gp-start-lbl { color: #0a2818; }
+  .gp-start.retry {
+    background: linear-gradient(180deg, #ffb080 0%, #e06840 40%, #883014 85%, #3c1006 100%);
+    box-shadow: inset 0 1px 0 rgba(255,220,200,0.6), inset 0 -1px 2px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.5), 0 0 6px rgba(255,120,60,0.3);
+  }
+  .gp-start.retry .gp-start-lbl { color: #2a1006; }
+  .gp-status {
+    flex: 0 0 auto;
+    font-size: 9px; letter-spacing: 1.2px; text-transform: uppercase;
+    color: #2a1a06; opacity: 0.85;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.25);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .gp-status.win  { color: #0a3a18; font-weight: bold; opacity: 1; }
+  .gp-status.lose { color: #4a0a0a; font-weight: bold; opacity: 1; }
 
   .sel.locked { pointer-events: none; filter: brightness(0.7) saturate(0.7); }
   .sel.locked .chev { cursor: default; }
@@ -425,17 +458,13 @@
   <canvas id="cv"></canvas>
   <svg id="omegaCtl" class="omega-ctl" xmlns="http://www.w3.org/2000/svg"></svg>
 
-
   <div class="wing" id="wingLeft">
-
     <a class="wing-logo" href="https://gt4pebbles.github.io/Website/" target="_blank" rel="noopener noreferrer">
       <img src="gt4pebbles.png" alt="logo" onerror="this.classList.add('broken')">
     </a>
-
-    <a class="wing-logo" href="https://erc.europa.eu/" style="margin-bottom: 4px;" target="_blank" rel="noopener noreferrer">
-      <img src="erc.jpg" alt="ERC logo" onerror="this.classList.add('broken')">
+    <a class="wing-logo" href="https://erc.eu" target="_blank" rel="noopener noreferrer">
+      <img src="erc.png" alt="logo" onerror="this.classList.add('broken')">
     </a>
-
     <div class="sel" data-key="NP">
       <div class="sel-body"><div class="chev" data-dir="-1">◀</div><div class="win" id="winNP">3</div><div class="chev" data-dir="+1">▶</div></div>
       <div class="sel-lbl">Particles</div>
@@ -453,7 +482,7 @@
       <div class="sel-lbl">Δt inject</div>
     </div>
   </div>
-  
+
   <div class="wing" id="wingRight">
     <button class="btnind inject" id="btnStart"><span class="cap"><span class="cap-label">Inject</span></span></button>
     <button class="btnind" id="btnReset"><span class="cap"><span class="cap-label">Reset</span></span></button>
@@ -475,7 +504,6 @@
       <svg viewBox="0 0 24 24" width="22" height="22"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17 L15 17"/><path d="M9.5 19 L14.5 19"/><path d="M10.5 21 L13.5 21"/><path d="M8.5 15.5 C 7 14 6.2 12.2 6.2 10.3 C 6.2 7 8.8 4.3 12 4.3 C 15.2 4.3 17.8 7 17.8 10.3 C 17.8 12.2 17 14 15.5 15.5 Z"/><path d="M10 15.5 C 10 13 11 11 12 9 C 13 11 14 13 14 15.5"/></g></svg>
     </span></span></button>
     <button class="btnind" id="btnGameMode"><span class="cap"><span class="cap-label">Game</span></span></button>
-    <button class="btnind" id="btnChallenge"><span class="cap"><span class="cap-label">Challenge</span></span></button>
     <button class="btnind" id="btnManual"><span class="cap"><span class="cap-label">Manual</span></span></button>
   </div>
 
@@ -501,21 +529,18 @@
           Particles with larger <em>v<sub>t</sub></em> appear visibly larger.</li>
         <li><strong>Inject</strong> particles with the right-wing button.
           You can start rotating the drum <em>before or after</em> injection.</li>
-        <li><strong>Rotate the drum</strong> by swiping across it. To slow down,
-          swipe in the opposite direction. If swiping does not work well on your
-          interface, activate the  <strong>Ω Ctrl</strong> button and the use
-          the +Ω / −Ω curved arrows.
-          </li>
+        <li><strong>Rotate the drum</strong> by swiping across it, or,
+          if you don't like swiping, by clicking the
+          +Ω / −Ω curved arrows on the left side of the drum (enable them with the
+          <strong>Ω Ctrl</strong> button first).
+          To slow the drum down, swipe in the opposite direction of its spin.</li>
         <li>Particles that hit the wall become <span style="color:#ff6060">red</span>
           (<strong>LOST</strong>). Particles floating are <span style="color:#ffcc55">yellow</span>.
           A particle that stays in the highlighted region for at least one full rotation
           period turns <span style="color:#60ff90">green</span> and counts as
           <strong>LEVITATED</strong>.</li>
       </ul>
-
-
-
-<h3>Optional instruments</h3>
+      <h3>Optional instruments</h3>
       <ul>
         <li><strong>Sound</strong> — motor hum (pitch tracks rotation speed),
           a dull plonk when a particle is lost, and a soft chime when one becomes
@@ -524,67 +549,40 @@
           its recent path, so orbits become visible. Helpful for seeing whether
           a particle is spiraling in, holding steady, or drifting toward the
           wall. Disabled at very high particle counts.</li>
-        <li><strong>Laser</strong> — engages <em>lidar mode</em>: the drum interior
-          goes dark and particles become invisible. A scanning green laser beam
-          sweeps the chamber, briefly revealing any particles it crosses.</li>
+        <li><strong>Laser</strong> — engages <em>fog mode</em>: the drum interior
+          goes dark and particles become invisible. A scanning green beam sweeps
+          the chamber, briefly revealing any particles it crosses. You have to
+          sweep to read the room. The HUD counters keep updating live.</li>
         <li><strong>Lighting</strong> — toggles the lab between a dim night
           setting and a bright day setting.</li>
       </ul>
-
-      <h3>Game & Challenge</h3>
-      <ul>
-        <li><strong>Game Mode</strong> — Progress through predefined levels with
-          locked parameters. You must levitate a target number of particles for
-          a set duration to clear the level.</li>
-        <li><strong>Challenge Mode</strong> — A high-score competition. Using
-          the current parameter setup, levitate as many particles as you can
-          for 3 full orbits, then enter your name on the local leaderboard.</li>
-      </ul>
-      
       <p class="manual-footer">Press <kbd>Esc</kbd> or × to close.</p>
     </div>
   </div>
 
   <div class="gauges" id="gauges">
-
-  <a class="title-plate" id="titlePlate" href="https://staff.fnwi.uva.nl/c.dominik/" target="_blank" rel="noopener noreferrer">
-      <span class="title-text" id="titleText">LEVITATION&nbsp;LAB<br>(c)&nbsp;C.&nbsp;Dominik</span>
-    </a>
+    <div class="title-plate" id="titlePlate">
+      <span class="title-text" id="titleText">LEVITATION&nbsp;LAB</span>
+    </div>
+    <div class="game-panel" id="gamePanel" hidden>
+      <div class="gp-row gp-row-top">
+        <div class="gp-lvlsel">
+          <div class="gp-chev" data-dir="-1">◀</div>
+          <div class="gp-lvl" id="gpLvl">1</div>
+          <div class="gp-chev" data-dir="+1">▶</div>
+        </div>
+        <div class="gp-titles">
+          <div class="gp-name" id="gpName">Level name</div>
+          <div class="gp-goal" id="gpGoal">Goal</div>
+        </div>
+        <button class="gp-start" id="gpStart"><span class="gp-start-lbl" id="gpStartLbl">Start</span></button>
+      </div>
+      <div class="gp-status" id="gpStatus">Ready</div>
+    </div>
     <div class="gauge"><div class="disp"><div class="scr rot" id="period">∞</div></div><div class="lbl">Period s</div></div>
     <div class="gauge"><div class="disp"><div class="scr warn" id="captured">0</div></div><div class="lbl">Lost</div></div>
     <div class="gauge"><div class="disp"><div class="scr gold" id="floating">0</div></div><div class="lbl">Floating</div></div>
     <div class="gauge"><div class="disp"><div class="scr" id="remaining">0</div></div><div class="lbl">Levitated</div></div>
-  </div>
-
-  <div id="gameSheet" class="game-sheet" hidden>
-    <div class="sheet-content">
-      <div class="sheet-title" id="sheetTitle">Level 1</div>
-      <div class="sheet-desc" id="sheetDesc">Description</div>
-      <button class="sheet-btn" id="sheetBtn">Start</button>
-    </div>
-  </div>
-
-  <div id="challengeSheet" class="game-sheet" hidden>
-    <div class="sheet-content">
-      <div class="sheet-title" id="chalTitle">Outreach Challenge</div>
-      <div class="sheet-desc" id="chalDesc">Levitate as many particles as possible for 3 full orbits.</div>
-      
-      <div id="chalInputArea" hidden>
-        <div style="margin-bottom: 10px; color: #60ff90; font-size: 18px; font-weight: bold;">Score: <span id="chalFinalScore">0</span></div>
-        <input type="text" id="chalNameInput" class="name-input" placeholder="Enter your name" maxlength="15" autocomplete="off">
-        <button class="sheet-btn" id="chalSubmitBtn">Save Score</button>
-      </div>
-
-      <div id="chalBoardArea" hidden>
-        <table class="highscore-table" id="chalTable">
-          <thead><tr><th>Rank</th><th>Name</th><th style="text-align:right;">Score</th></tr></thead>
-          <tbody></tbody>
-        </table>
-        <button class="sheet-btn" id="chalNextBtn">Next Player</button>
-      </div>
-
-      <button class="sheet-btn" id="chalStartBtn">Start Challenge</button>
-    </div>
   </div>
 </div>
 
@@ -619,19 +617,11 @@
       radius: 50,   // radius of the levitation/highlight zone (cm)
     },
     egg: {
-      nCrit:      100,    // levitated-particle threshold to start accumulating hold-time
-      holdTarget: 5,      // rotations of hold time to form the FIRST golden ball
-      holdSubseq: 1,      // rotations of hold time to form each subsequent ball
+      nCrit:      10,     // 10 aggregates to form a pebble
+      holdTarget: 3,      // rotations of hold time to form the FIRST golden ball
+      holdSubseq: 3,      // rotations of hold time to form each subsequent ball
       maxBalls:   10,     // maximum number of golden balls per run
-      mergeDur:   0.45,   // duration (s) of the merge animation before a ball appears
-    },
-    aggregate: {
-      minLevitated: 30,
-      mergeCount: 10,
-      initialHoldRevs: 3,
-      subseqHoldRevs: 1,
-      sizeMult: 5,
-      mergeDur: 0.6
+      mergeDur:   0.6,    // duration (s) of the merge animation before a ball appears
     },
     ball: {
       gravity:      200,   // gravity acting on golden balls (cm/s^2)
@@ -745,6 +735,9 @@
   const ctx = cv.getContext('2d');
   let W = 800, H = 600, DPR = 1;
   let CX = 400, CY = 300, SCALE = 2;
+
+  const aggImg = new Image();
+  aggImg.src = 'aggregate.png';
 
   const GEO = {
     barTop: 0, barBot: 0, barHalfW: 0,
@@ -999,10 +992,9 @@
     eggBallCount: 0,             // how many balls already formed this run
     eggMerging: null,            // {particles: [...], spawnAt: t, dur: 0.4} during merge
     goldenBalls: [],             // active balls
+    // === Aggregate ===
+    aggregatesCreated: 0, aggHoldRevs: 0, aggMerging: null, aggregates: [],
   };
-  
-  const imgAggregate = new Image();
-  imgAggregate.src = 'aggregate.png';
 
   function initLevel() {
     state.running = false;
@@ -1018,10 +1010,10 @@
     state.eggBallCount = 0;
     state.eggMerging = null;
     state.goldenBalls = [];
-    state.aggregates = [];
+    state.aggregatesCreated = 0;
     state.aggHoldRevs = 0;
-    state.aggCount = 0;
     state.aggMerging = null;
+    state.aggregates = [];
     updateHUD();
   }
 
@@ -1106,7 +1098,7 @@
 
     for (const p of state.particles) {
       if (!p.alive) continue;
-      if (p.merging) continue;     // animated separately by the merge logic
+      if (p.merging || p.aggMerging) continue;
       if (p.stuck) {
         p.stuckAngle += omega * dt;
         p.x = CFG.R_DRUM * Math.cos(p.stuckAngle);
@@ -1191,29 +1183,29 @@
     state.t += dt;
   }
 
-  // ===== Easter egg: golden ball formation =====
-  function eggLevitatedParticles() {
+  // ===== Golden Pebble / Easter Egg =====
+  function getLevitatedAggregates() {
     const absOm = Math.abs(state.omega);
     const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
     if (!isFinite(T)) return [];
     const out = [];
-    for (const p of state.particles) {
-      if (!p.alive || p.stuck || p.merging) continue;
-      if (p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T) {
-        out.push(p);
+    for (const agg of state.aggregates) {
+      if (!agg.alive || agg.stuck || agg.merging) continue;
+      if (agg.inHighlightSince !== null && (state.t - agg.inHighlightSince) >= T) {
+        out.push(agg);
       }
     }
     return out;
   }
 
   function updateEgg(dt) {
-    // 1. Integrate each ball (gravity, wall coupling — but no wall collision yet).
+    // 1. Integrate each ball
     for (const b of state.goldenBalls) integrateGoldenBall(b, dt);
 
-    // 2. Resolve ball-ball collisions (positions + velocities).
+    // 2. Resolve ball-ball
     if (state.goldenBalls.length > 1) resolveBallBallCollisions();
 
-    // 3. Resolve ball-wall collisions (after ball-ball, so the wall gets the last word).
+    // 3. Resolve ball-wall
     for (const b of state.goldenBalls) resolveWallCollision(b);
 
     // 4. Drive the merge animation if active.
@@ -1221,7 +1213,7 @@
       const m = state.eggMerging;
       const u = (state.t - m.startedAt) / m.dur;
       if (u >= 1) {
-        for (const p of m.particles) p.alive = false;
+        for (const agg of m.particles) agg.alive = false;
         spawnGoldenBall(m.target.x, m.target.y);
         state.eggMerging = null;
         state.eggBallCount++;
@@ -1229,22 +1221,22 @@
       return;
     }
 
-    // 5. Cap on number of balls.
+    // 5. Cap
     if (state.eggBallCount >= TUNING.egg.maxBalls) return;
 
-    // 6. Threshold depends on whether this is the first ball or a subsequent one.
+    // 6. Threshold
     const target = (state.eggBallCount === 0)
       ? TUNING.egg.holdTarget
       : TUNING.egg.holdSubseq;
 
-    // 7. Accumulate rotations of hold time when live levitated count ≥ N_crit.
-    const lev = eggLevitatedParticles();
+    // 7. Accumulate rotations from aggregates
+    const levAggs = getLevitatedAggregates();
     const absOm = Math.abs(state.omega);
     const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
-    if (lev.length >= TUNING.egg.nCrit && isFinite(T)) {
+    if (levAggs.length >= TUNING.egg.nCrit && isFinite(T)) {
       state.eggHoldRevs += dt / T;
       if (state.eggHoldRevs >= target) {
-        startMerge(lev);
+        startMerge(levAggs);
         state.eggHoldRevs = 0;
       }
     } else {
@@ -1375,9 +1367,9 @@
     const chosen = pool.slice(0, Math.min(N, pool.length));
     if (chosen.length === 0) return;
 
-    // Convergence target: pick the levitated particle whose 3rd-nearest
+    // Convergence target: pick the levitated aggregate whose 3rd-nearest
     // neighbor (among all levitated) is closest — i.e. the one in the
-    // densest local cluster. With few levitated particles, fall back to
+    // densest local cluster. With few levitated aggregates, fall back to
     // the centroid.
     let target;
     if (levList.length <= 3) {
@@ -1415,110 +1407,6 @@
       dur: TUNING.egg.mergeDur,
     };
   }
-  
-  function updateAggregates(dt) {
-    if (state.aggMerging) {
-      const m = state.aggMerging;
-      const u = (state.t - m.startedAt) / m.dur;
-      if (u >= 1) {
-        for (const p of m.particles) p.alive = false;
-        spawnAggregate(m.target.x, m.target.y, m.meanVt, m.sizeFac);
-        state.aggMerging = null;
-        state.aggCount++;
-      }
-      return;
-    }
-
-    const lev = eggLevitatedParticles();
-    const absOm = Math.abs(state.omega);
-    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
-
-    if (lev.length >= TUNING.aggregate.minLevitated && isFinite(T)) {
-      state.aggHoldRevs += dt / T;
-      const target = state.aggCount === 0 ? TUNING.aggregate.initialHoldRevs : TUNING.aggregate.subseqHoldRevs;
-      if (state.aggHoldRevs >= target) {
-        startAggregateMerge(lev);
-        state.aggHoldRevs = 0;
-      }
-    } else {
-      state.aggHoldRevs = 0;
-    }
-
-    for (const agg of state.aggregates) {
-      if (agg.stuck) {
-         agg.stuckAngle += state.omega * dt;
-         agg.x = CFG.R_DRUM * Math.cos(agg.stuckAngle);
-         agg.y = CFG.R_DRUM * Math.sin(agg.stuckAngle);
-      } else {
-         agg.vx = -state.omega * agg.y;
-         agg.vy = state.omega * agg.x - agg.vt;
-         agg.x += agg.vx * dt;
-         agg.y += agg.vy * dt;
-         agg.rot += agg.rotSpeed * dt;
-         
-         const r2 = agg.x * agg.x + agg.y * agg.y;
-         const Rwall = CFG.R_DRUM - agg.r;
-         if (r2 >= Rwall * Rwall) {
-           agg.stuck = true;
-           agg.stuckAngle = Math.atan2(agg.y, agg.x);
-           agg.x = Rwall * Math.cos(agg.stuckAngle);
-           agg.y = Rwall * Math.sin(agg.stuckAngle);
-         }
-         if (agg.y < -CFG.R_DRUM * 1.5) agg.alive = false;
-      }
-    }
-    if (state.aggregates.length > 0) {
-      state.aggregates = state.aggregates.filter(a => a.alive);
-    }
-  }
-
-  function startAggregateMerge(levList) {
-    const centerIdx = Math.floor(Math.random() * levList.length);
-    const centerP = levList[centerIdx];
-    
-    const dists = levList.map(p => {
-      const dx = p.x - centerP.x;
-      const dy = p.y - centerP.y;
-      return { p, d2: dx * dx + dy * dy };
-    });
-    dists.sort((a, b) => a.d2 - b.d2);
-    
-    const chosen = dists.slice(0, TUNING.aggregate.mergeCount).map(item => item.p);
-    let cx = 0, cy = 0, sumVt = 0, sumSizeFac = 0;
-    
-    for (const p of chosen) {
-      p.merging = true;
-      p.mergeStart = { x: p.x, y: p.y };
-      cx += p.x; cy += p.y;
-      sumVt += p.vt;
-      sumSizeFac += visualSizeFactor(p.vt);
-    }
-    
-    state.aggMerging = {
-      particles: chosen,
-      target: { x: cx / chosen.length, y: cy / chosen.length },
-      meanVt: sumVt / chosen.length,
-      sizeFac: sumSizeFac / chosen.length,
-      startedAt: state.t,
-      dur: TUNING.aggregate.mergeDur
-    };
-  }
-
-  function spawnAggregate(x, y, vt, sizeFac) {
-    const baseR = TUNING.particle.collisionR * sizeFac * TUNING.aggregate.sizeMult;
-    const speedMag = Math.abs(state.omega) * (1 + Math.random() * 2);
-    const dir = Math.random() < 0.5 ? 1 : -1;
-    
-    state.aggregates.push({
-      x, y, vt, 
-      vx: 0, vy: 0,
-      r: baseR,
-      rot: Math.random() * Math.PI * 2,
-      rotSpeed: speedMag * dir,
-      stuck: false,
-      alive: true
-    });
-  }
 
   function drawMergeStreaks() {
     if (!state.eggMerging) return;
@@ -1531,7 +1419,7 @@
       const tx = m.target.x, ty = m.target.y;
       const cx = sx + (tx - sx) * ease;
       const cy = sy + (ty - sy) * ease;
-      // Update particle position so the regular drawer sees them in flight.
+      // Update position so the regular drawer sees them in flight.
       p.x = cx; p.y = cy;
       // Draw a bright streak from current position back toward the start.
       const tailFrac = 0.25 * (1 - u);   // streak shortens as we converge
@@ -1557,12 +1445,48 @@
     drawSuccessText();
   }
 
+  function drawSuccessText() {
+    for (const b of state.goldenBalls) {
+      const age = state.t - b.bornAt;
+      if (age < 1 || age > 3) continue;
+      const u = (age - 1) / 2;
+      let alpha;
+      if (u < 0.075)      alpha = u / 0.075;
+      else if (u > 0.925) alpha = (1 - u) / 0.075;
+      else                alpha = 1;
+      if (alpha <= 0) continue;
+
+      const cxScreen = X2px(0);
+      const cyScreen = Y2px(50);
+      const big = Math.max(14, pxDist(16));
+      const small = Math.max(10, pxDist(9));
+
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.globalAlpha = alpha;
+
+      ctx.font = 'bold ' + big + 'px "Courier New", monospace';
+      ctx.shadowColor = 'rgba(255, 200, 80, 0.9)';
+      ctx.shadowBlur = big * 0.6;
+      ctx.fillStyle = '#fff2c0';
+      ctx.fillText('Success!', cxScreen, cyScreen - big * 0.55);
+
+      ctx.font = 'bold ' + small + 'px "Courier New", monospace';
+      ctx.shadowColor = 'rgba(255, 180, 60, 0.7)';
+      ctx.shadowBlur = small * 0.5;
+      ctx.fillStyle = '#ffcc55';
+      ctx.fillText('Pebble formed!', cxScreen, cyScreen + small * 0.7);
+
+      ctx.restore();
+    }
+  }
+
   function drawOneGoldenBall(b) {
     const cx = X2px(b.x), cy = Y2px(b.y);
     const rpx = pxDist(b.r);
     const age = state.t - b.bornAt;
 
-    // Outer aura — pulses subtly.
     const pulse = 0.85 + 0.15 * Math.sin(state.t * 4);
     const auraR = rpx * (3.5 + 0.2 * Math.sin(state.t * 2));
     const aura = ctx.createRadialGradient(cx, cy, rpx * 0.9, cx, cy, auraR);
@@ -1572,7 +1496,6 @@
     ctx.fillStyle = aura;
     ctx.beginPath(); ctx.arc(cx, cy, auraR, 0, Math.PI * 2); ctx.fill();
 
-    // Spawn flash — bright burst that fades over 250 ms.
     if (age < 0.25) {
       const f = 1 - age / 0.25;
       const flashR = rpx * (2.0 + 6 * (1 - f));
@@ -1584,8 +1507,6 @@
       ctx.beginPath(); ctx.arc(cx, cy, flashR, 0, Math.PI * 2); ctx.fill();
     }
 
-    // Body: radial gradient from pale highlight (upper-left) to deep amber rim.
-    // Highlight center offset to give a sphere look.
     const hlx = cx - rpx * 0.35, hly = cy - rpx * 0.4;
     const body = ctx.createRadialGradient(hlx, hly, 0, cx, cy, rpx);
     body.addColorStop(0.00, '#fff8d8');
@@ -1596,7 +1517,6 @@
     ctx.fillStyle = body;
     ctx.beginPath(); ctx.arc(cx, cy, rpx, 0, Math.PI * 2); ctx.fill();
 
-    // Rim shadow on the lower-right for sphericity.
     const rim = ctx.createRadialGradient(cx + rpx * 0.3, cy + rpx * 0.4, rpx * 0.6, cx, cy, rpx * 1.05);
     rim.addColorStop(0, 'rgba(0,0,0,0)');
     rim.addColorStop(0.7, 'rgba(60, 30, 5, 0)');
@@ -1604,7 +1524,6 @@
     ctx.fillStyle = rim;
     ctx.beginPath(); ctx.arc(cx, cy, rpx, 0, Math.PI * 2); ctx.fill();
 
-    // Specular highlight — bright crescent near upper-left.
     ctx.save();
     ctx.beginPath(); ctx.arc(cx, cy, rpx, 0, Math.PI * 2); ctx.clip();
     const spec = ctx.createRadialGradient(cx - rpx * 0.4, cy - rpx * 0.5, 0, cx - rpx * 0.4, cy - rpx * 0.5, rpx * 0.7);
@@ -1614,7 +1533,6 @@
     ctx.fillStyle = spec;
     ctx.beginPath(); ctx.arc(cx - rpx * 0.4, cy - rpx * 0.5, rpx * 0.7, 0, Math.PI * 2); ctx.fill();
 
-    // A few tiny sparkle points that rotate with the ball.
     const sparkles = [
       { ang: 0.3, rad: 0.55, sz: 0.10 },
       { ang: 1.7, rad: 0.42, sz: 0.08 },
@@ -1635,96 +1553,14 @@
     }
     ctx.restore();
 
-    // Outline — thin dark for definition.
     ctx.strokeStyle = 'rgba(40, 20, 5, 0.7)';
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.arc(cx, cy, rpx, 0, Math.PI * 2); ctx.stroke();
   }
 
-  function drawAggregates() {
-    if (state.aggMerging) {
-      const m = state.aggMerging;
-      const u = Math.min(1, (state.t - m.startedAt) / m.dur);
-      const ease = u * u * (3 - 2 * u);
-      for (const p of m.particles) {
-        const sx = p.mergeStart.x, sy = p.mergeStart.y;
-        const cx = sx + (m.target.x - sx) * ease;
-        const cy = sy + (m.target.y - sy) * ease;
-        p.x = cx; p.y = cy;
-        ctx.strokeStyle = `rgba(180, 220, 255, ${1 - u})`;
-        ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.moveTo(X2px(sx), Y2px(sy)); ctx.lineTo(X2px(cx), Y2px(cy)); ctx.stroke();
-      }
-    }
-
-    const rInnerPx = pxDist(CFG.R_DRUM) + 2;
-    ctx.save();
-    ctx.beginPath(); ctx.arc(CX, CY, rInnerPx, 0, Math.PI * 2); ctx.clip();
-    
-    for (const agg of state.aggregates) {
-      const ax = X2px(agg.x), ay = Y2px(agg.y);
-      const ar = pxDist(agg.r);
-      ctx.save();
-      ctx.translate(ax, ay);
-      ctx.rotate(-agg.rot);
-      if (imgAggregate.complete && imgAggregate.naturalHeight !== 0) {
-        ctx.drawImage(imgAggregate, -ar, -ar, ar * 2, ar * 2);
-      } else {
-        ctx.fillStyle = '#6a6a72';
-        ctx.beginPath(); ctx.arc(0, 0, ar, 0, Math.PI * 2); ctx.fill();
-      }
-      ctx.restore();
-    }
-    ctx.restore();
-  }
-
-  function drawSuccessText() {
-    // For each ball, between t = bornAt + 1 and t = bornAt + 3, flash a
-    // two-line "Success! / Pebble formed!" message in the upper drum.
-    for (const b of state.goldenBalls) {
-      const age = state.t - b.bornAt;
-      if (age < 1 || age > 3) continue;
-      // Visible window is 2 s long. Fade-in 0.15 s, hold, fade-out 0.15 s.
-      const u = (age - 1) / 2;        // 0..1 within the visible window
-      let alpha;
-      if (u < 0.075)      alpha = u / 0.075;
-      else if (u > 0.925) alpha = (1 - u) / 0.075;
-      else                alpha = 1;
-      if (alpha <= 0) continue;
-
-      const cxScreen = X2px(0);
-      const cyScreen = Y2px(50);     // upper half of the drum (y = +50 cm)
-      const big = Math.max(14, pxDist(16));    // ~16 cm tall headline
-      const small = Math.max(10, pxDist(9));   // ~9 cm subtitle
-
-      ctx.save();
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.globalAlpha = alpha;
-
-      // Headline "Success!" — bright gold with glow.
-      ctx.font = 'bold ' + big + 'px "Courier New", monospace';
-      ctx.shadowColor = 'rgba(255, 200, 80, 0.9)';
-      ctx.shadowBlur = big * 0.6;
-      ctx.fillStyle = '#fff2c0';
-      ctx.fillText('Success!', cxScreen, cyScreen - big * 0.55);
-
-      // Subtitle "Pebble formed!" — deeper gold, smaller.
-      ctx.font = 'bold ' + small + 'px "Courier New", monospace';
-      ctx.shadowColor = 'rgba(255, 180, 60, 0.7)';
-      ctx.shadowBlur = small * 0.5;
-      ctx.fillStyle = '#ffcc55';
-      ctx.fillText('Pebble formed!', cxScreen, cyScreen + small * 0.7);
-
-      ctx.restore();
-    }
-  }
-
-  // Sounds for the easter egg.
   function soundGoldenChime() {
     if (!AUDIO.ctx) return;
     const t = AUDIO.ctx.currentTime;
-    // Major triad arpe arpeggio: C5, E5, G5 (523, 659, 784 Hz), then a high D6 (1175) shimmer.
     const notes = [523.25, 659.25, 783.99, 1174.66];
     notes.forEach((f, i) => {
       const o = AUDIO.ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
@@ -1751,6 +1587,186 @@
     o.connect(g); g.connect(AUDIO.master);
     o.start(t); o.stop(t + 0.3);
   }
+
+  // ===== Aggregate Logic =====
+  function getLevitatedParticles() {
+    const absOm = Math.abs(state.omega);
+    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+    if (!isFinite(T)) return [];
+    const out = [];
+    for (const p of state.particles) {
+      if (!p.alive || p.stuck || p.merging || p.aggMerging) continue;
+      if (p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T) {
+        out.push(p);
+      }
+    }
+    return out;
+  }
+
+  function updateAggregates(dt) {
+    // 1. Integrate existing aggregates
+    for (let i = state.aggregates.length - 1; i >= 0; i--) {
+      const agg = state.aggregates[i];
+      if (!agg.alive) continue;
+      if (agg.merging) continue; 
+      
+      if (agg.stuck) {
+        agg.stuckAngle += state.omega * dt;
+        agg.x = CFG.R_DRUM * Math.cos(agg.stuckAngle);
+        agg.y = CFG.R_DRUM * Math.sin(agg.stuckAngle);
+        agg.inHighlightSince = null;
+      } else {
+        const vxg = -state.omega * agg.y;
+        const vyg =  state.omega * agg.x;
+        agg.vx = vxg;
+        agg.vy = vyg - agg.vt;
+        agg.x += agg.vx * dt;
+        agg.y += agg.vy * dt;
+        agg.angle += agg.spin * dt;
+
+        const r2 = agg.x * agg.x + agg.y * agg.y;
+        const Rwall = CFG.R_DRUM - TUNING.particle.collisionR * 2 * agg.sizeMult;
+        
+        if (r2 >= Rwall * Rwall) {
+          agg.stuck = true;
+          agg.stuckAngle = Math.atan2(agg.y, agg.x);
+          agg.x = Rwall * Math.cos(agg.stuckAngle);
+          agg.y = Rwall * Math.sin(agg.stuckAngle);
+          agg.inHighlightSince = null;
+        } else if (agg.y < -CFG.R_DRUM * 1.5) {
+          agg.alive = false;
+        } else {
+          const HX = TUNING.highlight.cx;
+          const HY = TUNING.highlight.cy;
+          const HR2 = TUNING.highlight.radius * TUNING.highlight.radius;
+          const dxh = agg.x - HX, dyh = agg.y - HY;
+          const inside = (dxh * dxh + dyh * dyh) <= HR2;
+          if (inside) {
+            if (agg.inHighlightSince === null) agg.inHighlightSince = state.t;
+          } else {
+            agg.inHighlightSince = null;
+          }
+        }
+      }
+    }
+
+    // 2. Animate merging
+    if (state.aggMerging) {
+      const m = state.aggMerging;
+      const u = (state.t - m.startedAt) / m.dur;
+      if (u >= 1) {
+        for (const p of m.particles) p.alive = false;
+        spawnAggregate(m.target.x, m.target.y, m.avgVt, m.avgSize);
+        state.aggMerging = null;
+        state.aggregatesCreated++;
+      }
+      return;
+    }
+
+    // 3. Check threshold logic
+    const reqCount = state.aggregatesCreated === 0 ? 30 : 10;
+    const targetRevs = state.aggregatesCreated === 0 ? 3 : 1;
+    const levList = getLevitatedParticles();
+
+    const absOm = Math.abs(state.omega);
+    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+    
+    if (levList.length >= reqCount && isFinite(T)) {
+      state.aggHoldRevs += dt / T;
+      if (state.aggHoldRevs >= targetRevs) {
+        startAggMerge(levList);
+        state.aggHoldRevs = 0;
+      }
+    } else {
+      state.aggHoldRevs = 0;
+    }
+
+    // Cull dead aggregates
+    if (state.aggregates.length > 0) {
+      let anyDead = false;
+      for (let i = 0; i < state.aggregates.length; i++) {
+        if (!state.aggregates[i].alive) { anyDead = true; break; }
+      }
+      if (anyDead) state.aggregates = state.aggregates.filter(a => a.alive);
+    }
+  }
+
+  function startAggMerge(levList) {
+    if (levList.length < 10) return;
+    const seedIdx = Math.floor(Math.random() * levList.length);
+    const seed = levList[seedIdx];
+
+    const withDist = levList.map(p => ({ p, d2: (p.x - seed.x)**2 + (p.y - seed.y)**2 }));
+    withDist.sort((a, b) => a.d2 - b.d2);
+    const chosen = withDist.slice(0, 10).map(item => item.p);
+
+    let sumVt = 0, cx = 0, cy = 0, sumSize = 0;
+    for (const p of chosen) {
+      sumVt += p.vt;
+      cx += p.x;
+      cy += p.y;
+      sumSize += visualSizeFactor(p.vt);
+      p.aggMerging = true;
+      p.mergeStart = { x: p.x, y: p.y };
+    }
+
+    state.aggMerging = {
+      particles: chosen,
+      target: { x: cx / 10, y: cy / 10 },
+      startedAt: state.t,
+      dur: 0.5,
+      avgVt: sumVt / 10,
+      avgSize: sumSize / 10
+    };
+  }
+
+  function spawnAggregate(x, y, vt, baseSize) {
+    const currentOmega = Math.abs(state.omega);
+    const spinDir = Math.random() < 0.5 ? -1 : 1;
+    const spin = spinDir * (currentOmega + Math.random() * 2 * currentOmega);
+
+    state.aggregates.push({
+      x, y, vt,
+      sizeMult: baseSize * 5,
+      angle: Math.random() * Math.PI * 2,
+      spin, alive: true, stuck: false,
+      inHighlightSince: null, merging: false
+    });
+  }
+
+  function drawAggregates() {
+    if (state.aggMerging) {
+      const m = state.aggMerging;
+      const u = Math.min(1, (state.t - m.startedAt) / m.dur);
+      const ease = u * u * (3 - 2 * u);
+      for (const p of m.particles) {
+        const cx = p.mergeStart.x + (m.target.x - p.mergeStart.x) * ease;
+        const cy = p.mergeStart.y + (m.target.y - p.mergeStart.y) * ease;
+        p.x = cx; p.y = cy;
+        const x1 = X2px(cx), y1 = Y2px(cy);
+        ctx.fillStyle = 'rgba(200, 200, 200, 0.9)';
+        ctx.beginPath(); ctx.arc(x1, y1, pxDist(2), 0, Math.PI * 2); ctx.fill();
+      }
+    }
+
+    for (const agg of state.aggregates) {
+      if (!agg.alive) continue;
+      const px = X2px(agg.x), py = Y2px(agg.y);
+      const rpx = pxDist(TUNING.particle.collisionR * 2 * agg.sizeMult);
+
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(agg.angle);
+      if (aggImg.complete && aggImg.naturalWidth > 0) {
+        ctx.drawImage(aggImg, -rpx, -rpx, rpx * 2, rpx * 2);
+      } else {
+        ctx.fillStyle = '#666';
+        ctx.beginPath(); ctx.arc(0, 0, rpx, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
 
   function angleSwept(a0, a1, t) {
     let d = a1 - a0;
@@ -1884,61 +1900,278 @@
 
     const capW = Math.max(6, pxDist(4));
 
-    // ===== Vertical mounting beams to ceiling =====
-    const beamW = Math.max(8, pxDist(5));
-    const beam1X = x0 + capW + barH * 1.5;
-    const beam2X = x1 - capW - barH * 1.5 - beamW;
+    // ===== Pipe from the manifold to the Inject button =====
+    // Two-segment L-route: horizontal from the manifold's right end to a
+    // point above the Inject button, then a 90° elbow and a vertical drop
+    // that docks onto the button's top edge with a flange.
+    const pipeY = yTop + barH * 0.5;
+    const pipeH = Math.max(6, pxDist(4.5));
+    const pipeStartX = x1 - capW * 0.2;
+    const elbowX = (GEO.injectBtnW > 0)
+      ? (GEO.injectBtnX + GEO.injectBtnW * 0.5)
+      : (GEO.wingRightX + 32);
+    const buttonTopY = (GEO.injectBtnH > 0) ? GEO.injectBtnY : (pipeY + pipeH * 4);
 
-    if (yTop > 0) {
-      const isLight = PAL.name === 'light';
-      for (const bx of [beam1X, beam2X]) {
-        const bg = ctx.createLinearGradient(bx, 0, bx + beamW, 0);
-        if (isLight) {
-          bg.addColorStop(0.00, '#d6d2c2');
-          bg.addColorStop(0.30, '#e2dece');
-          bg.addColorStop(0.70, '#b4ae9e');
-          bg.addColorStop(1.00, '#6e6858');
-        } else {
-          bg.addColorStop(0.00, '#6a6a72');
-          bg.addColorStop(0.30, '#8a8a92');
-          bg.addColorStop(0.70, '#4a4a52');
-          bg.addColorStop(1.00, '#1a1a22');
-        }
+    if (elbowX > pipeStartX + pipeH) {
+      // Drop shadow under the horizontal run
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillRect(pipeStartX, pipeY + pipeH / 2 + 1, elbowX + pipeH / 2 - pipeStartX, 3);
 
-        // Beam body
-        ctx.fillStyle = bg;
-        ctx.fillRect(bx, 0, beamW, yTop);
+      // Brass gradient for both pipe segments
+      const pgH = ctx.createLinearGradient(0, pipeY - pipeH / 2, 0, pipeY + pipeH / 2);
+      pgH.addColorStop(0.00, '#a07a30');
+      pgH.addColorStop(0.15, '#e8c77a');
+      pgH.addColorStop(0.45, '#d9b76a');
+      pgH.addColorStop(0.70, '#8a6b2e');
+      pgH.addColorStop(1.00, '#3a2a0e');
+      const pgV = ctx.createLinearGradient(elbowX - pipeH / 2, 0, elbowX + pipeH / 2, 0);
+      pgV.addColorStop(0.00, '#a07a30');
+      pgV.addColorStop(0.15, '#e8c77a');
+      pgV.addColorStop(0.45, '#d9b76a');
+      pgV.addColorStop(0.70, '#8a6b2e');
+      pgV.addColorStop(1.00, '#3a2a0e');
 
-        // Edge highlights
-        ctx.strokeStyle = isLight ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.3)';
+      // Horizontal pipe — runs from manifold to elbow corner
+      ctx.fillStyle = pgH;
+      ctx.fillRect(pipeStartX, pipeY - pipeH / 2,
+                   elbowX - pipeStartX + pipeH / 2, pipeH);
+      // Highlight and shadow lines
+      ctx.strokeStyle = 'rgba(255,235,170,0.6)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(pipeStartX, pipeY - pipeH / 2 + 0.5);
+      ctx.lineTo(elbowX - pipeH / 2, pipeY - pipeH / 2 + 0.5);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+      ctx.beginPath();
+      ctx.moveTo(pipeStartX, pipeY + pipeH / 2 - 0.5);
+      ctx.lineTo(elbowX - pipeH / 2, pipeY + pipeH / 2 - 0.5);
+      ctx.stroke();
+
+      // Vertical pipe — runs from elbow down to button top
+      const vTop = pipeY - pipeH / 2;
+      const vBot = buttonTopY;
+      if (vBot > vTop + pipeH) {
+        // Drop shadow on the right side of the vertical run
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.fillRect(elbowX + pipeH / 2 + 1, vTop, 3, vBot - vTop);
+
+        ctx.fillStyle = pgV;
+        ctx.fillRect(elbowX - pipeH / 2, vTop, pipeH, vBot - vTop);
+        // Highlight (left) and shadow (right) edges
+        ctx.strokeStyle = 'rgba(255,235,170,0.6)';
         ctx.lineWidth = 1.2;
-        ctx.beginPath(); ctx.moveTo(bx + 0.5, 0); ctx.lineTo(bx + 0.5, yTop); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(elbowX - pipeH / 2 + 0.5, vTop);
+        ctx.lineTo(elbowX - pipeH / 2 + 0.5, vBot);
+        ctx.stroke();
         ctx.strokeStyle = 'rgba(0,0,0,0.7)';
-        ctx.beginPath(); ctx.moveTo(bx + beamW - 0.5, 0); ctx.lineTo(bx + beamW - 0.5, yTop); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(elbowX + pipeH / 2 - 0.5, vTop);
+        ctx.lineTo(elbowX + pipeH / 2 - 0.5, vBot);
+        ctx.stroke();
+      }
 
-        // Flange connecting beam to the manifold
-        const flW = beamW * 1.8;
-        const flH = Math.max(4, pxDist(2.5));
-        const flX = bx - (flW - beamW) / 2;
-        const flY = yTop - flH;
+      // Elbow block — square, slightly larger than the pipe, bolted with two
+      // small fasteners on its visible face. Sits at (elbowX, pipeY).
+      const elbowW = pipeH * 1.6;
+      const elbowH = pipeH * 1.6;
+      const elbowX0 = elbowX - elbowW / 2;
+      const elbowY0 = pipeY - elbowH / 2;
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fillRect(elbowX0 + 1, elbowY0 + 2, elbowW, elbowH);
+      const eg = ctx.createLinearGradient(0, elbowY0, 0, elbowY0 + elbowH);
+      eg.addColorStop(0.00, '#f0d088');
+      eg.addColorStop(0.30, '#d9b76a');
+      eg.addColorStop(0.70, '#8a6b2e');
+      eg.addColorStop(1.00, '#3a2a0e');
+      ctx.fillStyle = eg;
+      ctx.fillRect(elbowX0, elbowY0, elbowW, elbowH);
+      ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(elbowX0, elbowY0, elbowW, elbowH);
+      // Two small bolts on the elbow face
+      const ebR = Math.max(1.6, pipeH * 0.20);
+      rivet(elbowX0 + elbowW * 0.30, elbowY0 + elbowH * 0.30, ebR);
+      rivet(elbowX0 + elbowW * 0.70, elbowY0 + elbowH * 0.70, ebR);
 
+      // Flange where the vertical pipe docks onto the Inject button —
+      // a wider plate sitting directly on the button's top edge with two
+      // bolts going into the button bezel.
+      if (vBot > vTop + pipeH) {
+        const flW = pipeH * 2.6;
+        const flH = Math.max(4, pxDist(2));
+        const flX0 = elbowX - flW / 2;
+        const flY0 = vBot - flH * 0.6;     // overlap the button slightly
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.fillRect(flX + 1, flY + 2, flW, flH);
-
-        const fg = ctx.createLinearGradient(0, flY, 0, flY + flH);
+        ctx.fillRect(flX0 + 1, flY0 + 2, flW, flH);
+        const fg = ctx.createLinearGradient(0, flY0, 0, flY0 + flH);
         fg.addColorStop(0.00, '#f0d088');
         fg.addColorStop(0.40, '#d9b76a');
         fg.addColorStop(1.00, '#5a4418');
         ctx.fillStyle = fg;
-        ctx.fillRect(flX, flY, flW, flH);
+        ctx.fillRect(flX0, flY0, flW, flH);
         ctx.strokeStyle = 'rgba(0,0,0,0.6)';
         ctx.lineWidth = 1;
-        ctx.strokeRect(flX, flY, flW, flH);
-
-        const rivetR = Math.max(1.6, beamW * 0.15);
-        rivet(flX + flW * 0.2, flY + flH * 0.5, rivetR);
-        rivet(flX + flW * 0.8, flY + flH * 0.5, rivetR);
+        ctx.strokeRect(flX0, flY0, flW, flH);
+        const fbR = Math.max(1.6, pipeH * 0.22);
+        rivet(flX0 + flW * 0.18, flY0 + flH * 0.5, fbR);
+        rivet(flX0 + flW * 0.82, flY0 + flH * 0.5, fbR);
       }
+
+      // Flange at the manifold end — collar where pipe meets the bar
+      const flangeW = Math.max(5, pxDist(3));
+      const flangeH = pipeH * 1.6;
+      const fmg = ctx.createLinearGradient(0, pipeY - flangeH / 2, 0, pipeY + flangeH / 2);
+      fmg.addColorStop(0.00, '#a07a30');
+      fmg.addColorStop(0.20, '#e8c77a');
+      fmg.addColorStop(0.55, '#8a6b2e');
+      fmg.addColorStop(1.00, '#3a2a0e');
+      ctx.fillStyle = fmg;
+      ctx.fillRect(pipeStartX - 2, pipeY - flangeH / 2, flangeW + 2, flangeH);
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(pipeStartX - 2, pipeY - flangeH / 2, flangeW + 2, flangeH);
+      const fbR = Math.max(1.5, pipeH * 0.18);
+      rivet(pipeStartX - 2 + flangeW * 0.4, pipeY - flangeH * 0.3, fbR);
+      rivet(pipeStartX - 2 + flangeW * 0.4, pipeY + flangeH * 0.3, fbR);
+    }
+
+    // ===== Pipe from the manifold's left end to the top of the left wing =====
+    // Mirrors the right pipe: horizontal run leftward from the manifold to a
+    // bolted elbow centered above the left wing, then a short vertical run
+    // down to the wing's top edge with a flange. Provides mechanical support
+    // on the left side so the long manifold isn't cantilevered off one pipe.
+    const lPipeStartX = x0 + capW * 0.2;
+    const lDockX = (GEO.leftWingTopX > 0) ? GEO.leftWingTopX : (GEO.wingLeftX + 60);
+    const lDockY = (GEO.leftWingTopY > 0) ? GEO.leftWingTopY : pipeY;
+    const lElbowX = lDockX;       // elbow directly above the wing dock point
+
+    if (lElbowX < lPipeStartX - pipeH) {
+      // Drop shadow under the horizontal run
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillRect(lElbowX - pipeH / 2, pipeY + pipeH / 2 + 1,
+                   lPipeStartX - (lElbowX - pipeH / 2), 3);
+
+      // Brass gradient — same as the right pipe
+      const lpgH = ctx.createLinearGradient(0, pipeY - pipeH / 2, 0, pipeY + pipeH / 2);
+      lpgH.addColorStop(0.00, '#a07a30');
+      lpgH.addColorStop(0.15, '#e8c77a');
+      lpgH.addColorStop(0.45, '#d9b76a');
+      lpgH.addColorStop(0.70, '#8a6b2e');
+      lpgH.addColorStop(1.00, '#3a2a0e');
+      const lpgV = ctx.createLinearGradient(lElbowX - pipeH / 2, 0, lElbowX + pipeH / 2, 0);
+      lpgV.addColorStop(0.00, '#a07a30');
+      lpgV.addColorStop(0.15, '#e8c77a');
+      lpgV.addColorStop(0.45, '#d9b76a');
+      lpgV.addColorStop(0.70, '#8a6b2e');
+      lpgV.addColorStop(1.00, '#3a2a0e');
+
+      // Horizontal pipe — runs from elbow corner to manifold's left end
+      ctx.fillStyle = lpgH;
+      ctx.fillRect(lElbowX - pipeH / 2, pipeY - pipeH / 2,
+                   lPipeStartX - (lElbowX - pipeH / 2), pipeH);
+      ctx.strokeStyle = 'rgba(255,235,170,0.6)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(lElbowX + pipeH / 2, pipeY - pipeH / 2 + 0.5);
+      ctx.lineTo(lPipeStartX,         pipeY - pipeH / 2 + 0.5);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+      ctx.beginPath();
+      ctx.moveTo(lElbowX + pipeH / 2, pipeY + pipeH / 2 - 0.5);
+      ctx.lineTo(lPipeStartX,         pipeY + pipeH / 2 - 0.5);
+      ctx.stroke();
+
+      // Vertical pipe — runs from elbow up (or down) to the wing top.
+      // sign is +1 if dock is below pipe level, -1 if dock is above.
+      const lvTop = Math.min(pipeY - pipeH / 2, lDockY);
+      const lvBot = Math.max(pipeY + pipeH / 2, lDockY);
+      if (lvBot - lvTop > pipeH * 0.5) {
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.fillRect(lElbowX + pipeH / 2 + 1, lvTop, 3, lvBot - lvTop);
+
+        ctx.fillStyle = lpgV;
+        ctx.fillRect(lElbowX - pipeH / 2, lvTop, pipeH, lvBot - lvTop);
+        ctx.strokeStyle = 'rgba(255,235,170,0.6)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(lElbowX - pipeH / 2 + 0.5, lvTop);
+        ctx.lineTo(lElbowX - pipeH / 2 + 0.5, lvBot);
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+        ctx.beginPath();
+        ctx.moveTo(lElbowX + pipeH / 2 - 0.5, lvTop);
+        ctx.lineTo(lElbowX + pipeH / 2 - 0.5, lvBot);
+        ctx.stroke();
+      }
+
+      // Elbow block at the corner
+      const lElbowW = pipeH * 1.6;
+      const lElbowH = pipeH * 1.6;
+      const lElbowX0 = lElbowX - lElbowW / 2;
+      const lElbowY0 = pipeY - lElbowH / 2;
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fillRect(lElbowX0 + 1, lElbowY0 + 2, lElbowW, lElbowH);
+      const leg = ctx.createLinearGradient(0, lElbowY0, 0, lElbowY0 + lElbowH);
+      leg.addColorStop(0.00, '#f0d088');
+      leg.addColorStop(0.30, '#d9b76a');
+      leg.addColorStop(0.70, '#8a6b2e');
+      leg.addColorStop(1.00, '#3a2a0e');
+      ctx.fillStyle = leg;
+      ctx.fillRect(lElbowX0, lElbowY0, lElbowW, lElbowH);
+      ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(lElbowX0, lElbowY0, lElbowW, lElbowH);
+      const lebR = Math.max(1.6, pipeH * 0.20);
+      // Bolts mirrored relative to the right elbow (corner now opens to bottom-right
+      // rather than bottom-left) — diagonal goes from top-right to bottom-left.
+      rivet(lElbowX0 + lElbowW * 0.70, lElbowY0 + lElbowH * 0.30, lebR);
+      rivet(lElbowX0 + lElbowW * 0.30, lElbowY0 + lElbowH * 0.70, lebR);
+
+      // Flange at the wing-top dock — wide plate sitting on the wing's top edge
+      if (Math.abs(pipeY - lDockY) > 1) {
+        const lflW = pipeH * 2.6;
+        const lflH = Math.max(4, pxDist(2));
+        const lflX0 = lElbowX - lflW / 2;
+        // If dock is below pipe (typical case), the flange sits at the dock and
+        // overlaps slightly upward. If dock is above, mirror.
+        const dockBelow = lDockY > pipeY;
+        const lflY0 = dockBelow ? (lDockY - lflH * 0.6) : (lDockY - lflH * 0.4);
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(lflX0 + 1, lflY0 + 2, lflW, lflH);
+        const lfg = ctx.createLinearGradient(0, lflY0, 0, lflY0 + lflH);
+        lfg.addColorStop(0.00, '#f0d088');
+        lfg.addColorStop(0.40, '#d9b76a');
+        lfg.addColorStop(1.00, '#5a4418');
+        ctx.fillStyle = lfg;
+        ctx.fillRect(lflX0, lflY0, lflW, lflH);
+        ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(lflX0, lflY0, lflW, lflH);
+        const lfbR = Math.max(1.6, pipeH * 0.22);
+        rivet(lflX0 + lflW * 0.18, lflY0 + lflH * 0.5, lfbR);
+        rivet(lflX0 + lflW * 0.82, lflY0 + lflH * 0.5, lfbR);
+      }
+
+      // Flange at the manifold-left end — collar where the pipe meets the bar
+      const lflangeW = Math.max(5, pxDist(3));
+      const lflangeH = pipeH * 1.6;
+      const lfmg = ctx.createLinearGradient(0, pipeY - lflangeH / 2, 0, pipeY + lflangeH / 2);
+      lfmg.addColorStop(0.00, '#a07a30');
+      lfmg.addColorStop(0.20, '#e8c77a');
+      lfmg.addColorStop(0.55, '#8a6b2e');
+      lfmg.addColorStop(1.00, '#3a2a0e');
+      ctx.fillStyle = lfmg;
+      ctx.fillRect(lPipeStartX - lflangeW, pipeY - lflangeH / 2,
+                   lflangeW + 2, lflangeH);
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(lPipeStartX - lflangeW, pipeY - lflangeH / 2,
+                     lflangeW + 2, lflangeH);
+      const lfbR2 = Math.max(1.5, pipeH * 0.18);
+      rivet(lPipeStartX - lflangeW * 0.6, pipeY - lflangeH * 0.3, lfbR2);
+      rivet(lPipeStartX - lflangeW * 0.6, pipeY + lflangeH * 0.3, lfbR2);
     }
 
     // ===== Manifold bar drop-shadow =====
@@ -1972,7 +2205,7 @@
     capB.addColorStop(0, 'rgba(0,0,0,0)'); capB.addColorStop(1, 'rgba(0,0,0,0.55)');
     ctx.fillStyle = capB; ctx.fillRect(x1 - capW, yTop, capW, yBot - yTop);
 
-    // End-cap rivets
+    // End-cap rivets (top + bottom each side, plus a center one)
     const endBoltR = Math.max(2.2, barH * 0.16);
     rivet(x0 + capW * 0.5, yTop + barH * 0.25, endBoltR);
     rivet(x0 + capW * 0.5, yTop + barH * 0.75, endBoltR);
@@ -1980,6 +2213,8 @@
     rivet(x1 - capW * 0.5, yTop + barH * 0.75, endBoltR);
 
     // ===== Reinforcement ribs along the bar =====
+    // Short vertical strips between the nozzle positions, giving a structural-
+    // channel look. They sit just behind the nozzles, between adjacent ones.
     const ribCount = 5;
     const ribAreaX0 = x0 + capW;
     const ribAreaX1 = x1 - capW;
@@ -1993,12 +2228,13 @@
       rg.addColorStop(1.00, 'rgba(0,0,0,0.45)');
       ctx.fillStyle = rg;
       ctx.fillRect(ribX, yTop + 2, ribW, barH - 4);
+      // Small bolt at the rib's top and bottom
       const ribBoltR = Math.max(1.6, barH * 0.10);
       rivet(cx, yTop + barH * 0.18, ribBoltR);
       rivet(cx, yTop + barH * 0.82, ribBoltR);
     }
 
-    // ===== Nozzles =====
+    // ===== Nozzles (beefier than before, with a collar at the top) =====
     const nozzleCount = 6;
     const nozzleAreaX0 = X2px(CFG.RELEASE_X_MIN + 5);
     const nozzleAreaX1 = X2px(CFG.RELEASE_X_MAX - 5);
@@ -2011,6 +2247,7 @@
       const cx = nozzleAreaX0 + (i + 0.5) * (nozzleAreaX1 - nozzleAreaX0) / nozzleCount;
       GEO.nozzleXs.push(cx);
 
+      // Collar — a slightly wider band at the top of the nozzle, bolted to bar
       const colG = ctx.createLinearGradient(0, yBot - collarH, 0, yBot + collarH);
       colG.addColorStop(0, '#e8c77a');
       colG.addColorStop(0.5, '#a07a30');
@@ -2021,6 +2258,7 @@
       ctx.lineWidth = 1;
       ctx.strokeRect(cx - collarHalfW, yBot - collarH * 0.4, collarHalfW * 2, collarH);
 
+      // Tapered nozzle body
       const tipHalfW = nozzleHalfW * 0.55;
       const nGrad = ctx.createLinearGradient(0, yBot, 0, yBot + nozzleH);
       nGrad.addColorStop(0.00, '#a07a30');
@@ -2038,11 +2276,13 @@
       ctx.lineWidth = 1;
       ctx.stroke();
 
+      // Dark exit hole
       ctx.fillStyle = '#040206';
       ctx.beginPath();
       ctx.ellipse(cx, yBot + nozzleH - 1, tipHalfW * 0.8, Math.max(1, nozzleH * 0.20), 0, 0, Math.PI * 2);
       ctx.fill();
 
+      // Specular highlight down the left side of the nozzle
       ctx.strokeStyle = 'rgba(255,235,170,0.45)';
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -2500,9 +2740,9 @@
     drawDrumInterior();
     drawAxis();
     drawParticles();
-    drawAggregates();
     drawMergeStreaks();
     drawGoldenBalls();
+    drawAggregates();
     drawGlare();
     drawBoltRing();
   }
@@ -2717,6 +2957,10 @@
   }
   let MILL_HANDLE = null;
 
+  // Build a noise buffer that's amplitude-modulated by a train of percussive
+  // "impact" envelopes. Each impact has a sharp attack and an exponential
+  // decay. Inter-impact times are jittered around 1/rate to sound mechanical
+  // but irregular — like a blade striking bouncing beans.
   function makeImpactNoiseBuffer(durationS, sampleRate, ratePerSec, decayS, jitter, ampMin, ampMax) {
     const len = Math.max(1, Math.floor(durationS * sampleRate));
     const buf = AUDIO.ctx.createBuffer(1, len, sampleRate);
@@ -2756,6 +3000,7 @@
     const tEnd = t0 + attack + sustain + release;
     const totalLen = attack + sustain + release;
 
+    // === Blade whine: two detuned squares ===
     const blade1 = AUDIO.ctx.createOscillator();
     const blade2 = AUDIO.ctx.createOscillator();
     blade1.type = 'square';
@@ -2785,6 +3030,7 @@
     blade1.connect(bladeLP); blade2.connect(bladeLP);
     bladeLP.connect(bladeGain); bladeGain.connect(AUDIO.master);
 
+    // === Shear hiss: continuous bandpassed noise around 2.5 kHz ===
     const noiseLen = Math.ceil(totalLen * AUDIO.ctx.sampleRate);
     const nb = AUDIO.ctx.createBuffer(1, Math.max(1, noiseLen), AUDIO.ctx.sampleRate);
     const nd = nb.getChannelData(0);
@@ -2801,6 +3047,7 @@
     noiseGain.gain.exponentialRampToValueAtTime(0.0005, tEnd);
     noise.connect(noiseBP); noiseBP.connect(noiseGain); noiseGain.connect(AUDIO.master);
 
+    // === Grinding: bright sharp cracks, well above the hiss band ===
     const grindBuf = makeImpactNoiseBuffer(totalLen, AUDIO.ctx.sampleRate, 25, 0.004, 0.6, 0.5, 1.4);
     const grind = AUDIO.ctx.createBufferSource(); grind.buffer = grindBuf;
     const grindBP = AUDIO.ctx.createBiquadFilter();
@@ -2814,6 +3061,7 @@
     grindGain.gain.exponentialRampToValueAtTime(0.0005, tEnd);
     grind.connect(grindBP); grindBP.connect(grindGain); grindGain.connect(AUDIO.master);
 
+    // === Sub-thud: heavier slow impacts, low band, definitely audible ===
     const thudBuf = makeImpactNoiseBuffer(totalLen, AUDIO.ctx.sampleRate, 7, 0.035, 0.6, 0.6, 1.2);
     const thud = AUDIO.ctx.createBufferSource(); thud.buffer = thudBuf;
     const thudBP = AUDIO.ctx.createBiquadFilter();
@@ -2827,6 +3075,7 @@
     thudGain.gain.exponentialRampToValueAtTime(0.0005, tEnd);
     thud.connect(thudBP); thudBP.connect(thudGain); thudGain.connect(AUDIO.master);
 
+    // === Body rumble: 90 Hz sine ===
     const body = AUDIO.ctx.createOscillator();
     body.type = 'sine';
     body.frequency.value = 90;
@@ -2961,29 +3210,19 @@
   const btnLaser = document.getElementById('btnLaser');
   const btnOmegaCtl = document.getElementById('btnOmegaCtl');
   const btnSound = document.getElementById('btnSound');
-  const btnTrails = document.getElementById('btnTrails');
-
   btnStart.addEventListener('click', () => {
     startRelease();
     btnStart.classList.add('on');
     ensureAudio();
     const dur = (CFG.N_P <= 1) ? 0 : CFG.DT_INJECT;
     soundMillStart(dur);
-    
-    if (btnStart.injectTimeout) clearTimeout(btnStart.injectTimeout);
-    btnStart.injectTimeout = setTimeout(() => {
-      btnStart.classList.remove('on');
-    }, Math.max(250, dur * 1000));
   });
-
   btnReset.addEventListener('click', () => {
     initLevel();
     btnStart.classList.remove('on');
-    if (btnStart.injectTimeout) clearTimeout(btnStart.injectTimeout);
     btnReset.classList.add('flash');
     setTimeout(() => btnReset.classList.remove('flash'), 200);
   });
-
   btnLaser.addEventListener('click', () => {
     state.laserOn = !state.laserOn;
     btnLaser.classList.toggle('on', state.laserOn);
@@ -3041,6 +3280,7 @@
     }
   });
 
+  const btnTrails = document.getElementById('btnTrails');
   btnTrails.addEventListener('click', () => {
     state.trailsOn = !state.trailsOn;
     btnTrails.classList.toggle('on', state.trailsOn);
@@ -3076,8 +3316,6 @@
     if (e.key === 'Escape' && !manualOverlay.hidden) closeManual();
   });
 
-  // ===== Game Mode =====
-  // Add new levels by adding objects to the levels array below.
   const GAME = {
     on: false,
     levelIdx: 0,
@@ -3085,50 +3323,52 @@
     goalHoldSince: null,
     levels: [
       { name: 'First levitation',
-        params: { NP: 3,  VT: 30, SPREAD: 0,    DT: 1, trails: false, laser: false },
+        params: { NP: 3,  VT: 30, SPREAD: 0,    DT: 1 },
         goal:   { minLevitated: 1, holdSeconds: 3 },
         describe: function () { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + ' s'; },
       },
       { name: 'Steady hand',
-        params: { NP: 3,  VT: 30, SPREAD: 0,    DT: 1, trails: true, laser: false },
+        params: { NP: 3,  VT: 30, SPREAD: 0,    DT: 1 },
         goal:   { minLevitated: 2, holdSeconds: 5 },
         describe: function () { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + ' s'; },
       },
       { name: 'Patience',
-        params: { NP: 3,  VT: 30, SPREAD: 0,    DT: 1, trails: true, laser: false },
+        params: { NP: 3,  VT: 30, SPREAD: 0,    DT: 1 },
         goal:   { minLevitated: 3, holdSeconds: 8 },
         describe: function () { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + ' s'; },
       },
       { name: 'Faster falls',
-        params: { NP: 3,  VT: 50, SPREAD: 0,    DT: 1, trails: true, laser: false },
+        params: { NP: 3,  VT: 50, SPREAD: 0,    DT: 1 },
         goal:   { minLevitated: 2, holdSeconds: 5 },
         describe: function () { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + ' s'; },
       },
       { name: 'A mixed batch',
-        params: { NP: 10, VT: 30, SPREAD: 0.05, DT: 2, trails: false, laser: false },
+        params: { NP: 10, VT: 30, SPREAD: 0.05, DT: 2 },
         goal:   { minLevitated: 4, holdSeconds: 5 },
         describe: function () { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + ' s'; },
       },
       { name: 'Slow drift',
-        params: { NP: 10, VT: 10, SPREAD: 0,    DT: 2, trails: false, laser: false },
+        params: { NP: 10, VT: 10, SPREAD: 0,    DT: 2 },
         goal:   { minLevitated: 6, holdSeconds: 8 },
         describe: function () { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + ' s'; },
       },
       { name: 'The swarm',
-        params: { NP: 30, VT: 30, SPREAD: 0.10, DT: 2, trails: false, laser: true },
+        params: { NP: 30, VT: 30, SPREAD: 0.10, DT: 2 },
         goal:   { minLevitated: 10, holdSeconds: 10 },
         describe: function () { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + ' s'; },
       },
     ],
   };
 
+  const elGamePanel = document.getElementById('gamePanel');
   const elTitlePlate = document.getElementById('titlePlate');
+  const elGpLvl = document.getElementById('gpLvl');
+  const elGpName = document.getElementById('gpName');
+  const elGpGoal = document.getElementById('gpGoal');
+  const elGpStatus = document.getElementById('gpStatus');
+  const elGpStart = document.getElementById('gpStart');
+  const elGpStartLbl = document.getElementById('gpStartLbl');
   const btnGameMode = document.getElementById('btnGameMode');
-  const gameSheet = document.getElementById('gameSheet');
-  const sheetTitle = document.getElementById('sheetTitle');
-  const sheetDesc = document.getElementById('sheetDesc');
-  const sheetBtn = document.getElementById('sheetBtn');
-  let sheetAction = null;
 
   function setSettingByValue(key, value) {
     const s = SETTINGS[key];
@@ -3141,303 +3381,126 @@
     s.apply(value);
     SEL_WIN[key].textContent = s.label(value);
   }
-
   function applyLevelParams(level) {
     setSettingByValue('NP', level.params.NP);
     setSettingByValue('VT', level.params.VT);
     setSettingByValue('SPREAD', level.params.SPREAD);
     setSettingByValue('DT', level.params.DT);
-    
-    state.trailsOn = !!level.params.trails;
-    btnTrails.classList.toggle('on', state.trailsOn);
-    
-    state.laserOn = !!level.params.laser;
-    btnLaser.classList.toggle('on', state.laserOn);
   }
-
   function lockSelectors(lock) {
     document.querySelectorAll('.sel').forEach(el => el.classList.toggle('locked', lock));
   }
-
   function currentLevel() { return GAME.levels[GAME.levelIdx]; }
-
-  function showSheet(title, desc, btnText, actionFn) {
-    sheetTitle.textContent = title;
-    sheetDesc.textContent = desc;
-    sheetBtn.textContent = btnText;
-    sheetAction = actionFn;
-    gameSheet.hidden = false;
+  function refreshGamePanel() {
+    const lv = currentLevel();
+    elGpLvl.textContent = String(GAME.levelIdx + 1);
+    if (elGpName) elGpName.textContent = lv.name;
+    elGpGoal.textContent = lv.describe();
+    if (GAME.phase === 'idle') {
+      elGpStartLbl.textContent = 'Start';
+      elGpStart.className = 'gp-start primary';
+      elGpStatus.className = 'gp-status';
+      elGpStatus.textContent = 'Ready';
+    } else if (GAME.phase === 'playing') {
+      elGpStartLbl.textContent = 'Abort';
+      elGpStart.className = 'gp-start';
+      elGpStatus.className = 'gp-status';
+    } else if (GAME.phase === 'won') {
+      elGpStartLbl.textContent = 'Next ▶';
+      elGpStart.className = 'gp-start primary';
+      elGpStatus.className = 'gp-status win';
+      elGpStatus.textContent = 'Level complete';
+    } else if (GAME.phase === 'lost') {
+      elGpStartLbl.textContent = 'Retry';
+      elGpStart.className = 'gp-start retry';
+      elGpStatus.className = 'gp-status lose';
+      elGpStatus.textContent = 'Failed';
+    }
   }
-
-  sheetBtn.addEventListener('click', () => {
-    if (sheetAction) sheetAction();
-  });
-
   function enterIdle() {
     GAME.phase = 'idle';
     GAME.goalHoldSince = null;
     lockSelectors(false);
-    const lv = currentLevel();
-    applyLevelParams(lv);
-    showSheet(`Level ${GAME.levelIdx + 1}: ${lv.name}`, lv.describe(), 'Start', () => {
-      gameSheet.hidden = true;
-      startGameRun();
-    });
+    applyLevelParams(currentLevel());
+    refreshGamePanel();
   }
-
   function enterGameMode(on) {
     GAME.on = on;
     btnGameMode.classList.toggle('on', on);
-    if (on && typeof CHALLENGE !== 'undefined' && CHALLENGE.on) enterChallengeMode(false);
-    if (elTitlePlate) elTitlePlate.hidden = on || (typeof CHALLENGE !== 'undefined' && CHALLENGE.on);
-
-    if (on) {
-      GAME.levelIdx = 0;
-      enterIdle();
-    } else {
-      lockSelectors(false);
-      GAME.phase = 'idle';
-      GAME.goalHoldSince = null;
-      gameSheet.hidden = true;
-      initLevel();
-    }
+    elGamePanel.hidden = !on;
+    elTitlePlate.hidden = on;
+    if (on) enterIdle();
+    else { lockSelectors(false); GAME.phase = 'idle'; GAME.goalHoldSince = null; }
   }
-
   function startGameRun() {
     GAME.phase = 'playing';
     GAME.goalHoldSince = null;
     lockSelectors(true);
     startRelease();
-    
-    // Stop the drum before injection
-    state.omega = 0;
-    state.omegaTarget = 0;
-    
     btnStart.classList.add('on');
     ensureAudio();
     const dur = (CFG.N_P <= 1) ? 0 : CFG.DT_INJECT;
     soundMillStart(dur);
-    
-    if (btnStart.injectTimeout) clearTimeout(btnStart.injectTimeout);
-    btnStart.injectTimeout = setTimeout(() => {
-      btnStart.classList.remove('on');
-    }, Math.max(250, dur * 1000));
+    refreshGamePanel();
   }
-
   function endGameRun(outcome) {
-    GAME.phase = outcome;
+    GAME.phase = (outcome === 'won') ? 'won' : (outcome === 'lost') ? 'lost' : 'idle';
     GAME.goalHoldSince = null;
     lockSelectors(false);
     state.running = false;
-    btnStart.classList.remove('on');
-
-    // Stop the drum immediately
-    state.omega = 0;
-    state.omegaTarget = 0;
-
-    if (outcome === 'won') {
-      showSheet('Level Complete', currentLevel().name + ' cleared.', 'Next Level', () => {
-        GAME.levelIdx = (GAME.levelIdx + 1) % GAME.levels.length;
-        enterIdle();
-      });
-    } else if (outcome === 'lost') {
-      showSheet('Failed', 'Not enough particles levitated.', 'Retry', () => {
-        enterIdle();
-      });
-    }
+    if (GAME.phase === 'idle') { initLevel(); btnStart.classList.remove('on'); }
+    refreshGamePanel();
   }
-
+  function changeLevel(dir) {
+    if (GAME.phase === 'playing') return;
+    const n = GAME.levels.length;
+    GAME.levelIdx = (GAME.levelIdx + dir + n) % n;
+    enterIdle();
+    initLevel();
+    btnStart.classList.remove('on');
+  }
+  function onGpStart() {
+    if (!GAME.on) return;
+    if (GAME.phase === 'idle') { initLevel(); applyLevelParams(currentLevel()); startGameRun(); }
+    else if (GAME.phase === 'playing') { endGameRun('aborted'); }
+    else if (GAME.phase === 'won') {
+      GAME.levelIdx = (GAME.levelIdx + 1) % GAME.levels.length;
+      enterIdle(); initLevel(); btnStart.classList.remove('on');
+    } else if (GAME.phase === 'lost') { enterIdle(); initLevel(); btnStart.classList.remove('on'); }
+  }
   function updateGame() {
     if (!GAME.on || GAME.phase !== 'playing') return;
     const lv = currentLevel();
     const absOm = Math.abs(state.omega);
     const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
-    let lev = 0, floating = 0;
-
+    let lev = 0, captured = 0, floating = 0;
     for (const p of state.particles) {
       if (!p.alive) continue;
-      if (p.stuck) continue;
+      if (p.stuck) { captured++; continue; }
       floating++;
       if (isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T) lev++;
     }
-
     if (lev >= lv.goal.minLevitated) {
       if (GAME.goalHoldSince === null) GAME.goalHoldSince = state.t;
       const held = state.t - GAME.goalHoldSince;
-      if (held >= lv.goal.holdSeconds) {
-        endGameRun('won');
-        return;
-      }
+      if (held >= lv.goal.holdSeconds) { endGameRun('won'); return; }
+      elGpStatus.textContent = 'Holding ' + held.toFixed(1) + ' / ' + lv.goal.holdSeconds.toFixed(1) + ' s';
     } else {
       GAME.goalHoldSince = null;
       const allInjected = state.toInject.length === 0;
-      if (allInjected && floating < lv.goal.minLevitated) {
-        endGameRun('lost');
-        return;
-      }
+      if (allInjected && floating === 0) { endGameRun('lost'); return; }
+      elGpStatus.textContent = lev + ' / ' + lv.goal.minLevitated + ' levitated';
     }
   }
-
-  btnGameMode.addEventListener('click', () => enterGameMode(!GAME.on));
-  btnGameMode.classList.remove('disabled');
-
-  // ===== Challenge Mode (Outreach Highscore) =====
-  const CHALLENGE = {
-    on: false,
-    phase: 'idle',
-    startTime: 0,
-    scores: JSON.parse(localStorage.getItem('levitation_highscores') || '[]')
-  };
-
-  const btnChallenge = document.getElementById('btnChallenge');
-  const challengeSheet = document.getElementById('challengeSheet');
-  const chalTitle = document.getElementById('chalTitle');
-  const chalDesc = document.getElementById('chalDesc');
-  const chalStartBtn = document.getElementById('chalStartBtn');
-  const chalInputArea = document.getElementById('chalInputArea');
-  const chalNameInput = document.getElementById('chalNameInput');
-  const chalSubmitBtn = document.getElementById('chalSubmitBtn');
-  const chalFinalScore = document.getElementById('chalFinalScore');
-  const chalBoardArea = document.getElementById('chalBoardArea');
-  const chalTableBody = document.querySelector('#chalTable tbody');
-  const chalNextBtn = document.getElementById('chalNextBtn');
-
-  function saveHighscores() {
-    localStorage.setItem('levitation_highscores', JSON.stringify(CHALLENGE.scores));
-  }
-
-  function renderHighscores() {
-    chalTableBody.innerHTML = '';
-    CHALLENGE.scores.sort((a, b) => b.score - a.score);
-    const top = CHALLENGE.scores.slice(0, 7);
-    top.forEach((entry, idx) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${idx + 1}</td><td>${entry.name}</td><td class="score-col">${entry.score}</td>`;
-      chalTableBody.appendChild(tr);
-    });
-  }
-
-  function enterChallengeMode(on) {
-    CHALLENGE.on = on;
-    btnChallenge.classList.toggle('on', on);
-    
-    if (on && GAME.on) enterGameMode(false);
-    if (elTitlePlate) elTitlePlate.hidden = on || GAME.on;
-
-    if (on) {
-      CHALLENGE.phase = 'idle';
-      showChallengeIntro();
-    } else {
-      CHALLENGE.phase = 'idle';
-      challengeSheet.hidden = true;
-      lockSelectors(false);
-      initLevel();
-    }
-  }
-
-  function showChallengeIntro() {
-    chalTitle.textContent = "Outreach Challenge";
-    chalDesc.textContent = `Levitate as many particles as possible for 3 full orbits. Current Setup: ${CFG.N_P} particles.`;
-    chalInputArea.hidden = true;
-    chalBoardArea.hidden = true;
-    chalStartBtn.hidden = false;
-    challengeSheet.hidden = false;
-  }
-
-  chalStartBtn.addEventListener('click', () => {
-    challengeSheet.hidden = true;
-    startChallengeRun();
+  if (elGpStart) elGpStart.addEventListener('click', onGpStart);
+  document.querySelectorAll('#gamePanel .gp-chev').forEach(ch => {
+    ch.addEventListener('click', () => changeLevel(parseInt(ch.getAttribute('data-dir'), 10)));
   });
-
-  function startChallengeRun() {
-    CHALLENGE.phase = 'playing';
-    lockSelectors(true);
-    startRelease();
-    
-    state.omega = 0;
-    state.omegaTarget = 0;
-    CHALLENGE.startTime = state.t;
-    
-    btnStart.classList.add('on');
-    ensureAudio();
-    const dur = (CFG.N_P <= 1) ? 0 : CFG.DT_INJECT;
-    soundMillStart(dur);
-    
-    if (btnStart.injectTimeout) clearTimeout(btnStart.injectTimeout);
-    btnStart.injectTimeout = setTimeout(() => {
-      btnStart.classList.remove('on');
-    }, Math.max(250, dur * 1000));
-  }
-
-  function endChallengeRun(score) {
-    CHALLENGE.phase = 'scoring';
-    lockSelectors(false);
-    state.running = false;
-    btnStart.classList.remove('on');
-    state.omega = 0;
-    state.omegaTarget = 0;
-
-    chalTitle.textContent = "Challenge Complete!";
-    chalDesc.textContent = "Enter your name for the leaderboard.";
-    chalFinalScore.textContent = score;
-    chalStartBtn.hidden = true;
-    chalBoardArea.hidden = true;
-    chalInputArea.hidden = false;
-    chalNameInput.value = '';
-    challengeSheet.hidden = false;
-    setTimeout(() => chalNameInput.focus(), 100);
-  }
-
-  chalSubmitBtn.addEventListener('click', () => {
-    const name = chalNameInput.value.trim() || 'Anonymous';
-    const score = parseInt(chalFinalScore.textContent, 10) || 0;
-    CHALLENGE.scores.push({ name, score, np: CFG.N_P, date: new Date().toISOString() });
-    saveHighscores();
-    
-    chalInputArea.hidden = true;
-    chalDesc.textContent = "Highscores";
-    renderHighscores();
-    chalBoardArea.hidden = false;
-  });
-
-  chalNextBtn.addEventListener('click', () => {
-    showChallengeIntro();
-  });
-
-  btnChallenge.addEventListener('click', () => enterChallengeMode(!CHALLENGE.on));
-
-  function updateChallenge() {
-    if (!CHALLENGE.on || CHALLENGE.phase !== 'playing') return;
-    
-    const absOm = Math.abs(state.omega);
-    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
-
-    let floating = 0;
-    let secured = 0;
-
-    for (const p of state.particles) {
-      if (!p.alive) continue;
-      if (p.stuck) continue;
-      floating++;
-      if (isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= 3 * T) {
-        secured++;
-      }
-    }
-
-    const allInjected = state.toInject.length === 0;
-    const timeSinceStart = state.t - CHALLENGE.startTime;
-    const TIME_LIMIT = 60 + CFG.DT_INJECT; 
-
-    if (allInjected) {
-      if (floating === 0 || (floating > 0 && floating === secured) || timeSinceStart > TIME_LIMIT) {
-        endChallengeRun(secured);
-      }
-    }
-  }
+  btnGameMode.addEventListener('click', () => {});
+  btnGameMode.classList.add('disabled');
 
   btnReset.addEventListener('click', () => {
     if (GAME.on && GAME.phase === 'playing') endGameRun('aborted');
-    if (CHALLENGE.on && CHALLENGE.phase === 'playing') endChallengeRun(0);
   });
 
   window.addEventListener('resize', layout);
@@ -3461,7 +3524,6 @@
     draw();
     updateHUD();
     updateGame();
-    updateChallenge();
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
