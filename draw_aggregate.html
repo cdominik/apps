@@ -119,6 +119,74 @@
   }
   #helpPanel button:active { background: #249060; }
 
+  /* Colors overlay */
+  #colorsOverlay {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: none; align-items: center; justify-content: center;
+    padding: 16px; z-index: 10;
+    backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+  }
+  #colorsOverlay.visible { display: flex; }
+  #colorsPanel {
+    background: #fff; color: #222; border-radius: 14px;
+    max-width: 460px; width: 100%; max-height: 100%;
+    overflow-y: auto;
+    padding: 18px 20px calc(18px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    font-size: 14px; line-height: 1.4;
+    -webkit-overflow-scrolling: touch;
+  }
+  #colorsPanel h2 { font-size: 17px; margin-bottom: 4px; }
+  #colorsPanel h3 { font-size: 13px; margin: 14px 0 6px; color: #444; text-transform: uppercase; letter-spacing: 0.04em; }
+  #colorsPanel .swatches {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(54px, 1fr));
+    gap: 8px;
+  }
+  #colorsPanel .swatch {
+    aspect-ratio: 1; border-radius: 10px;
+    border: 2px solid transparent;
+    cursor: pointer; position: relative;
+    transition: transform 0.08s;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12);
+  }
+  #colorsPanel .swatch:active { transform: scale(0.94); }
+  #colorsPanel .swatch.active {
+    border-color: #2a7;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12), 0 0 0 2px rgba(42,170,119,0.25);
+  }
+  #colorsPanel .swatch.checker {
+    background-image:
+      linear-gradient(45deg, #ddd 25%, transparent 25%),
+      linear-gradient(-45deg, #ddd 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #ddd 75%),
+      linear-gradient(-45deg, transparent 75%, #ddd 75%);
+    background-size: 12px 12px;
+    background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+    background-color: #fff;
+  }
+  #colorsPanel .custom-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 10px; padding: 8px 10px;
+    background: #f6f6f8; border-radius: 8px;
+  }
+  #colorsPanel .custom-row label { flex: 1; font-size: 13px; }
+  #colorsPanel .custom-row input[type=color] {
+    width: 44px; height: 32px; border: 1px solid #ccc;
+    border-radius: 6px; padding: 0; cursor: pointer; background: none;
+  }
+  #colorsPanel .close-row { display: flex; justify-content: flex-end; margin-top: 16px; gap: 8px; }
+  #colorsPanel button {
+    background: #2a7; color: #fff; border: none; padding: 10px 18px;
+    border-radius: 10px; font-size: 14px; cursor: pointer;
+  }
+  #colorsPanel button.secondary {
+    background: #fff; color: #444; border: 1px solid #ccc;
+  }
+  #colorsPanel button:active { transform: translateY(1px); }
+  #colorsPanel .desc { color: #666; font-size: 12px; margin-bottom: 4px; }
+
   /* Share preview overlay */
   #shareOverlay {
     position: absolute; inset: 0;
@@ -182,6 +250,7 @@
   <button class="btn" id="btnUndo">Undo</button>
   <button class="btn" id="btnClear">Clear</button>
   <button class="btn" id="btnReset">Reset View</button>
+  <button class="btn" id="btnColors">Colors</button>
   <button class="btn" id="btnShare">Share</button>
   <button class="btn" id="btnExport">Export</button>
   <button class="btn" id="btnHelp" aria-label="Help">?</button>
@@ -214,16 +283,43 @@
     <p><b>Size</b> — radius of new spheres. Changes only apply to the next stroke; existing spheres keep their size.</p>
     <p><b>Spread</b> — random variation in grain size within each stroke. At 0, all new spheres are exactly the Size radius. Higher values produce a natural log-normal mix of large and small grains.</p>
     <p><b>Temp</b> — random position deviation from the drawn line. At 0, spheres sit exactly on your stroke. Higher values give a more hand-built, irregular look. Chain connectivity is preserved at all temperatures.</p>
-    <p><b>Depth</b> — strength of the atmospheric depth cue (misting toward white for far spheres). Pure visual effect, doesn't change the geometry.</p>
+    <p><b>Depth</b> — strength of the atmospheric depth cue (misting toward the background for far spheres). Pure visual effect, doesn't change the geometry.</p>
 
     <h3>Buttons</h3>
     <p><b>Undo</b> — removes the most recently drawn stroke.<br>
     <b>Clear</b> — removes the entire aggregate (with confirmation).<br>
     <b>Reset View</b> — resets rotation, pan and zoom to defaults. Your aggregate is unchanged.<br>
+    <b>Colors</b> — pick a background color and sphere color. Includes a transparent background option for exporting PNGs that overlay onto other images.<br>
     <b>Share</b> — opens a preview where you can rotate, zoom, and add perspective for a nicer image before exporting. Tap Share to send the PNG via the system share sheet (mobile) or download it (desktop). The preview is cosmetic only — your aggregate isn't changed.<br>
     <b>Export</b> — saves the aggregate as an ASCII text file. First line is the number of spheres; each following line is <code>index radius x y z</code>.</p>
 
     <div class="close-row"><button id="btnHelpClose">Close</button></div>
+  </div>
+</div>
+
+<div id="colorsOverlay">
+  <div id="colorsPanel">
+    <h2>Colors</h2>
+    <p class="desc">Background and sphere colors update everywhere — main view, share preview, and PNG export.</p>
+
+    <h3>Background</h3>
+    <div class="swatches" id="bgSwatches"></div>
+    <div class="custom-row">
+      <label for="bgCustom">Custom background</label>
+      <input id="bgCustom" type="color" value="#ffffff">
+    </div>
+
+    <h3>Spheres</h3>
+    <div class="swatches" id="sphereSwatches"></div>
+    <div class="custom-row">
+      <label for="sphereCustom">Custom sphere color</label>
+      <input id="sphereCustom" type="color" value="#3b78c8">
+    </div>
+
+    <div class="close-row">
+      <button class="secondary" id="btnColorsReset">Reset</button>
+      <button id="btnColorsClose">Done</button>
+    </div>
   </div>
 </div>
 
@@ -268,6 +364,124 @@
   let sizeSpread = parseFloat(spreadSlider.value) / 100; // 0..1
   let depthStrength = parseFloat(depthSlider.value) / 100; // 0..1
   let mode = 'draw'; // 'draw' | 'rotate'
+
+  // --- Color state ---
+  // bgColor is either a hex string '#rrggbb' or the special string 'transparent'.
+  // sphereColor is always a hex string '#rrggbb'.
+  const DEFAULT_BG = '#ffffff';
+  const DEFAULT_SPHERE = '#3b78c8'; // matches the original blue HSL
+  let bgColor = DEFAULT_BG;
+  let sphereColor = DEFAULT_SPHERE;
+
+  // Cached HSL of the current sphere color (recomputed on change).
+  let sphereHSL = { h: 210, s: 65, l: 50 };
+  // Cached RGB of the current background, used for misting (atmospheric perspective).
+  // For transparent background we mist toward white, which looks neutral.
+  let bgRGB = { r: 255, g: 255, b: 255 };
+
+  // Palette presets
+  const BG_PRESETS = [
+    { name: 'White', value: '#ffffff' },
+    { name: 'Paper', value: '#f4ede0' },
+    { name: 'Light gray', value: '#dadde2' },
+    { name: 'Slate', value: '#3c4452' },
+    { name: 'Charcoal', value: '#1c1f25' },
+    { name: 'Black', value: '#000000' },
+    { name: 'Sky', value: '#bfdcf2' },
+    { name: 'Mint', value: '#cdebd6' },
+    { name: 'Sand', value: '#e8d6a8' },
+    { name: 'Blush', value: '#f3cdcd' },
+    { name: 'Lavender', value: '#dcd0ee' },
+    { name: 'Transparent', value: 'transparent' },
+  ];
+  const SPHERE_PRESETS = [
+    { name: 'Blue',   value: '#3b78c8' },
+    { name: 'Teal',   value: '#1f8c8a' },
+    { name: 'Green',  value: '#3e9b4a' },
+    { name: 'Olive',  value: '#7a8a32' },
+    { name: 'Gold',   value: '#c89a2b' },
+    { name: 'Orange', value: '#d97026' },
+    { name: 'Red',    value: '#c8362c' },
+    { name: 'Pink',   value: '#d65a8b' },
+    { name: 'Purple', value: '#8a4ab8' },
+    { name: 'Indigo', value: '#3b3f9c' },
+    { name: 'Stone',  value: '#7a7468' },
+    { name: 'Pearl',  value: '#c8c4bb' },
+  ];
+
+  // --- Color helpers ---
+  function hexToRgb(hex) {
+    const h = hex.replace('#', '');
+    const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+  }
+  function rgbToHsl(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h, s, l = (max + min) / 2;
+    if (max === min) { h = s = 0; }
+    else {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r: h = ((g - b) / d + (g < b ? 6 : 0)); break;
+        case g: h = ((b - r) / d + 2); break;
+        case b: h = ((r - g) / d + 4); break;
+      }
+      h *= 60;
+    }
+    return { h, s: s * 100, l: l * 100 };
+  }
+  function updateSphereHSL() {
+    const { r, g, b } = hexToRgb(sphereColor);
+    sphereHSL = rgbToHsl(r, g, b);
+  }
+  function updateBgRGB() {
+    if (bgColor === 'transparent') {
+      bgRGB = { r: 255, g: 255, b: 255 };
+    } else {
+      bgRGB = hexToRgb(bgColor);
+    }
+  }
+  // Mix two colors in linear-ish RGB. Returns 'rgb(r,g,b)' string.
+  function mixRGBToward(r, g, b, target, t) {
+    const nr = Math.round(r + (target.r - r) * t);
+    const ng = Math.round(g + (target.g - g) * t);
+    const nb = Math.round(b + (target.b - b) * t);
+    return `rgb(${nr},${ng},${nb})`;
+  }
+  // Build a sphere stop color from base HSL by adjusting lightness and saturation,
+  // then mixing toward background by `mist`.
+  function sphereStopColor(lightnessBase, satScale, mist) {
+    // Convert HSL to RGB once, then mist in RGB. We do this via a temp canvas-free path:
+    // rebuild the HSL with adjusted L/S, then convert HSL->RGB.
+    const h = sphereHSL.h;
+    const s = Math.max(0, Math.min(100, sphereHSL.s * satScale));
+    const l = Math.max(0, Math.min(100, lightnessBase));
+    const rgb = hslToRgb(h, s, l);
+    return mixRGBToward(rgb.r, rgb.g, rgb.b, bgRGB, mist);
+  }
+  function hslToRgb(h, s, l) {
+    s /= 100; l /= 100;
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+    const m = l - c / 2;
+    let r1, g1, b1;
+    if      (h < 60)  [r1, g1, b1] = [c, x, 0];
+    else if (h < 120) [r1, g1, b1] = [x, c, 0];
+    else if (h < 180) [r1, g1, b1] = [0, c, x];
+    else if (h < 240) [r1, g1, b1] = [0, x, c];
+    else if (h < 300) [r1, g1, b1] = [x, 0, c];
+    else              [r1, g1, b1] = [c, 0, x];
+    return {
+      r: Math.round((r1 + m) * 255),
+      g: Math.round((g1 + m) * 255),
+      b: Math.round((b1 + m) * 255),
+    };
+  }
+
+  updateSphereHSL();
+  updateBgRGB();
 
   // --- Resize ---
   function resize() {
@@ -347,13 +561,29 @@
   }
 
   // --- Drawing ---
+  function paintBackground(c, w, h) {
+    if (bgColor === 'transparent') {
+      // Render a subtle checkerboard so the user can see where the canvas is.
+      // This is just an on-screen affordance — exports use clearRect for true alpha.
+      c.clearRect(0, 0, w, h);
+      const tile = 14;
+      const cols = Math.ceil(w / tile), rows = Math.ceil(h / tile);
+      for (let j = 0; j < rows; j++) {
+        for (let i = 0; i < cols; i++) {
+          c.fillStyle = ((i + j) & 1) ? '#f1f1f3' : '#e3e3e7';
+          c.fillRect(i * tile, j * tile, tile, tile);
+        }
+      }
+    } else {
+      c.fillStyle = bgColor;
+      c.fillRect(0, 0, w, h);
+    }
+  }
+
   function draw() {
     const w = window.innerWidth, h = window.innerHeight;
     ctx.clearRect(0, 0, w, h);
-
-    // White background
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, w, h);
+    paintBackground(ctx, w, h);
 
     if (spheres.length > 0) {
       // Project all and sort by depth (back to front)
@@ -371,56 +601,15 @@
       }
       const zRange = Math.max(1e-6, zMax - zMin);
 
+      // Shadow opacity is reduced on dark backgrounds (a black drop shadow on
+      // black is meaningless and looks like an artifact when zoomed).
+      const bgL = bgColor === 'transparent' ? 100 : rgbToHsl(bgRGB.r, bgRGB.g, bgRGB.b).l;
+      const shadowScale = bgColor === 'transparent' ? 1 : Math.max(0.0, (bgL - 30) / 70);
+
       for (const pr of projected) {
-      const { p, s } = pr;
-      const depthT = (p.z - zMin) / zRange; // 0 back -> 1 front
-      const brightness = 0.55 + 0.45 * depthT;
-
-      // No size scaling — that would break chain contact. Depth is conveyed
-      // through misting, shading, shadow and outline fade instead.
-      const radius = s.r * zoom;
-
-      // Aerial perspective: how much to blend sphere colors toward white (the
-      // background). At depthStrength=1, far spheres fade up to ~65% toward white.
-      const mist = depthStrength * 0.65 * (1 - depthT);
-
-      // Soft drop shadow for depth cue on white (also fades with mist)
-      ctx.beginPath();
-      ctx.arc(p.sx + radius*0.15, p.sy + radius*0.2, radius*0.95, 0, Math.PI*2);
-      ctx.fillStyle = `rgba(0,0,0,${(0.05 + 0.08*depthT) * (1 - mist*0.8)})`;
-      ctx.fill();
-
-      // Sphere with light from upper-left
-      const grad = ctx.createRadialGradient(
-        p.sx - radius*0.4, p.sy - radius*0.4, radius*0.1,
-        p.sx, p.sy, radius
-      );
-      const hue = 210;
-      // Base HSL lightnesses
-      const hiL0 = 85 + brightness * 8;
-      const midL0 = 55 * brightness + 20;
-      const loL0 = Math.max(20, 25 * brightness + 10);
-      // Blend toward white (100%) by `mist`
-      const hiL = hiL0 + (100 - hiL0) * mist;
-      const midL = midL0 + (100 - midL0) * mist;
-      const loL = loL0 + (100 - loL0) * mist;
-      // Also desaturate as we mist, so far things look atmospheric
-      const sat = (1 - mist);
-      grad.addColorStop(0, `hsl(${hue}, ${80*sat}%, ${hiL}%)`);
-      grad.addColorStop(0.55, `hsl(${hue}, ${65*sat}%, ${midL}%)`);
-      grad.addColorStop(1, `hsl(${hue}, ${55*sat}%, ${loL}%)`);
-
-      ctx.beginPath();
-      ctx.arc(p.sx, p.sy, radius, 0, Math.PI * 2);
-      ctx.fillStyle = grad;
-      ctx.fill();
-
-      // Outline also fades into the mist
-      ctx.lineWidth = 0.8;
-      const outlineA = (0.35 + 0.25*(1-depthT)) * (1 - mist);
-      ctx.strokeStyle = `rgba(30,40,70,${outlineA})`;
-      ctx.stroke();
-    }
+        const { p, s } = pr;
+        renderSphere(ctx, p.sx, p.sy, s.r * zoom, p.z, zMin, zRange, shadowScale);
+      }
     } // end if (spheres.length > 0)
 
     // live-draw preview stroke
@@ -428,10 +617,57 @@
       ctx.beginPath();
       ctx.moveTo(livePreview[0].x, livePreview[0].y);
       for (let i=1;i<livePreview.length;i++) ctx.lineTo(livePreview[i].x, livePreview[i].y);
-      ctx.strokeStyle = 'rgba(30, 100, 180, 0.55)';
+      // Pick a stroke color that contrasts the background.
+      ctx.strokeStyle = strokeContrastColor();
       ctx.lineWidth = 2;
       ctx.stroke();
     }
+  }
+
+  // Returns a translucent stroke color that reads against the current background.
+  function strokeContrastColor() {
+    if (bgColor === 'transparent') return 'rgba(30, 100, 180, 0.55)';
+    const { l } = rgbToHsl(bgRGB.r, bgRGB.g, bgRGB.b);
+    return l > 50 ? 'rgba(30, 100, 180, 0.55)' : 'rgba(255, 255, 255, 0.7)';
+  }
+
+  // Shared sphere renderer used by main view and share preview.
+  function renderSphere(c, sx, sy, radius, viewZ, zMin, zRange, shadowScale = 1) {
+    const depthT = (viewZ - zMin) / zRange;
+    const brightness = 0.55 + 0.45 * depthT;
+
+    // Aerial perspective: how much to blend sphere colors toward the background.
+    const mist = depthStrength * 0.65 * (1 - depthT);
+
+    // Soft drop shadow (also fades with mist; scaled down on dark backgrounds)
+    c.beginPath();
+    c.arc(sx + radius * 0.15, sy + radius * 0.2, radius * 0.95, 0, Math.PI * 2);
+    c.fillStyle = `rgba(0,0,0,${(0.05 + 0.08 * depthT) * (1 - mist * 0.8) * shadowScale})`;
+    c.fill();
+
+    // Sphere with light from upper-left, colored using the current sphere color.
+    const grad = c.createRadialGradient(
+      sx - radius * 0.4, sy - radius * 0.4, radius * 0.1,
+      sx, sy, radius
+    );
+    const hiL0  = 85 + brightness * 8;
+    const midL0 = 55 * brightness + 20;
+    const loL0  = Math.max(20, 25 * brightness + 10);
+    const satScale = 1; // saturation scaling vs base color
+    grad.addColorStop(0,    sphereStopColor(hiL0,  satScale, mist));
+    grad.addColorStop(0.55, sphereStopColor(midL0, satScale, mist));
+    grad.addColorStop(1,    sphereStopColor(loL0,  satScale, mist));
+
+    c.beginPath();
+    c.arc(sx, sy, radius, 0, Math.PI * 2);
+    c.fillStyle = grad;
+    c.fill();
+
+    // Outline contrasts the sphere color and fades into the mist.
+    c.lineWidth = 0.8;
+    const outlineA = (0.35 + 0.25 * (1 - depthT)) * (1 - mist);
+    c.strokeStyle = `rgba(20,25,40,${outlineA})`;
+    c.stroke();
   }
 
   // --- Stroke handling ---
@@ -596,26 +832,16 @@
     }
 
     // If both endpoints were hits, snap a final sphere onto the end point.
-    // Because screenSpacingFor already corrected for depth traversal, `prev`
-    // should now be close to the end point in 3D, and the contact clamp below
-    // handles any residual. We always add the anchor (not conditionally) so
-    // the connection to the end sphere is guaranteed.
     if (snapLastToEnd) {
       const endPt = pts[pts.length - 1];
       const rEnd = sampleRadius();
       const endWorld = unprojectScreen(endPt.x, endPt.y, zAtEnd);
       let wx = endWorld.x, wy = endWorld.y, wz = endWorld.z;
-      // Contact clamp against prev, just in case
       const ddx = wx - prev.x, ddy = wy - prev.y, ddz = wz - prev.z;
       const d = Math.hypot(ddx, ddy, ddz);
       const maxD = prev.r + rEnd;
-      // Only skip if we're already essentially on top of `prev`
       if (d > 0.15 * maxD) {
         if (d > maxD) {
-          // Shouldn't happen often now that spacing is depth-corrected, but
-          // if the chain fell short (e.g. a very short, very deep bridge),
-          // insert intermediate spheres along the straight world-space line
-          // from prev to endWorld until we can reach.
           const steps = Math.ceil(d / maxD);
           for (let i = 1; i <= steps; i++) {
             const t = i / steps;
@@ -643,41 +869,6 @@
     while (u === 0) u = Math.random();
     while (v === 0) v = Math.random();
     return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-  }
-
-  function resample(points, spacing) {
-    if (points.length === 0) return [];
-    if (points.length === 1) return [points[0]];
-    const out = [points[0]];
-    let acc = 0;
-    let prev = points[0];
-    for (let i = 1; i < points.length; i++) {
-      const cur = points[i];
-      const dx = cur.x - prev.x, dy = cur.y - prev.y;
-      const d = Math.hypot(dx, dy);
-      if (d === 0) continue;
-      let remaining = d;
-      let from = prev;
-      while (acc + remaining >= spacing) {
-        const need = spacing - acc;
-        const t = need / remaining;
-        const nx = from.x + (cur.x - from.x) * t;
-        const ny = from.y + (cur.y - from.y) * t;
-        out.push({ x: nx, y: ny });
-        from = { x: nx, y: ny };
-        remaining -= need;
-        acc = 0;
-      }
-      acc += remaining;
-      prev = cur;
-    }
-    // include last point if it's far enough
-    const last = out[out.length-1];
-    const endPt = points[points.length-1];
-    if (Math.hypot(endPt.x - last.x, endPt.y - last.y) > spacing * 0.5) {
-      out.push(endPt);
-    }
-    return out;
   }
 
   // --- Touch / pointer handling with multi-touch rotate & pinch ---
@@ -725,13 +916,10 @@
   canvas.addEventListener('touchcancel', endTouches, { passive: false });
 
   // Mouse fallback (for desktop testing)
-  // Left button: draw (respects mode toggle). Right button: always rotate.
   let mouseDown = false;
-  let mouseButton = 0;
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   canvas.addEventListener('mousedown', (e) => {
     mouseDown = true;
-    mouseButton = e.button;
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left, y = e.clientY - rect.top;
     if (e.button === 2 || mode === 'rotate') {
@@ -766,7 +954,6 @@
         gestureMode = 'draw';
       }
     } else if (activeTouches.size >= 2 || (activeTouches.size === 1 && mode === 'rotate')) {
-      // switch to rotate, drop any draw in progress (don't commit partial)
       if (gestureMode === 'draw') {
         livePreview = [];
         drawingStroke = false;
@@ -791,9 +978,7 @@
   }
 
   function applyRotationDelta(dx, dy) {
-    // dx -> rotation around world-Y (as seen in view), dy -> rotation around world-X
     const sens = 0.008;
-    // Apply in view space: pre-multiply so newest rotation is applied on top
     const rx = rotX(dy * sens);
     const ry = rotY(dx * sens);
     R = matMul(matMul(ry, rx), R);
@@ -811,13 +996,11 @@
       applyRotationDelta(dx, dy);
 
       if (!st.single && !lastRotateState.single) {
-        // pinch zoom
         if (lastRotateState.dist && st.dist) {
           const ratio = st.dist / lastRotateState.dist;
           zoom *= ratio;
           zoom = Math.min(50, Math.max(0.02, zoom));
         }
-        // twist -> rotation around view Z
         if (lastRotateState.angle != null && st.angle != null) {
           let da = st.angle - lastRotateState.angle;
           if (da > Math.PI) da -= 2*Math.PI;
@@ -877,101 +1060,116 @@
     draw();
   });
 
-  document.getElementById('btnShare').addEventListener('click', shareImage);
-
   function updateCount() { countEl.textContent = spheres.length; }
 
-  // --- Share ---
-  async function shareImage() {
-    // Render to a fresh canvas at current size
-    const w = window.innerWidth, h = window.innerHeight;
-    const out = document.createElement('canvas');
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    out.width = w * dpr; out.height = h * dpr;
-    const octx = out.getContext('2d');
-    octx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    // copy current canvas content by redrawing into octx
-    // Temporarily swap ctx to draw onto out
-    const savedCtx = redirectCtx(octx);
+  // --- Colors panel ---
+  const colorsOverlay = document.getElementById('colorsOverlay');
+  const bgSwatchesEl = document.getElementById('bgSwatches');
+  const sphereSwatchesEl = document.getElementById('sphereSwatches');
+  const bgCustomInput = document.getElementById('bgCustom');
+  const sphereCustomInput = document.getElementById('sphereCustom');
+
+  function buildSwatches(container, presets, getCurrent, onPick) {
+    container.innerHTML = '';
+    for (const preset of presets) {
+      const el = document.createElement('div');
+      el.className = 'swatch';
+      el.title = preset.name;
+      if (preset.value === 'transparent') {
+        el.classList.add('checker');
+      } else {
+        el.style.background = preset.value;
+      }
+      el.addEventListener('click', () => {
+        onPick(preset.value);
+        markActive(container, preset.value);
+      });
+      container.appendChild(el);
+    }
+    markActive(container, getCurrent());
+  }
+  function markActive(container, value) {
+    for (const el of container.children) {
+      const v = el.classList.contains('checker') ? 'transparent' : el.style.background;
+      // Compare by parsed RGB to handle '#fff' vs 'rgb(255,255,255)' inconsistencies.
+      const same = (v === 'transparent' && value === 'transparent') ||
+                   (v !== 'transparent' && value !== 'transparent' && colorsEqual(v, value));
+      el.classList.toggle('active', same);
+    }
+  }
+  function colorsEqual(a, b) {
+    // Both should be CSS color strings. Use a temp element to canonicalize.
+    const tmp = document.createElement('div');
+    document.body.appendChild(tmp);
+    tmp.style.color = a; const ca = getComputedStyle(tmp).color;
+    tmp.style.color = b; const cb = getComputedStyle(tmp).color;
+    document.body.removeChild(tmp);
+    return ca === cb;
+  }
+
+  function setBgColor(c) {
+    bgColor = c;
+    updateBgRGB();
+    if (c !== 'transparent') bgCustomInput.value = c;
     draw();
-    redirectCtx(savedCtx);
-    draw(); // restore on-screen
-
-    out.toBlob(async (blob) => {
-      if (!blob) { alert('Could not create image.'); return; }
-      const file = new File([blob], 'aggregate.png', { type: 'image/png' });
-      try {
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: 'Sphere aggregate' });
-          return;
-        }
-      } catch (err) {
-        if (err && err.name === 'AbortError') return;
-      }
-      // Fallback: download
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'aggregate.png';
-      document.body.appendChild(a); a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    }, 'image/png');
+    if (shareOverlay.classList.contains('visible')) drawShare();
+  }
+  function setSphereColor(c) {
+    sphereColor = c;
+    sphereCustomInput.value = c;
+    updateSphereHSL();
+    draw();
+    if (shareOverlay.classList.contains('visible')) drawShare();
   }
 
-  // Swap the module-level ctx used by draw()
-  function redirectCtx(newCtx) {
-    const old = ctx;
-    // eslint-disable-next-line no-func-assign
-    drawCtx = newCtx;
-    return old;
-  }
-  // To make redirectCtx work, draw() should use drawCtx. Simpler: just render a PNG from the
-  // live canvas via toDataURL / toBlob on `canvas` itself — that's what we actually need.
-  // Replace shareImage with simpler version below.
+  buildSwatches(bgSwatchesEl, BG_PRESETS, () => bgColor, setBgColor);
+  buildSwatches(sphereSwatchesEl, SPHERE_PRESETS, () => sphereColor, setSphereColor);
 
-  async function shareImageSimple() {
-    draw(); // make sure it's current
-    canvas.toBlob(async (blob) => {
-      if (!blob) { alert('Could not create image.'); return; }
-      const file = new File([blob], 'aggregate.png', { type: 'image/png' });
-      try {
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: 'Sphere aggregate' });
-          return;
-        }
-      } catch (err) {
-        if (err && err.name === 'AbortError') return;
-      }
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'aggregate.png';
-      document.body.appendChild(a); a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    }, 'image/png');
-  }
-  // Override the handler to use the simpler path:
-  document.getElementById('btnShare').removeEventListener?.('click', shareImage);
+  bgCustomInput.addEventListener('input', () => {
+    setBgColor(bgCustomInput.value);
+    markActive(bgSwatchesEl, bgColor);
+  });
+  sphereCustomInput.addEventListener('input', () => {
+    setSphereColor(sphereCustomInput.value);
+    markActive(sphereSwatchesEl, sphereColor);
+  });
+
+  document.getElementById('btnColors').addEventListener('click', () => {
+    bgCustomInput.value = (bgColor === 'transparent') ? '#ffffff' : bgColor;
+    sphereCustomInput.value = sphereColor;
+    markActive(bgSwatchesEl, bgColor);
+    markActive(sphereSwatchesEl, sphereColor);
+    colorsOverlay.classList.add('visible');
+  });
+  document.getElementById('btnColorsClose').addEventListener('click', () => {
+    colorsOverlay.classList.remove('visible');
+  });
+  document.getElementById('btnColorsReset').addEventListener('click', () => {
+    setBgColor(DEFAULT_BG);
+    setSphereColor(DEFAULT_SPHERE);
+    markActive(bgSwatchesEl, bgColor);
+    markActive(sphereSwatchesEl, sphereColor);
+  });
+  colorsOverlay.addEventListener('click', (e) => {
+    if (e.target === colorsOverlay) colorsOverlay.classList.remove('visible');
+  });
+
+  // --- Share button uses the preview overlay ---
   document.getElementById('btnShare').onclick = openSharePreview;
 
   // ===== Share preview =====
-  // A compositing view: rotate/zoom/perspective for a nice image, without
-  // affecting the main drawing pipeline at all. Perspective here is a pure
-  // render-time transform, so it can't break placement or hit-testing.
   const shareOverlay = document.getElementById('shareOverlay');
   const shareCanvas = document.getElementById('shareCanvas');
   const sctx = shareCanvas.getContext('2d');
   const persSlider = document.getElementById('persSlider');
 
-  // Share preview state
   let pvR = identity3();
   let pvZoom = 1;
-  let pvPerspective = parseFloat(persSlider.value) / 100; // 0..1
+  let pvPerspective = parseFloat(persSlider.value) / 100;
   let pvPanX = 0, pvPanY = 0;
 
   function openSharePreview() {
     if (spheres.length === 0) { alert('Draw something first.'); return; }
-    // Start from the current main view so the user sees what they expect
     pvR = R.slice();
     pvZoom = zoom;
     pvPanX = panX;
@@ -993,48 +1191,18 @@
     sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  // Perspective scale for the preview: focal distance shrinks with slider.
-  // Returns pixels-per-world-unit at a given view-z. At pvPerspective=0 the
-  // result is exactly pvZoom (orthographic).
-  function pvScale(vz) {
-    if (pvPerspective <= 0) return pvZoom;
-    const rect = shareCanvas.getBoundingClientRect();
-    const screenSize = Math.max(rect.width, rect.height);
-    // Focal distance shrinks steeply as the slider increases. Use an
-    // exponential mapping so the top of the slider gives a strong, fisheye-ish
-    // perspective while the middle still gives a gentle one.
-    //   t=0    -> orthographic (handled above)
-    //   t=0.3  -> gentle (focal ~ 3 * screenSize)
-    //   t=1    -> strong  (focal ~ 0.4 * screenSize)
-    const t = pvPerspective;
-    const focal = screenSize * Math.pow(0.05, t) * 2 / pvZoom;
-    const denom = Math.max(focal * 0.15, focal - vz);
-    return pvZoom * (focal / denom);
-  }
-
   function drawShare() {
     const rect = shareCanvas.getBoundingClientRect();
     const w = rect.width, h = rect.height;
     sctx.clearRect(0, 0, w, h);
-    sctx.fillStyle = '#ffffff';
-    sctx.fillRect(0, 0, w, h);
+    paintBackground(sctx, w, h);
     if (spheres.length === 0) return;
 
-    // Project each sphere through the preview's rotation and perspective.
-    // Naive pinhole: both center and radius scale by focal/d. This is an
-    // approximation of a true sphere silhouette but preserves visual contact
-    // between neighboring spheres, which is what we want for aggregates.
-    // We keep the focal distance bounded below to avoid extreme distortion
-    // near the camera (which breaks the approximation visibly).
-    const rect2 = shareCanvas.getBoundingClientRect();
-    const screenSize = Math.max(rect2.width, rect2.height);
-
+    const screenSize = Math.max(w, h);
     let focal;
     if (pvPerspective <= 0) {
       focal = Infinity;
     } else {
-      // Map slider to focal distance. Lower focal = stronger perspective.
-      // At t=0 focal ~ 6*screen (gentle), at t=1 focal ~ 0.4*screen (strong).
       const t = pvPerspective;
       focal = screenSize * Math.pow(0.067, t) * 6 / pvZoom;
     }
@@ -1047,8 +1215,6 @@
         sy = h/2 + pvPanY + v[1] * pvZoom;
         rScreen = s.r * pvZoom;
       } else {
-        // Uniform lower bound on camera-to-sphere distance (fraction of focal,
-        // same for every sphere — keeps neighbors consistent under clamping).
         const d = Math.max(focal * 0.18, focal - v[2]);
         const scale = pvZoom * (focal / d);
         sx = w/2 + pvPanX + v[0] * scale;
@@ -1066,45 +1232,16 @@
     }
     const zRange = Math.max(1e-6, zMax - zMin);
 
+    const bgL = bgColor === 'transparent' ? 100 : rgbToHsl(bgRGB.r, bgRGB.g, bgRGB.b).l;
+    const shadowScale = bgColor === 'transparent' ? 1 : Math.max(0.0, (bgL - 30) / 70);
+
     for (const pr of projected) {
-      const depthT = (pr.z - zMin) / zRange;
-      const brightness = 0.55 + 0.45 * depthT;
-      const mist = depthStrength * 0.65 * (1 - depthT);
       const radius = Math.max(0.5, pr.r);
-
-      sctx.beginPath();
-      sctx.arc(pr.sx + radius*0.15, pr.sy + radius*0.2, radius*0.95, 0, Math.PI*2);
-      sctx.fillStyle = `rgba(0,0,0,${(0.05 + 0.08*depthT) * (1 - mist*0.8)})`;
-      sctx.fill();
-
-      const grad = sctx.createRadialGradient(
-        pr.sx - radius*0.4, pr.sy - radius*0.4, radius*0.1,
-        pr.sx, pr.sy, radius
-      );
-      const hue = 210;
-      const hiL0 = 85 + brightness * 8;
-      const midL0 = 55 * brightness + 20;
-      const loL0 = Math.max(20, 25 * brightness + 10);
-      const hiL = hiL0 + (100 - hiL0) * mist;
-      const midL = midL0 + (100 - midL0) * mist;
-      const loL = loL0 + (100 - loL0) * mist;
-      const sat = (1 - mist);
-      grad.addColorStop(0, `hsl(${hue}, ${80*sat}%, ${hiL}%)`);
-      grad.addColorStop(0.55, `hsl(${hue}, ${65*sat}%, ${midL}%)`);
-      grad.addColorStop(1, `hsl(${hue}, ${55*sat}%, ${loL}%)`);
-      sctx.beginPath();
-      sctx.arc(pr.sx, pr.sy, radius, 0, Math.PI*2);
-      sctx.fillStyle = grad;
-      sctx.fill();
-
-      sctx.lineWidth = 0.8;
-      const outlineA = (0.35 + 0.25*(1-depthT)) * (1 - mist);
-      sctx.strokeStyle = `rgba(30,40,70,${outlineA})`;
-      sctx.stroke();
+      renderSphere(sctx, pr.sx, pr.sy, radius, pr.z, zMin, zRange, shadowScale);
     }
   }
 
-  // Preview gestures: rotate (single finger / left-drag), pinch / wheel zoom
+  // Preview gestures
   const pvTouches = new Map();
   let pvLast = null;
   function pvCoord(t) {
@@ -1162,7 +1299,6 @@
     return { cx, cy, dist: Math.hypot(dx, dy), angle: Math.atan2(dy, dx) };
   }
 
-  // Mouse support for preview
   let pvMouseDown = false, pvMouseLast = null;
   shareCanvas.addEventListener('mousedown', (e) => {
     pvMouseDown = true;
@@ -1194,45 +1330,83 @@
 
   document.getElementById('btnSharePreviewCancel').addEventListener('click', closeSharePreview);
   document.getElementById('btnSharePreviewDone').addEventListener('click', () => {
+    // For transparent background, redraw the share canvas without the
+    // checkerboard so the exported PNG actually has alpha. We swap bgColor
+    // briefly to a sentinel that paintBackground treats as a clear, render,
+    // capture, and restore.
+    const wasTransparent = (bgColor === 'transparent');
+    if (wasTransparent) {
+      // Redraw share canvas with transparent (no checkerboard) for export
+      drawShareForExport();
+    }
     shareCanvas.toBlob(async (blob) => {
       if (!blob) { alert('Could not create image.'); return; }
       await shareBlob(blob, 'aggregate.png', 'image/png', 'Sphere aggregate');
+      if (wasTransparent) drawShare(); // restore on-screen view with checkerboard
       closeSharePreview();
     }, 'image/png');
   });
 
-  // Heuristic: is this a mobile device? On desktop we prefer direct download
-  // (cleaner UX than the small share dialog browsers show). On mobile we prefer
-  // the share sheet (gives access to Photos, Files, AirDrop, Messages, etc.).
+  // Render the share canvas without the checkerboard background, for export.
+  function drawShareForExport() {
+    const rect = shareCanvas.getBoundingClientRect();
+    const w = rect.width, h = rect.height;
+    sctx.clearRect(0, 0, w, h); // truly transparent
+
+    const screenSize = Math.max(w, h);
+    let focal;
+    if (pvPerspective <= 0) focal = Infinity;
+    else {
+      const t = pvPerspective;
+      focal = screenSize * Math.pow(0.067, t) * 6 / pvZoom;
+    }
+    const projected = spheres.map(s => {
+      const v = applyMat(pvR, [s.x, s.y, s.z]);
+      let sx, sy, rScreen;
+      if (!isFinite(focal)) {
+        sx = w/2 + pvPanX + v[0] * pvZoom;
+        sy = h/2 + pvPanY + v[1] * pvZoom;
+        rScreen = s.r * pvZoom;
+      } else {
+        const d = Math.max(focal * 0.18, focal - v[2]);
+        const scale = pvZoom * (focal / d);
+        sx = w/2 + pvPanX + v[0] * scale;
+        sy = h/2 + pvPanY + v[1] * scale;
+        rScreen = s.r * scale;
+      }
+      return { sx, sy, z: v[2], r: rScreen };
+    });
+    projected.sort((a, b) => a.z - b.z);
+    let zMin = Infinity, zMax = -Infinity;
+    for (const pr of projected) { if (pr.z < zMin) zMin = pr.z; if (pr.z > zMax) zMax = pr.z; }
+    const zRange = Math.max(1e-6, zMax - zMin);
+    // On a transparent background, drop shadows would land on... nothing. Skip them.
+    for (const pr of projected) {
+      renderSphere(sctx, pr.sx, pr.sy, Math.max(0.5, pr.r), pr.z, zMin, zRange, 0);
+    }
+  }
+
   function isMobileDevice() {
-    // navigator.userAgentData is the modern API where available
     if (navigator.userAgentData && typeof navigator.userAgentData.mobile === 'boolean') {
       return navigator.userAgentData.mobile;
     }
-    // Fall back to UA sniff + touch
     const ua = navigator.userAgent || '';
     const uaMobile = /Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(ua);
     const touch = (navigator.maxTouchPoints || 0) > 1;
     return uaMobile || touch;
   }
 
-  // Unified share/download helper. On desktop: direct download. On mobile:
-  // try the Web Share API with files first, fall back to download.
   async function shareBlob(blob, filename, mime, title) {
     const file = new File([blob], filename, { type: mime });
-
     if (isMobileDevice() && navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
         await navigator.share({ files: [file], title });
         return;
       } catch (err) {
-        if (err && err.name === 'AbortError') return; // user cancelled
+        if (err && err.name === 'AbortError') return;
         console.warn('navigator.share failed:', err);
-        // Fall through to download
       }
     }
-
-    // Download path (primary on desktop, fallback on mobile)
     const url = URL.createObjectURL(blob);
     try {
       const a = document.createElement('a');
@@ -1281,7 +1455,6 @@
   }
 
   function fmt(v) {
-    // 6 significant digits, with trailing zeros trimmed
     return Number(v.toPrecision(6)).toString();
   }
 
@@ -1304,13 +1477,11 @@
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
     const w = window.innerWidth, h = window.innerHeight;
-    // World-space point under cursor (in view coords pre-zoom)
     const vxBefore = (mx - w/2 - panX) / zoom;
     const vyBefore = (my - h/2 - panY) / zoom;
     const factor = Math.exp(-e.deltaY * 0.0015);
     zoom *= factor;
     zoom = Math.min(50, Math.max(0.02, zoom));
-    // Adjust pan so the same world point stays under the cursor
     panX = mx - w/2 - vxBefore * zoom;
     panY = my - h/2 - vyBefore * zoom;
     draw();
