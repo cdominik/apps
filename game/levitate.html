@@ -1431,6 +1431,7 @@
   }
   
   function updateAggregates(dt) {
+    // 1. Handle active merge animation
     if (state.aggMerging) {
       const m = state.aggMerging;
       const u = (state.t - m.startedAt) / m.dur;
@@ -1440,24 +1441,27 @@
         state.aggMerging = null;
         state.aggCount++;
       }
-      return;
     }
 
-    const lev = eggLevitatedParticles();
-    const absOm = Math.abs(state.omega);
-    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+    // 2. Check for new merges only if we aren't already merging
+    if (!state.aggMerging) {
+      const lev = eggLevitatedParticles();
+      const absOm = Math.abs(state.omega);
+      const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
 
-    if (lev.length >= TUNING.aggregate.minLevitated && isFinite(T)) {
-      state.aggHoldRevs += dt / T;
-      const target = state.aggCount === 0 ? TUNING.aggregate.initialHoldRevs : TUNING.aggregate.subseqHoldRevs;
-      if (state.aggHoldRevs >= target) {
-        startAggregateMerge(lev);
+      if (lev.length >= TUNING.aggregate.minLevitated && isFinite(T)) {
+        state.aggHoldRevs += dt / T;
+        const target = state.aggCount === 0 ? TUNING.aggregate.initialHoldRevs : TUNING.aggregate.subseqHoldRevs;
+        if (state.aggHoldRevs >= target) {
+          startAggregateMerge(lev);
+          state.aggHoldRevs = 0;
+        }
+      } else {
         state.aggHoldRevs = 0;
       }
-    } else {
-      state.aggHoldRevs = 0;
     }
 
+    // 3. Always run physics for non-merging aggregates
     const HX = TUNING.highlight.cx;
     const HY = TUNING.highlight.cy;
     const HR2 = TUNING.highlight.radius * TUNING.highlight.radius;
