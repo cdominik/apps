@@ -779,7 +779,8 @@
       sizeMult: 10,
       mergeDur: 0.6,
       minSpread: 0.20,
-      vtFactor: 1.2
+      vtFactor: 1.2,
+      flashOrbit: true,
     },
     ball: {
       gravity:      200,
@@ -1726,7 +1727,8 @@
       alive: true,
       inHighlightSince: null,
       merging: false,
-      imgIdx: finalImgIdx
+      imgIdx: finalImgIdx,
+      orbitFlashEndsAt: state.t + 2.0
     });
     soundSnap();
   }
@@ -1850,7 +1852,7 @@
     ctx.beginPath(); ctx.arc(cx, cy, rpx, 0, Math.PI * 2); ctx.stroke();
   }
 
-  function drawAggregates() {
+function drawAggregates() {
     if (state.aggMerging) {
       const m = state.aggMerging;
       const u = Math.min(1, (state.t - m.startedAt) / m.dur);
@@ -1869,6 +1871,24 @@
     const rInnerPx = pxDist(CFG.R_DRUM) + 2;
     ctx.save();
     ctx.beginPath(); ctx.arc(CX, CY, rInnerPx, 0, Math.PI * 2); ctx.clip();
+
+    for (const agg of state.aggregates) {
+      if (agg.merging || agg.stuck) continue;
+      // Added TUNING check here:
+      if (TUNING.aggregate.flashOrbit && state.t < agg.orbitFlashEndsAt) {
+        const absOm = Math.abs(state.omega);
+        if (absOm > 1e-3) {
+          const xc = agg.vt / state.omega;
+          const rOrb = Math.hypot(agg.x - xc, agg.y);
+          const alpha = Math.max(0, (agg.orbitFlashEndsAt - state.t) / 2);
+          ctx.beginPath();
+          ctx.arc(X2px(xc), Y2px(0), pxDist(rOrb), 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(200, 255, 220, ${alpha * 0.75})`;
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+        }
+      }
+    }
 
     for (const agg of state.aggregates) {
       if (agg.merging) continue;
