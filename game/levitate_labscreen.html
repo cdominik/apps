@@ -743,7 +743,7 @@
     splash: {
       enabled:     true,     // master switch — set to true to show splash
       autoDismiss: 0,        // 0 = wait for click; >0 = auto-dismiss after N seconds
-      onceOnly:    false,    // if true, only show on first visit (uses localStorage)
+      onceOnly:    true,    // if true, only show on first visit (uses localStorage)
     },
     drum: {
       slipRate:   0.7,
@@ -799,7 +799,7 @@
       millThud:   0.20,
       millBody:   0.035,
     },
-    fog: {
+    lidar: {
       backplateDim:   0.35,
       highlightDim:   0.55,
       stuckAlpha:     0.45,
@@ -1309,7 +1309,7 @@
       if (state.laserOn && !p.stuck && p.insideOnce) {
         const pa = Math.atan2(p.y, p.x);
         if (angleSwept(laser0, laser1, pa)) {
-          const flashDur = 0.40 * (state.laserOn ? TUNING.fog.flashDurMul : 1);
+          const flashDur = 0.40 * (state.laserOn ? TUNING.lidar.flashDurMul : 1);
           p.flashEndsAt = state.t + flashDur;
         }
       }
@@ -2354,8 +2354,8 @@
 
   function drawBackplate() {
     const r = Math.max(1, pxDist(CFG.R_DRUM));
-    const fog = state.laserOn;
-    const dim = fog ? TUNING.fog.backplateDim : 1;
+    const lidar = state.laserOn;
+    const dim = lidar ? TUNING.lidar.backplateDim : 1;
     const g = ctx.createRadialGradient(CX, CY, 0, CX, CY, r);
     g.addColorStop(0, mixHex(PAL.backplateInner, '#000000', 1 - dim));
     g.addColorStop(0.7, mixHex(PAL.backplateMid,   '#000000', 1 - dim));
@@ -2367,7 +2367,7 @@
     const hr = Math.max(1, pxDist(TUNING.highlight.radius));
     ctx.save();
     ctx.beginPath(); ctx.arc(CX, CY, r, 0, Math.PI * 2); ctx.clip();
-    const hDim = fog ? TUNING.fog.highlightDim : 1;
+    const hDim = lidar ? TUNING.lidar.highlightDim : 1;
     ctx.fillStyle = mixHex(PAL.highlightFill, '#000000', 1 - hDim);
     ctx.beginPath(); ctx.arc(hx, hy, hr, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
@@ -2454,9 +2454,9 @@
     if (state.laserOn) {
       ctx.save();
       ctx.translate(CX, CY); ctx.rotate(-state.laserAngle);
-      const fog = state.laserOn;
-      const fanHalfAngle = fog ? TUNING.fog.laserFanHalf : 0.025;
-      const am = fog ? TUNING.fog.laserAlphaMul : 1;
+      const lidar = state.laserOn;
+      const fanHalfAngle = lidar ? TUNING.lidar.laserFanHalf : 0.025;
+      const am = lidar ? TUNING.lidar.laserAlphaMul : 1;
       const innerR = pxDist(8);
       const outerR = r * 0.99;
       ctx.beginPath();
@@ -2511,8 +2511,8 @@
     const sizeFac = visualSizeFactor(p.vt);
     const rpx = Math.max(2, pxDist(TUNING.particle.collisionR) * 2 * sizeFac);
 
-    const fog = state.laserOn;
-    const FLASH_DUR = 0.40 * (fog ? TUNING.fog.flashDurMul : 1);
+    const lidar = state.laserOn;
+    const FLASH_DUR = 0.40 * (lidar ? TUNING.lidar.flashDurMul : 1);
     let flash = 0;
     if (state.t < p.flashEndsAt) {
       flash = (p.flashEndsAt - state.t) / FLASH_DUR;
@@ -2529,12 +2529,12 @@
       if (alphaMul <= 0) return;
     }
 
-    if (fog) {
+    if (lidar) {
       if (!p.stuck && flash <= 0) return;
-      if (p.stuck) alphaMul *= TUNING.fog.stuckAlpha;
+      if (p.stuck) alphaMul *= TUNING.lidar.stuckAlpha;
     }
 
-    const drawGlow = fog || (CFG.N_P < 300);
+    const drawGlow = lidar || (CFG.N_P < 300);
 
     let coreColor, glowColor;
     if (p.stuck) {
