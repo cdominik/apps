@@ -228,8 +228,6 @@
   .btnind.cheat .cap-label { color: #3a1804; text-shadow: 0 1px 0 rgba(255,255,255,0.4), 0 0 6px rgba(255,255,255,0.55); }
   .btnind.cheat .cap-icon { color: #3a1804; filter: drop-shadow(0 1px 0 rgba(255,255,255,0.4)); }
 
-  /* === Challenge Mode Additions === */
-  /* === Game & Challenge Mode Orange Active State === */
   #btnGameMode.on .cap, #btnChallenge.on .cap {
     background: radial-gradient(ellipse at 50% 35%, #ffe0a8 0%, #ff8c30 40%, #a04408 85%, #3a1804 100%);
     box-shadow: inset 0 1px 1px rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.4), inset 0 0 10px rgba(255,170,80,0.65), 0 0 8px rgba(255,140,40,0.55);
@@ -237,17 +235,16 @@
   #btnGameMode.on .cap-label, #btnChallenge.on .cap-label {
     color: #3a1804; text-shadow: 0 1px 0 rgba(255,255,255,0.4), 0 0 6px rgba(255,255,255,0.55);
   }
-  /* === Fit 'CHALLENGE' text on the button === */
   #btnChallenge .cap-label {
     font-size: 11px;
     letter-spacing: 0.5px;
   }
-  
+
   body.regime-compact #btnChallenge .cap-label {
     font-size: 10px;
     letter-spacing: 0px;
   }
-  
+
   body.regime-portrait #btnChallenge .cap-label {
     font-size: 8.5px;
     letter-spacing: -0.2px;
@@ -268,7 +265,7 @@
   .btn-grid2x2 {
     display: grid;
     grid-template-columns: 46px 46px;
-    grid-template-rows: 46px 46px;
+    grid-template-rows: 46px 46px 46px;
     gap: 4px;
     width: 96px;
   }
@@ -325,7 +322,6 @@
   .scr.gold { color: #ffcc55; text-shadow: 0 0 4px rgba(255,204,85,0.6); background: radial-gradient(ellipse at 50% 30%, #2a1c06 0%, #1a1204 70%, #0a0602 100%); }
   .lbl { font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 1.5px; color: #d8c18a; text-transform: uppercase; text-shadow: 0 1px 0 #000; white-space: nowrap; }
 
-
   .title-plate {
     padding: 4px 8px;
     background: linear-gradient(180deg, #d9b76a, #8a6b2e);
@@ -337,11 +333,11 @@
     text-decoration: none;
     cursor: pointer;
     transition: filter 0.1s, transform 0.05s;
-    pointer-events: auto; /* <--- THIS FIXES THE CLICKS */
+    pointer-events: auto;
   }
   .title-plate:hover { filter: brightness(1.15); }
   .title-plate:active { transform: translateY(1px); box-shadow: inset 0 2px 3px rgba(0,0,0,0.5); }
-  
+
   .title-plate img {
     height: 32px; width: auto; display: block;
     background: transparent;
@@ -352,8 +348,7 @@
     color: #2a1a06; text-shadow: 0 1px 0 rgba(255,255,255,0.3);
     white-space: nowrap;
   }
-  
-  /* Game sheet overlay styles */
+
   .game-sheet {
     position: absolute; inset: 0;
     background: rgba(8, 8, 12, 0.85); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
@@ -379,7 +374,6 @@
   .sel.locked { pointer-events: none; filter: brightness(0.7) saturate(0.7); }
   .sel.locked .chev { cursor: default; }
 
-  /* === Compact landscape regime === */
   body.regime-compact .title-plate { display: none; }
   body.regime-compact .gauge { min-width: 64px; }
   body.regime-compact .disp { width: 64px; height: 30px; }
@@ -389,14 +383,13 @@
   body.regime-compact .btnind.inject { width: 84px; height: 84px; }
   body.regime-compact .btnind .cap-label { font-size: 11px; letter-spacing: 1.2px; }
   body.regime-compact .btnind.btnsq { width: 40px; height: 40px; }
-  body.regime-compact .btn-grid2x2 { grid-template-columns: 40px 40px; grid-template-rows: 40px 40px; width: 84px; }
+  body.regime-compact .btn-grid2x2 { grid-template-columns: 40px 40px; grid-template-rows: 40px 40px 40px; width: 84px; }
   body.regime-compact .sel { width: 84px; }
   body.regime-compact .sel .sel-body { height: 26px; }
   body.regime-compact .sel .win { font-size: 12px; }
   body.regime-compact .sel-lbl { font-size: 8px; }
   body.regime-compact .wing-logo { display: none; }
 
-  /* === Portrait regime === */
   body.regime-portrait { background: var(--bg-root, #0a0a0c); }
   body.regime-portrait .title-plate { display: none; }
   body.regime-portrait .gauges { gap: 4px; }
@@ -415,16 +408,121 @@
   body.regime-portrait .btnind.inject .cap-label { font-size: 12px; }
   body.regime-portrait .btnind .cap-label { font-size: 10px; letter-spacing: 1px; }
   body.regime-portrait .btnind.btnsq { width: 38px; height: 38px; }
-  body.regime-portrait .btn-grid2x2 { grid-template-columns: 38px 38px 38px 38px; grid-template-rows: 38px; width: auto; gap: 4px; }
+  body.regime-portrait .btn-grid2x2 { grid-template-columns: repeat(6, 38px); grid-template-rows: 38px; width: auto; gap: 4px; }
   body.regime-portrait .btnind.btnsq .cap { left: 4px; right: 4px; top: 4px; bottom: 4px; }
   body.regime-portrait .btnind.btnsq svg { width: 18px; height: 18px; }
+
+  #viewportVideo {
+    position: absolute;
+    pointer-events: none;
+    z-index: 20;
+    object-fit: cover;
+    background: #000;
+    display: none;
+  }
+  #viewportVideo.show { display: block; }
+  #cvOverlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 15;
+  }
+
+  .splash-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(8, 8, 12, 0.92);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    cursor: pointer;
+    transition: opacity 0.5s ease-out;
+  }
+  .splash-overlay[hidden] { display: none; }
+  .splash-overlay.fading { opacity: 0; }
+
+  .splash-box {
+    max-width: 560px;
+    width: calc(100% - 64px);
+    padding: 36px 40px;
+    background:
+      linear-gradient(180deg,
+        #3a3a44 0%,
+        #2a2a32 30%,
+        #1e1e26 80%,
+        #12121a 100%);
+    border: 1px solid #5a4418;
+    border-radius: 6px;
+    box-shadow:
+      inset 0 1px 0 rgba(255,235,170,0.25),
+      inset 0 -2px 6px rgba(0,0,0,0.7),
+      0 10px 30px rgba(0,0,0,0.8);
+    color: #d8d0c0;
+    font-family: 'Courier New', monospace;
+    text-align: center;
+    cursor: default;
+  }
+
+  .splash-title {
+    font-size: 24px;
+    font-weight: bold;
+    letter-spacing: 6px;
+    color: #ffcc55;
+    text-shadow: 0 1px 0 #000, 0 0 12px rgba(255,204,85,0.4);
+    margin-bottom: 6px;
+  }
+  .splash-tagline {
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #d9b76a;
+    margin-bottom: 22px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #5a4418;
+  }
+  .splash-body {
+    font-size: 13px;
+    line-height: 1.7;
+    color: #c8c0b0;
+    margin-bottom: 14px;
+    text-align: left;
+  }
+  .splash-body em {
+    color: #a0c0ff;
+    font-style: normal;
+  }
+  .splash-btn {
+    margin-top: 16px;
+    padding: 12px 36px;
+    background: linear-gradient(180deg, #e8c77a 0%, #8a6b2e 100%);
+    border: none; border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 16px; font-weight: bold;
+    letter-spacing: 3px;
+    color: #2a1a06;
+    cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(255,235,170,0.7), 0 2px 4px rgba(0,0,0,0.6);
+  }
+  .splash-btn:hover { filter: brightness(1.15); }
+  .splash-btn:active { transform: translateY(1px); box-shadow: inset 0 2px 3px rgba(0,0,0,0.5); }
+  .splash-footer {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: #888;
+    margin-top: 14px;
+    text-transform: uppercase;
+  }  
 </style>
 </head>
 <body>
 <div id="app">
-  <canvas id="cv"></canvas>
+<canvas id="cv"></canvas>
+  <video id="viewportVideo" muted playsinline loop></video>
   <svg id="omegaCtl" class="omega-ctl" xmlns="http://www.w3.org/2000/svg"></svg>
-
+  <canvas id="cvOverlay"></canvas>
 
   <div class="wing" id="wingLeft">
 
@@ -453,7 +551,7 @@
       <div class="sel-lbl">Δt inject</div>
     </div>
   </div>
-  
+
   <div class="wing" id="wingRight">
     <button class="btnind inject" id="btnStart"><span class="cap"><span class="cap-label">Inject</span></span></button>
     <button class="btnind" id="btnReset"><span class="cap"><span class="cap-label">Reset</span></span></button>
@@ -470,6 +568,12 @@
       <button class="btnind btnsq" id="btnLaser" title="Laser"><span class="cap"><span class="cap-icon" aria-hidden="true">
         <svg viewBox="-12 -12 24 24" width="22" height="22"><g fill="currentColor" stroke="none"><g id="lz-card"><polygon points="0,-11 0.7,-2.2 -0.7,-2.2"/></g><use href="#lz-card" transform="rotate(90)"/><use href="#lz-card" transform="rotate(180)"/><use href="#lz-card" transform="rotate(270)"/><g id="lz-diag"><polygon points="0,-9.5 0.6,-2.2 -0.6,-2.2"/></g><use href="#lz-diag" transform="rotate(45)"/><use href="#lz-diag" transform="rotate(135)"/><use href="#lz-diag" transform="rotate(225)"/><use href="#lz-diag" transform="rotate(315)"/><g id="lz-short"><polygon points="0,-5.5 0.5,-2.2 -0.5,-2.2"/></g><use href="#lz-short" transform="rotate(22.5)"/><use href="#lz-short" transform="rotate(67.5)"/><use href="#lz-short" transform="rotate(112.5)"/><use href="#lz-short" transform="rotate(157.5)"/><use href="#lz-short" transform="rotate(202.5)"/><use href="#lz-short" transform="rotate(247.5)"/><use href="#lz-short" transform="rotate(292.5)"/><use href="#lz-short" transform="rotate(337.5)"/><circle cx="0" cy="0" r="2.2"/></g></svg>
       </span></span></button>
+      <button class="btnind btnsq" id="btnMicro" title="Microscope view"><span class="cap"><span class="cap-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 L13 4 L13 11 L9 11 Z"/><path d="M11 11 L11 14"/><circle cx="11" cy="16.5" r="2.2"/><path d="M6 21 L18 21"/><path d="M8 21 L8 19 L14 19 L14 21"/><path d="M13 4 L16 6"/></g></svg>
+      </span></span></button>
+      <button class="btnind btnsq" id="btnChart" title="Chart view"><span class="cap"><span class="cap-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 L4 4"/><path d="M4 20 L20 20"/><path d="M6 16 L10 11 L13 13 L18 6"/><circle cx="6" cy="16" r="0.8" fill="currentColor"/><circle cx="10" cy="11" r="0.8" fill="currentColor"/><circle cx="13" cy="13" r="0.8" fill="currentColor"/><circle cx="18" cy="6" r="0.8" fill="currentColor"/></g></svg>
+      </span></span></button>
     </div>
     <button class="btnind" id="btnTheme" title="Lighting (dark / light)"><span class="cap"><span class="cap-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24" width="22" height="22"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17 L15 17"/><path d="M9.5 19 L14.5 19"/><path d="M10.5 21 L13.5 21"/><path d="M8.5 15.5 C 7 14 6.2 12.2 6.2 10.3 C 6.2 7 8.8 4.3 12 4.3 C 15.2 4.3 17.8 7 17.8 10.3 C 17.8 12.2 17 14 15.5 15.5 Z"/><path d="M10 15.5 C 10 13 11 11 12 9 C 13 11 14 13 14 15.5"/></g></svg>
@@ -481,6 +585,36 @@
 
   <div class="wing" id="wingMiddle"></div>
 
+  <div class="splash-overlay" id="splashOverlay" hidden>
+    <div class="splash-box">
+      <h1 class="splash-title">LEVITATION LAB</h1>
+      <p class="splash-tagline">A real laboratory experiment, in playable form.</p>
+      <p class="splash-body">
+        The ERC funded project <b>GT4Pebbles</b>, Ground Truth for Pebbles, is a
+        program to study how planet formation begins in disks around
+        young stars.  In our lab, we levitate dust particles in a
+        rotating drum for extended periods of time to allow them to
+        collide and grow.
+      </p>
+      <p class="splash-body">
+        This simulation captures the physics of that
+        experiment — the same equations, the same trade-offs — and
+        lets you explore them yourself. Once the experiment is
+        running in the real world, we will also expose real lab data
+        in this game.
+      </p>
+      <p class="splash-body">
+        Particles fall through a thin gas. Spin the drum, and the gas drags
+        them into orbits. Hold them in the highlighted zone long enough and
+        they become <em>levitated</em>. After playing with some of the
+        parameters, a GAME mode will offer you a series of challenges and
+        make you master of the levitation drum.
+      </p>
+      <button class="splash-btn" id="splashBtn">Begin</button>
+      <p class="splash-footer">Click anywhere to continue.</p>
+    </div>
+  </div>
+  
   <div class="manual-overlay" id="manualOverlay" hidden>
     <div class="manual-box">
       <button class="manual-close" id="manualClose" aria-label="Close manual">×</button>
@@ -527,6 +661,10 @@
           sweeps the chamber, briefly revealing any particles it crosses.</li>
         <li><strong>Lighting</strong> — toggles the lab between a dim night
           setting and a bright day setting.</li>
+        <li><strong>Microscope / Chart</strong> — slide the ceiling-mounted
+          viewport down to display close-up imagery (microscope) or live data
+          plots (chart). What is shown depends on the current state of the
+          experiment, driven by an external rules file.</li>
       </ul>
 
       <h3>Game & Challenge</h3>
@@ -538,7 +676,7 @@
           the current parameter setup, levitate as many particles as you can
           for 3 full orbits, then enter your name on the local leaderboard.</li>
       </ul>
-      
+
       <p class="manual-footer">Press <kbd>Esc</kbd> or × to close.</p>
     </div>
   </div>
@@ -566,7 +704,7 @@
     <div class="sheet-content">
       <div class="sheet-title" id="chalTitle">Outreach Challenge</div>
       <div class="sheet-desc" id="chalDesc">Levitate as many particles as possible for 3 full orbits.</div>
-      
+
       <div id="chalInputArea" hidden>
         <div style="margin-bottom: 10px; color: #60ff90; font-size: 18px; font-weight: bold;">Score: <span id="chalFinalScore">0</span></div>
         <input type="text" id="chalNameInput" class="name-input" placeholder="Enter your name" maxlength="15" autocomplete="off">
@@ -591,32 +729,48 @@
   'use strict';
 
   const TUNING = {
+    viewport: {
+      slideDur:       3.0,
+      warmUpDur:      0.45,
+      crossfadeDur:   0.4,
+      ruleEvalHz:     5,
+      switchDebounce: 1.0,
+      sizeCm:         120,
+      screenAspect:   4 / 3,
+      gapToWingPx:    8,
+      assetDir:       '',
+    },
+    splash: {
+      enabled:     true,     // master switch — set to true to show splash
+      autoDismiss: 0,        // 0 = wait for click; >0 = auto-dismiss after N seconds
+      onceOnly:    true,    // if true, only show on first visit (uses localStorage)
+    },
     drum: {
-      slipRate:   0.7,                 // how fast omega tracks omegaTarget (1/s); higher = more responsive
-      omegaDecay: 1.0 / 30.0,          // passive bearing drag on omegaTarget (1/s)
-      swipeGain:  0.003,               // pointer-tangential gain when swiping the drum
-      omegaStep:  2 * Math.PI / 300,   // increment per +Ω/−Ω button press (rad/s)
-      omegaMax:   2 * Math.PI * 1.5,   // hard cap on |omegaTarget| (rad/s)
+      slipRate:   0.7,
+      omegaDecay: 1.0 / 30.0,
+      swipeGain:  0.003,
+      omegaStep:  2 * Math.PI / 300,
+      omegaMax:   2 * Math.PI * 1.5,
     },
     particle: {
-      settleFloor: 2.0,    // minimum allowed settling velocity v_t (cm/s) after spread
-      sizeRefVt:   30,     // v_t (cm/s) that maps to the reference visual size (factor 1.0)
-      sizeMin:     0.55,   // minimum visual size factor
-      sizeMax:     1.8,    // maximum visual size factor
-      collisionR:  0.5,    // particle radius (cm) used for wall contact and rendering
+      settleFloor: 2.0,
+      sizeRefVt:   30,
+      sizeMin:     0.55,
+      sizeMax:     1.8,
+      collisionR:  0.5,
     },
     highlight: {
-      cx:     50,   // center x of the levitation/highlight zone (cm)
-      cy:     0,    // center y of the levitation/highlight zone (cm)
-      radius: 50,   // radius of the levitation/highlight zone (cm)
+      cx:     50,
+      cy:     0,
+      radius: 50,
     },
     egg: {
-      nCrit:      10,     // 10 aggregates
-      holdTarget: 3,      // 3 rotations for the first pebble
-      holdSubseq: 3,      // 3 rotations for subsequent pebbles
+      nCrit:      10,
+      holdTarget: 3,
+      holdSubseq: 3,
       maxBalls:   10,
       mergeDur:   0.6,
-      minSpread:  0.20,   // Minimum v_t spread required to form pebbles
+      minSpread:  0.20,
     },
     aggregate: {
       minLevitated: 30,
@@ -625,40 +779,41 @@
       subseqHoldRevs: 1,
       sizeMult: 10,
       mergeDur: 0.6,
-      minSpread: 0.20     // Minimum v_t spread required to form aggregates
+      minSpread: 0.20,
+      vtFactor: 1.2
     },
     ball: {
-      gravity:      200,   // gravity acting on golden balls (cm/s^2)
-      radius:       2.5,   // golden ball radius (cm)
-      wallE:        0.85,  // wall restitution (0 = inelastic, 1 = perfectly elastic)
-      wallFriction: 0.92,  // tangential retention factor at the wall (1 = no friction)
-      contactDrag:  0.7,   // drag rate (1/s) coupling ball tangential vel to wall when in contact
-      ballE:        0.90,  // ball-ball restitution
-      settleVel:    0.6,   // velocity (cm/s) below which a ball at the wall is gently damped
+      gravity:      200,
+      radius:       2.5,
+      wallE:        0.85,
+      wallFriction: 0.92,
+      contactDrag:  0.7,
+      ballE:        0.90,
+      settleVel:    0.6,
     },
     audio: {
-      masterGain: 0.6,     // master output gain (when sound is enabled)
-      millBlade:  0.085,   // mill: blade-whine sustain gain
-      millHiss:   0.10,    // mill: shear-hiss noise sustain gain
-      millGrind:  0.85,    // mill: bright impact-cracks sustain gain
-      millThud:   0.20,    // mill: low impact-thuds sustain gain
-      millBody:   0.035,   // mill: 90 Hz body-rumble sustain gain
+      masterGain: 0.6,
+      millBlade:  0.085,
+      millHiss:   0.10,
+      millGrind:  0.85,
+      millThud:   0.20,
+      millBody:   0.035,
     },
-    fog: {
-      backplateDim:   0.35,   // multiplier on backplate brightness (1 = unchanged)
-      highlightDim:   0.55,   // multiplier on highlight-zone brightness
-      stuckAlpha:     0.45,   // alpha for stuck (red) particles in fog
-      levitatedAlpha: 0.85,   // alpha for levitated (green) particles in fog
-      flashDurMul:    1.6,    // multiply the laser-flash duration in fog
-      laserFanHalf:   0.040,  // laser fan half-angle (rad); wider than non-fog
-      laserAlphaMul:  1.5,    // multiply the laser fan brightness in fog
+    lidar: {
+      backplateDim:   0.35,
+      highlightDim:   0.55,
+      stuckAlpha:     0.45,
+      levitatedAlpha: 0.85,
+      flashDurMul:    1.6,
+      laserFanHalf:   0.040,
+      laserAlphaMul:  1.5,
     },
     trails: {
-      durationS:  1.0,    // how long (s) of history each trail covers
-      maxN:       300,    // disable trails when N_P >= this value
-      lineWidth:  1.5,    // base trail line width in CSS pixels
-      headAlpha:  0.85,   // alpha at the head (newest sample)
-      tailAlpha:  0.0,    // alpha at the tail (oldest sample)
+      durationS:  1.0,
+      maxN:       300,
+      lineWidth:  1.5,
+      headAlpha:  0.85,
+      tailAlpha:  0.0,
     },
   };
   window.TUNING = TUNING;
@@ -730,6 +885,8 @@
 
   const cv = document.getElementById('cv');
   const ctx = cv.getContext('2d');
+  const cvOv = document.getElementById('cvOverlay');
+  const ctxOv = cvOv.getContext('2d');
   let W = 800, H = 600, DPR = 1;
   let CX = 400, CY = 300, SCALE = 2;
 
@@ -757,6 +914,9 @@
     cv.width = W * DPR; cv.height = H * DPR;
     cv.style.width = W + 'px'; cv.style.height = H + 'px';
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    cvOv.width = W * DPR; cvOv.height = H * DPR;
+    cvOv.style.width = W + 'px'; cvOv.style.height = H + 'px';
+    ctxOv.setTransform(DPR, 0, 0, DPR, 0, 0);
 
     REGIME = pickRegime(W, H);
     document.body.classList.toggle('regime-wide',     REGIME === 'wide');
@@ -856,7 +1016,7 @@
       wL.style.width = WING_WIDTH + 'px';
       wL.style.height = (GEO.wingBot - GEO.wingTop) + 'px';
       wL.style.flexDirection = 'column';
-      wL.style.gap = isWide ? '10px' : '6px';
+      wL.style.gap = isWide ? '8px' : '5px';
     }
     if (wR) {
       wR.style.left = GEO.wingRightX + 'px';
@@ -864,7 +1024,7 @@
       wR.style.width = WING_WIDTH + 'px';
       wR.style.height = (GEO.wingBot - GEO.wingTop) + 'px';
       wR.style.flexDirection = 'column';
-      wR.style.gap = isWide ? '10px' : '6px';
+      wR.style.gap = isWide ? '6px' : '4px';
     }
   }
 
@@ -983,7 +1143,7 @@
     aggCount: 0,
     aggMerging: null,
   };
-  
+
   const aggregateImages = [];
   for (let i = 0; i < 5; i++) {
     const img = new Image();
@@ -1079,8 +1239,7 @@
         vx: 0, vy: 0, stuck: false, stuckAngle: 0, alive: true,
         inHighlightSince: null, flashEndsAt: -1, insideOnce: false,
         vt: inj.vt,
-        // Assign random image index
-        imgIdx: Math.floor(Math.random() * aggregateImages.length) 
+        imgIdx: Math.floor(Math.random() * aggregateImages.length)
       });
       spawnPuffAtNozzle(inj.x);
     }
@@ -1093,7 +1252,7 @@
 
     for (const p of state.particles) {
       if (!p.alive) continue;
-      if (p.merging) continue;     
+      if (p.merging) continue;
       if (p.stuck) {
         p.stuckAngle += omega * dt;
         p.x = CFG.R_DRUM * Math.cos(p.stuckAngle);
@@ -1150,7 +1309,7 @@
       if (state.laserOn && !p.stuck && p.insideOnce) {
         const pa = Math.atan2(p.y, p.x);
         if (angleSwept(laser0, laser1, pa)) {
-          const flashDur = 0.40 * (state.laserOn ? TUNING.fog.flashDurMul : 1);
+          const flashDur = 0.40 * (state.laserOn ? TUNING.lidar.flashDurMul : 1);
           p.flashEndsAt = state.t + flashDur;
         }
       }
@@ -1183,7 +1342,7 @@
     }
     return out;
   }
-  
+
   function eggLevitatedAggregates() {
     const absOm = Math.abs(state.omega);
     const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
@@ -1224,7 +1383,7 @@
     const lev = eggLevitatedAggregates();
     const absOm = Math.abs(state.omega);
     const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
-    
+
     if (lev.length >= TUNING.egg.nCrit && isFinite(T) && CFG.VT_SPREAD >= TUNING.egg.minSpread) {
       state.eggHoldRevs += dt / T;
       if (state.eggHoldRevs >= target) {
@@ -1316,7 +1475,7 @@
         const vAn = A.vx * nx + A.vy * ny;
         const vBn = B.vx * nx + B.vy * ny;
         const vRel = vAn - vBn;
-        if (vRel <= 0) continue;          
+        if (vRel <= 0) continue;
         const impulse = (1 + e) * vRel * 0.5;
         A.vx -= impulse * nx;
         A.vy -= impulse * ny;
@@ -1336,7 +1495,7 @@
       spinRate: 0,
       bornAt: state.t,
     });
-    soundCrunch(); 
+    soundCrunch();
   }
 
   function startMerge(levList) {
@@ -1385,7 +1544,7 @@
       dur: TUNING.egg.mergeDur,
     };
   }
-  
+
   function updateAggregates(dt) {
     if (state.aggMerging) {
       const m = state.aggMerging;
@@ -1427,23 +1586,22 @@
 
     for (const agg of state.aggregates) {
       if (agg.merging) continue;
-      
-      if (agg.stuck) continue; 
+      if (agg.stuck) continue;
 
       agg.vx = -state.omega * agg.y;
       agg.vy = state.omega * agg.x - agg.vt;
       agg.x += agg.vx * dt;
       agg.y += agg.vy * dt;
       agg.rot += agg.rotSpeed * dt;
-      
+
       const r2 = agg.x * agg.x + agg.y * agg.y;
       const Rwall = CFG.R_DRUM - agg.r;
-      
+
       if (r2 >= Rwall * Rwall) {
         agg.alive = false;
         const baseAngle = Math.atan2(agg.y, agg.x);
         const pRwall = CFG.R_DRUM - TUNING.particle.collisionR;
-        
+
         for (let i = 0; i < 10; i++) {
           const spread = (Math.random() - 0.5) * (agg.r / CFG.R_DRUM) * 2.5;
           const pAngle = baseAngle + spread;
@@ -1459,8 +1617,7 @@
             inHighlightSince: null,
             flashEndsAt: -1,
             insideOnce: true,
-            // Assign random image index
-            imgIdx: Math.floor(Math.random() * aggregateImages.length) 
+            imgIdx: Math.floor(Math.random() * aggregateImages.length)
           });
           state.lostCount++;
         }
@@ -1477,7 +1634,7 @@
       }
       if (agg.y < -CFG.R_DRUM * 1.5) agg.alive = false;
     }
-    
+
     if (state.aggregates.length > 0) {
       state.aggregates = state.aggregates.filter(a => a.alive);
     }
@@ -1486,18 +1643,17 @@
   function startAggregateMerge(levList, pool) {
     const centerIdx = Math.floor(Math.random() * levList.length);
     const centerP = levList[centerIdx];
-    
+
     const dists = pool.map(p => {
       const dx = p.x - centerP.x;
       const dy = p.y - centerP.y;
       return { p, d2: dx * dx + dy * dy };
     });
     dists.sort((a, b) => a.d2 - b.d2);
-    
+
     const chosen = dists.slice(0, TUNING.aggregate.mergeCount).map(item => item.p);
     let cx = 0, cy = 0, sumVt = 0, sumSizeFac = 0;
-    
-    // Pick the random image index for the resulting aggregate
+
     const targetImgIdx = Math.floor(Math.random() * aggregateImages.length);
 
     for (const p of chosen) {
@@ -1507,15 +1663,15 @@
       sumVt += p.vt;
       sumSizeFac += visualSizeFactor(p.vt);
     }
-    
+
     state.aggMerging = {
       particles: chosen,
       target: { x: cx / chosen.length, y: cy / chosen.length },
-      meanVt: sumVt / chosen.length,
+      meanVt: sumVt / chosen.length * TUNING.aggregate.vtFactor,
       sizeFac: sumSizeFac / chosen.length,
       startedAt: state.t,
       dur: TUNING.aggregate.mergeDur,
-      targetImgIdx: targetImgIdx // Store it in the merge state
+      targetImgIdx: targetImgIdx
     };
   }
 
@@ -1523,12 +1679,11 @@
     const baseR = TUNING.particle.collisionR * sizeFac * TUNING.aggregate.sizeMult;
     const speedMag = Math.abs(state.omega) * (1 + Math.random() * 2);
     const dir = Math.random() < 0.5 ? 1 : -1;
-    
-    // Use the preset index if it came from a merge, otherwise pick a random one
+
     const finalImgIdx = presetImgIdx !== undefined ? presetImgIdx : Math.floor(Math.random() * aggregateImages.length);
-    
+
     state.aggregates.push({
-      x, y, vt, 
+      x, y, vt,
       vx: 0, vy: 0,
       r: baseR,
       rot: Math.random() * Math.PI * 2,
@@ -1547,21 +1702,21 @@
     const m = state.eggMerging;
     const u = Math.min(1, (state.t - m.startedAt) / m.dur);
     const ease = u * u * (3 - 2 * u);
-    
+
     for (const agg of m.particles) {
       const sx = agg.mergeStart.x, sy = agg.mergeStart.y;
       const tx = m.target.x, ty = m.target.y;
       const cx = sx + (tx - sx) * ease;
       const cy = sy + (ty - sy) * ease;
-      
-      agg.x = cx; agg.y = cy; 
-      
+
+      agg.x = cx; agg.y = cy;
+
       const ax = X2px(cx), ay = Y2px(cy);
-      const scale = 1 - u; 
+      const scale = 1 - u;
       const ar = Math.max(0, pxDist(agg.r) * scale);
-      
+
       if (ar < 0.5) continue;
-      
+
       ctx.save();
       ctx.translate(ax, ay);
       ctx.rotate(-agg.rot);
@@ -1569,11 +1724,8 @@
 
       const img = aggregateImages[agg.imgIdx !== undefined ? agg.imgIdx : 0];
       if (img && img.complete && img.naturalHeight !== 0) {
-        
-        // Scale based strictly on height
         const drawH = ar * 2;
         const drawW = drawH * (img.naturalWidth / img.naturalHeight);
-        
         ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
       } else {
         ctx.fillStyle = '#6a6a72';
@@ -1683,24 +1835,19 @@
     const rInnerPx = pxDist(CFG.R_DRUM) + 2;
     ctx.save();
     ctx.beginPath(); ctx.arc(CX, CY, rInnerPx, 0, Math.PI * 2); ctx.clip();
-    
+
     for (const agg of state.aggregates) {
-      if (agg.merging) continue; 
+      if (agg.merging) continue;
       const ax = X2px(agg.x), ay = Y2px(agg.y);
       const ar = pxDist(agg.r);
       ctx.save();
       ctx.translate(ax, ay);
       ctx.rotate(-agg.rot);
 
-      // Retrieve the specifically assigned image
       const img = aggregateImages[agg.imgIdx !== undefined ? agg.imgIdx : 0];
       if (img && img.complete && img.naturalHeight !== 0) {
-        
-        // Scale based strictly on height (radius * 2)
         const drawH = ar * 2;
-        // Calculate width to maintain original aspect ratio based on the forced height
         const drawW = drawH * (img.naturalWidth / img.naturalHeight);
-        
         ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
       } else {
         ctx.fillStyle = '#6a6a72';
@@ -1715,7 +1862,7 @@
     for (const b of state.goldenBalls) {
       const age = state.t - b.bornAt;
       if (age < 1 || age > 3) continue;
-      const u = (age - 1) / 2;        
+      const u = (age - 1) / 2;
       let alpha;
       if (u < 0.075)      alpha = u / 0.075;
       else if (u > 0.925) alpha = (1 - u) / 0.075;
@@ -1723,9 +1870,9 @@
       if (alpha <= 0) continue;
 
       const cxScreen = X2px(0);
-      const cyScreen = Y2px(50);     
-      const big = Math.max(14, pxDist(16));    
-      const small = Math.max(10, pxDist(9));   
+      const cyScreen = Y2px(50);
+      const big = Math.max(14, pxDist(16));
+      const small = Math.max(10, pxDist(9));
 
       ctx.save();
       ctx.textAlign = 'center';
@@ -2008,7 +2155,7 @@
       rivet(cx, yTop + barH * 0.82, ribBoltR);
     }
 
-    const nozzleCount = 6;
+    const nozzleCount = 5;
     const nozzleAreaX0 = X2px(CFG.RELEASE_X_MIN + 5);
     const nozzleAreaX1 = X2px(CFG.RELEASE_X_MAX - 5);
     const nozzleH = Math.max(5, pxDist(3.5));
@@ -2207,8 +2354,8 @@
 
   function drawBackplate() {
     const r = Math.max(1, pxDist(CFG.R_DRUM));
-    const fog = state.laserOn;
-    const dim = fog ? TUNING.fog.backplateDim : 1;
+    const lidar = state.laserOn;
+    const dim = lidar ? TUNING.lidar.backplateDim : 1;
     const g = ctx.createRadialGradient(CX, CY, 0, CX, CY, r);
     g.addColorStop(0, mixHex(PAL.backplateInner, '#000000', 1 - dim));
     g.addColorStop(0.7, mixHex(PAL.backplateMid,   '#000000', 1 - dim));
@@ -2220,7 +2367,7 @@
     const hr = Math.max(1, pxDist(TUNING.highlight.radius));
     ctx.save();
     ctx.beginPath(); ctx.arc(CX, CY, r, 0, Math.PI * 2); ctx.clip();
-    const hDim = fog ? TUNING.fog.highlightDim : 1;
+    const hDim = lidar ? TUNING.lidar.highlightDim : 1;
     ctx.fillStyle = mixHex(PAL.highlightFill, '#000000', 1 - hDim);
     ctx.beginPath(); ctx.arc(hx, hy, hr, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
@@ -2255,12 +2402,12 @@
       ctx.lineJoin = 'round';
       const n = trail.length;
       for (let i = n - 1; i > 0; i--) {
-        const s1 = trail[i];     
-        const s0 = trail[i - 1]; 
+        const s1 = trail[i];
+        const s0 = trail[i - 1];
         const age = state.t - s1.t;
         if (age > dur) break;
 
-        const u = age / dur;                 
+        const u = age / dur;
         const a = headA + (tailA - headA) * u;
         if (a <= 0.01) continue;
         ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${a.toFixed(3)})`;
@@ -2307,9 +2454,9 @@
     if (state.laserOn) {
       ctx.save();
       ctx.translate(CX, CY); ctx.rotate(-state.laserAngle);
-      const fog = state.laserOn;
-      const fanHalfAngle = fog ? TUNING.fog.laserFanHalf : 0.025;
-      const am = fog ? TUNING.fog.laserAlphaMul : 1;
+      const lidar = state.laserOn;
+      const fanHalfAngle = lidar ? TUNING.lidar.laserFanHalf : 0.025;
+      const am = lidar ? TUNING.lidar.laserAlphaMul : 1;
       const innerR = pxDist(8);
       const outerR = r * 0.99;
       ctx.beginPath();
@@ -2364,8 +2511,8 @@
     const sizeFac = visualSizeFactor(p.vt);
     const rpx = Math.max(2, pxDist(TUNING.particle.collisionR) * 2 * sizeFac);
 
-    const fog = state.laserOn;
-    const FLASH_DUR = 0.40 * (fog ? TUNING.fog.flashDurMul : 1);
+    const lidar = state.laserOn;
+    const FLASH_DUR = 0.40 * (lidar ? TUNING.lidar.flashDurMul : 1);
     let flash = 0;
     if (state.t < p.flashEndsAt) {
       flash = (p.flashEndsAt - state.t) / FLASH_DUR;
@@ -2382,12 +2529,12 @@
       if (alphaMul <= 0) return;
     }
 
-    if (fog) {
+    if (lidar) {
       if (!p.stuck && flash <= 0) return;
-      if (p.stuck) alphaMul *= TUNING.fog.stuckAlpha;
+      if (p.stuck) alphaMul *= TUNING.lidar.stuckAlpha;
     }
 
-    const drawGlow = fog || (CFG.N_P < 300);
+    const drawGlow = lidar || (CFG.N_P < 300);
 
     let coreColor, glowColor;
     if (p.stuck) {
@@ -2493,6 +2640,7 @@
     drawGoldenBalls();
     drawGlare();
     drawBoltRing();
+    drawViewport();
   }
 
   function rgbLerp(a, b, t) { return Math.round(a + (b - a) * t); }
@@ -2509,7 +2657,7 @@
     return { x: (clientX - rect.left - CX) / SCALE, y: (CY - (clientY - rect.top)) / SCALE };
   }
   function insideDrumOrBand(x, y) {
-    const rMax = CFG.R_DRUM * 1.34;  
+    const rMax = CFG.R_DRUM * 1.34;
     return x * x + y * y <= rMax * rMax;
   }
   function onDown(id, clientX, clientY) {
@@ -2706,56 +2854,42 @@
   function soundSnap() {
     if (!AUDIO.ctx) return;
     const t = AUDIO.ctx.currentTime;
-    
     const numClicks = 9;
-    const initialGap = 0.04; 
-    const acceleration = 0.85; 
-    
+    const initialGap = 0.04;
+    const acceleration = 0.85;
     let currentOffset = 0;
     let currentGap = initialGap;
-
     for (let i = 0; i < numClicks; i++) {
         const clickTime = t + currentOffset;
-        
         const osc = AUDIO.ctx.createOscillator();
         const gain = AUDIO.ctx.createGain();
-        
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(2500 + (i * 200), clickTime); 
+        osc.frequency.setValueAtTime(2500 + (i * 200), clickTime);
         osc.frequency.exponentialRampToValueAtTime(100, clickTime + 0.015);
-
         gain.gain.setValueAtTime(0, clickTime);
         gain.gain.linearRampToValueAtTime(0.6, clickTime + 0.001);
         gain.gain.exponentialRampToValueAtTime(0.001, clickTime + 0.015);
-
         const noiseBuf = AUDIO.ctx.createBuffer(1, AUDIO.ctx.sampleRate * 0.02, AUDIO.ctx.sampleRate);
         const noiseData = noiseBuf.getChannelData(0);
         for(let j=0; j<noiseData.length; j++) noiseData[j] = Math.random() * 2 - 1;
-        
         const noiseSource = AUDIO.ctx.createBufferSource();
         noiseSource.buffer = noiseBuf;
         const noiseGain = AUDIO.ctx.createGain();
-        
         noiseGain.gain.setValueAtTime(0.3, clickTime);
         noiseGain.gain.exponentialRampToValueAtTime(0.001, clickTime + 0.01);
-
         const filter = AUDIO.ctx.createBiquadFilter();
         filter.type = 'bandpass';
         filter.frequency.value = 3000;
         filter.Q.value = 1;
-
         osc.connect(gain);
         gain.connect(AUDIO.master);
-        
         noiseSource.connect(filter);
         filter.connect(noiseGain);
         noiseGain.connect(AUDIO.master);
-
         osc.start(clickTime);
         osc.stop(clickTime + 0.02);
         noiseSource.start(clickTime);
         noiseSource.stop(clickTime + 0.02);
-
         currentOffset += currentGap;
         currentGap *= acceleration;
     }
@@ -2764,19 +2898,15 @@
   function soundCrunch() {
     if (!AUDIO.ctx) return;
     const t = AUDIO.ctx.currentTime;
-    
     const numFolds = 35;
-    const initialGap = 0.08; 
-    const acceleration = 0.92; 
-    
+    const initialGap = 0.08;
+    const acceleration = 0.92;
     let currentOffset = 0;
     let currentGap = initialGap;
-
     const totalEstimatedDuration = 1.2;
     const bufSize = AUDIO.ctx.sampleRate * totalEstimatedDuration;
     const buffer = AUDIO.ctx.createBuffer(1, bufSize, AUDIO.ctx.sampleRate);
     const data = buffer.getChannelData(0);
-    
     let b0, b1, b2, b3, b4, b5, b6;
     b0 = b1 = b2 = b3 = b4 = b5 = b6 = 0.0;
     for (let i = 0; i < bufSize; i++) {
@@ -2788,50 +2918,40 @@
         b4 = 0.55000 * b4 + white * 0.5329522;
         b5 = -0.7616 * b5 - white * 0.0168980;
         data[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
-        data[i] *= 0.11; 
+        data[i] *= 0.11;
         b6 = white * 0.115926;
     }
-
     const gain = AUDIO.ctx.createGain();
     gain.gain.setValueAtTime(0, t);
-
     for (let i = 0; i < numFolds; i++) {
         const foldTime = t + currentOffset;
         const volume = 0.5 + Math.random() * 0.5;
-        
         gain.gain.linearRampToValueAtTime(volume, foldTime + 0.004);
         gain.gain.linearRampToValueAtTime(volume * 0.1, foldTime + 0.02);
-
         currentOffset += currentGap;
         currentGap *= acceleration;
     }
-
     const finalDuration = currentOffset + 0.05;
     gain.gain.exponentialRampToValueAtTime(0.001, t + finalDuration);
-
     const noise = AUDIO.ctx.createBufferSource();
     noise.buffer = buffer;
-
     const hp = AUDIO.ctx.createBiquadFilter();
     hp.type = 'highpass';
     hp.frequency.setValueAtTime(1000, t);
     hp.frequency.exponentialRampToValueAtTime(400, t + finalDuration);
-
     const bp = AUDIO.ctx.createBiquadFilter();
     bp.type = 'bandpass';
     bp.Q.value = 0.8;
     bp.frequency.setValueAtTime(2200, t);
     bp.frequency.exponentialRampToValueAtTime(800, t + finalDuration);
-
     noise.connect(hp);
     hp.connect(bp);
     bp.connect(gain);
     gain.connect(AUDIO.master);
-
     noise.start(t);
     noise.stop(t + finalDuration);
   }
-    
+
   function makeImpactNoiseBuffer(durationS, sampleRate, ratePerSec, decayS, jitter, ampMin, ampMax) {
     const len = Math.max(1, Math.floor(durationS * sampleRate));
     const buf = AUDIO.ctx.createBuffer(1, len, sampleRate);
@@ -3016,12 +3136,12 @@
     const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
     elPeriod.textContent = isFinite(T) ? T.toFixed(2) : '∞';
     let floating = 0, levitated = 0;
-    
+
     for (const p of state.particles) {
       if (!p.alive) continue;
       if (p.stuck) { p.wasLevitated = false; continue; }
-      if (p.merging) continue; 
-      
+      if (p.merging) continue;
+
       floating++;
       const nowLev = isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
       if (nowLev) {
@@ -3031,7 +3151,7 @@
         p.wasLevitated = false;
       }
     }
-    
+
     elFloating.textContent = floating;
     elCaptured.textContent = state.lostCount;
     elRemaining.textContent = levitated;
@@ -3040,7 +3160,7 @@
   const SETTINGS = {
     NP:     { values: [1, 2, 3, 10, 30, 100, 300, 1000], idx: 2, apply: (v) => { CFG.N_P = v; }, label: (v) => String(v) },
     VT:     { values: [10, 20, 30, 40, 50], idx: 1, apply: (v) => { CFG.V_T = v; if (elVT) elVT.textContent = v.toFixed(1); }, label: (v) => String(v) },
-    SPREAD: { values: [0, 0.01, 0.02, 0.05, 0.10, 0.20, 0.50], idx: 5, apply: (v) => { CFG.VT_SPREAD = v; }, label: (v) => Math.round(v * 100) + '%' },
+    SPREAD: { values: [0, 0.01, 0.02, 0.05, 0.10, 0.20, 0.30, 0.50], idx: 5, apply: (v) => { CFG.VT_SPREAD = v; }, label: (v) => Math.round(v * 100) + '%' },
     DT:     { values: [0, 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], idx: 2, apply: (v) => { CFG.DT_INJECT = v; }, label: (v) => (v + ' s') },
   };
   const SEL_WIN = {
@@ -3088,7 +3208,7 @@
     ensureAudio();
     const dur = (CFG.N_P <= 1) ? 0 : CFG.DT_INJECT;
     soundMillStart(dur);
-    
+
     if (btnStart.injectTimeout) clearTimeout(btnStart.injectTimeout);
     btnStart.injectTimeout = setTimeout(() => {
       btnStart.classList.remove('on');
@@ -3264,13 +3384,23 @@
     setSettingByValue('VT', level.params.VT);
     setSettingByValue('SPREAD', level.params.SPREAD);
     setSettingByValue('DT', level.params.DT);
-    
+
     state.trailsOn = !!level.params.trails;
     btnTrails.classList.toggle('on', state.trailsOn);
-    
+
     state.laserOn = !!level.params.laser;
     btnLaser.classList.toggle('on', state.laserOn);
-  }
+
+    // Drum loses speed and is hard to spin up: level can override the global default.
+    TUNING.drum.omegaDecay = (level.params.omegaDecay != null)
+      ? level.params.omegaDecay
+      : (GAME._savedOmegaDecay != null ? GAME._savedOmegaDecay : 1.0 / 30.0);
+      
+    // Aggregate vtFactor: level can override the global default.
+    TUNING.aggregate.vtFactor = (level.params.vtFactor != null)
+      ? level.params.vtFactor
+      : (GAME._savedVtFactor != null ? GAME._savedVtFactor : 1.0);
+    }
 
   function lockSelectors(lock) {
     document.querySelectorAll('.sel').forEach(el => el.classList.toggle('locked', lock));
@@ -3309,6 +3439,8 @@
     if (elTitlePlate) elTitlePlate.hidden = on || (typeof CHALLENGE !== 'undefined' && CHALLENGE.on);
 
     if (on) {
+      GAME._savedVtFactor   = TUNING.aggregate.vtFactor;  // remember user's setting
+      GAME._savedOmegaDecay = TUNING.drum.omegaDecay;     // remember user's setting
       GAME.levelIdx = 0;
       enterIdle();
     } else {
@@ -3316,6 +3448,12 @@
       GAME.phase = 'idle';
       GAME.goalHoldSince = null;
       gameSheet.hidden = true;
+      if (GAME._savedVtFactor != null) {
+        TUNING.aggregate.vtFactor = GAME._savedVtFactor;  // restore user's setting
+      }
+      if (GAME._savedOmegaDecay != null) {
+          GAME._savedOmegaDecay = TUNING.drum.omegaDecay; // restore user setting
+      }
       initLevel();
     }
   }
@@ -3325,15 +3463,15 @@
     GAME.goalHoldSince = null;
     lockSelectors(true);
     startRelease();
-    
+
     state.omega = 0;
     state.omegaTarget = 0;
-    
+
     btnStart.classList.add('on');
     ensureAudio();
     const dur = (CFG.N_P <= 1) ? 0 : CFG.DT_INJECT;
     soundMillStart(dur);
-    
+
     if (btnStart.injectTimeout) clearTimeout(btnStart.injectTimeout);
     btnStart.injectTimeout = setTimeout(() => {
       btnStart.classList.remove('on');
@@ -3434,7 +3572,7 @@
   function enterChallengeMode(on) {
     CHALLENGE.on = on;
     btnChallenge.classList.toggle('on', on);
-    
+
     if (on && GAME.on) enterGameMode(false);
     if (elTitlePlate) elTitlePlate.hidden = on || GAME.on;
 
@@ -3467,16 +3605,16 @@
     CHALLENGE.phase = 'playing';
     lockSelectors(true);
     startRelease();
-    
+
     state.omega = 0;
     state.omegaTarget = 0;
     CHALLENGE.startTime = state.t;
-    
+
     btnStart.classList.add('on');
     ensureAudio();
     const dur = (CFG.N_P <= 1) ? 0 : CFG.DT_INJECT;
     soundMillStart(dur);
-    
+
     if (btnStart.injectTimeout) clearTimeout(btnStart.injectTimeout);
     btnStart.injectTimeout = setTimeout(() => {
       btnStart.classList.remove('on');
@@ -3507,7 +3645,7 @@
     const score = parseInt(chalFinalScore.textContent, 10) || 0;
     CHALLENGE.scores.push({ name, score, np: CFG.N_P, date: new Date().toISOString() });
     saveHighscores();
-    
+
     chalInputArea.hidden = true;
     chalDesc.textContent = "Highscores";
     renderHighscores();
@@ -3522,7 +3660,7 @@
 
   function updateChallenge() {
     if (!CHALLENGE.on || CHALLENGE.phase !== 'playing') return;
-    
+
     const absOm = Math.abs(state.omega);
     const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
 
@@ -3540,7 +3678,7 @@
 
     const allInjected = state.toInject.length === 0;
     const timeSinceStart = state.t - CHALLENGE.startTime;
-    const TIME_LIMIT = 60 + CFG.DT_INJECT; 
+    const TIME_LIMIT = 60 + CFG.DT_INJECT;
 
     if (allInjected) {
       if (floating === 0 || (floating > 0 && floating === secured) || timeSinceStart > TIME_LIMIT) {
@@ -3558,28 +3696,749 @@
   layout();
   initLevel();
 
+  // ============================================================
+  // VIEWPORT SUBSYSTEM
+  // Brass-framed CRT-style screen that slides down from the ceiling.
+  // Two activation buttons: microscope and chart. Each maintains its
+  // own ruleset (viewport_rules.js) that picks an asset based on
+  // current simulation state.
+  // ============================================================
+
+  const VIEWPORT = {
+    active: null,
+    phase: 'hidden',
+    phaseStart: 0,
+    slideU: 0,
+    currentAsset: null,
+    pendingAsset: null,
+    crossfadeStart: -1,
+    lastSwitchAt: -10,
+    lastEvalAt: 0,
+    aggregatesEverFormed: 0,
+    lastInjectedAt: -1,
+    wallT: 0,
+    lastRuleKey: null,
+  };
+
+  let VIEWPORT_RULES = {
+    microscope: [{ id: 'fallback', asset: null }],
+    chart: [{ id: 'fallback', asset: null }],
+  };
+
+  const VIEWPORT_RENDERERS = {};
+  window.registerViewportRenderer = (name, fn) => {
+    VIEWPORT_RENDERERS[name] = fn;
+  };
+
+  VIEWPORT_RENDERERS['__fallback__'] = function(g, w, h, c, t) {
+    g.fillStyle = '#001008'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#60ff90';
+    g.font = 'bold ' + Math.round(h * 0.06) + 'px "Courier New", monospace';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('NO SIGNAL', w/2, h/2);
+  };
+
+  window.setViewportRules = (rules) => {
+    if (rules && typeof rules === 'object') {
+      if (Array.isArray(rules.microscope)) VIEWPORT_RULES.microscope = rules.microscope;
+      if (Array.isArray(rules.chart))      VIEWPORT_RULES.chart      = rules.chart;
+    }
+  };
+
+  (function loadRulesScript() {
+    const s = document.createElement('script');
+    s.src = 'viewport_rules.js';
+    s.async = true;
+    s.onerror = () => {
+      console.warn('[viewport] viewport_rules.js not found; using built-in fallback rules.');
+    };
+    document.head.appendChild(s);
+  })();
+
+  function buildViewportContext() {
+    const absOm = Math.abs(state.omega);
+    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+    let floating = 0, levitated = 0, stuck = 0;
+    for (const p of state.particles) {
+      if (!p.alive) continue;
+      if (p.stuck) { stuck++; continue; }
+      if (p.merging) continue;
+      floating++;
+      if (isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T) {
+        levitated++;
+      }
+    }
+    let aggLev = 0;
+    for (const a of state.aggregates) {
+      if (!a.alive || a.stuck || a.merging) continue;
+      if (isFinite(T) && a.inHighlightSince !== null && (state.t - a.inHighlightSince) >= T) {
+        aggLev++;
+      }
+    }
+    const sinceInj = (VIEWPORT.lastInjectedAt < 0) ? Infinity : (state.t - VIEWPORT.lastInjectedAt);
+    return {
+      particles: {
+        floating, levitated,
+        lost: state.lostCount,
+        stuck,
+        total: state.particles.length,
+        injected: CFG.N_P - state.toInject.length,
+        pendingInjection: state.toInject.length,
+      },
+      aggregates: {
+        active: state.aggregates.filter(a => a.alive && !a.merging).length,
+        levitated: aggLev,
+        totalFormed: VIEWPORT.aggregatesEverFormed,
+        merging: state.aggMerging ? 1 : 0,
+      },
+      pebbles: {
+        count: state.eggBallCount,
+        merging: state.eggMerging ? 1 : 0,
+      },
+      drum: {
+        omega: state.omega,
+        omegaTarget: state.omegaTarget,
+        period: T,
+        spinning: absOm > 0.05,
+        direction: state.omega > 0 ? 1 : (state.omega < 0 ? -1 : 0),
+        angle: state.drumAngle,
+      },
+      time: {
+        simT: state.t,
+        sinceInjection: sinceInj,
+      },
+      params: {
+        N_P: CFG.N_P,
+        V_T: CFG.V_T,
+        VT_SPREAD: CFG.VT_SPREAD,
+        DT_INJECT: CFG.DT_INJECT,
+      },
+      mode: {
+        game: GAME.on,
+        gameLevel: GAME.on ? GAME.levelIdx : -1,
+        gamePhase: GAME.phase,
+        challenge: CHALLENGE.on,
+        challengePhase: CHALLENGE.phase,
+        running: state.running,
+      },
+      flags: {
+        laserOn: state.laserOn,
+        trailsOn: state.trailsOn,
+        soundOn: AUDIO.enabled,
+        theme: PAL.name,
+      },
+      button: VIEWPORT.active,
+    };
+  }
+
+  function pickRule(bank, ctx) {
+    if (!bank || !bank.length) return null;
+    let best = null, bestPri = -Infinity;
+    for (const rule of bank) {
+      let matches;
+      try {
+        matches = (typeof rule.when === 'function') ? !!rule.when(ctx) : true;
+      } catch (e) {
+        console.warn('[viewport] rule', rule.id, 'threw:', e);
+        matches = false;
+      }
+      if (!matches) continue;
+      const pri = rule.priority != null ? rule.priority : 0;
+      if (pri > bestPri) { bestPri = pri; best = rule; }
+    }
+    return best;
+  }
+
+  function resolveAsset(rule) {
+    if (!rule || rule.asset == null) {
+      return { type: 'render', name: '__fallback__' };
+    }
+    let a = rule.asset;
+    if (Array.isArray(a)) {
+      a = a[Math.floor(Math.random() * a.length)];
+    }
+    if (typeof a === 'string') {
+      const lower = a.toLowerCase();
+      const isVideo = /\.(mp4|webm|ogv|mov)$/i.test(lower);
+      return { type: isVideo ? 'video' : 'image', src: TUNING.viewport.assetDir + a };
+    }
+    if (typeof a === 'object') {
+      if (a.type === 'image' || a.type === 'video') {
+        return { type: a.type, src: TUNING.viewport.assetDir + a.src, loop: a.loop !== false };
+      }
+      if (a.type === 'render') {
+        return { type: 'render', name: a.name };
+      }
+    }
+    return { type: 'render', name: '__fallback__' };
+  }
+
+  function assetsEqual(a, b) {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+    if (a.type !== b.type) return false;
+    if (a.type === 'render') return a.name === b.name;
+    return a.src === b.src;
+  }
+
+  const VIEWPORT_IMG_CACHE = new Map();
+  function getImage(src) {
+    let img = VIEWPORT_IMG_CACHE.get(src);
+    if (!img) {
+      img = new Image();
+      img.src = src;
+      VIEWPORT_IMG_CACHE.set(src, img);
+    }
+    return img;
+  }
+
+  let VP_OFFSCREEN = document.createElement('canvas');
+
+  const vpVideoEl = document.getElementById('viewportVideo');
+  let vpVideoCurrentSrc = null;
+
+  function showVideoElement(src, loop, geom, opacity) {
+    if (vpVideoCurrentSrc !== src) {
+      vpVideoEl.src = src;
+      vpVideoEl.loop = !!loop;
+      vpVideoCurrentSrc = src;
+      vpVideoEl.play().catch(() => {});
+    }
+    vpVideoEl.style.left = geom.screenX + 'px';
+    vpVideoEl.style.top = geom.screenY + 'px';
+    vpVideoEl.style.width = geom.screenW + 'px';
+    vpVideoEl.style.height = geom.screenH + 'px';
+    vpVideoEl.style.opacity = (opacity != null) ? String(opacity) : '1';
+    vpVideoEl.classList.add('show');
+  }
+  function hideVideoElement() {
+    vpVideoEl.classList.remove('show');
+    vpVideoEl.pause();
+    vpVideoCurrentSrc = null;
+    vpVideoEl.removeAttribute('src');
+    vpVideoEl.load();
+  }
+
+  function getViewportGeometry() {
+    const sizeCm = TUNING.viewport.sizeCm;
+    const totalPx = pxDist(sizeCm);
+    const isPortrait = (REGIME === 'portrait');
+    const screenW = totalPx;
+    const screenH = totalPx / TUNING.viewport.screenAspect;
+    const mountH = isPortrait ? 0 : (totalPx - screenH) * 0.5;
+
+    let deviceX, u;
+    if (REGIME === 'portrait') {
+      deviceX = CX - totalPx;
+      u = (VIEWPORT.phase === 'hidden' || VIEWPORT.phase === 'sliding-up') ? 0 : 1;
+    } else {
+      const wingRight = GEO.wingLeftX + GEO.wingW;
+      deviceX = wingRight + TUNING.viewport.gapToWingPx;
+      const maxX = W - totalPx - 4;
+      if (deviceX > maxX) deviceX = maxX;
+      u = VIEWPORT.slideU;
+    }
+
+    const totalH = mountH + screenH;
+    let deviceY;
+    if (isPortrait) {
+      deviceY = u > 0.5 ? (CY - totalH) : (-totalH - 10);
+      if (deviceY < 0) deviceY = 0;
+    } else {
+      deviceY = -totalH + u * totalH;
+    }
+
+    return {
+      deviceX,
+      deviceY,
+      totalW: totalPx,
+      totalH: totalPx,
+      mountX: deviceX,
+      mountY: deviceY,
+      mountW: totalPx,
+      mountH: mountH,
+      screenX: deviceX,
+      screenY: deviceY + mountH,
+      screenW: screenW,
+      screenH: screenH,
+      visible: u > 0,
+      slideU: u,
+    };
+  }
+
+  function activateViewport(which) {
+    if (VIEWPORT.active === which) return;
+    const wasActive = VIEWPORT.active !== null;
+    VIEWPORT.active = which;
+    btnMicro.classList.toggle('on', which === 'microscope');
+    btnChart.classList.toggle('on', which === 'chart');
+
+    if (wasActive) {
+      VIEWPORT.lastEvalAt = 0;
+    } else {
+      VIEWPORT.phase = 'sliding-down';
+      VIEWPORT.phaseStart = VIEWPORT.wallT;
+      VIEWPORT.slideU = 0;
+      VIEWPORT.currentAsset = null;
+      VIEWPORT.lastRuleKey = null
+      VIEWPORT.pendingAsset = null;
+    }
+  }
+
+  function deactivateViewport() {
+    if (VIEWPORT.active === null) return;
+    VIEWPORT.active = null;
+    btnMicro.classList.remove('on');
+    btnChart.classList.remove('on');
+    if (VIEWPORT.phase === 'on' || VIEWPORT.phase === 'warmup') {
+      VIEWPORT.phase = 'sliding-up';
+      VIEWPORT.phaseStart = VIEWPORT.wallT;
+    } else if (VIEWPORT.phase === 'sliding-down') {
+      VIEWPORT.phase = 'sliding-up';
+      VIEWPORT.phaseStart = VIEWPORT.wallT - (1 - VIEWPORT.slideU) * TUNING.viewport.slideDur;
+    }
+    VIEWPORT.lastRuleKey = null
+    hideVideoElement();
+  }
+
+  function easeInOut(t) {
+    if (t <= 0) return 0; if (t >= 1) return 1;
+    return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) * 0.5;
+  }
+
+function updateViewport(dt) {
+    VIEWPORT.wallT += dt;
+    const dur = TUNING.viewport.slideDur;
+    const warm = TUNING.viewport.warmUpDur;
+    const now = VIEWPORT.wallT;
+
+    if (REGIME === 'portrait') {
+      if (VIEWPORT.active && VIEWPORT.phase !== 'on') {
+        VIEWPORT.phase = 'on';
+        VIEWPORT.slideU = 1;
+      } else if (!VIEWPORT.active && VIEWPORT.phase !== 'hidden') {
+        VIEWPORT.phase = 'hidden';
+        VIEWPORT.slideU = 0;
+        VIEWPORT.currentAsset = null;
+        VIEWPORT.pendingAsset = null;
+      }
+    } else {
+      switch (VIEWPORT.phase) {
+        case 'sliding-down': {
+          const u = (now - VIEWPORT.phaseStart) / dur;
+          VIEWPORT.slideU = Math.min(1, easeInOut(u));
+          if (u >= 1) {
+            VIEWPORT.phase = 'warmup';
+            VIEWPORT.phaseStart = now;
+            VIEWPORT.slideU = 1;
+          }
+          break;
+        }
+        case 'warmup': {
+          if ((now - VIEWPORT.phaseStart) >= warm) {
+            VIEWPORT.phase = 'on';
+            VIEWPORT.lastEvalAt = 0;
+          }
+          break;
+        }
+        case 'sliding-up': {
+          const u = (now - VIEWPORT.phaseStart) / dur;
+          VIEWPORT.slideU = Math.max(0, 1 - easeInOut(u));
+          if (u >= 1) {
+            VIEWPORT.phase = 'hidden';
+            VIEWPORT.slideU = 0;
+            VIEWPORT.currentAsset = null;
+            VIEWPORT.pendingAsset = null;
+            hideVideoElement();
+          }
+          break;
+        }
+      }
+    }
+
+    if (VIEWPORT.phase === 'on' && VIEWPORT.active) {
+      const evalInterval = 1.0 / TUNING.viewport.ruleEvalHz;
+      if ((now - VIEWPORT.lastEvalAt) >= evalInterval) {
+        VIEWPORT.lastEvalAt = now;
+        const ctx = buildViewportContext();
+        const bank = VIEWPORT_RULES[VIEWPORT.active];
+        const rule = pickRule(bank, ctx);
+        const ruleKey = rule ? (VIEWPORT.active + ':' + rule.id) : null;
+
+        // Only re-resolve when the matching rule changes. Otherwise an
+        // `asset: [...]` array would re-pick a random element on every tick.
+        if (ruleKey !== VIEWPORT.lastRuleKey) {
+          const newAsset = resolveAsset(rule);
+          if (!assetsEqual(newAsset, VIEWPORT.currentAsset) &&
+              !assetsEqual(newAsset, VIEWPORT.pendingAsset)) {
+            if ((now - VIEWPORT.lastSwitchAt) >= TUNING.viewport.switchDebounce) {
+              if (VIEWPORT.currentAsset === null) {
+                VIEWPORT.currentAsset = newAsset;
+                VIEWPORT.crossfadeStart = -1;
+              } else {
+                VIEWPORT.pendingAsset = newAsset;
+                VIEWPORT.crossfadeStart = now;
+              }
+              VIEWPORT.lastSwitchAt = now;
+            }
+          }
+          VIEWPORT.lastRuleKey = ruleKey;
+        }
+      }
+
+      if (VIEWPORT.pendingAsset && VIEWPORT.crossfadeStart > 0) {
+        const u = (now - VIEWPORT.crossfadeStart) / TUNING.viewport.crossfadeDur;
+        if (u >= 1) {
+          VIEWPORT.currentAsset = VIEWPORT.pendingAsset;
+          VIEWPORT.pendingAsset = null;
+          VIEWPORT.crossfadeStart = -1;
+        }
+      }
+    }
+  }
+
+  function renderAssetTo(targetG, asset, x, y, w, h, alpha, simCtx, geom) {
+    if (alpha <= 0 || !asset) return;
+    targetG.save();
+    targetG.globalAlpha = alpha;
+    if (asset.type === 'image') {
+      const img = getImage(asset.src);
+      if (img.complete && img.naturalWidth > 0) {
+        const ar = img.naturalWidth / img.naturalHeight;
+        const screenAr = w / h;
+        let dw, dh, dx, dy;
+        if (ar > screenAr) {
+          dh = h; dw = h * ar; dx = x + (w - dw) * 0.5; dy = y;
+        } else {
+          dw = w; dh = w / ar; dx = x; dy = y + (h - dh) * 0.5;
+        }
+        targetG.beginPath();
+        targetG.rect(x, y, w, h);
+        targetG.clip();
+        targetG.drawImage(img, dx, dy, dw, dh);
+      } else {
+        targetG.fillStyle = '#000';
+        targetG.fillRect(x, y, w, h);
+      }
+    } else if (asset.type === 'video') {
+      targetG.fillStyle = '#000';
+      targetG.fillRect(x, y, w, h);
+    } else if (asset.type === 'render') {
+      const fn = VIEWPORT_RENDERERS[asset.name] || VIEWPORT_RENDERERS['__fallback__'];
+      VP_OFFSCREEN.width = Math.max(2, Math.round(w));
+      VP_OFFSCREEN.height = Math.max(2, Math.round(h));
+      const og = VP_OFFSCREEN.getContext('2d');
+      og.clearRect(0, 0, VP_OFFSCREEN.width, VP_OFFSCREEN.height);
+      try {
+        fn(og, VP_OFFSCREEN.width, VP_OFFSCREEN.height, simCtx, state.t);
+      } catch (e) {
+        console.warn('[viewport] renderer threw:', asset.name, e);
+        VIEWPORT_RENDERERS['__fallback__'](og, VP_OFFSCREEN.width, VP_OFFSCREEN.height, simCtx, state.t);
+      }
+      targetG.drawImage(VP_OFFSCREEN, x, y, w, h);
+    }
+    targetG.restore();
+  }
+
+  function drawViewport() {
+    try { ctxOv.restore(); } catch (e) {}
+    ctxOv.clearRect(0, 0, W, H);
+    ctxOv.save();
+    if (VIEWPORT.phase === 'hidden') {
+      hideVideoElement();
+      ctxOv.restore();
+      return;
+    }
+    const geom = getViewportGeometry();
+    if (!geom.visible) { ctxOv.restore(); return; }
+    const ctx = ctxOv;
+    const rivet = (x, y, r) => {
+      const rr = Math.max(0.5, r);
+      const g = ctx.createRadialGradient(x - rr * 0.4, y - rr * 0.4, 0, x, y, rr);
+      g.addColorStop(0, '#9a9aa2');
+      g.addColorStop(0.6, '#3a3a44');
+      g.addColorStop(1, '#101014');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, rr, 0, Math.PI * 2); ctx.fill();
+    };
+
+    if (VIEWPORT.phase === 'hidden') {
+      hideVideoElement();
+      return;
+    }
+
+    // === MOUNT (top portion) — brass plate with rivets ===
+    const mountG = ctxOv.createLinearGradient(0, geom.mountY, 0, geom.mountY + geom.mountH);
+    mountG.addColorStop(0.00, '#f0d088');
+    mountG.addColorStop(0.10, '#e8c77a');
+    mountG.addColorStop(0.30, '#d9b76a');
+    mountG.addColorStop(0.65, '#8a6b2e');
+    mountG.addColorStop(0.90, '#5a4418');
+    mountG.addColorStop(1.00, '#3a2a0e');
+    ctxOv.fillStyle = mountG;
+    ctxOv.fillRect(geom.mountX, geom.mountY, geom.mountW, geom.mountH);
+
+    ctxOv.strokeStyle = 'rgba(255,245,200,0.7)';
+    ctxOv.lineWidth = 1.2;
+    ctxOv.beginPath();
+    ctxOv.moveTo(geom.mountX, geom.mountY + 0.6);
+    ctxOv.lineTo(geom.mountX + geom.mountW, geom.mountY + 0.6);
+    ctxOv.stroke();
+    ctxOv.strokeStyle = 'rgba(0,0,0,0.7)';
+    ctxOv.lineWidth = 1.2;
+    ctxOv.beginPath();
+    ctxOv.moveTo(geom.mountX, geom.mountY + geom.mountH - 0.6);
+    ctxOv.lineTo(geom.mountX + geom.mountW, geom.mountY + geom.mountH - 0.6);
+    ctxOv.stroke();
+    const capW = Math.max(4, geom.mountW * 0.04);
+    const capA = ctxOv.createLinearGradient(geom.mountX, 0, geom.mountX + capW, 0);
+    capA.addColorStop(0, 'rgba(0,0,0,0.55)'); capA.addColorStop(1, 'rgba(0,0,0,0)');
+    ctxOv.fillStyle = capA; ctxOv.fillRect(geom.mountX, geom.mountY, capW, geom.mountH);
+    const capB = ctxOv.createLinearGradient(geom.mountX + geom.mountW - capW, 0, geom.mountX + geom.mountW, 0);
+    capB.addColorStop(0, 'rgba(0,0,0,0)'); capB.addColorStop(1, 'rgba(0,0,0,0.55)');
+    ctxOv.fillStyle = capB; ctxOv.fillRect(geom.mountX + geom.mountW - capW, geom.mountY, capW, geom.mountH);
+
+    const rR = Math.max(2.4, geom.mountW * 0.022);
+    rivet(geom.mountX + capW * 0.7, geom.mountY + geom.mountH * 0.3, rR);
+    rivet(geom.mountX + capW * 0.7, geom.mountY + geom.mountH * 0.7, rR);
+    rivet(geom.mountX + geom.mountW - capW * 0.7, geom.mountY + geom.mountH * 0.3, rR);
+    rivet(geom.mountX + geom.mountW - capW * 0.7, geom.mountY + geom.mountH * 0.7, rR);
+    const bossX = geom.mountX + geom.mountW * 0.5;
+    const bossY = geom.mountY + geom.mountH * 0.5;
+    const bossR = Math.max(6, geom.mountH * 0.30);
+    const bossG = ctxOv.createRadialGradient(bossX - bossR * 0.35, bossY - bossR * 0.35, 0, bossX, bossY, bossR);
+    bossG.addColorStop(0, '#fff0c8');
+    bossG.addColorStop(0.4, '#d9b76a');
+    bossG.addColorStop(1, '#3a2a0e');
+    ctxOv.fillStyle = bossG;
+    ctxOv.beginPath(); ctxOv.arc(bossX, bossY, bossR, 0, Math.PI * 2); ctxOv.fill();
+    ctxOv.strokeStyle = 'rgba(0,0,0,0.6)'; ctxOv.lineWidth = 1;
+    ctxOv.beginPath(); ctxOv.arc(bossX, bossY, bossR, 0, Math.PI * 2); ctxOv.stroke();
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      rivet(bossX + Math.cos(a) * bossR * 0.65, bossY + Math.sin(a) * bossR * 0.65, rR * 0.7);
+    }
+
+    // === SCREEN FRAME ===
+    const bezelW = Math.max(8, geom.screenW * 0.04);
+    const sx = geom.screenX, sy = geom.screenY;
+    const sw = geom.screenW, sh = geom.screenH;
+    const bezelG = ctxOv.createLinearGradient(0, sy, 0, sy + sh);
+    bezelG.addColorStop(0.00, '#e8c77a');
+    bezelG.addColorStop(0.30, '#d9b76a');
+    bezelG.addColorStop(0.65, '#8a6b2e');
+    bezelG.addColorStop(1.00, '#3a2a0e');
+    ctxOv.fillStyle = bezelG;
+    ctxOv.fillRect(sx, sy, sw, sh);
+    ctxOv.strokeStyle = 'rgba(255,245,200,0.6)';
+    ctxOv.lineWidth = 1;
+    ctxOv.strokeRect(sx + 0.5, sy + 0.5, sw - 1, sh - 1);
+    const cornerR = rR * 0.85;
+    rivet(sx + bezelW * 0.5, sy + bezelW * 0.5, cornerR);
+    rivet(sx + sw - bezelW * 0.5, sy + bezelW * 0.5, cornerR);
+    rivet(sx + bezelW * 0.5, sy + sh - bezelW * 0.5, cornerR);
+    rivet(sx + sw - bezelW * 0.5, sy + sh - bezelW * 0.5, cornerR);
+
+    const ix = sx + bezelW;
+    const iy = sy + bezelW;
+    const iw = sw - 2 * bezelW;
+    const ih = sh - 2 * bezelW;
+    ctxOv.fillStyle = '#000';
+    ctxOv.fillRect(ix, iy, iw, ih);
+    ctxOv.save();
+    ctxOv.beginPath(); ctxOv.rect(ix, iy, iw, ih); ctxOv.clip();
+    const shadowG = ctxOv.createLinearGradient(ix, iy, ix, iy + ih * 0.15);
+    shadowG.addColorStop(0, 'rgba(0,0,0,0.85)');
+    shadowG.addColorStop(1, 'rgba(0,0,0,0)');
+    ctxOv.fillStyle = shadowG;
+    ctxOv.fillRect(ix, iy, iw, ih * 0.15);
+    ctxOv.restore();
+
+    const screenGeomForVideo = { screenX: ix, screenY: iy, screenW: iw, screenH: ih };
+
+    if (VIEWPORT.phase === 'warmup') {
+      const u = (VIEWPORT.wallT - VIEWPORT.phaseStart) / TUNING.viewport.warmUpDur;
+      const phase1 = Math.min(1, u / 0.4);
+      const phase2 = Math.max(0, (u - 0.4) / 0.6);
+      ctxOv.save();
+      ctxOv.beginPath(); ctxOv.rect(ix, iy, iw, ih); ctxOv.clip();
+      const cy = iy + ih * 0.5;
+      if (phase2 < 1) {
+        const lineH = 1 + phase2 * ih;
+        const grad = ctxOv.createLinearGradient(0, cy - lineH * 0.5, 0, cy + lineH * 0.5);
+        grad.addColorStop(0.0, 'rgba(180,255,200,0)');
+        grad.addColorStop(0.5, `rgba(220,255,230,${0.9 * phase1})`);
+        grad.addColorStop(1.0, 'rgba(180,255,200,0)');
+        ctxOv.fillStyle = grad;
+        ctxOv.fillRect(ix, cy - lineH * 0.5, iw, lineH);
+      } else {
+        ctxOv.fillStyle = `rgba(220,255,230,${0.3 * (1 - phase2 * 0.5)})`;
+        ctxOv.fillRect(ix, iy, iw, ih);
+      }
+      ctxOv.restore();
+      hideVideoElement();
+    } else if (VIEWPORT.phase === 'on' && VIEWPORT.currentAsset) {
+      const simCtx = buildViewportContext();
+      let curAlpha = 1;
+      let pendAlpha = 0;
+      if (VIEWPORT.pendingAsset && VIEWPORT.crossfadeStart > 0) {
+        const u = Math.min(1, (VIEWPORT.wallT - VIEWPORT.crossfadeStart) / TUNING.viewport.crossfadeDur);
+        curAlpha = 1 - u;
+        pendAlpha = u;
+      }
+
+      let videoAsset = null, videoAlpha = 0;
+      if (VIEWPORT.currentAsset && VIEWPORT.currentAsset.type === 'video' && curAlpha > videoAlpha) {
+        videoAsset = VIEWPORT.currentAsset; videoAlpha = curAlpha;
+      }
+      if (VIEWPORT.pendingAsset && VIEWPORT.pendingAsset.type === 'video' && pendAlpha > videoAlpha) {
+        videoAsset = VIEWPORT.pendingAsset; videoAlpha = pendAlpha;
+      }
+      if (videoAsset) {
+        showVideoElement(videoAsset.src, videoAsset.loop !== false, screenGeomForVideo, videoAlpha);
+      } else {
+        hideVideoElement();
+      }
+
+      renderAssetTo(ctxOv, VIEWPORT.currentAsset, ix, iy, iw, ih, curAlpha, simCtx, geom);
+      if (VIEWPORT.pendingAsset) {
+        renderAssetTo(ctxOv, VIEWPORT.pendingAsset, ix, iy, iw, ih, pendAlpha, simCtx, geom);
+      }
+    } else {
+      hideVideoElement();
+    }
+
+    if (VIEWPORT.phase === 'on' || VIEWPORT.phase === 'warmup') {
+      ctxOv.save();
+      ctxOv.beginPath(); ctxOv.rect(ix, iy, iw, ih); ctxOv.clip();
+      const vg = ctxOv.createRadialGradient(
+        ix + iw * 0.5, iy + ih * 0.5, Math.min(iw, ih) * 0.3,
+        ix + iw * 0.5, iy + ih * 0.5, Math.max(iw, ih) * 0.7
+      );
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, 'rgba(0,0,0,0.55)');
+      ctxOv.fillStyle = vg;
+      ctxOv.fillRect(ix, iy, iw, ih);
+      const gl = ctxOv.createLinearGradient(ix, iy, ix + iw, iy + ih);
+      gl.addColorStop(0.0, 'rgba(255,255,255,0.06)');
+      gl.addColorStop(0.3, 'rgba(255,255,255,0)');
+      gl.addColorStop(0.7, 'rgba(255,255,255,0)');
+      gl.addColorStop(1.0, 'rgba(255,255,255,0.04)');
+      ctxOv.fillStyle = gl;
+      ctxOv.fillRect(ix, iy, iw, ih);
+      ctx.globalAlpha = 0.07;
+      ctx.fillStyle = '#000';
+      for (let yy = iy; yy < iy + ih; yy += 3) {
+        ctx.fillRect(ix, yy, iw, 1);
+      }
+      ctx.restore();
+    }
+    ctxOv.restore();
+  }
+
+  const btnMicro = document.getElementById('btnMicro');
+  const btnChart = document.getElementById('btnChart');
+  btnMicro.addEventListener('click', () => {
+    if (btnMicro.classList.contains('disabled')) return;
+    if (VIEWPORT.active === 'microscope') deactivateViewport();
+    else activateViewport('microscope');
+  });
+  btnChart.addEventListener('click', () => {
+    if (btnChart.classList.contains('disabled')) return;
+    if (VIEWPORT.active === 'chart') deactivateViewport();
+    else activateViewport('chart');
+  });
+
+  let _prevAggCount = 0;
+  function pollAggregateCounter() {
+    if (state.aggCount > _prevAggCount) {
+      VIEWPORT.aggregatesEverFormed += (state.aggCount - _prevAggCount);
+    } else if (state.aggCount < _prevAggCount) {
+      _prevAggCount = state.aggCount;
+    }
+    _prevAggCount = state.aggCount;
+  }
+
+  btnStart.addEventListener('click', () => {
+    VIEWPORT.lastInjectedAt = state.t;
+  });
+  btnReset.addEventListener('click', () => {
+    VIEWPORT.lastInjectedAt = -1;
+    VIEWPORT.aggregatesEverFormed = 0;
+    _prevAggCount = 0;
+  });
+
+  // ============================================================
+  // END VIEWPORT SUBSYSTEM
+  // ============================================================
+
+  // ============================================================
+  // SPLASH SCREEN
+  // Disable via TUNING.splash.enabled.
+  // ============================================================
+  (function initSplash() {
+    if (!TUNING.splash || !TUNING.splash.enabled) return;
+
+    if (TUNING.splash.onceOnly) {
+      try {
+        if (localStorage.getItem('levitation_splash_seen') === '1') return;
+        localStorage.setItem('levitation_splash_seen', '1');
+      } catch (e) { /* localStorage may be blocked; show splash anyway */ }
+    }
+
+    const overlay = document.getElementById('splashOverlay');
+    const btn = document.getElementById('splashBtn');
+    if (!overlay || !btn) return;
+
+    overlay.hidden = false;
+
+    let dismissed = false;
+    const dismiss = () => {
+      if (dismissed) return;
+      dismissed = true;
+      overlay.classList.add('fading');
+      setTimeout(() => { overlay.hidden = true; }, 500);
+    };
+
+    overlay.addEventListener('click', dismiss);
+    btn.addEventListener('click', (e) => { e.stopPropagation(); dismiss(); });
+
+    if (TUNING.splash.autoDismiss > 0) {
+      setTimeout(dismiss, TUNING.splash.autoDismiss * 1000);
+    }
+  })();
+  // ============================================================
+  // END SPLASH SCREEN
+  // ============================================================
+    
   let lastT = performance.now() / 1000;
   function loop() {
-    const now = performance.now() / 1000;
-    let dt = now - lastT;
-    lastT = now;
-    if (dt > CFG.MAX_DT) dt = CFG.MAX_DT;
-    const sub = Math.max(1, Math.ceil(dt / 0.01));
-    const h = dt / sub;
-    for (let i = 0; i < sub; i++) updateDrum(h);
-    if (state.running) { for (let i = 0; i < sub; i++) step(h); }
-    for (let i = 0; i < sub; i++) updateEgg(h);
-    for (let i = 0; i < sub; i++) updateAggregates(h);
-    updateMotorSound();
-    recordTrails();
-    draw();
-    updateHUD();
-    updateGame();
-    updateChallenge();
+    try {
+      const now = performance.now() / 1000;
+      let dt = now - lastT;
+      lastT = now;
+      if (dt > CFG.MAX_DT) dt = CFG.MAX_DT;
+      const sub = Math.max(1, Math.ceil(dt / 0.01));
+      const h = dt / sub;
+      for (let i = 0; i < sub; i++) updateDrum(h);
+      if (state.running) { for (let i = 0; i < sub; i++) step(h); }
+      for (let i = 0; i < sub; i++) updateEgg(h);
+      for (let i = 0; i < sub; i++) updateAggregates(h);
+      updateMotorSound();
+      recordTrails();
+      pollAggregateCounter();
+      updateViewport(dt);
+      draw();
+      updateHUD();
+      updateGame();
+      updateChallenge();
+    } catch (e) {
+      console.error('[loop]', e);
+    }
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
 })();
 </script>
 </body>
-</html>
+</html>            
