@@ -658,7 +658,7 @@
           You can start rotating the drum <em>before or after</em> injection.</li>
         <li><strong>Rotate the drum</strong> by swiping across it. To slow down,
           swipe in the opposite direction. If swiping does not work well on your
-          interface, activate the  <strong>Ω Ctrl</strong> button and the use
+          interface, activate the  <strong>Ω&nbsp;Ctrl</strong> button and the use
           the +Ω / −Ω curved arrows.
           </li>
         <li>Particles that hit the wall become <span style="color:#ff6060">red</span>
@@ -762,6 +762,8 @@
     <div class="gauge"><div class="disp"><div class="scr warn" id="captured">0</div></div><div class="lbl">Lost</div></div>
     <div class="gauge"><div class="disp"><div class="scr gold" id="floating">0</div></div><div class="lbl">Floating</div></div>
     <div class="gauge"><div class="disp"><div class="scr" id="remaining">0</div></div><div class="lbl">Levitated</div></div>
+    <div class="gauge" id="gaugeAgg" style="display: none;"><div class="disp"><div class="scr rot" id="aggCount">0</div></div><div class="lbl">Aggregates</div></div>
+    <div class="gauge" id="gaugePebble" style="display: none;"><div class="disp"><div class="scr gold" id="pebbleCount">0</div></div><div class="lbl">Pebbles</div></div>
   </div>
 
   <div id="gameSheet" class="game-sheet" hidden>
@@ -1528,6 +1530,7 @@
       if (u >= 1) {
         for (const p of m.particles) p.alive = false;
         spawnGoldenBall(m.target.x, m.target.y);
+        state.aggCount -= TUNING.egg.nCrit; // Subtract the 10 aggregates used to make the pebble
         state.eggMerging = null;
         state.eggBallCount++;
       }
@@ -1796,6 +1799,7 @@
         agg.alive = false;
         const baseAngle = Math.atan2(agg.y, agg.x);
         const pRwall = CFG.R_DRUM - TUNING.particle.collisionR;
+        state.aggCount--;
 
         for (let i = 0; i < 10; i++) {
           const spread = (Math.random() - 0.5) * (agg.r / CFG.R_DRUM) * 2.5;
@@ -3255,63 +3259,90 @@
     }
   }
 
+//  function soundCrunch() {
+//    if (!AUDIO.ctx) return;
+//    const t = AUDIO.ctx.currentTime;
+//    const numFolds = 35;
+//    const initialGap = 0.08;
+//    const acceleration = 0.92;
+//    let currentOffset = 0;
+//    let currentGap = initialGap;
+//    const totalEstimatedDuration = 1.2;
+//    const bufSize = AUDIO.ctx.sampleRate * totalEstimatedDuration;
+//    const buffer = AUDIO.ctx.createBuffer(1, bufSize, AUDIO.ctx.sampleRate);
+//    const data = buffer.getChannelData(0);
+//    let b0, b1, b2, b3, b4, b5, b6;
+//    b0 = b1 = b2 = b3 = b4 = b5 = b6 = 0.0;
+//    for (let i = 0; i < bufSize; i++) {
+//        const white = Math.random() * 2 - 1;
+//        b0 = 0.99886 * b0 + white * 0.0555179;
+//        b1 = 0.99332 * b1 + white * 0.0750759;
+//        b2 = 0.96900 * b2 + white * 0.1538520;
+//        b3 = 0.86650 * b3 + white * 0.3104856;
+//        b4 = 0.55000 * b4 + white * 0.5329522;
+//        b5 = -0.7616 * b5 - white * 0.0168980;
+//        data[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+//        data[i] *= 0.11;
+//        b6 = white * 0.115926;
+//    }
+//    const gain = AUDIO.ctx.createGain();
+//    gain.gain.setValueAtTime(0, t);
+//    for (let i = 0; i < numFolds; i++) {
+//        const foldTime = t + currentOffset;
+//        const volume = 0.5 + Math.random() * 0.5;
+//        gain.gain.linearRampToValueAtTime(volume, foldTime + 0.004);
+//        gain.gain.linearRampToValueAtTime(volume * 0.1, foldTime + 0.02);
+//        currentOffset += currentGap;
+//        currentGap *= acceleration;
+//    }
+//    const finalDuration = currentOffset + 0.05;
+//    gain.gain.exponentialRampToValueAtTime(0.001, t + finalDuration);
+//    const noise = AUDIO.ctx.createBufferSource();
+//    noise.buffer = buffer;
+//    const hp = AUDIO.ctx.createBiquadFilter();
+//    hp.type = 'highpass';
+//    hp.frequency.setValueAtTime(1000, t);
+//    hp.frequency.exponentialRampToValueAtTime(400, t + finalDuration);
+//    const bp = AUDIO.ctx.createBiquadFilter();
+//    bp.type = 'bandpass';
+//    bp.Q.value = 0.8;
+//    bp.frequency.setValueAtTime(2200, t);
+//    bp.frequency.exponentialRampToValueAtTime(800, t + finalDuration);
+//    noise.connect(hp);
+//    hp.connect(bp);
+//    bp.connect(gain);
+//    gain.connect(AUDIO.master);
+//    noise.start(t);
+//    noise.stop(t + finalDuration);
+//  }
+
   function soundCrunch() {
     if (!AUDIO.ctx) return;
     const t = AUDIO.ctx.currentTime;
-    const numFolds = 35;
-    const initialGap = 0.08;
-    const acceleration = 0.92;
-    let currentOffset = 0;
-    let currentGap = initialGap;
-    const totalEstimatedDuration = 1.2;
-    const bufSize = AUDIO.ctx.sampleRate * totalEstimatedDuration;
-    const buffer = AUDIO.ctx.createBuffer(1, bufSize, AUDIO.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    let b0, b1, b2, b3, b4, b5, b6;
-    b0 = b1 = b2 = b3 = b4 = b5 = b6 = 0.0;
-    for (let i = 0; i < bufSize; i++) {
-        const white = Math.random() * 2 - 1;
-        b0 = 0.99886 * b0 + white * 0.0555179;
-        b1 = 0.99332 * b1 + white * 0.0750759;
-        b2 = 0.96900 * b2 + white * 0.1538520;
-        b3 = 0.86650 * b3 + white * 0.3104856;
-        b4 = 0.55000 * b4 + white * 0.5329522;
-        b5 = -0.7616 * b5 - white * 0.0168980;
-        data[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
-        data[i] *= 0.11;
-        b6 = white * 0.115926;
+    
+    // Increased to 100 iterations for that extreme "crushing" effect
+    for (let i = 0; i < 500; i++) {
+      const timeOffset = Math.random() * 0.8;
+      const osc = AUDIO.ctx.createOscillator();
+      const g = AUDIO.ctx.createGain();
+      
+      osc.type = 'sawtooth'; 
+      osc.frequency.setValueAtTime(2000 + Math.random() * 3000, t + timeOffset);
+      osc.frequency.exponentialRampToValueAtTime(100, t + timeOffset + 0.02);
+      
+      g.gain.setValueAtTime(0, t + timeOffset);
+      // Connect to the existing game audio system
+      g.gain.linearRampToValueAtTime(Math.random() * 0.4, t + timeOffset + 0.002);
+      g.gain.exponentialRampToValueAtTime(0.001, t + timeOffset + 0.015);
+      
+      osc.connect(g);
+      // Use the global game master node so Mute works!
+      g.connect(AUDIO.master); 
+      
+      osc.start(t + timeOffset);
+      osc.stop(t + timeOffset + 0.02);
     }
-    const gain = AUDIO.ctx.createGain();
-    gain.gain.setValueAtTime(0, t);
-    for (let i = 0; i < numFolds; i++) {
-        const foldTime = t + currentOffset;
-        const volume = 0.5 + Math.random() * 0.5;
-        gain.gain.linearRampToValueAtTime(volume, foldTime + 0.004);
-        gain.gain.linearRampToValueAtTime(volume * 0.1, foldTime + 0.02);
-        currentOffset += currentGap;
-        currentGap *= acceleration;
-    }
-    const finalDuration = currentOffset + 0.05;
-    gain.gain.exponentialRampToValueAtTime(0.001, t + finalDuration);
-    const noise = AUDIO.ctx.createBufferSource();
-    noise.buffer = buffer;
-    const hp = AUDIO.ctx.createBiquadFilter();
-    hp.type = 'highpass';
-    hp.frequency.setValueAtTime(1000, t);
-    hp.frequency.exponentialRampToValueAtTime(400, t + finalDuration);
-    const bp = AUDIO.ctx.createBiquadFilter();
-    bp.type = 'bandpass';
-    bp.Q.value = 0.8;
-    bp.frequency.setValueAtTime(2200, t);
-    bp.frequency.exponentialRampToValueAtTime(800, t + finalDuration);
-    noise.connect(hp);
-    hp.connect(bp);
-    bp.connect(gain);
-    gain.connect(AUDIO.master);
-    noise.start(t);
-    noise.stop(t + finalDuration);
   }
-
   function makeImpactNoiseBuffer(durationS, sampleRate, ratePerSec, decayS, jitter, ampMin, ampMax) {
     const len = Math.max(1, Math.floor(durationS * sampleRate));
     const buf = AUDIO.ctx.createBuffer(1, len, sampleRate);
@@ -3489,6 +3520,10 @@
   const elFloating = document.getElementById('floating');
   const elCaptured = document.getElementById('captured');
   const elRemaining = document.getElementById('remaining');
+  const elAggCount = document.getElementById('aggCount');
+  const elPebbleCount = document.getElementById('pebbleCount');
+  const gaugeAgg = document.getElementById('gaugeAgg');
+  const gaugePebble = document.getElementById('gaugePebble');
   const elVT = null;
 
   function updateHUD() {
@@ -3515,6 +3550,38 @@
     elFloating.textContent = floating;
     elCaptured.textContent = state.lostCount;
     elRemaining.textContent = levitated;
+
+    // Dynamic Aggregate Gauge
+    // We show the current active count: total formed minus those merged into pebbles and those lost
+    const activeAggs = state.aggCount; 
+    if (activeAggs > 0) {
+      if (gaugeAgg.style.display === 'none') {
+        gaugeAgg.style.display = 'flex';
+        soundGoldenChime();
+      }
+      elAggCount.textContent = activeAggs;
+    } else {
+      // If all aggregates are gone (lost or merged), we can hide it or show 0
+      elAggCount.textContent = 0;
+    }
+
+    // Dynamic Pebble Gauge
+    if (state.eggBallCount > 0) {
+      if (gaugePebble.style.display === 'none') {
+        gaugePebble.style.display = 'flex';
+        soundGoldenChime();
+      }
+      elPebbleCount.textContent = state.eggBallCount;
+    }
+
+    // Dynamic Pebble Gauge
+    if (state.eggBallCount > 0) {
+      if (gaugePebble.style.display === 'none') {
+        gaugePebble.style.display = 'flex'; // Surprise!
+        soundGoldenChime();
+      }
+      elPebbleCount.textContent = state.eggBallCount;
+    }
   }
 
   const SETTINGS = {
@@ -3576,18 +3643,32 @@
   });
 
   btnReset.addEventListener('click', () => {
+    // 1. Existing cleanup logic
     heatmap.data.fill(0);
     heatmap.accN.fill(0);
     heatmap.accV.fill(0);
     heatmap.accV2.fill(0);
-    heatmap.angleProgress = 0;
     heatmap.ready = false;
     ctxOv.clearRect(0, 0, W, H);
     initLevel();
+
+    // 2. FORCE EXIT GAME MODE
+    if (GAME.on) {
+      enterGameMode(false); 
+    }
+
+    // 3. FORCE EXIT CHALLENGE MODE
+    if (CHALLENGE.on) {
+      enterChallengeMode(false);
+    }
+
+    // 4. UI Feedback
     btnStart.classList.remove('on');
-    if (btnStart.injectTimeout) clearTimeout(btnStart.injectTimeout);
     btnReset.classList.add('flash');
     setTimeout(() => btnReset.classList.remove('flash'), 200);
+    
+    gaugeAgg.style.display = 'none';
+    gaugePebble.style.display = 'none';
   });
 
   btnLaser.addEventListener('click', () => {
