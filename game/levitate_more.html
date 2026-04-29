@@ -781,7 +781,11 @@
           <thead><tr><th>Rank</th><th>Name</th><th style="text-align:right;">Score</th></tr></thead>
           <tbody></tbody>
         </table>
-        <button class="sheet-btn" id="chalNextBtn">Next Player</button>
+        <div style="display: flex; gap: 8px; justify-content: center; margin-top: 12px;">
+          <button class="sheet-btn" id="chalNextBtn">Next Player</button>
+          <button class="sheet-btn" id="chalExitBtn" style="background: linear-gradient(180deg, #b0b0b0 0%, #606060 100%);">Exit</button>
+        </div>
+        <button id="chalClearBtn" style="margin-top: 20px; background: none; border: none; color: #ff6060; font-family: monospace; font-size: 10px; cursor: pointer; text-decoration: underline;">Clear Leaderboard</button>
       </div>
 
       <button class="sheet-btn" id="chalStartBtn">Start Challenge</button>
@@ -3784,23 +3788,47 @@
   }
 
   function enterChallengeMode(on) {
-    CHALLENGE.on = on;
-    btnChallenge.classList.toggle('on', on);
-
-    if (on && GAME.on) enterGameMode(false);
-    if (elTitlePlate) elTitlePlate.hidden = on || GAME.on;
-
-    if (on) {
-      CHALLENGE.phase = 'idle';
-      showChallengeIntro();
-    } else {
-      CHALLENGE.phase = 'idle';
-      challengeSheet.hidden = true;
-      lockSelectors(false);
-      initLevel();
-    }
+      CHALLENGE.on = on;
+      btnChallenge.classList.toggle('on', on);
+  
+      if (on && GAME.on) enterGameMode(false);
+      if (elTitlePlate) elTitlePlate.hidden = on || GAME.on;
+  
+      if (on) {
+        CHALLENGE.phase = 'idle';
+        showChallengeIntro();
+      } else {
+        CHALLENGE.phase = 'idle';
+        challengeSheet.hidden = true;
+        lockSelectors(false);
+        
+        // Ensure video and overlay elements are hidden when exiting
+        hideVideoElement();
+        
+        initLevel();
+      }
   }
-
+  
+  // Logic for the new UI elements proposed
+  const chalExitBtn = document.getElementById('chalExitBtn');
+  const chalClearBtn = document.getElementById('chalClearBtn');
+  
+  if (chalExitBtn) {
+      chalExitBtn.addEventListener('click', () => {
+          enterChallengeMode(false);
+      });
+  }
+  
+  if (chalClearBtn) {
+      chalClearBtn.addEventListener('click', () => {
+          if (confirm("Permanently clear all highscores?")) {
+              CHALLENGE.scores = [];
+              saveHighscores();
+              renderHighscores();
+          }
+      });
+  }
+        
   function showChallengeIntro() {
     chalTitle.textContent = "Outreach Challenge";
     chalDesc.textContent = `Levitate as many particles as possible for 3 full orbits. Current Setup: ${CFG.N_P} particles.`;
