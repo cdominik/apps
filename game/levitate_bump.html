@@ -515,6 +515,27 @@
     margin-top: 14px;
     text-transform: uppercase;
   }  
+  .dev-control {
+    margin-bottom: 12px;
+    padding: 10px;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid #5a4418;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #ffcc55;
+  }
+  .dev-control label {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .dev-control input[type="checkbox"] {
+    accent-color: #d9b76a;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -680,6 +701,44 @@
     </div>
   </div>
 
+  <div class="manual-overlay" id="devOverlay" hidden>
+    <div class="manual-box">
+      <button class="manual-close" id="devClose" aria-label="Close developer settings">×</button>
+      <h2>DEV SETTINGS</h2>
+
+      <div class="dev-control">
+        <label>
+          <input type="checkbox" id="chkInvincible">
+          Invincible Particles
+        </label>
+      </div>
+      
+      <div class="dev-control">
+        <label>
+          <input type="checkbox" id="chkFlashOrbit">
+          Flash Aggregate Orbits
+        </label>
+      </div>
+      
+      <div class="dev-control">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+          <span>Omega Decay</span>
+          <span id="valOmegaDecay"></span>
+        </div>
+        <input type="range" id="sldOmegaDecay" min="0" max="1" step="0.01" style="width: 100%; cursor: pointer;">
+      </div>
+      
+      <div class="dev-control">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+          <span>Min Levitated (Agg)</span>
+          <span id="valMinLev"></span>
+        </div>
+        <input type="range" id="sldMinLev" min="10" max="100" step="1" style="width: 100%; cursor: pointer;">
+      </div>
+
+    </div>
+  </div>
+
   <div class="gauges" id="gauges">
 
   <a class="title-plate" id="titlePlate" href="https://staff.fnwi.uva.nl/c.dominik/" target="_blank" rel="noopener noreferrer">
@@ -757,6 +816,7 @@
       sizeMin:     0.55,
       sizeMax:     1.8,
       collisionR:  0.5,
+      invincible:  false,
     },
     highlight: {
       cx:     50,
@@ -1279,15 +1339,17 @@
 
         const prevR2 = p.prevR2 === undefined ? (CFG.R_DRUM + 1) * (CFG.R_DRUM + 1) : p.prevR2;
         if (wasInside && prevR2 < Rwall * Rwall && r2 >= Rwall * Rwall) {
-          const ang = Math.atan2(p.y, p.x);
-          p.stuck = true;
-          p.stuckAngle = ang;
-          p.stuckAt = state.t;
-          p.x = Rwall * Math.cos(ang);
-          p.y = Rwall * Math.sin(ang);
-          p.inHighlightSince = null;
-          state.lostCount++;
-          soundTink();
+          if (!TUNING.particle.invincible) {
+            const ang = Math.atan2(p.y, p.x);
+            p.stuck = true;
+            p.stuckAngle = ang;
+            p.stuckAt = state.t;
+            p.x = Rwall * Math.cos(ang);
+            p.y = Rwall * Math.sin(ang);
+            p.inHighlightSince = null;
+            state.lostCount++;
+            soundTink();
+          }
         } else if (p.insideOnce) {
           const dxh = p.x - HX, dyh = p.y - HY;
           const inside = (dxh * dxh + dyh * dyh) <= HR2;
@@ -1297,13 +1359,22 @@
             p.inHighlightSince = null;
           }
         }
-        p.prevR2 = r2;
+        
+        if (TUNING.particle.invincible && p.insideOnce && !p.stuck && r2 >= Rwall * Rwall) {
+          const rr = Math.sqrt(r2);
+          p.x = (p.x / rr) * Rwall * 0.999;
+          p.y = (p.y / rr) * Rwall * 0.999;
+          p.prevR2 = p.x * p.x + p.y * p.y;
+        } else {
+          p.prevR2 = r2;
+        }
 
         if (p.y < -CFG.R_DRUM * 1.5) p.alive = false;
-        if (p.insideOnce && !p.stuck && r2 > (CFG.R_DRUM * 1.05) * (CFG.R_DRUM * 1.05)) {
+        if (p.insideOnce && !p.stuck && r2 > (CFG.R_DRUM * 1.05) * (CFG.R_DRUM * 1.05) && !TUNING.particle.invincible) {
           state.lostCount++;
           p.alive = false;
         }
+
       }
 
       if (state.laserOn && !p.stuck && p.insideOnce) {
@@ -1852,7 +1923,7 @@
     ctx.beginPath(); ctx.arc(cx, cy, rpx, 0, Math.PI * 2); ctx.stroke();
   }
 
-function drawAggregates() {
+  function drawAggregates() {
     if (state.aggMerging) {
       const m = state.aggMerging;
       const u = Math.min(1, (state.t - m.startedAt) / m.dur);
@@ -1874,18 +1945,53 @@ function drawAggregates() {
 
     for (const agg of state.aggregates) {
       if (agg.merging || agg.stuck) continue;
-      // Added TUNING check here:
       if (TUNING.aggregate.flashOrbit && state.t < agg.orbitFlashEndsAt) {
         const absOm = Math.abs(state.omega);
         if (absOm > 1e-3) {
-          const xc = agg.vt / state.omega;
-          const rOrb = Math.hypot(agg.x - xc, agg.y);
           const alpha = Math.max(0, (agg.orbitFlashEndsAt - state.t) / 2);
+          
+          // 1. Draw the aggregate orbit
+          const xcAgg = agg.vt / state.omega;
+          const rOrb = Math.hypot(agg.x - xcAgg, agg.y);
           ctx.beginPath();
-          ctx.arc(X2px(xc), Y2px(0), pxDist(rOrb), 0, Math.PI * 2);
+          ctx.arc(X2px(xcAgg), Y2px(0), pxDist(rOrb), 0, Math.PI * 2);
           ctx.strokeStyle = `rgba(200, 255, 220, ${alpha * 0.75})`;
           ctx.lineWidth = 1.2;
           ctx.stroke();
+
+          // 2. Calculate mean vt of currently levitated particles
+          const levParticles = eggLevitatedParticles();
+          let sumVt = 0;
+          for (const p of levParticles) {
+            sumVt += p.vt;
+          }
+          const meanVt = levParticles.length > 0 ? (sumVt / levParticles.length) : agg.vt;
+          const xcMean = meanVt / state.omega;
+
+          // 3. Draw dots and connecting line
+          const pxAggX = X2px(xcAgg);
+          const pxMeanX = X2px(xcMean);
+          const py0 = Y2px(0);
+
+          ctx.strokeStyle = `rgba(255, 220, 100, ${alpha * 0.9})`;
+          ctx.fillStyle = `rgba(255, 220, 100, ${alpha})`;
+          ctx.lineWidth = 1.5;
+
+          // Line
+          ctx.beginPath();
+          ctx.moveTo(pxAggX, py0);
+          ctx.lineTo(pxMeanX, py0);
+          ctx.stroke();
+
+          // Dot at aggregate orbit center
+          ctx.beginPath();
+          ctx.arc(pxAggX, py0, 3, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Dot at mean particle orbit center
+          ctx.beginPath();
+          ctx.arc(pxMeanX, py0, 3, 0, Math.PI * 2);
+          ctx.fill();
         }
       }
     }
@@ -3744,6 +3850,106 @@ function drawAggregates() {
     if (GAME.on && GAME.phase === 'playing') endGameRun('aborted');
     if (CHALLENGE.on && CHALLENGE.phase === 'playing') endChallengeRun(0);
   });
+
+
+  // ============================================================
+  // DEV SETTINGS PANEL (SECRET HANDSHAKE)
+  // ============================================================
+  const devOverlay = document.getElementById('devOverlay');
+  const devClose = document.getElementById('devClose');
+  const titlePlateLink = document.getElementById('titlePlate');
+  
+  const chkFlashOrbit = document.getElementById('chkFlashOrbit');
+  const sldOmegaDecay = document.getElementById('sldOmegaDecay');
+  const valOmegaDecay = document.getElementById('valOmegaDecay');
+  const sldMinLev = document.getElementById('sldMinLev');
+  const valMinLev = document.getElementById('valMinLev');
+  const chkInvincible = document.getElementById('chkInvincible');
+  
+  let tapCount = 0;
+  let tapTimer = null;
+
+  if (titlePlateLink) {
+    titlePlateLink.addEventListener('click', (e) => {
+      e.preventDefault(); 
+      tapCount++;
+      
+      if (tapTimer) clearTimeout(tapTimer);
+      
+      if (tapCount >= 5) {
+        tapCount = 0;
+        
+        // Populate current values
+        if (chkFlashOrbit) chkFlashOrbit.checked = TUNING.aggregate.flashOrbit;
+        if (sldOmegaDecay) {
+          sldOmegaDecay.value = TUNING.drum.omegaDecay;
+          valOmegaDecay.textContent = parseFloat(TUNING.drum.omegaDecay).toFixed(2);
+        }
+        if (sldMinLev) {
+          sldMinLev.value = TUNING.aggregate.minLevitated;
+          valMinLev.textContent = TUNING.aggregate.minLevitated;
+        }
+        if (chkInvincible) chkInvincible.checked = TUNING.particle.invincible;
+
+        devOverlay.hidden = false;
+      } else {
+        tapTimer = setTimeout(() => { 
+          if (tapCount === 1 && titlePlateLink.href) {
+            window.open(titlePlateLink.href, titlePlateLink.target || '_self');
+          }
+          tapCount = 0; 
+        }, 400);
+      }
+    });
+  }
+
+  function closeDevPanel() {
+    devOverlay.hidden = true;
+  }
+
+  if (devClose) devClose.addEventListener('click', closeDevPanel);
+  if (devOverlay) {
+    devOverlay.addEventListener('click', (e) => {
+      if (e.target === devOverlay) closeDevPanel();
+    });
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && devOverlay && !devOverlay.hidden) closeDevPanel();
+  });
+
+  // Parameter Event Listeners
+  if (chkFlashOrbit) {
+    chkFlashOrbit.addEventListener('change', (e) => {
+      TUNING.aggregate.flashOrbit = e.target.checked;
+    });
+  }
+  
+  if (sldOmegaDecay) {
+    sldOmegaDecay.addEventListener('input', (e) => {
+      const v = parseFloat(e.target.value);
+      TUNING.drum.omegaDecay = v;
+      valOmegaDecay.textContent = v.toFixed(2);
+    });
+  }
+
+  if (sldMinLev) {
+    sldMinLev.addEventListener('input', (e) => {
+      const v = parseInt(e.target.value, 10);
+      TUNING.aggregate.minLevitated = v;
+      valMinLev.textContent = v;
+    });
+  }
+
+  if (chkInvincible) {
+    chkInvincible.addEventListener('change', (e) => {
+      TUNING.particle.invincible = e.target.checked;
+    });
+  }
+  // ============================================================
+  // End DEV SETTINGS PANEL (SECRET HANDSHAKE)
+  // ============================================================
+  
 
   window.addEventListener('resize', layout);
   layout();
