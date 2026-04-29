@@ -515,6 +515,27 @@
     margin-top: 14px;
     text-transform: uppercase;
   }  
+  .dev-control {
+    margin-bottom: 12px;
+    padding: 10px;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid #5a4418;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #ffcc55;
+  }
+  .dev-control label {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .dev-control input[type="checkbox"] {
+    accent-color: #d9b76a;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -606,9 +627,9 @@
       <p class="splash-body">
         Particles fall through a thin gas. Spin the drum, and the gas drags
         them into orbits. Hold them in the highlighted zone long enough and
-        they become <em>levitated</em>. After playing with some of the
-        parameters, a GAME mode will offer you a series of challenges and
-        make you master of the levitation drum.
+        they become <em>levitated</em>. You can explore yourself, or you
+        can enter GAME mode to walk you through a series of increasingly
+        difficult challenges to make you master of the levitation drum.
       </p>
       <button class="splash-btn" id="splashBtn">Begin</button>
       <p class="splash-footer">Click anywhere to continue.</p>
@@ -680,6 +701,51 @@
     </div>
   </div>
 
+  <div class="manual-overlay" id="devOverlay" hidden>
+    <div class="manual-box">
+      <button class="manual-close" id="devClose" aria-label="Close developer settings">×</button>
+      <h2>DEV SETTINGS</h2>
+
+      <div class="dev-control">
+        <label>
+          <input type="checkbox" id="chkShowVtProjection">
+          Show orbital center range reference projection
+        </label>
+      </div>
+
+      <div class="dev-control">
+        <label>
+          <input type="checkbox" id="chkFlashOrbit">
+          Flash aggregate orbits at moment of formation
+        </label>
+      </div>
+      
+      <div class="dev-control">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+          <span>Ω decay time (seconds)</span>
+          <span id="valOmegaDecay"></span>
+        </div>
+        <input type="range" id="sldOmegaDecay" min="0" max="1" step="0.01" style="width: 100%; cursor: pointer;">
+      </div>
+      
+      <div class="dev-control">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+          <span>Min number of levitated particles for aggregate formation</span>
+          <span id="valMinLev"></span>
+        </div>
+        <input type="range" id="sldMinLev" min="10" max="100" step="1" style="width: 100%; cursor: pointer;">
+      </div>
+
+      <div class="dev-control">
+        <label>
+          <input type="checkbox" id="chkInvincible">
+          Nanocoat the drum wall, so particles do not stick
+        </label>
+      </div>
+      
+    </div>
+  </div>
+
   <div class="gauges" id="gauges">
 
   <a class="title-plate" id="titlePlate" href="https://staff.fnwi.uva.nl/c.dominik/" target="_blank" rel="noopener noreferrer">
@@ -715,7 +781,11 @@
           <thead><tr><th>Rank</th><th>Name</th><th style="text-align:right;">Score</th></tr></thead>
           <tbody></tbody>
         </table>
-        <button class="sheet-btn" id="chalNextBtn">Next Player</button>
+        <div style="display: flex; gap: 8px; justify-content: center; margin-top: 12px;">
+          <button class="sheet-btn" id="chalNextBtn">Next Player</button>
+          <button class="sheet-btn" id="chalExitBtn" style="background: linear-gradient(180deg, #b0b0b0 0%, #606060 100%);">Exit</button>
+        </div>
+        <button id="chalClearBtn" style="margin-top: 20px; background: none; border: none; color: #ff6060; font-family: monospace; font-size: 10px; cursor: pointer; text-decoration: underline;">Clear Leaderboard</button>
       </div>
 
       <button class="sheet-btn" id="chalStartBtn">Start Challenge</button>
@@ -757,6 +827,8 @@
       sizeMin:     0.55,
       sizeMax:     1.8,
       collisionR:  0.5,
+      invincible:  false,
+      showVtProjection: false,
     },
     highlight: {
       cx:     50,
@@ -769,7 +841,7 @@
       holdSubseq: 3,
       maxBalls:   10,
       mergeDur:   0.6,
-      minSpread:  0.20,
+      minSpread:  0.30,
     },
     aggregate: {
       minLevitated: 30,
@@ -779,7 +851,8 @@
       sizeMult: 10,
       mergeDur: 0.6,
       minSpread: 0.20,
-      vtFactor: 1.2
+      vtFactor: 1.2,
+      flashOrbit: false,
     },
     ball: {
       gravity:      200,
@@ -820,7 +893,7 @@
   const CFG = {
     R_DRUM: 100, R_AXIS: 5, DEPTH: 20,
     N_P: 3, V_T: 30, DT_INJECT: 1.0,
-    VT_SPREAD: 0.20,
+    VT_SPREAD: 0.10,
     RELEASE_Y: 110, RELEASE_X_MIN: 0, RELEASE_X_MAX: 100,
     BRAKE_DAMP: 1.2,
     MAX_DT: 0.033,
@@ -1278,15 +1351,17 @@
 
         const prevR2 = p.prevR2 === undefined ? (CFG.R_DRUM + 1) * (CFG.R_DRUM + 1) : p.prevR2;
         if (wasInside && prevR2 < Rwall * Rwall && r2 >= Rwall * Rwall) {
-          const ang = Math.atan2(p.y, p.x);
-          p.stuck = true;
-          p.stuckAngle = ang;
-          p.stuckAt = state.t;
-          p.x = Rwall * Math.cos(ang);
-          p.y = Rwall * Math.sin(ang);
-          p.inHighlightSince = null;
-          state.lostCount++;
-          soundTink();
+          if (!TUNING.particle.invincible) {
+            const ang = Math.atan2(p.y, p.x);
+            p.stuck = true;
+            p.stuckAngle = ang;
+            p.stuckAt = state.t;
+            p.x = Rwall * Math.cos(ang);
+            p.y = Rwall * Math.sin(ang);
+            p.inHighlightSince = null;
+            state.lostCount++;
+            soundTink();
+          }
         } else if (p.insideOnce) {
           const dxh = p.x - HX, dyh = p.y - HY;
           const inside = (dxh * dxh + dyh * dyh) <= HR2;
@@ -1296,13 +1371,22 @@
             p.inHighlightSince = null;
           }
         }
-        p.prevR2 = r2;
+        
+        if (TUNING.particle.invincible && p.insideOnce && !p.stuck && r2 >= Rwall * Rwall) {
+          const rr = Math.sqrt(r2);
+          p.x = (p.x / rr) * Rwall * 0.999;
+          p.y = (p.y / rr) * Rwall * 0.999;
+          p.prevR2 = p.x * p.x + p.y * p.y;
+        } else {
+          p.prevR2 = r2;
+        }
 
         if (p.y < -CFG.R_DRUM * 1.5) p.alive = false;
-        if (p.insideOnce && !p.stuck && r2 > (CFG.R_DRUM * 1.05) * (CFG.R_DRUM * 1.05)) {
+        if (p.insideOnce && !p.stuck && r2 > (CFG.R_DRUM * 1.05) * (CFG.R_DRUM * 1.05) && !TUNING.particle.invincible) {
           state.lostCount++;
           p.alive = false;
         }
+
       }
 
       if (state.laserOn && !p.stuck && p.insideOnce) {
@@ -1427,6 +1511,41 @@
   }
 
   function resolveWallCollision(b) {
+    // --- NEW BUMP COLLISION ---
+    const bumpAngle = -state.drumAngle;
+    const bumpR = 3.5; // Radius of the bump in cm
+    const bumpX = CFG.R_DRUM * Math.cos(bumpAngle);
+    const bumpY = CFG.R_DRUM * Math.sin(bumpAngle);
+
+    const dx = b.x - bumpX;
+    const dy = b.y - bumpY;
+    const dist = Math.hypot(dx, dy);
+    const minDist = b.r + bumpR;
+
+    if (dist < minDist && dist > 1e-6) {
+      // Resolve overlap
+      const nx = dx / dist, ny = dy / dist;
+      const overlap = minDist - dist;
+      b.x += nx * overlap;
+      b.y += ny * overlap;
+
+      // Calculate relative velocity against the moving bump
+      const vBumpX = -state.omega * bumpY;
+      const vBumpY =  state.omega * bumpX;
+      const vRelX = b.vx - vBumpX;
+      const vRelY = b.vy - vBumpY;
+      const vn = vRelX * nx + vRelY * ny;
+
+      // Apply bounce impulse
+      if (vn < 0) {
+        const e = TUNING.ball.wallE;
+        b.vx -= (1 + e) * vn * nx;
+        b.vy -= (1 + e) * vn * ny;
+        if (Math.abs(vn) > 10) soundGoldenThud(Math.abs(vn));
+      }
+    }
+
+    // --- EXISTING WALL COLLISION ---
     const r = Math.hypot(b.x, b.y);
     const rMax = CFG.R_DRUM - b.r;
     if (r <= rMax) {
@@ -1437,18 +1556,18 @@
       return;
     }
     if (r < 1e-6) return;
-    const nx = b.x / r, ny = b.y / r;
-    b.x = nx * rMax;
-    b.y = ny * rMax;
-    const vn = b.vx * nx + b.vy * ny;
-    const vtx = b.vx - vn * nx;
-    const vty = b.vy - vn * ny;
-    const e = TUNING.ball.wallE;
-    const friction = TUNING.ball.wallFriction;
-    const newVn = -vn * e;
-    b.vx = vtx * friction + newVn * nx;
-    b.vy = vty * friction + newVn * ny;
-    const speed = Math.abs(vn);
+    const nxWall = b.x / r, nyWall = b.y / r;
+    b.x = nxWall * rMax;
+    b.y = nyWall * rMax;
+    const vnWall = b.vx * nxWall + b.vy * nyWall;
+    const vtxWall = b.vx - vnWall * nxWall;
+    const vtyWall = b.vy - vnWall * nyWall;
+    const eWall = TUNING.ball.wallE;
+    const frictionWall = TUNING.ball.wallFriction;
+    const newVnWall = -vnWall * eWall;
+    b.vx = vtxWall * frictionWall + newVnWall * nxWall;
+    b.vy = vtyWall * frictionWall + newVnWall * nyWall;
+    const speed = Math.abs(vnWall);
     if (speed > 30) soundGoldenThud(speed);
   }
 
@@ -1691,7 +1810,8 @@
       alive: true,
       inHighlightSince: null,
       merging: false,
-      imgIdx: finalImgIdx
+      imgIdx: finalImgIdx,
+      orbitFlashEndsAt: state.t + 2.0
     });
     soundSnap();
   }
@@ -1834,6 +1954,59 @@
     const rInnerPx = pxDist(CFG.R_DRUM) + 2;
     ctx.save();
     ctx.beginPath(); ctx.arc(CX, CY, rInnerPx, 0, Math.PI * 2); ctx.clip();
+
+    for (const agg of state.aggregates) {
+      if (agg.merging || agg.stuck) continue;
+      if (TUNING.aggregate.flashOrbit && state.t < agg.orbitFlashEndsAt) {
+        const absOm = Math.abs(state.omega);
+        if (absOm > 1e-3) {
+          const alpha = Math.max(0, (agg.orbitFlashEndsAt - state.t) / 2);
+          
+          // 1. Draw the aggregate orbit
+          const xcAgg = agg.vt / state.omega;
+          const rOrb = Math.hypot(agg.x - xcAgg, agg.y);
+          ctx.beginPath();
+          ctx.arc(X2px(xcAgg), Y2px(0), pxDist(rOrb), 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(200, 255, 220, ${alpha * 0.75})`;
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+
+          // 2. Calculate mean vt of currently levitated particles
+          const levParticles = eggLevitatedParticles();
+          let sumVt = 0;
+          for (const p of levParticles) {
+            sumVt += p.vt;
+          }
+          const meanVt = levParticles.length > 0 ? (sumVt / levParticles.length) : agg.vt;
+          const xcMean = meanVt / state.omega;
+
+          // 3. Draw dots and connecting line
+          const pxAggX = X2px(xcAgg);
+          const pxMeanX = X2px(xcMean);
+          const py0 = Y2px(0);
+
+          ctx.strokeStyle = `rgba(255, 220, 100, ${alpha * 0.9})`;
+          ctx.fillStyle = `rgba(255, 220, 100, ${alpha})`;
+          ctx.lineWidth = 1.5;
+
+          // Line
+          ctx.beginPath();
+          ctx.moveTo(pxAggX, py0);
+          ctx.lineTo(pxMeanX, py0);
+          ctx.stroke();
+
+          // Dot at aggregate orbit center
+          ctx.beginPath();
+          ctx.arc(pxAggX, py0, 3, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Dot at mean particle orbit center
+          ctx.beginPath();
+          ctx.arc(pxMeanX, py0, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
 
     for (const agg of state.aggregates) {
       if (agg.merging) continue;
@@ -2478,7 +2651,6 @@
       ctx.restore();
     }
   }
-
   function drawAxis() {
     const r = Math.max(3, pxDist(CFG.R_AXIS));
     ctx.fillStyle = 'rgba(0,0,0,0.6)';
@@ -2639,6 +2811,53 @@
     drawGoldenBalls();
     drawGlare();
     drawBoltRing();
+
+    // --- v_t Reference Projection Overlay ---
+    if (TUNING.particle.showVtProjection) {
+      const absOm = Math.abs(state.omega);
+      // Only draw if the drum is actually spinning enough to have an orbit center
+      if (absOm > 0.01) {
+        const vtBase = CFG.V_T;
+        // Uses the dynamic spread from the left wing settings
+        const delta = vtBase * CFG.VT_SPREAD; 
+        const velocities = [vtBase - delta, vtBase, vtBase + delta];
+        const py0 = Y2px(0);
+        
+        ctx.save();
+        // Cyan "HUD" style
+        ctx.strokeStyle = 'rgba(0, 255, 255, 0.5)';
+        ctx.fillStyle = 'rgba(0, 255, 255, 0.7)';
+        ctx.setLineDash([4, 4]); 
+        ctx.lineWidth = 1.2;
+
+        // Calculate x = v_t / omega
+        let points = velocities.map(v => X2px(v / state.omega));
+
+        // Draw horizontal connecting line
+        ctx.beginPath();
+        ctx.moveTo(points[0], py0);
+        ctx.lineTo(points[2], py0);
+        ctx.stroke();
+
+        // Draw the 3 reference points
+        points.forEach((px, i) => {
+          ctx.beginPath();
+          // Middle point (v_t) is larger
+          const radius = (i === 1) ? 5 : 2.5;
+          ctx.arc(px, py0, radius, 0, Math.PI * 2);
+          
+          if (i === 1) {
+            ctx.fill();   // Solid center target
+          } else {
+            ctx.setLineDash([]); // Delta points are open rings
+            ctx.stroke();
+          }
+        });
+        
+        ctx.restore();
+      }
+    }
+
     drawViewport();
   }
 
@@ -3234,7 +3453,7 @@
   let cheatNoDecay = false;
   let cheatHoldTimer = null;
   let cheatHoldFired = false;
-  const CHEAT_HOLD_MS = 5000;
+  const CHEAT_HOLD_MS = 3000;
 
   function applyCheat(on) {
     cheatNoDecay = on;
@@ -3319,43 +3538,52 @@
     levelIdx: 0,
     phase: 'idle',
     goalHoldSince: null,
+
+
     levels: [
-      { name: 'First levitation',
-        params: { NP: 3,  VT: 30, SPREAD: 0,    DT: 1, trails: false, laser: false },
-        goal:   { minLevitated: 1, holdSeconds: 3 },
-        describe: function () { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + ' s'; },
+      { 
+        name: 'First levitation', 
+        params: { NP: 3, VT: 20, SPREAD: 0, DT: 1, trails: false, laser: false }, 
+        goal: { minLevitated: 1, holdSeconds: 3 },
+        describe: function() { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + 's'; } 
       },
-      { name: 'Steady hand',
-        params: { NP: 3,  VT: 30, SPREAD: 0,    DT: 1, trails: true, laser: false },
-        goal:   { minLevitated: 2, holdSeconds: 5 },
-        describe: function () { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + ' s'; },
+      { 
+        name: 'The Feedback Loop', 
+        params: { NP: 3, VT: 30, SPREAD: 0, DT: 1, trails: true, laser: false }, 
+        goal: { minLevitated: 2, holdSeconds: 5 },
+        describe: function() { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + 's'; } 
       },
-      { name: 'Patience',
-        params: { NP: 3,  VT: 30, SPREAD: 0,    DT: 1, trails: true, laser: false },
-        goal:   { minLevitated: 3, holdSeconds: 8 },
-        describe: function () { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + ' s'; },
+      { 
+        name: 'High-Mass Handling', 
+        params: { NP: 3, VT: 50, SPREAD: 0, DT: 1, trails: true, laser: false }, 
+        goal: { minLevitated: 2, holdSeconds: 5 },
+        describe: function() { return 'Handle faster particles (v_t=50) for ' + this.goal.holdSeconds + 's'; } 
       },
-      { name: 'Faster falls',
-        params: { NP: 3,  VT: 50, SPREAD: 0,    DT: 1, trails: true, laser: false },
-        goal:   { minLevitated: 2, holdSeconds: 5 },
-        describe: function () { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + ' s'; },
+      { 
+        name: 'A Mixed Batch', 
+        params: { NP: 10, VT: 30, SPREAD: 0.05, DT: 2, trails: false, laser: false }, 
+        goal: { minLevitated: 4, holdSeconds: 5 },
+        describe: function() { return 'Handle a 5% speed spread and levitate ' + this.goal.minLevitated + ' particles.'; } 
       },
-      { name: 'A mixed batch',
-        params: { NP: 10, VT: 30, SPREAD: 0.05, DT: 2, trails: false, laser: false },
-        goal:   { minLevitated: 4, holdSeconds: 5 },
-        describe: function () { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + ' s'; },
+      { 
+        name: 'Lidar Navigation', 
+        params: { NP: 30, VT: 30, SPREAD: 0.10, DT: 2, trails: false, laser: true }, 
+        goal: { minLevitated: 10, holdSeconds: 10 },
+        describe: function() { return 'Navigate in the dark using the laser scan.'; } 
       },
-      { name: 'Slow drift',
-        params: { NP: 10, VT: 10, SPREAD: 0,    DT: 2, trails: false, laser: false },
-        goal:   { minLevitated: 6, holdSeconds: 8 },
-        describe: function () { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + ' s'; },
+      { 
+        name: 'Aggregate Synthesis', 
+        params: { NP: 50, VT: 30, SPREAD: 0.20, DT: 3, trails: true, laser: false }, 
+        goal: { minLevitated: 1, holdSeconds: 0, minAggregates: 1 },
+        describe: function() { return 'Increase collisions to form your first aggregate.'; } 
       },
-      { name: 'The swarm',
-        params: { NP: 30, VT: 30, SPREAD: 0.10, DT: 2, trails: false, laser: true },
-        goal:   { minLevitated: 10, holdSeconds: 10 },
-        describe: function () { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + ' s'; },
-      },
-    ],
+      { 
+        name: 'Pebble Synthesis', 
+        params: { NP: 300, VT: 30, SPREAD: 0.30, DT: 5, trails: true, laser: false }, 
+        goal: { minLevitated: 0, holdSeconds: 0, minPebbles: 1 },
+        describe: function() { return 'Form a Pebble by merging multiple aggregates.'; } 
+      }
+    ]
   };
 
   const elTitlePlate = document.getElementById('titlePlate');
@@ -3502,30 +3730,39 @@
   function updateGame() {
     if (!GAME.on || GAME.phase !== 'playing') return;
     const lv = currentLevel();
+    
+    // 1. Check for Pebble-based goals (Final Level)
+    if (lv.goal.minPebbles !== undefined) {
+      if (state.eggBallCount >= lv.goal.minPebbles) {
+        endGameRun('won');
+        return;
+      }
+    }
+  
+    // 2. Existing Levitated Particle logic
     const absOm = Math.abs(state.omega);
     const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
     let lev = 0, floating = 0;
-
+  
     for (const p of state.particles) {
       if (!p.alive) continue;
       if (p.stuck) continue;
       floating++;
       if (isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T) lev++;
     }
-
+  
     if (lev >= lv.goal.minLevitated) {
       if (GAME.goalHoldSince === null) GAME.goalHoldSince = state.t;
-      const held = state.t - GAME.goalHoldSince;
-      if (held >= lv.goal.holdSeconds) {
+      if (state.t - GAME.goalHoldSince >= lv.goal.holdSeconds) {
         endGameRun('won');
         return;
       }
     } else {
       GAME.goalHoldSince = null;
       const allInjected = state.toInject.length === 0;
-      if (allInjected && floating < lv.goal.minLevitated) {
+      // Fail condition: not enough particles left to reach the goal
+      if (allInjected && floating < lv.goal.minLevitated && lv.goal.minPebbles === undefined) { 
         endGameRun('lost');
-        return;
       }
     }
   }
@@ -3569,23 +3806,47 @@
   }
 
   function enterChallengeMode(on) {
-    CHALLENGE.on = on;
-    btnChallenge.classList.toggle('on', on);
-
-    if (on && GAME.on) enterGameMode(false);
-    if (elTitlePlate) elTitlePlate.hidden = on || GAME.on;
-
-    if (on) {
-      CHALLENGE.phase = 'idle';
-      showChallengeIntro();
-    } else {
-      CHALLENGE.phase = 'idle';
-      challengeSheet.hidden = true;
-      lockSelectors(false);
-      initLevel();
-    }
+      CHALLENGE.on = on;
+      btnChallenge.classList.toggle('on', on);
+  
+      if (on && GAME.on) enterGameMode(false);
+      if (elTitlePlate) elTitlePlate.hidden = on || GAME.on;
+  
+      if (on) {
+        CHALLENGE.phase = 'idle';
+        showChallengeIntro();
+      } else {
+        CHALLENGE.phase = 'idle';
+        challengeSheet.hidden = true;
+        lockSelectors(false);
+        
+        // Ensure video and overlay elements are hidden when exiting
+        hideVideoElement();
+        
+        initLevel();
+      }
   }
-
+  
+  // Logic for the new UI elements proposed
+  const chalExitBtn = document.getElementById('chalExitBtn');
+  const chalClearBtn = document.getElementById('chalClearBtn');
+  
+  if (chalExitBtn) {
+      chalExitBtn.addEventListener('click', () => {
+          enterChallengeMode(false);
+      });
+  }
+  
+  if (chalClearBtn) {
+      chalClearBtn.addEventListener('click', () => {
+          if (confirm("Permanently clear all highscores?")) {
+              CHALLENGE.scores = [];
+              saveHighscores();
+              renderHighscores();
+          }
+      });
+  }
+        
   function showChallengeIntro() {
     chalTitle.textContent = "Outreach Challenge";
     chalDesc.textContent = `Levitate as many particles as possible for 3 full orbits. Current Setup: ${CFG.N_P} particles.`;
@@ -3690,6 +3951,114 @@
     if (GAME.on && GAME.phase === 'playing') endGameRun('aborted');
     if (CHALLENGE.on && CHALLENGE.phase === 'playing') endChallengeRun(0);
   });
+
+
+  // ============================================================
+  // DEV SETTINGS PANEL (SECRET HANDSHAKE)
+  // ============================================================
+  const devOverlay = document.getElementById('devOverlay');
+  const devClose = document.getElementById('devClose');
+  const titlePlateLink = document.getElementById('titlePlate');
+  
+  const chkFlashOrbit = document.getElementById('chkFlashOrbit');
+  const sldOmegaDecay = document.getElementById('sldOmegaDecay');
+  const valOmegaDecay = document.getElementById('valOmegaDecay');
+  const sldMinLev = document.getElementById('sldMinLev');
+  const valMinLev = document.getElementById('valMinLev');
+  const chkInvincible = document.getElementById('chkInvincible');
+  
+  let tapCount = 0;
+  let tapTimer = null;
+
+  if (titlePlateLink) {
+    titlePlateLink.addEventListener('click', (e) => {
+      e.preventDefault(); 
+      tapCount++;
+      
+      if (tapTimer) clearTimeout(tapTimer);
+      
+      if (tapCount >= 3) {
+        tapCount = 0;
+        
+        // Populate current values
+        if (chkFlashOrbit) chkFlashOrbit.checked = TUNING.aggregate.flashOrbit;
+        if (sldOmegaDecay) {
+          sldOmegaDecay.value = TUNING.drum.omegaDecay;
+          valOmegaDecay.textContent = parseFloat(TUNING.drum.omegaDecay).toFixed(2);
+        }
+        if (sldMinLev) {
+          sldMinLev.value = TUNING.aggregate.minLevitated;
+          valMinLev.textContent = TUNING.aggregate.minLevitated;
+        }
+        if (chkInvincible) chkInvincible.checked = TUNING.particle.invincible;
+
+        devOverlay.hidden = false;
+      } else {
+        tapTimer = setTimeout(() => { 
+          if (tapCount === 1 && titlePlateLink.href) {
+            window.open(titlePlateLink.href, titlePlateLink.target || '_self');
+          }
+          tapCount = 0; 
+        }, 400);
+      }
+    });
+  }
+
+  function closeDevPanel() {
+    devOverlay.hidden = true;
+  }
+
+  if (devClose) devClose.addEventListener('click', closeDevPanel);
+  if (devOverlay) {
+    devOverlay.addEventListener('click', (e) => {
+      if (e.target === devOverlay) closeDevPanel();
+    });
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && devOverlay && !devOverlay.hidden) closeDevPanel();
+  });
+
+  // Parameter Event Listeners
+  if (chkFlashOrbit) {
+    chkFlashOrbit.addEventListener('change', (e) => {
+      TUNING.aggregate.flashOrbit = e.target.checked;
+    });
+  }
+  
+  const chkShowVtProjection = document.getElementById('chkShowVtProjection');
+  if (chkShowVtProjection) {
+    chkShowVtProjection.checked = TUNING.particle.showVtProjection;
+    chkShowVtProjection.addEventListener('change', (e) => {
+      TUNING.particle.showVtProjection = e.target.checked;
+    });
+  }
+
+  if (sldOmegaDecay) {
+    sldOmegaDecay.addEventListener('input', (e) => {
+      const v = parseFloat(e.target.value);
+      TUNING.drum.omegaDecay = v;
+      valOmegaDecay.textContent = v.toFixed(2);
+    });
+  }
+
+  if (sldMinLev) {
+    sldMinLev.addEventListener('input', (e) => {
+      const v = parseInt(e.target.value, 10);
+      TUNING.aggregate.minLevitated = v;
+      valMinLev.textContent = v;
+    });
+  }
+
+  if (chkInvincible) {
+    chkInvincible.addEventListener('change', (e) => {
+      TUNING.particle.invincible = e.target.checked;
+    });
+  }
+  // ============================================================
+  // End DEV SETTINGS PANEL (SECRET HANDSHAKE)
+  // ============================================================
+  
 
   window.addEventListener('resize', layout);
   layout();
@@ -4440,4 +4809,4 @@ function updateViewport(dt) {
 })();
 </script>
 </body>
-</html>            
+</html>
