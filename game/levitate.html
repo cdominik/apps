@@ -742,6 +742,13 @@
           Nanocoat the drum wall, so particles do not stick
         </label>
       </div>
+
+      <div class="dev-control">
+        <label>
+          <input type="checkbox" id="chkShowHeatmap">
+          Show Static Velocity Dispersion Heatmap
+        </label>
+      </div>
       
     </div>
   </div>
@@ -1216,6 +1223,26 @@
     aggMerging: null,
   };
 
+  const heatmap = {
+    enabled: false,
+    resolution: 15, // 25x25 grid
+    data: [],       // Current display data
+    accN: [],       // Sample count accumulator
+    accV: [],       // Velocity sum accumulator
+    accV2: [],      // Velocity squared sum accumulator
+    lastAngle: 0,
+    angleProgress: 0,
+    maxSigma: 0,
+    opacity: 0.5,
+    ready: false,
+  };
+  // Initialize the grid arrays
+  const gridSize = heatmap.resolution * heatmap.resolution;
+  heatmap.data = new Float32Array(gridSize);
+  heatmap.accN = new Int32Array(gridSize);
+  heatmap.accV = new Float32Array(gridSize);
+  heatmap.accV2 = new Float32Array(gridSize);
+    
   const aggregateImages = [];
   for (let i = 0; i < 5; i++) {
     const img = new Image();
@@ -1304,7 +1331,7 @@
   }
 
   function step(dt) {
-  while (state.toInject.length && state.toInject[0].t <= state.t) {
+    while (state.toInject.length && state.toInject[0].t <= state.t) {
       const inj = state.toInject.shift();
       state.particles.push({
         x: inj.x, y: CFG.RELEASE_Y,
@@ -1410,6 +1437,56 @@
     }
 
     state.t += dt;
+
+    if (heatmap.enabled) {
+      const HX = TUNING.highlight.cx, HY = TUNING.highlight.cy, HR = TUNING.highlight.radius;
+      const res = heatmap.resolution;
+      
+      for (const p of state.particles) {
+        if (!p.alive || p.stuck) continue;
+        
+        // Check if inside highlight zone
+        const dx = p.x - HX, dy = p.y - HY;
+        if (dx * dx + dy * dy <= HR * HR) {
+          // Map to grid (0 to 100 for X, -50 to 50 for Y)
+          const gx = Math.floor((p.x / 100) * res);
+          const gy = Math.floor(((p.y + 50) / 100) * res);
+          
+          if (gx >= 0 && gx < res && gy >= 0 && gy < res) {
+            const idx = gy * res + gx;
+            const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+            heatmap.accN[idx]++;
+            heatmap.accV[idx] += speed;
+            heatmap.accV2[idx] += speed * speed;
+          }
+        }
+      }
+      
+      // Track rotation progress
+      const diff = Math.abs(state.omega * dt);
+      heatmap.angleProgress += diff;
+      
+      if (heatmap.angleProgress >= 2 * Math.PI) {
+        let currentMax = 0;
+        for (let i = 0; i < gridSize; i++) {
+          if (heatmap.accN[i] > 2) { // Min samples for validity
+            const mean = heatmap.accV[i] / heatmap.accN[i];
+            const meanSq = heatmap.accV2[i] / heatmap.accN[i];
+            const sigma = Math.sqrt(Math.max(0, meanSq - mean * mean));
+            heatmap.data[i] = sigma;
+            if (sigma > currentMax) currentMax = sigma;
+          } else {
+            heatmap.data[i] = 0;
+          }
+        }
+        heatmap.maxSigma = currentMax;
+        heatmap.ready = true;
+        heatmap.angleProgress = 0;
+        heatmap.accN.fill(0);
+        heatmap.accV.fill(0);
+        heatmap.accV2.fill(0);
+      }
+    }
   }
 
   function eggLevitatedParticles() {
@@ -2859,6 +2936,71 @@
     }
 
     drawViewport();
+
+    if (heatmap.enabled && heatmap.maxSigma > 0 && heatmap.ready) {
+      const res = heatmap.resolution;
+      const cellW = pxDist(100 / res);
+      const cellH = pxDist(100 / res);
+      const startX = X2px(0);
+      const startY = Y2px(50);
+
+      ctxOv.save();
+      ctxOv.globalAlpha = heatmap.opacity;
+      
+      for (let gy = 0; gy < res; gy++) {
+        for (let gx = 0; gx < res; gx++) {
+          const sigma = heatmap.data[gy * res + gx];
+          if (sigma <= 0) continue;
+          
+          const u = sigma / heatmap.maxSigma;
+          // Navy (0, 16, 64) to White (255, 255, 255)
+          const r = Math.floor(0 + 255 * u);
+          const g = Math.floor(16 + 239 * u);
+          const b = Math.floor(64 + 191 * u);
+          
+          ctxOv.fillStyle = `rgb(${r},${g},${b})`;
+          ctxOv.fillRect(startX + gx * cellW, startY + gy * cellH, cellW + 1, cellH + 1);
+        }
+      }
+
+
+      // Draw Color Bar
+      const rOuter = pxDist(CFG.R_DRUM) + (REGIME === 'wide' ? 32 : (REGIME === 'compact' ? 18 : 14));
+      const barW = 15;
+      const barH = pxDist(60); // Scale height relative to drum size
+      
+      // Position just outside the drum band on the right
+      const bx = CX + rOuter + 10; 
+      const by = CY - barH / 2;
+      
+      const grad = ctxOv.createLinearGradient(0, by + barH, 0, by);
+      grad.addColorStop(0, 'rgb(0,16,64)');
+      grad.addColorStop(1, 'rgb(255,255,255)');
+      
+      ctxOv.fillStyle = grad;
+      ctxOv.fillRect(bx, by, barW, barH);
+      
+      // Border for the bar
+      ctxOv.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctxOv.lineWidth = 1;
+      ctxOv.strokeRect(bx, by, barW, barH);
+      
+      ctxOv.globalAlpha = 1.0;
+      ctxOv.fillStyle = '#fff';
+      ctxOv.font = 'bold 11px monospace';
+      ctxOv.textAlign = 'center';
+      
+      // Max value above the bar
+      ctxOv.fillText(heatmap.maxSigma.toFixed(1), bx + barW/2, by - 8);
+      // Unit/Zero below the bar
+      ctxOv.fillText("0.0", bx + barW/2, by + barH + 14);
+      
+      // Optional label for units
+      ctxOv.font = '8px monospace';
+      ctxOv.fillText("cm/s", bx + barW/2, by - 20);
+
+      ctxOv.restore();
+    }
   }
 
   function rgbLerp(a, b, t) { return Math.round(a + (b - a) * t); }
@@ -3377,8 +3519,8 @@
 
   const SETTINGS = {
     NP:     { values: [1, 2, 3, 10, 30, 100, 300, 1000], idx: 2, apply: (v) => { CFG.N_P = v; }, label: (v) => String(v) },
-    VT:     { values: [10, 20, 30, 40, 50], idx: 1, apply: (v) => { CFG.V_T = v; if (elVT) elVT.textContent = v.toFixed(1); }, label: (v) => String(v) },
-    SPREAD: { values: [0, 0.01, 0.02, 0.05, 0.10, 0.20, 0.30, 0.50], idx: 5, apply: (v) => { CFG.VT_SPREAD = v; }, label: (v) => Math.round(v * 100) + '%' },
+    VT:     { values: [2,5,10, 20, 30, 40, 50], idx: 3, apply: (v) => { CFG.V_T = v; if (elVT) elVT.textContent = v.toFixed(1); }, label: (v) => String(v) },
+    SPREAD: { values: [0, 0.01, 0.02, 0.05, 0.10, 0.20, 0.30, 0.50], idx: 3, apply: (v) => { CFG.VT_SPREAD = v; }, label: (v) => Math.round(v * 100) + '%' },
     DT:     { values: [0, 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], idx: 2, apply: (v) => { CFG.DT_INJECT = v; }, label: (v) => (v + ' s') },
   };
   const SEL_WIN = {
@@ -3434,6 +3576,13 @@
   });
 
   btnReset.addEventListener('click', () => {
+    heatmap.data.fill(0);
+    heatmap.accN.fill(0);
+    heatmap.accV.fill(0);
+    heatmap.accV2.fill(0);
+    heatmap.angleProgress = 0;
+    heatmap.ready = false;
+    ctxOv.clearRect(0, 0, W, H);
     initLevel();
     btnStart.classList.remove('on');
     if (btnStart.injectTimeout) clearTimeout(btnStart.injectTimeout);
@@ -3538,7 +3687,6 @@
     levelIdx: 0,
     phase: 'idle',
     goalHoldSince: null,
-
 
     levels: [
       { 
@@ -3966,7 +4114,18 @@
   const sldMinLev = document.getElementById('sldMinLev');
   const valMinLev = document.getElementById('valMinLev');
   const chkInvincible = document.getElementById('chkInvincible');
-  
+
+  const chkShowHeatmap = document.getElementById('chkShowHeatmap');
+  if (chkShowHeatmap) {
+    chkShowHeatmap.addEventListener('change', (e) => {
+      heatmap.enabled = e.target.checked;
+      if (!heatmap.enabled) {
+        // Clear the overlay when disabled
+        ctxOv.clearRect(0, 0, W, H);
+      }
+    });
+  }
+    
   let tapCount = 0;
   let tapTimer = null;
 
