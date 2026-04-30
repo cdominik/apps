@@ -3987,7 +3987,7 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
 
   const SETTINGS = {
       NP:     { values: [1, 2, 3, 10, 30, 100, 300, 1000, 3000, 10000], idx: 2, apply: (v) => { CFG.N_P = v; }, label: (v) => String(v) },
-    VT:     { values: [2,5,10, 20, 30, 40, 50], idx: 3, apply: (v) => { CFG.V_T = v; if (elVT) elVT.textContent = v.toFixed(1); }, label: (v) => String(v) },
+    VT:     { values: [2,5,10, 20, 30, 40, 50], idx: 2, apply: (v) => { CFG.V_T = v; if (elVT) elVT.textContent = v.toFixed(1); }, label: (v) => String(v) },
     SPREAD: { values: [0, 0.01, 0.02, 0.05, 0.10, 0.20, 0.30, 0.50], idx: 3, apply: (v) => { CFG.VT_SPREAD = v; }, label: (v) => Math.round(v * 100) + '%' },
     DT:     { values: [0, 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], idx: 2, apply: (v) => { CFG.DT_INJECT = v; }, label: (v) => (v + ' s') },
   };
@@ -5511,7 +5511,7 @@ function updateViewport(dt) {
           setTimeout(() => {
               showSheet(
                   "LIMIT OF SIMULATION SPACE REACHED", 
-                  "Many planets, and you are still playing? Time to go do something else! Thank you for exploring the limits of our little simulation.", 
+                  "Many planets, and you are still playing? Time to go do something else! But thank you for exploring the limits of our little simulation.", 
                   "Reset Lab", 
                   () => { 
                       gameSheet.hidden = true;
