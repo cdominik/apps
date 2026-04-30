@@ -44,6 +44,12 @@
     z-index: 10;
   }
 
+
+  /* Make the chevron arrows slightly darker too for visibility */
+  body.theme-light .sel .chev {
+    color: #1a1006;
+  }
+
   #wingMiddle { display: none; }
   body.regime-portrait #wingMiddle { display: flex; }
 
@@ -319,6 +325,20 @@
 
   .gauges { position: absolute; display: flex; justify-content: center; align-items: center; gap: 10px; padding: 0 20px; box-sizing: border-box; z-index: 10; pointer-events: none; }
   .gauge { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 78px; }
+
+  /* High-Contrast Label Fix for Light Mode */
+  body.theme-light #wingLeft .sel-lbl,
+  body.theme-light #wingRight .sel-lbl,
+  body.theme-light #gauges .lbl {
+    color: #000000 !important;   /* Solid black for the labels */
+    text-shadow: none !important; /* Remove any gold/glow shadows */
+    opacity: 1 !important;        /* Ensure no transparency is inherited */
+    font-weight: 900 !important;  /* Make the font extra thick */
+  }
+  /* Fix for the digital readout numbers (the green/red text) */
+  body.theme-light .scr {
+    filter: brightness(0.8) contrast(1.2); /* Make the "glow" text deeper and sharper */
+  }
   .disp {
     position: relative; width: 78px; height: 36px; border-radius: 4px; padding: 3px;
     background: linear-gradient(180deg, #d9b76a 0%, #8a6b2e 40%, #5a4418 70%, #8a6b2e 100%);
@@ -699,9 +719,9 @@
         <li><strong>Lighting</strong> — toggles the lab between a dim night
           setting and a bright day setting.</li>
         <li><strong>Microscope / Chart</strong> — slide the ceiling-mounted
-          viewport down to display close-up imagery (microscope) or live data
-          plots (chart). What is shown depends on the current state of the
-          experiment, driven by an external rules file.</li>
+          viewport down to display close-up imagery (microscope) or data
+          plots (chart). That data actually comes from our real lab
+          and simulations.</li>
       </ul>
 
       <h3>Game & Challenge</h3>
