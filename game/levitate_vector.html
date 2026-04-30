@@ -760,12 +760,6 @@
         </label>
       </div>
 
-      <div class="dev-control">
-        <label>
-          <input type="checkbox" id="chkShowHeatmap">
-          Show Static Velocity Dispersion Heatmap
-        </label>
-      </div>
       
       <div class="dev-control">
         <label>
@@ -776,16 +770,22 @@
 
       <!-- Add this block inside devOverlay -->
       <div class="dev-control">
-        <div style="margin-bottom: 6px;">Heatmap Visualization Mode:</div>
-        <label style="display: block; margin-bottom: 4px;">
-          <input type="radio" name="hmMode" id="radDispersion" checked> Velocity Dispersion (σ)
+        <label>
+          <input type="checkbox" id="chkShowHeatmap">
+          Show Collision Analysis Heatmap
         </label>
-        <label style="display: block; margin-bottom: 4px;">
-          <input type="radio" name="hmMode" id="radDensity"> Average Particle Density (ρ)
-        </label>
-        <label style="display: block;">
-          <input type="radio" name="hmMode" id="radProduct"> Collision Proxy (ρ × σ²)
-        </label>
+        <div class="dev-control">
+          <div style="margin-bottom: 6px;">Heatmap Visualization Mode:</div>
+          <label style="display: block; margin-bottom: 4px;">
+            <input type="radio" name="hmMode" id="radDispersion" checked> Velocity Dispersion (σ)
+          </label>
+          <label style="display: block; margin-bottom: 4px;">
+            <input type="radio" name="hmMode" id="radDensity"> Average Particle Density (ρ)
+          </label>
+          <label style="display: block;">
+            <input type="radio" name="hmMode" id="radProduct"> Collision Proxy (ρ × σ²)
+          </label>
+        </div>
       </div>
 
 
@@ -884,7 +884,7 @@
       radius: 50,
     },
     egg: {
-      nCrit:      10,
+      nCrit:      2,
       holdTarget: 3,
       holdSubseq: 3,
       maxBalls:   10,
@@ -917,6 +917,7 @@
       mergeDur:   1.2,     // Duration of the merge animation
       hoverY:     -50,     // Halfway between axis (0) and bottom wall (-100)
       rotationSpeed: 0.8,  // How fast the Earth spins while hovering
+      repulsion:  15000,   // Strength of the push between globes
     },
     audio: {
       masterGain: 0.6,
@@ -1309,6 +1310,8 @@
     img.src = `assets/aggregates/agg${i}.png`;
     aggregateImages.push(img);
   }
+  const earthImg = new Image();
+  earthImg.src = 'assets/map.jpg'; // Ensure this filename matches your saved file
 
   function initLevel() {
     state.running = false;
@@ -1629,48 +1632,92 @@
     }
   }
 
-function updateGlobe(dt) {
-    // 1. "Magical" Hover and Rotation Logic
-    for (const g of state.globes) {
-      // Smoothly move toward the fixed hover position (x:0, y:-50)
-      g.x += (0 - g.x) * 0.05;
-      g.y += (TUNING.globe.hoverY - g.y) * 0.05;
+  function updateGlobe(dt) {
+    const R_GLOBE = TUNING.globe.radius;
+    const MIN_DIST = R_GLOBE * 2.2; // Stay at least 2.2 radii apart to avoid overlap
+
+    for (let i = 0; i < state.globes.length; i++) {
+      const g = state.globes[i];
+
+      // A. Attraction to the magical hover point
+      // Lower 0.02 and 0.85 makes them drift like they are in thick oil
+      const ax = (0 - g.x) * 0.01; 
+      const ay = (TUNING.globe.hoverY - g.y) * 0.01;
       
-      // Magic rotation: spins independently of drum speed
+      g.vx = (g.vx + ax) * 0.85; 
+      g.vy = (g.vy + ay) * 0.85;
+
+      // B. Enhanced Repulsion Force
+      for (let j = 0; j < state.globes.length; j++) {
+        if (i === j) continue;
+        const other = state.globes[j];
+        const dx = g.x - other.x;
+        const dy = g.y - other.y;
+        const dist = Math.hypot(dx, dy);
+        const distSq = dx * dx + dy * dy + 10; 
+        
+        // 1. Standard "Coulomb" repulsion (long range)
+        let force = TUNING.globe.repulsion / distSq;
+
+        // 2. Hard-Shell push (short range) - prevents overlapping[cite: 3]
+        if (dist < MIN_DIST) {
+           force += (MIN_DIST - dist) * 50; 
+        }
+        
+        const angle = Math.atan2(dy, dx);
+        g.vx += Math.cos(angle) * force * dt;
+        g.vy += Math.sin(angle) * force * dt;
+      }
+
+      // Apply movement[cite: 3]
+      g.x += g.vx;
+      g.y += g.vy;
+      
+      // Magic rotation[cite: 3]
       g.spin += TUNING.globe.rotationSpeed * dt;
     }
-
-    // 2. Start merge if we have enough pebbles
+  
+    // 2. Trigger the soft gathering of pebbles (unchanged)
     if (!state.globeMerging && state.goldenBalls.length >= TUNING.globe.nCrit) {
       const chosen = state.goldenBalls.slice(0, TUNING.globe.nCrit);
-      for (const b of chosen) b.merging = true; 
-      
+      // Calculate the actual center between the two pebbles
+      const avgX = (chosen[0].x + chosen[1].x) / 2;
+      const avgY = (chosen[0].y + chosen[1].y) / 2;
+
+      for (const b of chosen) {
+        b.merging = true; 
+        b.mergeStart = { x: b.x, y: b.y };
+      }
       state.globeMerging = {
         pebbles: chosen,
         startedAt: state.t,
         dur: TUNING.globe.mergeDur,
-        target: { x: 0, y: TUNING.globe.hoverY } // Merge toward the hover point
+        target: { x: avgX, y: avgY } // PEBBLES NOW MEET WHERE THEY ARE
       };
     }
 
-    // 3. Handle merge completion
+    // 3. Handle gathering motion and spawn (unchanged)
     if (state.globeMerging) {
       const m = state.globeMerging;
       const u = (state.t - m.startedAt) / m.dur;
+      const ease = u * u * (3 - 2 * u);
+      for (const b of m.pebbles) {
+        b.x = b.mergeStart.x + (m.target.x - b.mergeStart.x) * ease;
+        b.y = b.mergeStart.y + (m.target.y - b.mergeStart.y) * ease;
+      }
       if (u >= 1) {
         state.goldenBalls = state.goldenBalls.filter(b => !m.pebbles.includes(b));
         state.globes.push({
-          x: m.target.x, y: m.target.y, vx: 0, vy: 0,
+          x: m.target.x, y: m.target.y, 
+          vx: (Math.random() - 0.5) * 5, // Give it a little initial kick
+          vy: (Math.random() - 0.5) * 5,
           r: TUNING.globe.radius,
-          spin: 0,
-          bornAt: state.t
+          spin: 0, bornAt: state.t
         });
-        soundCrunch(); // The big synthesis sound
         state.globeMerging = null;
       }
     }
   }
-
 
   function integrateGoldenBall(b, dt) {
     b.vy -= TUNING.ball.gravity * dt;
@@ -2061,84 +2108,54 @@ function updateGlobe(dt) {
 
       ctx.save();
       
-      // 1. Outer Atmospheric Halo (Glow)
-      const halo = ctx.createRadialGradient(cx, cy, rpx * 0.9, cx, cy, rpx * 1.25);
-      halo.addColorStop(0, 'rgba(100, 200, 255, 0.4)');
-      halo.addColorStop(0.4, 'rgba(100, 180, 255, 0.2)');
+      // 1. Atmospheric Halo (The outer blue glow)
+      const halo = ctx.createRadialGradient(cx, cy, rpx * 0.9, cx, cy, rpx * 1.3);
+      halo.addColorStop(0, 'rgba(100, 200, 255, 0.3)');
       halo.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = halo;
-      ctx.beginPath(); ctx.arc(cx, cy, rpx * 1.25, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx, cy, rpx * 1.3, 0, Math.PI * 2); ctx.fill();
 
-      // 2. Deep Blue Marble Base
-      const oceanGrad = ctx.createRadialGradient(cx - rpx*0.2, cy - rpx*0.2, 0, cx, cy, rpx);
-      oceanGrad.addColorStop(0, '#2b82c9'); // Vibrant sunlit water
-      oceanGrad.addColorStop(1, '#04152e'); // Shadowed deep water
-      ctx.fillStyle = oceanGrad;
-      ctx.beginPath(); ctx.arc(cx, cy, rpx, 0, Math.PI * 2); ctx.fill();
+      // 2. Setup the Sphere Clipping
+      ctx.beginPath(); 
+      ctx.arc(cx, cy, rpx, 0, Math.PI * 2); 
+      ctx.clip(); // All drawing below happens ONLY inside the circle
 
-      // 3. Perfect Rotating Continents (Clipped to sphere)
-      ctx.save();
-      ctx.beginPath(); ctx.arc(cx, cy, rpx, 0, Math.PI * 2); ctx.clip();
-      
-      ctx.fillStyle = '#4caf50'; // Lush green
-      for(let i=0; i<8; i++) {
-        const ang = g.spin + (i * 0.78); // More blobs for detail
-        const latOffset = Math.sin(i * 1.5) * rpx * 0.4;
-        const bx = cx + Math.cos(ang) * rpx * 0.7;
-        const by = cy + latOffset;
+      // 3. Draw the Texture (Double-draw for seamless looping)
+      if (earthImg.complete) {
+        // Texture width is 4 * radius, height is 2 * radius
+        const tw = rpx * 4; 
+        const th = rpx * 2;
         
-        // Landmass shape
-        ctx.beginPath();
-        ctx.ellipse(bx, by, rpx * 0.4, rpx * 0.25, ang * 0.5, 0, Math.PI * 2);
+        // Calculate shift: g.spin determines horizontal offset
+        // We use a multiplier (e.g., 50) to control visual rotation speed
+        const shift = (g.spin * 50) % tw; 
+
+        // Draw image twice side-by-side so as one exits, the other enters
+        ctx.drawImage(earthImg, cx - rpx - shift, cy - rpx, tw, th);
+        ctx.drawImage(earthImg, cx - rpx - shift + tw, cy - rpx, tw, th);
+      } else {
+        // Fallback if image isn't loaded yet
+        ctx.fillStyle = '#1e4a6d';
         ctx.fill();
-        
-        // Add "Mountain" highlights to land
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-        ctx.beginPath();
-        ctx.arc(bx - 5, by - 5, rpx * 0.1, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#4caf50';
       }
 
-      // 4. Wispy Clouds (Layered on top of land)
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-      for(let i=0; i<5; i++) {
-        const ang = g.spin * 1.2 + (i * 1.2); // Clouds move faster!
-        const bx = cx + Math.cos(ang) * rpx * 0.8;
-        const by = cy + Math.sin(i) * rpx * 0.5;
-        ctx.beginPath();
-        ctx.arc(bx, by, rpx * 0.3, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.restore(); // End clipping
+      // 4. Spherical Shading (Overlay to give 3D depth)
+      // Light source is top-left
+      const shade = ctx.createRadialGradient(cx - rpx*0.3, cy - rpx*0.3, 0, cx, cy, rpx);
+      shade.addColorStop(0, 'rgba(255, 255, 255, 0.2)'); // Highlight
+      shade.addColorStop(0.5, 'rgba(0, 0, 0, 0)');      // Midtones
+      shade.addColorStop(1, 'rgba(0, 0, 0, 0.6)');      // Shadow edge
+      ctx.fillStyle = shade;
+      ctx.fillRect(cx - rpx, cy - rpx, rpx * 2, rpx * 2);
 
-      // 5. Specular Reflection (The "Shiny" Spot)
-      const shine = ctx.createRadialGradient(cx - rpx*0.4, cy - rpx*0.4, 0, cx - rpx*0.4, cy - rpx*0.4, rpx * 0.6);
-      shine.addColorStop(0, 'rgba(255, 255, 255, 0.5)');
+      ctx.restore(); // Exit clipping
+
+      // 5. Specular Shine (The glossy "perfect" look)
+      const shine = ctx.createRadialGradient(cx - rpx*0.4, cy - rpx*0.4, 0, cx - rpx*0.4, cy - rpx*0.4, rpx * 0.7);
+      shine.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
       shine.addColorStop(1, 'rgba(255, 255, 255, 0)');
       ctx.fillStyle = shine;
-      ctx.beginPath(); ctx.arc(cx - rpx*0.4, cy - rpx*0.4, rpx * 0.6, 0, Math.PI * 2); ctx.fill();
-
-      // 6. Global Rim Lighting
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(cx, cy, rpx, 0, Math.PI * 2); ctx.stroke();
-
-      ctx.restore();
-    }
-
-    // Merge logic remains the same
-    if (state.globeMerging) {
-      const m = state.globeMerging;
-      const u = Math.min(1, (state.t - m.startedAt) / m.dur);
-      for (const b of m.pebbles) {
-        ctx.strokeStyle = `rgba(135, 206, 250, ${1 - u})`;
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.moveTo(X2px(b.x), Y2px(b.y));
-        ctx.lineTo(X2px(m.target.x), Y2px(m.target.y));
-        ctx.stroke();
-      }
+      ctx.beginPath(); ctx.arc(cx - rpx*0.4, cy - rpx*0.4, rpx * 0.7, 0, Math.PI * 2); ctx.fill();
     }
   }
 
@@ -3528,7 +3545,7 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
     AUDIO.motor.gainNoise.gain.setTargetAtTime(targetNoiseGain, t, TAU);
   }
   let lastTinkTime = 0;
-  const TINK_COOLDOWN = 0.05; // 50ms cooldown
+  const TINK_COOLDOWN = 0.5; // 50ms cooldown
   function soundTink() {
     if (!AUDIO.ctx) return;
     const now = AUDIO.ctx.currentTime;
