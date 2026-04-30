@@ -774,6 +774,21 @@
         </label>
       </div>
 
+      <!-- Add this block inside devOverlay -->
+      <div class="dev-control">
+        <div style="margin-bottom: 6px;">Heatmap Visualization Mode:</div>
+        <label style="display: block; margin-bottom: 4px;">
+          <input type="radio" name="hmMode" id="radDispersion" checked> Velocity Dispersion (σ)
+        </label>
+        <label style="display: block; margin-bottom: 4px;">
+          <input type="radio" name="hmMode" id="radDensity"> Average Particle Density (ρ)
+        </label>
+        <label style="display: block;">
+          <input type="radio" name="hmMode" id="radProduct"> Collision Proxy (ρ × σ²)
+        </label>
+      </div>
+
+
     </div>
   </div>
 
@@ -1252,20 +1267,29 @@
 
   const heatmap = {
     enabled: false,
-    resolution: 15, // 25x25 grid
-    data: [],       // Current display data
-    accN: [],       // Sample count accumulator
-    accV: [],       // Velocity sum accumulator
-    accV2: [],      // Velocity squared sum accumulator
+    mode: 'dispersion', // Default mode
+    resolution: 30,
+    data: [],       // Stores finalized sigma (Dispersion)
+    densData: [],   // Stores finalized density
+    prodData: [],   // Stores finalized product     
+    accN: [],       
+    accV: [],       
+    accV2: [],      
     lastAngle: 0,
     angleProgress: 0,
+    tickCount: 0,   // ADD THIS LINE
     maxSigma: 0,
+    maxDensity: 0,  
+    maxProduct: 0,  
     opacity: 0.5,
     ready: false,
   };
+    
   // Initialize the grid arrays
   const gridSize = heatmap.resolution * heatmap.resolution;
   heatmap.data = new Float32Array(gridSize);
+  heatmap.densData = new Float32Array(gridSize);
+  heatmap.prodData = new Float32Array(gridSize);
   heatmap.accN = new Int32Array(gridSize);
   heatmap.accV = new Float32Array(gridSize);
   heatmap.accV2 = new Float32Array(gridSize);
@@ -1466,19 +1490,14 @@
     state.t += dt;
 
     if (heatmap.enabled) {
-      const HX = TUNING.highlight.cx, HY = TUNING.highlight.cy, HR = TUNING.highlight.radius;
       const res = heatmap.resolution;
-      
+      heatmap.tickCount++; // Increment total frames sampled in this rotation
+
       for (const p of state.particles) {
         if (!p.alive || p.stuck) continue;
-        
-        // Check if inside highlight zone
-        const dx = p.x - HX, dy = p.y - HY;
-        if (dx * dx + dy * dy <= HR * HR) {
-          // Map to grid (0 to 100 for X, -50 to 50 for Y)
-          const gx = Math.floor((p.x / 100) * res);
-          const gy = Math.floor(((p.y + 50) / 100) * res);
-          
+        if (p.x * p.x + p.y * p.y <= CFG.R_DRUM * CFG.R_DRUM) {
+          const gx = Math.floor(((p.x + 100) / 200) * res);
+          const gy = Math.floor(((p.y + 100) / 200) * res);
           if (gx >= 0 && gx < res && gy >= 0 && gy < res) {
             const idx = gy * res + gx;
             const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
@@ -1489,26 +1508,44 @@
         }
       }
       
-      // Track rotation progress
       const diff = Math.abs(state.omega * dt);
       heatmap.angleProgress += diff;
-      
+
       if (heatmap.angleProgress >= 2 * Math.PI) {
-        let currentMax = 0;
+        let curMaxSigma = 0, curMaxDensity = 0, curMaxProduct = 0;
+        const totalTicks = Math.max(1, heatmap.tickCount); // The accumulated time divisor
+
         for (let i = 0; i < gridSize; i++) {
-          if (heatmap.accN[i] > 2) { // Min samples for validity
-            const mean = heatmap.accV[i] / heatmap.accN[i];
-            const meanSq = heatmap.accV2[i] / heatmap.accN[i];
-            const sigma = Math.sqrt(Math.max(0, meanSq - mean * mean));
-            heatmap.data[i] = sigma;
-            if (sigma > currentMax) currentMax = sigma;
+          if (heatmap.accN[i] > 2) {
+            const n = heatmap.accN[i];
+            const mean = heatmap.accV[i] / n;
+            const meanSq = heatmap.accV2[i] / n;
+            const variance = Math.max(0, meanSq - mean * mean);
+            
+            // DIVISION BY ACCUMULATED TIME: 
+            // density = average particles per frame in this cell
+            const density = n / totalTicks; 
+            const sigma = Math.sqrt(variance);
+
+            heatmap.data[i] = sigma; 
+            heatmap.densData[i] = density; 
+            heatmap.prodData[i] = density * variance; 
+            
+            if (sigma > curMaxSigma) curMaxSigma = sigma;
+            if (density > curMaxDensity) curMaxDensity = density;
+            if ((density * variance) > curMaxProduct) curMaxProduct = density * variance;
           } else {
             heatmap.data[i] = 0;
+            heatmap.densData[i] = 0;
+            heatmap.prodData[i] = 0;
           }
         }
-        heatmap.maxSigma = currentMax;
+        heatmap.maxSigma = curMaxSigma;
+        heatmap.maxDensity = curMaxDensity;
+        heatmap.maxProduct = curMaxProduct;
         heatmap.ready = true;
         heatmap.angleProgress = 0;
+        heatmap.tickCount = 0; // Reset tick counter for the next rotation
         heatmap.accN.fill(0);
         heatmap.accV.fill(0);
         heatmap.accV2.fill(0);
@@ -1780,7 +1817,7 @@
       }
     }
 
-    if (!state.aggMerging) {
+    if (!state.aggMerging && !heatmap.enabled) { 
       const lev = eggLevitatedParticles();
       const absOm = Math.abs(state.omega);
       const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
@@ -2223,7 +2260,9 @@
     let s = Math.sqrt(Math.max(0.01, vt) / TUNING.particle.sizeRefVt);
     if (s < TUNING.particle.sizeMin) s = TUNING.particle.sizeMin;
     if (s > TUNING.particle.sizeMax) s = TUNING.particle.sizeMax;
-    if (CFG.N_P >= 1000)      s *= 0.50;
+    if (CFG.N_P >= 10000)     s *= 0.10;
+    else if (CFG.N_P >= 3000) s *= 0.20;
+    else if (CFG.N_P >= 1000) s *= 0.50;
     else if (CFG.N_P >= 300)  s *= 0.70;
     return s;
   }
@@ -3072,23 +3111,39 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
 
     drawViewport();
 
-    if (heatmap.enabled && heatmap.maxSigma > 0 && heatmap.ready) {
+    if (heatmap.enabled && (heatmap.maxSigma > 0 || heatmap.maxDensity > 0 || heatmap.maxProduct > 0) && heatmap.ready) {
       const res = heatmap.resolution;
-      const cellW = pxDist(100 / res);
-      const cellH = pxDist(100 / res);
-      const startX = X2px(0);
-      const startY = Y2px(50);
+      // Grid now covers 200cm diameter
+      const cellW = pxDist(200 / res);
+      const cellH = pxDist(200 / res);
+      const startX = X2px(-100); 
+      const startY = Y2px(100); 
 
       ctxOv.save();
+      
+      // Idiot-proof clipping: ensures HUD pixels never draw outside the drum walls
+      ctxOv.beginPath();
+      ctxOv.arc(CX, CY, pxDist(CFG.R_DRUM), 0, Math.PI * 2);
+      ctxOv.clip();
+
       ctxOv.globalAlpha = heatmap.opacity;
       
       for (let gy = 0; gy < res; gy++) {
         for (let gx = 0; gx < res; gx++) {
-          const sigma = heatmap.data[gy * res + gx];
-          if (sigma <= 0) continue;
+          const idx = gy * res + gx;
+          let u = 0;
+
+          // Pull from finalized arrays only
+          if (heatmap.mode === 'dispersion') {
+            u = heatmap.maxSigma > 0 ? heatmap.data[idx] / heatmap.maxSigma : 0;
+          } else if (heatmap.mode === 'density') {
+            u = heatmap.maxDensity > 0 ? heatmap.densData[idx] / heatmap.maxDensity : 0;
+          } else if (heatmap.mode === 'product') {
+            u = heatmap.maxProduct > 0 ? heatmap.prodData[idx] / heatmap.maxProduct : 0;
+          }
+
+          if (u <= 0) continue;
           
-          const u = sigma / heatmap.maxSigma;
-          // Navy (0, 16, 64) to White (255, 255, 255)
           const r = Math.floor(0 + 255 * u);
           const g = Math.floor(16 + 239 * u);
           const b = Math.floor(64 + 191 * u);
@@ -3097,6 +3152,9 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
           ctxOv.fillRect(startX + gx * cellW, startY + gy * cellH, cellW + 1, cellH + 1);
         }
       }
+      ctxOv.restore(); // Ends the circular clipping
+
+
 
 
       // Draw Color Bar
@@ -3120,19 +3178,33 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
       ctxOv.lineWidth = 1;
       ctxOv.strokeRect(bx, by, barW, barH);
       
+      // --- Dynamic Color Bar Labels ---
       ctxOv.globalAlpha = 1.0;
       ctxOv.fillStyle = '#fff';
       ctxOv.font = 'bold 11px monospace';
       ctxOv.textAlign = 'center';
       
+      let topLabel = "";
+      let unitLabel = "";
+
+      if (heatmap.mode === 'dispersion') {
+          topLabel = heatmap.maxSigma.toFixed(1);
+          unitLabel = "cm/s (σ)";
+      } else if (heatmap.mode === 'density') {
+          topLabel = heatmap.maxDensity.toFixed(1);
+          unitLabel = "parts/cell (ρ)";
+      } else if (heatmap.mode === 'product') {
+          topLabel = heatmap.maxProduct.toFixed(1);
+          unitLabel = "collision proxy"; 
+      }
+
       // Max value above the bar
-      ctxOv.fillText(heatmap.maxSigma.toFixed(1), bx + barW/2, by - 8);
-      // Unit/Zero below the bar
+      ctxOv.fillText(topLabel, bx + barW/2, by - 8);
+      // Zero below the bar
       ctxOv.fillText("0.0", bx + barW/2, by + barH + 14);
-      
-      // Optional label for units
+      // Dynamic Unit Label
       ctxOv.font = '8px monospace';
-      ctxOv.fillText("cm/s", bx + barW/2, by - 20);
+      ctxOv.fillText(unitLabel, bx + barW/2, by - 20);
 
       ctxOv.restore();
     }
@@ -3716,7 +3788,7 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
   }
 
   const SETTINGS = {
-      NP:     { values: [1, 2, 3, 10, 30, 100, 300, 1000, 3000], idx: 2, apply: (v) => { CFG.N_P = v; }, label: (v) => String(v) },
+      NP:     { values: [1, 2, 3, 10, 30, 100, 300, 1000, 3000, 10000], idx: 2, apply: (v) => { CFG.N_P = v; }, label: (v) => String(v) },
     VT:     { values: [2,5,10, 20, 30, 40, 50], idx: 3, apply: (v) => { CFG.V_T = v; if (elVT) elVT.textContent = v.toFixed(1); }, label: (v) => String(v) },
     SPREAD: { values: [0, 0.01, 0.02, 0.05, 0.10, 0.20, 0.30, 0.50], idx: 3, apply: (v) => { CFG.VT_SPREAD = v; }, label: (v) => Math.round(v * 100) + '%' },
     DT:     { values: [0, 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], idx: 2, apply: (v) => { CFG.DT_INJECT = v; }, label: (v) => (v + ' s') },
@@ -4344,7 +4416,10 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
       state.showVectors = e.target.checked;
     });
   }
- 
+
+
+
+              
   let tapCount = 0;
   let tapTimer = null;
 
@@ -4433,6 +4508,47 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
       TUNING.particle.invincible = e.target.checked;
     });
   }
+
+  const radDisp = document.getElementById('radDispersion');
+  const radDens = document.getElementById('radDensity');
+  const radProd = document.getElementById('radProduct');
+  
+
+  const updateHMMode = () => {
+      if (radDisp.checked) heatmap.mode = 'dispersion';
+      else if (radDens.checked) heatmap.mode = 'density';
+      else if (radProd.checked) heatmap.mode = 'product';
+      
+      // REMOVED: heatmap.ready = false; 
+      // We keep the data we have and just re-render it instantly.
+      
+      // Clear the overlay so the old mode's pixels don't linger
+      ctxOv.clearRect(0, 0, W, H);
+      
+      // Manually trigger a draw call if the loop isn't already running
+      draw(); 
+    };
+
+//  const updateHMMode = () => {
+//    if (radDisp.checked) heatmap.mode = 'dispersion';
+//    else if (radDens.checked) heatmap.mode = 'density';
+//    else if (radProd.checked) heatmap.mode = 'product';
+//    
+//    heatmap.ready = false; 
+//    heatmap.maxSigma = 0;   // Reset these so the HUD
+//    heatmap.maxDensity = 0; // doesn't show confusing 
+//    heatmap.maxProduct = 0; // numbers during the first rotation
+//    
+//    // Clear accumulators
+//    heatmap.accN.fill(0);
+//    heatmap.accV.fill(0);
+//    heatmap.accV2.fill(0);
+//    heatmap.angleProgress = 0;
+//  };
+
+  [radDisp, radDens, radProd].forEach(r => r.addEventListener('change', updateHMMode));
+
+
   // ============================================================
   // End DEV SETTINGS PANEL (SECRET HANDSHAKE)
   // ============================================================
