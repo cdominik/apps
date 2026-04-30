@@ -3386,9 +3386,14 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
     AUDIO.motor.gainOsc.gain.setTargetAtTime(targetOscGain, t, TAU);
     AUDIO.motor.gainNoise.gain.setTargetAtTime(targetNoiseGain, t, TAU);
   }
+  let lastTinkTime = 0;
+  const TINK_COOLDOWN = 0.05; // 50ms cooldown
   function soundTink() {
     if (!AUDIO.ctx) return;
-    const t = AUDIO.ctx.currentTime;
+    const now = AUDIO.ctx.currentTime;
+    if (now - lastTinkTime < TINK_COOLDOWN) return; // Skip if too soon
+    lastTinkTime = now;
+    const t = now;
     const lp = AUDIO.ctx.createBiquadFilter();
     lp.type = 'lowpass';
     lp.frequency.setValueAtTime(900, t);
@@ -3698,6 +3703,7 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
       for (const s of sources) s.stop(t + tail + 0.02);
     } catch (e) { /* */ }
   }
+
   function soundChime() {
     if (!AUDIO.ctx) return;
     const t = AUDIO.ctx.currentTime;
@@ -3712,6 +3718,33 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
       o.start(start); o.stop(start + 0.65);
     });
   }
+
+  let lastChimeTime = 0;
+  const CHIME_COOLDOWN = 0.15; // 150ms between chimes to prevent flooding
+  
+  function soundChime() {
+    if (!AUDIO.ctx) return;
+    
+    // COOLING OFF LOGIC
+    const now = AUDIO.ctx.currentTime;
+    if (now - lastChimeTime < CHIME_COOLDOWN) return; 
+    lastChimeTime = now;
+  
+    // EXISTING SOUND CODE
+    const t = now;
+    [880, 1320].forEach((f, i) => {
+      const o = AUDIO.ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
+      const g = AUDIO.ctx.createGain();
+      const start = t + i * 0.06;
+      g.gain.setValueAtTime(0, start);
+      g.gain.linearRampToValueAtTime(0.14, start + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, start + 0.6);
+      o.connect(g); g.connect(AUDIO.master);
+      o.start(start); o.stop(start + 0.65);
+    });
+  }
+
+
   function ensureAudio() {
     if (!AUDIO.ctx) initAudio();
     if (AUDIO.ctx && AUDIO.ctx.state === 'suspended') AUDIO.ctx.resume();
@@ -3735,21 +3768,26 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
     elPeriod.textContent = isFinite(T) ? T.toFixed(2) : '∞';
     let floating = 0, levitated = 0;
 
+
     for (const p of state.particles) {
       if (!p.alive) continue;
       if (p.stuck) { p.wasLevitated = false; continue; }
       if (p.merging) continue;
-
+    
       floating++;
       const nowLev = isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
+      
       if (nowLev) {
         levitated++;
-        if (!p.wasLevitated) { soundChime(); p.wasLevitated = true; }
+        if (!p.wasLevitated) { 
+          soundChime(); // This call will now be ignored if it's too frequent
+          p.wasLevitated = true; 
+        }
       } else if (p.wasLevitated) {
         p.wasLevitated = false;
       }
     }
-
+    
     elFloating.textContent = floating;
     elCaptured.textContent = state.lostCount;
     elRemaining.textContent = levitated;
