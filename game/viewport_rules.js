@@ -220,7 +220,7 @@ const microscopeRules = [
 
   {
     id: 'default',
-    asset: ['assets/micro_default_1.png', 'assets/micro_default_2.png'],
+    asset: ['assets/micro/micro_default_1.png', 'assets/micro/micro_default_2.png'],
     priority: 200,   // FIXME: This chould be priority 0 when the other rules are in place.
   },
 ];
@@ -264,7 +264,7 @@ const chartRules = [
 
   {
     id: 'default',
-    asset: ['assets/chart_default_1.png', 'assets/chart_default_2.png'],
+    asset: ['assets/chart/chart_default_1.png', 'assets/chart/chart_default_2.png'],
     priority: 200, // FIXME: This should be 0, once other rules ae in place an d fire
   },
 ];
