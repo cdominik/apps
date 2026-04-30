@@ -911,6 +911,13 @@
       ballE:        0.90,
       settleVel:    0.6,
     },
+    globe: {
+      nCrit:      2,       // Trigger with 2 pebbles for testing
+      radius:     12.5,    // 5 times the pebble radius
+      mergeDur:   1.2,     // Duration of the merge animation
+      hoverY:     -50,     // Halfway between axis (0) and bottom wall (-100)
+      rotationSpeed: 0.8,  // How fast the Earth spins while hovering
+    },
     audio: {
       masterGain: 0.6,
       millBlade:  0.085,
@@ -1258,6 +1265,8 @@
     eggBallCount: 0,
     eggMerging: null,
     goldenBalls: [],
+    globes: [],         
+    globeMerging: null,
     aggregates: [],
     aggHoldRevs: 0,
     aggCount: 0,
@@ -1619,6 +1628,49 @@
       state.eggHoldRevs = 0;
     }
   }
+
+function updateGlobe(dt) {
+    // 1. "Magical" Hover and Rotation Logic
+    for (const g of state.globes) {
+      // Smoothly move toward the fixed hover position (x:0, y:-50)
+      g.x += (0 - g.x) * 0.05;
+      g.y += (TUNING.globe.hoverY - g.y) * 0.05;
+      
+      // Magic rotation: spins independently of drum speed
+      g.spin += TUNING.globe.rotationSpeed * dt;
+    }
+
+    // 2. Start merge if we have enough pebbles
+    if (!state.globeMerging && state.goldenBalls.length >= TUNING.globe.nCrit) {
+      const chosen = state.goldenBalls.slice(0, TUNING.globe.nCrit);
+      for (const b of chosen) b.merging = true; 
+      
+      state.globeMerging = {
+        pebbles: chosen,
+        startedAt: state.t,
+        dur: TUNING.globe.mergeDur,
+        target: { x: 0, y: TUNING.globe.hoverY } // Merge toward the hover point
+      };
+    }
+
+    // 3. Handle merge completion
+    if (state.globeMerging) {
+      const m = state.globeMerging;
+      const u = (state.t - m.startedAt) / m.dur;
+      if (u >= 1) {
+        state.goldenBalls = state.goldenBalls.filter(b => !m.pebbles.includes(b));
+        state.globes.push({
+          x: m.target.x, y: m.target.y, vx: 0, vy: 0,
+          r: TUNING.globe.radius,
+          spin: 0,
+          bornAt: state.t
+        });
+        soundCrunch(); // The big synthesis sound
+        state.globeMerging = null;
+      }
+    }
+  }
+
 
   function integrateGoldenBall(b, dt) {
     b.vy -= TUNING.ball.gravity * dt;
@@ -2000,6 +2052,94 @@
   function drawGoldenBalls() {
     for (const b of state.goldenBalls) drawOneGoldenBall(b);
     drawSuccessText();
+  }
+
+  function drawGlobes() {
+    for (const g of state.globes) {
+      const cx = X2px(g.x), cy = Y2px(g.y);
+      const rpx = pxDist(g.r);
+
+      ctx.save();
+      
+      // 1. Outer Atmospheric Halo (Glow)
+      const halo = ctx.createRadialGradient(cx, cy, rpx * 0.9, cx, cy, rpx * 1.25);
+      halo.addColorStop(0, 'rgba(100, 200, 255, 0.4)');
+      halo.addColorStop(0.4, 'rgba(100, 180, 255, 0.2)');
+      halo.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = halo;
+      ctx.beginPath(); ctx.arc(cx, cy, rpx * 1.25, 0, Math.PI * 2); ctx.fill();
+
+      // 2. Deep Blue Marble Base
+      const oceanGrad = ctx.createRadialGradient(cx - rpx*0.2, cy - rpx*0.2, 0, cx, cy, rpx);
+      oceanGrad.addColorStop(0, '#2b82c9'); // Vibrant sunlit water
+      oceanGrad.addColorStop(1, '#04152e'); // Shadowed deep water
+      ctx.fillStyle = oceanGrad;
+      ctx.beginPath(); ctx.arc(cx, cy, rpx, 0, Math.PI * 2); ctx.fill();
+
+      // 3. Perfect Rotating Continents (Clipped to sphere)
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx, cy, rpx, 0, Math.PI * 2); ctx.clip();
+      
+      ctx.fillStyle = '#4caf50'; // Lush green
+      for(let i=0; i<8; i++) {
+        const ang = g.spin + (i * 0.78); // More blobs for detail
+        const latOffset = Math.sin(i * 1.5) * rpx * 0.4;
+        const bx = cx + Math.cos(ang) * rpx * 0.7;
+        const by = cy + latOffset;
+        
+        // Landmass shape
+        ctx.beginPath();
+        ctx.ellipse(bx, by, rpx * 0.4, rpx * 0.25, ang * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Add "Mountain" highlights to land
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.beginPath();
+        ctx.arc(bx - 5, by - 5, rpx * 0.1, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#4caf50';
+      }
+
+      // 4. Wispy Clouds (Layered on top of land)
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      for(let i=0; i<5; i++) {
+        const ang = g.spin * 1.2 + (i * 1.2); // Clouds move faster!
+        const bx = cx + Math.cos(ang) * rpx * 0.8;
+        const by = cy + Math.sin(i) * rpx * 0.5;
+        ctx.beginPath();
+        ctx.arc(bx, by, rpx * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore(); // End clipping
+
+      // 5. Specular Reflection (The "Shiny" Spot)
+      const shine = ctx.createRadialGradient(cx - rpx*0.4, cy - rpx*0.4, 0, cx - rpx*0.4, cy - rpx*0.4, rpx * 0.6);
+      shine.addColorStop(0, 'rgba(255, 255, 255, 0.5)');
+      shine.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = shine;
+      ctx.beginPath(); ctx.arc(cx - rpx*0.4, cy - rpx*0.4, rpx * 0.6, 0, Math.PI * 2); ctx.fill();
+
+      // 6. Global Rim Lighting
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cx, cy, rpx, 0, Math.PI * 2); ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // Merge logic remains the same
+    if (state.globeMerging) {
+      const m = state.globeMerging;
+      const u = Math.min(1, (state.t - m.startedAt) / m.dur);
+      for (const b of m.pebbles) {
+        ctx.strokeStyle = `rgba(135, 206, 250, ${1 - u})`;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(X2px(b.x), Y2px(b.y));
+        ctx.lineTo(X2px(m.target.x), Y2px(m.target.y));
+        ctx.stroke();
+      }
+    }
   }
 
   function drawOneGoldenBall(b) {
@@ -3060,6 +3200,7 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
     drawAggregates();
     drawMergeStreaks();
     drawGoldenBalls();
+    drawGlobes();
     drawGlare();
     drawBoltRing();
 
@@ -3910,6 +4051,10 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
     
     gaugeAgg.style.display = 'none';
     gaugePebble.style.display = 'none';
+
+    state.globes = [];
+    state.globeMerging = null;
+                                      
   });
 
   btnLaser.addEventListener('click', () => {
@@ -5329,6 +5474,8 @@ function updateViewport(dt) {
       pollAggregateCounter();
       updateViewport(dt);
       draw();
+      updateGlobe(dt); // Physics for the globe
+      drawGlobes();    // Drawing the globe on top
       updateHUD();
       updateGame();
       updateChallenge();
