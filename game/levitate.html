@@ -19,6 +19,23 @@
     --bg-app: radial-gradient(ellipse at center, #e8e4dc 0%, #c8c4b8 100%);
   }
 
+  /* Default Dark Mode Background */
+  #app {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    background-image: url('assets/background/lab_night.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    transition: background-image 0.5s ease-in-out; /* Smooth transition */
+  }
+  
+  /* Light Mode Background */
+  body.theme-light #app {
+    background-image: url('assets/background/lab_day.png');
+  }
+
   .wing {
     position: absolute;
     display: flex; flex-direction: column; align-items: center;
@@ -743,13 +760,35 @@
         </label>
       </div>
 
+      
+      <div class="dev-control">
+        <label>
+        <input type="checkbox" id="chkShowVectors">
+        Show Resultant Vector Field (Gas Drag + Gravity)
+        </label>
+      </div>
+
+      <!-- Add this block inside devOverlay -->
       <div class="dev-control">
         <label>
           <input type="checkbox" id="chkShowHeatmap">
-          Show Static Velocity Dispersion Heatmap
+          Show Collision Analysis Heatmap
         </label>
+        <div class="dev-control">
+          <div style="margin-bottom: 6px;">Heatmap Visualization Mode:</div>
+          <label style="display: block; margin-bottom: 4px;">
+            <input type="radio" name="hmMode" id="radDispersion" checked> Velocity Dispersion (σ)
+          </label>
+          <label style="display: block; margin-bottom: 4px;">
+            <input type="radio" name="hmMode" id="radDensity"> Average Particle Density (ρ)
+          </label>
+          <label style="display: block;">
+            <input type="radio" name="hmMode" id="radProduct"> Collision Proxy (ρ × σ²)
+          </label>
+        </div>
       </div>
-      
+
+
     </div>
   </div>
 
@@ -845,10 +884,10 @@
       radius: 50,
     },
     egg: {
-      nCrit:      10,
+      nCrit:      7,
       holdTarget: 3,
       holdSubseq: 3,
-      maxBalls:   10,
+      maxBalls:   20,
       mergeDur:   0.6,
       minSpread:  0.30,
     },
@@ -871,6 +910,15 @@
       contactDrag:  0.7,
       ballE:        0.90,
       settleVel:    0.6,
+    },
+    globe: {
+      nCrit:      3,       // Trigger with 3 pebbles for testing
+      radius:     12.5,    // 5 times the pebble radius
+      mergeDur:   1.2,     // Duration of the merge animation
+      hoverY:     -50,     // Halfway between axis (0) and bottom wall (-100)
+      rotationSpeed: 0.8,  // How fast the Earth spins while hovering
+      repulsion:  15000,   // Strength of the push between globes
+      limit: 7             // Maximum number of globes
     },
     audio: {
       masterGain: 0.6,
@@ -1219,28 +1267,40 @@
     eggBallCount: 0,
     eggMerging: null,
     goldenBalls: [],
+    globes: [],         
+    globeMerging: null,
     aggregates: [],
     aggHoldRevs: 0,
     aggCount: 0,
     aggMerging: null,
+    showVectors: false,  
   };
 
   const heatmap = {
     enabled: false,
-    resolution: 15, // 25x25 grid
-    data: [],       // Current display data
-    accN: [],       // Sample count accumulator
-    accV: [],       // Velocity sum accumulator
-    accV2: [],      // Velocity squared sum accumulator
+    mode: 'dispersion', // Default mode
+    resolution: 30,
+    data: [],       // Stores finalized sigma (Dispersion)
+    densData: [],   // Stores finalized density
+    prodData: [],   // Stores finalized product     
+    accN: [],       
+    accV: [],       
+    accV2: [],      
     lastAngle: 0,
     angleProgress: 0,
+    tickCount: 0,   // ADD THIS LINE
     maxSigma: 0,
+    maxDensity: 0,  
+    maxProduct: 0,  
     opacity: 0.5,
     ready: false,
   };
+    
   // Initialize the grid arrays
   const gridSize = heatmap.resolution * heatmap.resolution;
   heatmap.data = new Float32Array(gridSize);
+  heatmap.densData = new Float32Array(gridSize);
+  heatmap.prodData = new Float32Array(gridSize);
   heatmap.accN = new Int32Array(gridSize);
   heatmap.accV = new Float32Array(gridSize);
   heatmap.accV2 = new Float32Array(gridSize);
@@ -1248,8 +1308,15 @@
   const aggregateImages = [];
   for (let i = 0; i < 5; i++) {
     const img = new Image();
-    img.src = `aggregate${i}.png`;
+    img.src = `assets/aggregates/agg${i}.png`;
     aggregateImages.push(img);
+  }
+  // Initialize 7 maps
+  const globeMaps = [];
+  for (let i = 0; i <= 6; i++) {
+    const img = new Image();
+    img.src = `assets/maps/map${i}.jpg`;
+    globeMaps.push(img);
   }
 
   function initLevel() {
@@ -1441,19 +1508,14 @@
     state.t += dt;
 
     if (heatmap.enabled) {
-      const HX = TUNING.highlight.cx, HY = TUNING.highlight.cy, HR = TUNING.highlight.radius;
       const res = heatmap.resolution;
-      
+      heatmap.tickCount++; // Increment total frames sampled in this rotation
+
       for (const p of state.particles) {
         if (!p.alive || p.stuck) continue;
-        
-        // Check if inside highlight zone
-        const dx = p.x - HX, dy = p.y - HY;
-        if (dx * dx + dy * dy <= HR * HR) {
-          // Map to grid (0 to 100 for X, -50 to 50 for Y)
-          const gx = Math.floor((p.x / 100) * res);
-          const gy = Math.floor(((p.y + 50) / 100) * res);
-          
+        if (p.x * p.x + p.y * p.y <= CFG.R_DRUM * CFG.R_DRUM) {
+          const gx = Math.floor(((p.x + 100) / 200) * res);
+          const gy = Math.floor(((p.y + 100) / 200) * res);
           if (gx >= 0 && gx < res && gy >= 0 && gy < res) {
             const idx = gy * res + gx;
             const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
@@ -1464,26 +1526,44 @@
         }
       }
       
-      // Track rotation progress
       const diff = Math.abs(state.omega * dt);
       heatmap.angleProgress += diff;
-      
+
       if (heatmap.angleProgress >= 2 * Math.PI) {
-        let currentMax = 0;
+        let curMaxSigma = 0, curMaxDensity = 0, curMaxProduct = 0;
+        const totalTicks = Math.max(1, heatmap.tickCount); // The accumulated time divisor
+
         for (let i = 0; i < gridSize; i++) {
-          if (heatmap.accN[i] > 2) { // Min samples for validity
-            const mean = heatmap.accV[i] / heatmap.accN[i];
-            const meanSq = heatmap.accV2[i] / heatmap.accN[i];
-            const sigma = Math.sqrt(Math.max(0, meanSq - mean * mean));
-            heatmap.data[i] = sigma;
-            if (sigma > currentMax) currentMax = sigma;
+          if (heatmap.accN[i] > 2) {
+            const n = heatmap.accN[i];
+            const mean = heatmap.accV[i] / n;
+            const meanSq = heatmap.accV2[i] / n;
+            const variance = Math.max(0, meanSq - mean * mean);
+            
+            // DIVISION BY ACCUMULATED TIME: 
+            // density = average particles per frame in this cell
+            const density = n / totalTicks; 
+            const sigma = Math.sqrt(variance);
+
+            heatmap.data[i] = sigma; 
+            heatmap.densData[i] = density; 
+            heatmap.prodData[i] = density * variance; 
+            
+            if (sigma > curMaxSigma) curMaxSigma = sigma;
+            if (density > curMaxDensity) curMaxDensity = density;
+            if ((density * variance) > curMaxProduct) curMaxProduct = density * variance;
           } else {
             heatmap.data[i] = 0;
+            heatmap.densData[i] = 0;
+            heatmap.prodData[i] = 0;
           }
         }
-        heatmap.maxSigma = currentMax;
+        heatmap.maxSigma = curMaxSigma;
+        heatmap.maxDensity = curMaxDensity;
+        heatmap.maxProduct = curMaxProduct;
         heatmap.ready = true;
         heatmap.angleProgress = 0;
+        heatmap.tickCount = 0; // Reset tick counter for the next rotation
         heatmap.accN.fill(0);
         heatmap.accV.fill(0);
         heatmap.accV2.fill(0);
@@ -1555,6 +1635,78 @@
       }
     } else {
       state.eggHoldRevs = 0;
+    }
+  }
+
+  function updateGlobe(dt) {
+    const R_GLOBE = TUNING.globe.radius;
+    const MIN_DIST = R_GLOBE * 2.2;
+
+    // 1. Physics for existing globes (Attraction + Repulsion)
+    for (let i = 0; i < state.globes.length; i++) {
+      const g = state.globes[i];
+      const ax = (0 - g.x) * 0.01; 
+      const ay = (TUNING.globe.hoverY - g.y) * 0.01;
+      g.vx = (g.vx + ax) * 0.85; 
+      g.vy = (g.vy + ay) * 0.85;
+
+      for (let j = 0; j < state.globes.length; j++) {
+        if (i === j) continue;
+        const other = state.globes[j];
+        const dx = g.x - other.x;
+        const dy = g.y - other.y;
+        const dist = Math.hypot(dx, dy);
+        const distSq = dx * dx + dy * dy + 10; 
+        let force = TUNING.globe.repulsion / distSq;
+        if (dist < MIN_DIST) force += (MIN_DIST - dist) * 50; 
+        const angle = Math.atan2(dy, dx);
+        g.vx += Math.cos(angle) * force * dt;
+        g.vy += Math.sin(angle) * force * dt;
+      }
+      g.x += g.vx;
+      g.y += g.vy;
+      g.spin += TUNING.globe.rotationSpeed * dt;
+    }
+
+    // 2. Start merge ONLY IF below the limit of 7
+    if (!state.globeMerging && state.goldenBalls.length >= TUNING.globe.nCrit && state.globes.length < TUNING.globe.limit) {
+      const chosen = state.goldenBalls.slice(0, TUNING.globe.nCrit);
+      const avgX = (chosen[0].x + chosen[1].x) / 2;
+      const avgY = (chosen[0].y + chosen[1].y) / 2;
+
+      for (const b of chosen) {
+        b.merging = true; 
+        b.mergeStart = { x: b.x, y: b.y };
+      }
+      
+      state.globeMerging = {
+        pebbles: chosen,
+        startedAt: state.t,
+        dur: TUNING.globe.mergeDur,
+        target: { x: avgX, y: avgY }
+      };
+    }
+
+    // 3. Handle merge completion
+    if (state.globeMerging) {
+      const m = state.globeMerging;
+      const u = (state.t - m.startedAt) / m.dur;
+      const ease = u * u * (3 - 2 * u);
+      for (const b of m.pebbles) {
+        b.x = b.mergeStart.x + (m.target.x - b.mergeStart.x) * ease;
+        b.y = b.mergeStart.y + (m.target.y - b.mergeStart.y) * ease;
+      }
+
+      if (u >= 1) {
+        state.goldenBalls = state.goldenBalls.filter(b => !m.pebbles.includes(b));
+        state.globes.push({
+          x: m.target.x, y: m.target.y, vx: 0, vy: 0,
+          r: TUNING.globe.radius,
+          spin: 0, bornAt: state.t,
+          mapIdx: state.globes.length // Assigns the next unique map index
+        });
+        state.globeMerging = null;
+      }
     }
   }
 
@@ -1755,7 +1907,7 @@
       }
     }
 
-    if (!state.aggMerging) {
+    if (!state.aggMerging && !heatmap.enabled) { 
       const lev = eggLevitatedParticles();
       const absOm = Math.abs(state.omega);
       const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
@@ -1938,6 +2090,75 @@
   function drawGoldenBalls() {
     for (const b of state.goldenBalls) drawOneGoldenBall(b);
     drawSuccessText();
+  }
+
+  function drawGlobes() {
+    // 1. Draw existing planets
+    for (const g of state.globes) {
+      const cx = X2px(g.x), cy = Y2px(g.y);
+      const rpx = pxDist(g.r);
+      const texture = globeMaps[g.mapIdx]; // Select the specific map for this planet[cite: 3]
+
+      ctx.save();
+      
+      // A. Atmospheric Halo (Outer blue glow)[cite: 3]
+      const halo = ctx.createRadialGradient(cx, cy, rpx * 0.9, cx, cy, rpx * 1.3);
+      halo.addColorStop(0, 'rgba(100, 200, 255, 0.3)');
+      halo.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = halo;
+      ctx.beginPath(); ctx.arc(cx, cy, rpx * 1.3, 0, Math.PI * 2); ctx.fill();
+
+      // B. Setup the Sphere Clipping[cite: 3]
+      ctx.beginPath(); 
+      ctx.arc(cx, cy, rpx, 0, Math.PI * 2); 
+      ctx.clip(); 
+
+      // C. Draw the Texture (Seamless looping)[cite: 3]
+      if (texture && texture.complete) {
+        const tw = rpx * 4; 
+        const th = rpx * 2;
+        
+        // Horizontal shift based on g.spin for rotation effect[cite: 3]
+        const shift = (g.spin * 50) % tw; 
+
+        // Draw texture twice side-by-side[cite: 3]
+        ctx.drawImage(texture, cx - rpx - shift, cy - rpx, tw, th);
+        ctx.drawImage(texture, cx - rpx - shift + tw, cy - rpx, tw, th);
+      } else {
+        // Fallback color if image is missing[cite: 3]
+        ctx.fillStyle = '#1e4a6d';
+        ctx.fill();
+      }
+
+      // D. Spherical Shading (Overlay to give 3D depth)[cite: 3]
+      const shade = ctx.createRadialGradient(cx - rpx*0.3, cy - rpx*0.3, 0, cx, cy, rpx);
+      shade.addColorStop(0, 'rgba(255, 255, 255, 0.2)'); // Top-left highlight[cite: 3]
+      shade.addColorStop(0.5, 'rgba(0, 0, 0, 0)');      // Midtones[cite: 3]
+      shade.addColorStop(1, 'rgba(0, 0, 0, 0.6)');      // Shadowed edge[cite: 3]
+      ctx.fillStyle = shade;
+      ctx.fillRect(cx - rpx, cy - rpx, rpx * 2, rpx * 2);
+
+      ctx.restore(); // Exit clipping[cite: 3]
+
+      // E. Specular Shine (Glossy surface spot)[cite: 3]
+      const shine = ctx.createRadialGradient(cx - rpx*0.4, cy - rpx*0.4, 0, cx - rpx*0.4, cy - rpx*0.4, rpx * 0.7);
+      shine.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
+      shine.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = shine;
+      ctx.beginPath(); ctx.arc(cx - rpx*0.4, cy - rpx*0.4, rpx * 0.7, 0, Math.PI * 2); ctx.fill();
+    }
+    
+    // 2. Draw the merging pebbles during the "soft motion" phase[cite: 3]
+    if (state.globeMerging) {
+      const m = state.globeMerging;
+      const u = Math.min(1, (state.t - m.startedAt) / m.dur);
+      
+      // Drawing the pebbles as they drift toward the meeting point[cite: 3]
+      for (const b of m.pebbles) {
+        // Re-use the existing golden ball renderer while they are in motion[cite: 3]
+        drawOneGoldenBall(b);
+      }
+    }
   }
 
   function drawOneGoldenBall(b) {
@@ -2198,7 +2419,9 @@
     let s = Math.sqrt(Math.max(0.01, vt) / TUNING.particle.sizeRefVt);
     if (s < TUNING.particle.sizeMin) s = TUNING.particle.sizeMin;
     if (s > TUNING.particle.sizeMax) s = TUNING.particle.sizeMax;
-    if (CFG.N_P >= 1000)      s *= 0.50;
+    if (CFG.N_P >= 10000)     s *= 0.10;
+    else if (CFG.N_P >= 3000) s *= 0.20;
+    else if (CFG.N_P >= 1000) s *= 0.50;
     else if (CFG.N_P >= 300)  s *= 0.70;
     return s;
   }
@@ -2214,14 +2437,7 @@
   }
 
   function drawLabBackground() {
-    ctx.save();
-    ctx.strokeStyle = PAL.gridStroke;
-    ctx.lineWidth = 1;
-    const gs = 40;
-    for (let x = 0; x < W; x += gs) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
-    for (let y = 0; y < H; y += gs) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
-    ctx.restore();
-    if (REGIME !== 'portrait') drawFloor();
+//    if (REGIME !== 'portrait') drawFloor();
   }
 
   function drawFloor() {
@@ -2869,6 +3085,118 @@
     ctx.restore();
   }
 
+  function drawVectorField() {
+    // Use the local 'state' variable available inside the IIFE
+    if (!state.showVectors) return;
+  
+    const res = 15; 
+    const vScale = 0.15;
+    const vt = CFG.V_T;
+    const omega = state.omega; // Accessing local state
+    const step = (CFG.R_DRUM * 2) / res;
+  
+    ctx.save();
+    ctx.lineWidth = 1.2;
+  
+    for (let x = -CFG.R_DRUM; x <= CFG.R_DRUM; x += step) {
+      for (let y = -CFG.R_DRUM; y <= CFG.R_DRUM; y += step) {
+        if (x * x + y * y > CFG.R_DRUM * CFG.R_DRUM) continue;
+  
+        const px = X2px(x);
+        const py = Y2px(y);
+  
+        // --- 1. SETTLING (YELLOW) ---
+        const gravLen = vt * vScale * SCALE;
+        drawSimpleArrow(px, py, px, py + gravLen, 'rgba(255, 220, 100, 0.5)');
+  
+        // --- 2. GAS DRAG (BLUE) ---
+        const dragVx = -omega * y;
+        const dragVy = omega * x;
+        const targetX = px + (dragVx * vScale * SCALE);
+        const targetY = py - (dragVy * vScale * SCALE);
+        drawSimpleArrow(px, py, targetX, targetY, 'rgba(90, 200, 255, 0.5)');
+      }
+    }
+    ctx.restore();
+  }
+
+// Helper to draw a line with a small "V" at the end
+function drawSimpleArrow(x1, y1, x2, y2, color) {
+  const headlen = 4; // length of head in pixels
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const angle = Math.atan2(dy, dx);
+
+  ctx.strokeStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.lineTo(x2 - headlen * Math.cos(angle - Math.PI / 6), y2 - headlen * Math.sin(angle - Math.PI / 6));
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - headlen * Math.cos(angle + Math.PI / 6), y2 - headlen * Math.sin(angle + Math.PI / 6));
+  ctx.stroke();
+}
+
+function drawVectorField() {
+  if (!state.showVectors) return;
+
+  const res = 15; 
+  const vScale = 0.15;
+  const vt = CFG.V_T;
+  const omega = state.omega;
+  const step = (CFG.R_DRUM * 2) / res;
+
+  ctx.save();
+  ctx.lineWidth = 1.2;
+
+  for (let x = -CFG.R_DRUM; x <= CFG.R_DRUM; x += step) {
+    for (let y = -CFG.R_DRUM; y <= CFG.R_DRUM; y += step) {
+      if (x * x + y * y > CFG.R_DRUM * CFG.R_DRUM) continue;
+
+      const px = X2px(x);
+      const py = Y2px(y);
+
+      // 1. Settling Velocity (Gravity) - Points Down
+      const gravLen = vt * vScale * SCALE;
+      drawSimpleArrow(px, py, px, py + gravLen, 'rgba(255, 220, 100, 0.4)');
+
+      // 2. Gas Drag (Tangent) - Perpendicular to radius
+      const dragVx = -omega * y;
+      const dragVy = omega * x;
+      const dx = dragVx * vScale * SCALE;
+      const dy = -dragVy * vScale * SCALE;
+      drawSimpleArrow(px, py, px + dx, py + dy, 'rgba(90, 200, 255, 0.4)');
+
+      // 3. Resulting Vector (Net Flow) - Sum of both
+      // Only draw if there is actually movement
+      if (Math.abs(omega) > 0.01 || vt > 0) {
+        drawSimpleArrow(px, py, px + dx, py + dy + gravLen, 'rgba(96, 255, 144, 0.8)');
+      }
+    }
+  }
+  ctx.restore();
+}
+
+function drawSimpleArrow(x1, y1, x2, y2, color) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return; // Don't draw tiny dots
+
+  const headlen = 4;
+  const angle = Math.atan2(dy, dx);
+
+  ctx.strokeStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.lineTo(x2 - headlen * Math.cos(angle - Math.PI / 6), y2 - headlen * Math.sin(angle - Math.PI / 6));
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - headlen * Math.cos(angle + Math.PI / 6), y2 - headlen * Math.sin(angle + Math.PI / 6));
+  ctx.stroke();
+}
+                                         
+
+    
   function draw() {
     ctx.clearRect(0, 0, W, H);
     drawLabBackground();
@@ -2885,11 +3213,13 @@
     drawBackplate();
     drawTrails();
     drawDrumInterior();
+    drawVectorField();
     drawAxis();
     drawParticles();
     drawAggregates();
     drawMergeStreaks();
     drawGoldenBalls();
+    drawGlobes();
     drawGlare();
     drawBoltRing();
 
@@ -2941,23 +3271,39 @@
 
     drawViewport();
 
-    if (heatmap.enabled && heatmap.maxSigma > 0 && heatmap.ready) {
+    if (heatmap.enabled && (heatmap.maxSigma > 0 || heatmap.maxDensity > 0 || heatmap.maxProduct > 0) && heatmap.ready) {
       const res = heatmap.resolution;
-      const cellW = pxDist(100 / res);
-      const cellH = pxDist(100 / res);
-      const startX = X2px(0);
-      const startY = Y2px(50);
+      // Grid now covers 200cm diameter
+      const cellW = pxDist(200 / res);
+      const cellH = pxDist(200 / res);
+      const startX = X2px(-100); 
+      const startY = Y2px(100); 
 
       ctxOv.save();
+      
+      // Idiot-proof clipping: ensures HUD pixels never draw outside the drum walls
+      ctxOv.beginPath();
+      ctxOv.arc(CX, CY, pxDist(CFG.R_DRUM), 0, Math.PI * 2);
+      ctxOv.clip();
+
       ctxOv.globalAlpha = heatmap.opacity;
       
       for (let gy = 0; gy < res; gy++) {
         for (let gx = 0; gx < res; gx++) {
-          const sigma = heatmap.data[gy * res + gx];
-          if (sigma <= 0) continue;
+          const idx = gy * res + gx;
+          let u = 0;
+
+          // Pull from finalized arrays only
+          if (heatmap.mode === 'dispersion') {
+            u = heatmap.maxSigma > 0 ? heatmap.data[idx] / heatmap.maxSigma : 0;
+          } else if (heatmap.mode === 'density') {
+            u = heatmap.maxDensity > 0 ? heatmap.densData[idx] / heatmap.maxDensity : 0;
+          } else if (heatmap.mode === 'product') {
+            u = heatmap.maxProduct > 0 ? heatmap.prodData[idx] / heatmap.maxProduct : 0;
+          }
+
+          if (u <= 0) continue;
           
-          const u = sigma / heatmap.maxSigma;
-          // Navy (0, 16, 64) to White (255, 255, 255)
           const r = Math.floor(0 + 255 * u);
           const g = Math.floor(16 + 239 * u);
           const b = Math.floor(64 + 191 * u);
@@ -2966,6 +3312,9 @@
           ctxOv.fillRect(startX + gx * cellW, startY + gy * cellH, cellW + 1, cellH + 1);
         }
       }
+      ctxOv.restore(); // Ends the circular clipping
+
+
 
 
       // Draw Color Bar
@@ -2989,19 +3338,33 @@
       ctxOv.lineWidth = 1;
       ctxOv.strokeRect(bx, by, barW, barH);
       
+      // --- Dynamic Color Bar Labels ---
       ctxOv.globalAlpha = 1.0;
       ctxOv.fillStyle = '#fff';
       ctxOv.font = 'bold 11px monospace';
       ctxOv.textAlign = 'center';
       
+      let topLabel = "";
+      let unitLabel = "";
+
+      if (heatmap.mode === 'dispersion') {
+          topLabel = heatmap.maxSigma.toFixed(1);
+          unitLabel = "cm/s (σ)";
+      } else if (heatmap.mode === 'density') {
+          topLabel = heatmap.maxDensity.toFixed(1);
+          unitLabel = "parts/cell (ρ)";
+      } else if (heatmap.mode === 'product') {
+          topLabel = heatmap.maxProduct.toFixed(1);
+          unitLabel = "collision proxy"; 
+      }
+
       // Max value above the bar
-      ctxOv.fillText(heatmap.maxSigma.toFixed(1), bx + barW/2, by - 8);
-      // Unit/Zero below the bar
+      ctxOv.fillText(topLabel, bx + barW/2, by - 8);
+      // Zero below the bar
       ctxOv.fillText("0.0", bx + barW/2, by + barH + 14);
-      
-      // Optional label for units
+      // Dynamic Unit Label
       ctxOv.font = '8px monospace';
-      ctxOv.fillText("cm/s", bx + barW/2, by - 20);
+      ctxOv.fillText(unitLabel, bx + barW/2, by - 20);
 
       ctxOv.restore();
     }
@@ -3183,9 +3546,14 @@
     AUDIO.motor.gainOsc.gain.setTargetAtTime(targetOscGain, t, TAU);
     AUDIO.motor.gainNoise.gain.setTargetAtTime(targetNoiseGain, t, TAU);
   }
+  let lastTinkTime = 0;
+  const TINK_COOLDOWN = 0.5; // 50ms cooldown
   function soundTink() {
     if (!AUDIO.ctx) return;
-    const t = AUDIO.ctx.currentTime;
+    const now = AUDIO.ctx.currentTime;
+    if (now - lastTinkTime < TINK_COOLDOWN) return; // Skip if too soon
+    lastTinkTime = now;
+    const t = now;
     const lp = AUDIO.ctx.createBiquadFilter();
     lp.type = 'lowpass';
     lp.frequency.setValueAtTime(900, t);
@@ -3495,6 +3863,7 @@
       for (const s of sources) s.stop(t + tail + 0.02);
     } catch (e) { /* */ }
   }
+
   function soundChime() {
     if (!AUDIO.ctx) return;
     const t = AUDIO.ctx.currentTime;
@@ -3509,6 +3878,33 @@
       o.start(start); o.stop(start + 0.65);
     });
   }
+
+  let lastChimeTime = 0;
+  const CHIME_COOLDOWN = 0.15; // 150ms between chimes to prevent flooding
+  
+  function soundChime() {
+    if (!AUDIO.ctx) return;
+    
+    // COOLING OFF LOGIC
+    const now = AUDIO.ctx.currentTime;
+    if (now - lastChimeTime < CHIME_COOLDOWN) return; 
+    lastChimeTime = now;
+  
+    // EXISTING SOUND CODE
+    const t = now;
+    [880, 1320].forEach((f, i) => {
+      const o = AUDIO.ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
+      const g = AUDIO.ctx.createGain();
+      const start = t + i * 0.06;
+      g.gain.setValueAtTime(0, start);
+      g.gain.linearRampToValueAtTime(0.14, start + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, start + 0.6);
+      o.connect(g); g.connect(AUDIO.master);
+      o.start(start); o.stop(start + 0.65);
+    });
+  }
+
+
   function ensureAudio() {
     if (!AUDIO.ctx) initAudio();
     if (AUDIO.ctx && AUDIO.ctx.state === 'suspended') AUDIO.ctx.resume();
@@ -3532,21 +3928,26 @@
     elPeriod.textContent = isFinite(T) ? T.toFixed(2) : '∞';
     let floating = 0, levitated = 0;
 
+
     for (const p of state.particles) {
       if (!p.alive) continue;
       if (p.stuck) { p.wasLevitated = false; continue; }
       if (p.merging) continue;
-
+    
       floating++;
       const nowLev = isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
+      
       if (nowLev) {
         levitated++;
-        if (!p.wasLevitated) { soundChime(); p.wasLevitated = true; }
+        if (!p.wasLevitated) { 
+          soundChime(); // This call will now be ignored if it's too frequent
+          p.wasLevitated = true; 
+        }
       } else if (p.wasLevitated) {
         p.wasLevitated = false;
       }
     }
-
+    
     elFloating.textContent = floating;
     elCaptured.textContent = state.lostCount;
     elRemaining.textContent = levitated;
@@ -3585,7 +3986,7 @@
   }
 
   const SETTINGS = {
-    NP:     { values: [1, 2, 3, 10, 30, 100, 300, 1000], idx: 2, apply: (v) => { CFG.N_P = v; }, label: (v) => String(v) },
+      NP:     { values: [1, 2, 3, 10, 30, 100, 300, 1000, 3000, 10000], idx: 2, apply: (v) => { CFG.N_P = v; }, label: (v) => String(v) },
     VT:     { values: [2,5,10, 20, 30, 40, 50], idx: 3, apply: (v) => { CFG.V_T = v; if (elVT) elVT.textContent = v.toFixed(1); }, label: (v) => String(v) },
     SPREAD: { values: [0, 0.01, 0.02, 0.05, 0.10, 0.20, 0.30, 0.50], idx: 3, apply: (v) => { CFG.VT_SPREAD = v; }, label: (v) => Math.round(v * 100) + '%' },
     DT:     { values: [0, 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], idx: 2, apply: (v) => { CFG.DT_INJECT = v; }, label: (v) => (v + ' s') },
@@ -3643,32 +4044,39 @@
   });
 
   btnReset.addEventListener('click', () => {
-    // 1. Existing cleanup logic
-    heatmap.data.fill(0);
-    heatmap.accN.fill(0);
-    heatmap.accV.fill(0);
-    heatmap.accV2.fill(0);
-    heatmap.ready = false;
+    // 1. Clear the HUD and Heatmap
+    if (heatmap.enabled) {
+      heatmap.data.fill(0);
+      heatmap.accN.fill(0);
+      heatmap.accV.fill(0);
+      heatmap.accV2.fill(0);
+      heatmap.ready = false;
+    }
     ctxOv.clearRect(0, 0, W, H);
-    initLevel();
+    
+    // 2. Clear basic simulation state
+    initLevel(); 
 
-    // 2. FORCE EXIT GAME MODE
-    if (GAME.on) {
-      enterGameMode(false); 
-    }
-
-    // 3. FORCE EXIT CHALLENGE MODE
-    if (CHALLENGE.on) {
-      enterChallengeMode(false);
-    }
-
-    // 4. UI Feedback
+    // 3. THE PLANETARY HUNK: Reset your Solar System
+    state.globes = [];         // Removes the planets from the screen
+    state.globeMerging = null; // Stops any pebbles currently flying to merge
+    state.eggBallCount = 0;    // Resets the pebble "fuel" counter
+    state.running = false;     // Freezes simulation until you hit "Inject" again
+    
+    // 4. Mode and UI cleanup
+    if (GAME.on) enterGameMode(false); 
+    if (CHALLENGE.on) enterChallengeMode(false);
+    
     btnStart.classList.remove('on');
     btnReset.classList.add('flash');
     setTimeout(() => btnReset.classList.remove('flash'), 200);
     
+    // Hide the special planet-related gauges
     gaugeAgg.style.display = 'none';
     gaugePebble.style.display = 'none';
+    
+    // Crucial: hide the "System Complete" sheet so you can play again
+    gameSheet.hidden = true; 
   });
 
   btnLaser.addEventListener('click', () => {
@@ -4206,7 +4614,17 @@
       }
     });
   }
-    
+   
+  const chkShowVectors = document.getElementById('chkShowVectors');
+  if (chkShowVectors) {
+    chkShowVectors.addEventListener('change', (e) => {
+      state.showVectors = e.target.checked;
+    });
+  }
+
+
+
+              
   let tapCount = 0;
   let tapTimer = null;
 
@@ -4295,6 +4713,47 @@
       TUNING.particle.invincible = e.target.checked;
     });
   }
+
+  const radDisp = document.getElementById('radDispersion');
+  const radDens = document.getElementById('radDensity');
+  const radProd = document.getElementById('radProduct');
+  
+
+  const updateHMMode = () => {
+      if (radDisp.checked) heatmap.mode = 'dispersion';
+      else if (radDens.checked) heatmap.mode = 'density';
+      else if (radProd.checked) heatmap.mode = 'product';
+      
+      // REMOVED: heatmap.ready = false; 
+      // We keep the data we have and just re-render it instantly.
+      
+      // Clear the overlay so the old mode's pixels don't linger
+      ctxOv.clearRect(0, 0, W, H);
+      
+      // Manually trigger a draw call if the loop isn't already running
+      draw(); 
+    };
+
+//  const updateHMMode = () => {
+//    if (radDisp.checked) heatmap.mode = 'dispersion';
+//    else if (radDens.checked) heatmap.mode = 'density';
+//    else if (radProd.checked) heatmap.mode = 'product';
+//    
+//    heatmap.ready = false; 
+//    heatmap.maxSigma = 0;   // Reset these so the HUD
+//    heatmap.maxDensity = 0; // doesn't show confusing 
+//    heatmap.maxProduct = 0; // numbers during the first rotation
+//    
+//    // Clear accumulators
+//    heatmap.accN.fill(0);
+//    heatmap.accV.fill(0);
+//    heatmap.accV2.fill(0);
+//    heatmap.angleProgress = 0;
+//  };
+
+  [radDisp, radDens, radProd].forEach(r => r.addEventListener('change', updateHMMode));
+
+
   // ============================================================
   // End DEV SETTINGS PANEL (SECRET HANDSHAKE)
   // ============================================================
@@ -5037,9 +5496,30 @@ function updateViewport(dt) {
       pollAggregateCounter();
       updateViewport(dt);
       draw();
+      updateGlobe(dt); // Physics for the globe
+      drawGlobes();    // Drawing the globe on top
       updateHUD();
       updateGame();
       updateChallenge();
+      // --- UNIVERSAL SUCCESS CHECK ---
+      // This runs in every mode: Game, Normal, or Challenge
+      if (state.globes.length >= TUNING.globe.limit && gameSheet.hidden) {
+          // 1. Disable injection so no more pebbles can form
+          state.running = false; 
+          
+          // 2. Show the "Game Over" message
+          setTimeout(() => {
+              showSheet(
+                  "LIMIT OF SIMULATION SPACE REACHED", 
+                  "Many planets, and you are still playing? Time to go do something else! Thank you for exploring the limits of our little simulation.", 
+                  "Reset Lab", 
+                  () => { 
+                      gameSheet.hidden = true;
+                      btnReset.click(); 
+                  }
+              );
+          }, 1000);
+      }
     } catch (e) {
       console.error('[loop]', e);
     }
