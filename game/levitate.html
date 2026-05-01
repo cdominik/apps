@@ -784,10 +784,11 @@
         <!-- Row 1 -->
         <div class="expert-head">HUD</div>
         <button class="btnind btnsq" id="btnVtProj" title="v_t Center Projection"><span class="cap"><span class="cap-icon">⊕</span></span></button>
-        <button class="btnind btnsq" id="btnFlashOrbit" title="Flash New Aggregates"><span class="cap"><span class="cap-icon">✨</span></span></button>
+        <button class="btnind btnsq" id="btnFlashOrbit" title="Flash Orbit of New Aggregates"><span class="cap"><span class="cap-icon">✨</span></span></button>
         <!-- Inactive Placeholder Button -->
-        <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
-
+        <button class="btnind btnsq" id="btnZoneHud" title="Levitation Progress HUD">
+           <span class="cap"><span class="cap-icon">🎯</span></span>
+        </button>
         <!-- Row 2 -->
         <button class="btnind btnsq" id="btnModePrev" title="Previous Mode"><span class="cap"><span class="cap-icon">◀</span></span></button>
         <button class="btnind btnsq" id="btnHudMaster" title="Analysis HUD Master"><span class="cap"><span class="cap-icon">📊</span></span></button>
@@ -811,7 +812,6 @@
         <button class="btnind btnsq" id="btnProcSlowMo" title="5x Slow-motion during merging"><span class="cap"><span class="cap-icon">🐌</span></span></button>
         <button class="btnind btnsq" id="btnProcFast" title="This button is only for testing by the game developer, because activating it ruins discovery and joy in the game"><span class="cap"><span class="cap-icon">⏩</span></span></button>
         <hr>
-
         
         <!-- The SYSTEM buttons -->
         <div class="expert-head">System</div>
@@ -824,6 +824,9 @@
               </svg>
             </span>
           </span>
+        </button>
+        <button class="btnind btnsq" id="btnFlowGhost" title="Pulse Lagrangian Flow Ghosts">
+          <span class="cap"><span class="cap-icon">👻</span></span>
         </button>
         <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
         <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
@@ -1646,6 +1649,31 @@
 
     for (const p of state.particles) {
       if (!p.alive) continue;
+
+      // --- DUAL GHOST PHYSICS LOGIC ---
+      if (p.ghostGas && p.ghostVac) {
+          // 1. Gas Ghost: Pure rotation
+          p.ghostGas.x += (-omega * p.ghostGas.y) * dt;
+          p.ghostGas.y += (omega * p.ghostGas.x) * dt;
+      
+          // 2. Vacuum Ghost: Pure gravity/falling
+          // Since there's no drag, it just accelerates downward
+          // p.ghostVac.vy -= 980 * dt; // Standard gravity in cm/s^2 (scaled)
+          p.ghostVac.vy -= 200 * dt; // Standard gravity in cm/s^2 (scaled)
+          p.ghostVac.x  += p.ghostVac.vx * dt;
+          p.ghostVac.y  += p.ghostVac.vy * dt;
+      
+          // Decay logic: Pulse lasts for 2 rotations
+          const absOm = Math.abs(omega);
+          const decay = (absOm > 0.01) ? (absOm * dt) / (4 * Math.PI) : dt * 0.2;
+          p.ghostLife -= decay;
+      
+          if (p.ghostLife <= 0) {
+              delete p.ghostGas;
+              delete p.ghostVac;
+          }
+      }
+
       if (p.merging) continue;
       if (p.stuck) {
         p.stuckAngle += omega * dt;
@@ -3223,6 +3251,52 @@ function updateAggregates(dt) {
     const x = X2px(p.x), y = Y2px(p.y);
     const sizeFac = visualSizeFactor(p.vt);
     const rpx = Math.max(2, pxDist(TUNING.particle.collisionR) * 2 * sizeFac);
+
+    // --- DUAL GHOST TRACERS (SYSTEM OVERRIDE) ---
+    if (p.ghostGas && p.ghostVac) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.ghostLife);
+        ctx.lineWidth = 1;
+        ctx.setLineDash([2, 2]);
+
+        const gx = X2px(p.ghostGas.x), gy = Y2px(p.ghostGas.y);
+        const vx = X2px(p.ghostVac.x), vy = Y2px(p.ghostVac.y);
+
+        // 1. Gas Tracer (Cyan) - Shows ideal gas rotation
+        ctx.strokeStyle = '#5ad0ff';
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(gx, gy); ctx.stroke();
+        ctx.fillStyle = '#5ad0ff';
+        ctx.beginPath(); ctx.arc(gx, gy, rpx * 0.7, 0, Math.PI * 2); ctx.fill();
+
+        // 2. Vacuum Tracer (Purple) - Shows ballistic free-fall
+        ctx.strokeStyle = '#ff5aff';
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(vx, vy); ctx.stroke();
+        ctx.fillStyle = '#ff5aff';
+        ctx.beginPath(); ctx.arc(vx, vy, rpx * 0.7, 0, Math.PI * 2); ctx.fill();
+
+        ctx.restore();
+    }
+    // --- END GHOSTS ---
+
+    // --- SUCCESS-PROBABILITY HUD ---
+    // Draws a progress arc around particles currently in the levitation zone[cite: 3]
+    if (TUNING.particle.showZoneProgress && p.inHighlightSince !== null && !p.stuck) {
+      const age = state.t - p.inHighlightSince;
+      const absOm = Math.abs(state.omega);
+      const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+      const progress = Math.min(1, age / T);
+      
+      if (progress > 0 && progress < 1) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(96, 255, 144, 0.6)'; // Ghostly green arc[cite: 3]
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        // Draw the ring just outside the particle's physical radius[cite: 3]
+        ctx.arc(x, y, rpx + 3, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * progress));
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
 
     const lidar = state.laserOn;
     const FLASH_DUR = 0.40 * (lidar ? TUNING.lidar.flashDurMul : 1);
@@ -5688,6 +5762,20 @@ function updateViewport(dt) {
     this.classList.toggle('on', TUNING.aggregate.flashOrbit);
   });
 
+  // Wire up the new Success-Probability HUD button
+  const btnZoneHud = document.getElementById('btnZoneHud');
+  if (btnZoneHud) {
+    btnZoneHud.addEventListener('click', function() {
+      // Toggle the internal setting
+      TUNING.particle.showZoneProgress = !TUNING.particle.showZoneProgress;
+      // Toggle the visual "green light" on the button
+      this.classList.toggle('on', TUNING.particle.showZoneProgress);
+    });
+  }
+
+
+
+
   // --- EXPERT PROCESSES CONTROLLER ---
   
   // Helper to toggle buttons and update TUNING with optional click-count requirement
@@ -5797,6 +5885,22 @@ function updateViewport(dt) {
       applyCheat(!cheatNoDecay);
     });
   }
+
+  // SYSTEM 2. Ghost renderer
+  document.getElementById('btnFlowGhost').addEventListener('click', function() {
+    if (state.particles.length > 300) return;
+
+    state.particles.forEach(p => {
+        if (p.alive && !p.stuck) {
+            p.ghostLife = 1.0;
+            // Snap Gas Ghost to current position
+            p.ghostGas = { x: p.x, y: p.y };
+            // Snap Vacuum Ghost with current particle velocity
+            p.ghostVac = { x: p.x, y: p.y, vx: p.vx, vy: p.vy };
+        }
+    });
+  });
+
 
   // SYSTEM 4-6. Simulation speed
     
