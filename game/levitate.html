@@ -783,40 +783,75 @@
         <!-- The Heads-Up display -->
         <!-- Row 1 -->
         <div class="expert-head">HUD</div>
-        <button class="btnind btnsq" id="btnVtProj" title="v_t Center Projection"><span class="cap"><span class="cap-icon">⊕</span></span></button>
-        <button class="btnind btnsq" id="btnFlashOrbit" title="Flash Orbit of New Aggregates"><span class="cap"><span class="cap-icon">✨</span></span></button>
-        <!-- Inactive Placeholder Button -->
-        <button class="btnind btnsq" id="btnZoneHud" title="Levitation Progress HUD">
-           <span class="cap"><span class="cap-icon">🎯</span></span>
+        <button class="btnind btnsq" id="btnVtProj" title="Orbit Center Range Projection">
+          <span class="cap">
+            <span class="cap-icon">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <!-- Connecting Line -->
+                <line x1="4" y1="12" x2="20" y2="12" stroke="currentColor" stroke-width="1.5" />
+                <!-- Flanking Dots -->
+                <circle cx="5" cy="12" r="2" fill="currentColor" />
+                <circle cx="19" cy="12" r="2" fill="currentColor" />
+                <!-- Center Circle -->
+                <circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+                <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+              </svg>
+            </span>
+          </span>
         </button>
+
+        <button class="btnind btnsq" id="btnFlashOrbit" title="Flash Orbit of New Aggregates">
+          <span class="cap">
+            <span class="cap-icon">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <!-- Central Anchor Dot -->
+                <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+                <!-- Orbital Path Circle -->
+                <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2,1" />
+                <!-- Irregular Aggregate at 45 degrees -->
+                <!-- Placed at x=17, y=7 roughly -->
+                <path d="M16.5,5.5 c0.8,0 1.5,0.5 2,1.2 s0.2,1.8 -0.5,2.3 s-1.8,0.2 -2.5,-0.5 s-0.5,-1.8 0.2,-2.5" 
+                      fill="currentColor" transform="rotate(-10, 17, 7)" />
+                <circle cx="18" cy="6.5" r="1.2" fill="currentColor" />
+                <circle cx="16.2" cy="7.8" r="1" fill="currentColor" />
+              </svg>
+            </span>
+          </span>
+        </button>
+
+        <button class="btnind btnsq" id="btnFlowGhost" title="Ghost Mode - select particles with mouse to show gas-free and gas-rich path limits">
+          <span class="cap"><span class="cap-icon">👻</span></span>
+        </button>
+        
         <!-- Row 2 -->
-        <button class="btnind btnsq" id="btnModePrev" title="Previous Mode"><span class="cap"><span class="cap-icon">◀</span></span></button>
+        <button class="btnind btnsq" id="btnModePrev"  title="Previous HUD Mode"><span class="cap"><span class="cap-icon">◀</span></span></button>
         <button class="btnind btnsq" id="btnHudMaster" title="Analysis HUD Master"><span class="cap"><span class="cap-icon">📊</span></span></button>
-        <button class="btnind btnsq" id="btnModeNext" title="Next Mode"><span class="cap"><span class="cap-icon">▶</span></span></button>
+        <button class="btnind btnsq" id="btnModeNext"  title="Next HUD Mode"><span class="cap"><span class="cap-icon">▶</span></span></button>
         <hr>
 
         <!-- The PROCESSES buttons -->
         <div class="expert-head">Processes</div>
 
         <!-- Row 1 -->
-        <button class="btnind btnsq" id="btnProcInvinc" title="Nano-coating drum, no particle losses"><span class="cap"><span class="cap-icon">🛡️</span></span></button>
-        <button class="btnind btnsq" id="btnProcNoAgg" title="Disable aggregate formation">
-           <span class="cap"><span class="cap-icon"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="3" fill="currentColor"/><circle cx="8" cy="9" r="2.5" fill="currentColor"/><circle cx="16" cy="10" r="2.5" fill="currentColor"/><circle cx="10" cy="16" r="2.5" fill="currentColor"/><circle cx="15" cy="16" r="2.5" fill="currentColor"/><circle cx="5" cy="12" r="2" fill="currentColor"/><line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/><line x1="20" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/></svg></span></span>
+        <button class="btnind btnsq" id="btnProcInvinc" title="Nanocoating the Drum - no particle losses">
+          <span class="cap"><span class="cap-icon">🛡️</span></span></button>
+        <button class="btnind btnsq" id="btnProcNoAgg"  title="Disable Aggregate Formation">
+          <span class="cap"><span class="cap-icon"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="3" fill="currentColor"/><circle cx="8" cy="9" r="2.5" fill="currentColor"/><circle cx="16" cy="10" r="2.5" fill="currentColor"/><circle cx="10" cy="16" r="2.5" fill="currentColor"/><circle cx="15" cy="16" r="2.5" fill="currentColor"/><circle cx="5" cy="12" r="2" fill="currentColor"/><line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/><line x1="20" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/></svg></span></span>
         </button>
-        <button class="btnind btnsq" id="btnProcNoPeb" title="Disable pebble formation">
+        <button class="btnind btnsq" id="btnProcNoPeb"  title="Disable Pebble Formation">
            <span class="cap"><span class="cap-icon"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="7" fill="currentColor"/><line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/><line x1="20" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/></svg></span></span>
         </button>
         
         <!-- Row 2 -->
-        <button class="btnind btnsq" id="btnProcPureV" title="Aggregates keep pure average v_t"><span class="cap"><span class="cap-icon">⚖️</span></span></button>
+        <button class="btnind btnsq" id="btnProcPureV"  title="Aggregates keep pure average v_t, no change in Stokes number"><span class="cap"><span class="cap-icon">⚖️</span></span></button>
         <button class="btnind btnsq" id="btnProcSlowMo" title="5x Slow-motion during merging"><span class="cap"><span class="cap-icon">🐌</span></span></button>
-        <button class="btnind btnsq" id="btnProcFast" title="This button is only for testing by the game developer, because activating it ruins discovery and joy in the game"><span class="cap"><span class="cap-icon">⏩</span></span></button>
+        <button class="btnind btnsq" id="btnProcFast"   title="This button is only for testing by the game developer, because activating it ruins discovery and joy in the game"><span class="cap"><span class="cap-icon">⏩</span></span></button>
         <hr>
         
         <!-- The SYSTEM buttons -->
         <div class="expert-head">System</div>
         <!-- Row 1 -->
-        <button class="btnind btnsq" id="btnSysNoDecay" title="Disable Ω rotation decay">
+        <button class="btnind btnsq" id="btnSysNoDecay" title="Disable Ω Rotation Decay. A 2-second press on Ω on the right wing does the same">
           <span class="cap">
             <span class="cap-icon">
               <svg viewBox="0 0 24 24" width="18" height="18">
@@ -825,9 +860,7 @@
             </span>
           </span>
         </button>
-        <button class="btnind btnsq" id="btnFlowGhost" title="Pulse Lagrangian Flow Ghosts">
-          <span class="cap"><span class="cap-icon">👻</span></span>
-        </button>
+        <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
         <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
 
         <!-- Row 2: Speed Controls (Radio-style toggles) -->
@@ -3301,26 +3334,6 @@ function updateAggregates(dt) {
       ctx.restore();
     }
 
-    // --- SUCCESS-PROBABILITY HUD ---
-    // Draws a progress arc around particles currently in the levitation zone[cite: 3]
-    if (TUNING.particle.showZoneProgress && p.inHighlightSince !== null && !p.stuck) {
-      const age = state.t - p.inHighlightSince;
-      const absOm = Math.abs(state.omega);
-      const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
-      const progress = Math.min(1, age / T);
-      
-      if (progress > 0 && progress < 1) {
-        ctx.save();
-        ctx.strokeStyle = 'rgba(96, 255, 144, 0.6)'; // Ghostly green arc[cite: 3]
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        // Draw the ring just outside the particle's physical radius[cite: 3]
-        ctx.arc(x, y, rpx + 3, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * progress));
-        ctx.stroke();
-        ctx.restore();
-      }
-    }
-
     const lidar = state.laserOn;
     const FLASH_DUR = 0.40 * (lidar ? TUNING.lidar.flashDurMul : 1);
     let flash = 0;
@@ -5784,20 +5797,6 @@ function updateViewport(dt) {
     TUNING.aggregate.flashOrbit = !TUNING.aggregate.flashOrbit;
     this.classList.toggle('on', TUNING.aggregate.flashOrbit);
   });
-
-  // Wire up the new Success-Probability HUD button
-  const btnZoneHud = document.getElementById('btnZoneHud');
-  if (btnZoneHud) {
-    btnZoneHud.addEventListener('click', function() {
-      // Toggle the internal setting
-      TUNING.particle.showZoneProgress = !TUNING.particle.showZoneProgress;
-      // Toggle the visual "green light" on the button
-      this.classList.toggle('on', TUNING.particle.showZoneProgress);
-    });
-  }
-
-
-
 
   // --- EXPERT PROCESSES CONTROLLER ---
   
