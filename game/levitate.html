@@ -55,6 +55,15 @@
   .btnind.inject { width: 96px; height: 96px; margin-bottom: 4px; }
   .btnind.inject .cap-label { font-size: 15px; letter-spacing: 2px; }
 
+  /* Red active state for disable-toggles */
+  .btnind.warn .cap {
+    background: radial-gradient(ellipse at 50% 35%, #ffc0c0 0%, #ff5050 40%, #601a1a 85%, #2c0808 100%) !important;
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.5), 0 0 10px rgba(255,120,120,0.6), 0 0 8px rgba(255,80,80,0.45) !important;
+  }
+  .btnind.warn .cap-label, .btnind.warn .cap-icon { 
+    color: #2c0808 !important; 
+    text-shadow: 0 1px 0 rgba(255,255,255,0.4) !important;
+  }
   .wing-logo {
     margin-bottom: 4px;
     padding: 3px;
@@ -693,15 +702,60 @@
       <button class="btnind btnsq" id="btnModeNext" title="Next Mode"><span class="cap"><span class="cap-icon">▶</span></span></button>
       <hr>
 
-      <!-- BLOCK 2: Placeholder Section 1 -->
-      <div class="expert-head">Optics</div>
-      <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
-      <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
-      <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
-      
-      <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
-      <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
-      <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
+      <!-- BLOCK 2: PROCESSES -->
+      <div class="expert-head">Processes</div>
+      <!-- 1. Nano-Coating -->
+      <button class="btnind btnsq" id="btnProcInvinc" title="Nano-coating drum, no particle losses">
+        <span class="cap"><span class="cap-icon">🛡️</span></span>
+      </button>
+
+      <!-- 2. No Aggregates (Cluster with permanent X) -->
+      <button class="btnind btnsq" id="btnProcNoAgg" title="Disable aggregate formation">
+        <span class="cap">
+          <span class="cap-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <!-- The Aggregate Tree -->
+              <circle cx="12" cy="12" r="3" fill="currentColor"/>
+              <circle cx="8" cy="9" r="2.5" fill="currentColor"/>
+              <circle cx="16" cy="10" r="2.5" fill="currentColor"/>
+              <circle cx="10" cy="16" r="2.5" fill="currentColor"/>
+              <circle cx="15" cy="16" r="2.5" fill="currentColor"/>
+              <circle cx="5" cy="12" r="2" fill="currentColor"/>
+              <!-- Permanent X Cross-out -->
+              <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+              <line x1="20" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+            </svg>
+          </span>
+        </span>
+      </button>
+
+      <!-- 3. No Pebbles (Large Sphere with permanent X) -->
+      <button class="btnind btnsq" id="btnProcNoPeb" title="Disable pebble formation">
+        <span class="cap">
+          <span class="cap-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <!-- Large Pebble Sphere -->
+              <circle cx="12" cy="12" r="7" fill="currentColor"/>
+              <!-- Permanent X Cross-out -->
+              <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+              <line x1="20" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+            </svg>
+          </span>
+        </span>
+      </button>
+
+      <!-- 4. Pure Velocity -->
+      <button class="btnind btnsq" id="btnProcPureV" title="Aggregates keep pure average v_t">
+        <span class="cap"><span class="cap-icon">⚖️</span></span>
+      </button>
+      <!-- 5. Slow-Mo Inspect -->
+      <button class="btnind btnsq" id="btnProcSlowMo" title="10x Slow-motion during merging">
+        <span class="cap"><span class="cap-icon">🐌</span></span>
+      </button>
+      <!-- 6. Fast-Chain -->
+      <button class="btnind btnsq" id="btnProcFast" title="Accelerated synthesis (Skip wait times)">
+        <span class="cap"><span class="cap-icon">⏩</span></span>
+      </button>
       <hr>
 
       <!-- BLOCK 3: Placeholder Section 2 -->
@@ -1073,6 +1127,8 @@
       tailAlpha:  0.0,
     },
   };
+  // Create a permanent backup of initial tuning values for restoration
+  const TUNING_DEFAULT = JSON.parse(JSON.stringify(TUNING));
   window.TUNING = TUNING;
 
   const CFG = {
@@ -1782,13 +1838,14 @@
     if (state.goldenBalls.length > 1) resolveBallBallCollisions();
     for (const b of state.goldenBalls) resolveWallCollision(b);
 
+    // Only block if a PEBBLE is currently merging
     if (state.eggMerging) {
       const m = state.eggMerging;
       const u = (state.t - m.startedAt) / m.dur;
       if (u >= 1) {
         for (const p of m.particles) p.alive = false;
         spawnGoldenBall(m.target.x, m.target.y);
-        state.aggCount -= TUNING.egg.nCrit; // Subtract the 10 aggregates used to make the pebble
+        state.aggCount -= TUNING.egg.nCrit; 
         state.eggMerging = null;
         state.eggBallCount++;
       }
@@ -2073,7 +2130,8 @@
     };
   }
 
-  function updateAggregates(dt) {
+
+function updateAggregates(dt) {
     if (state.aggMerging) {
       const m = state.aggMerging;
       const u = (state.t - m.startedAt) / m.dur;
@@ -2085,6 +2143,8 @@
       }
     }
 
+    // FIX: Only block if an AGGREGATE is currently merging
+    // Previously, this blocked if pebbles or planets were merging via state.aggMerging check
     if (!state.aggMerging && !heatmap.enabled) { 
       const lev = eggLevitatedParticles();
       const absOm = Math.abs(state.omega);
@@ -2100,7 +2160,9 @@
               pool.push(p);
             }
           }
-          startAggregateMerge(lev, pool);
+          if (pool.length >= TUNING.aggregate.mergeCount) { // Safety check
+            startAggregateMerge(lev, pool);
+          }
           state.aggHoldRevs = 0;
         }
       } else {
@@ -3020,10 +3082,12 @@
     ctx.restore();
   }
 
+
   function drawTrails() {
     if (!state.trailsOn) return;
     if (CFG.N_P >= TUNING.trails.maxN) return;
     if (state.laserOn) return;
+    
     const dur = TUNING.trails.durationS;
     const headA = TUNING.trails.headAlpha;
     const tailA = TUNING.trails.tailAlpha;
@@ -3040,23 +3104,27 @@
       const absOm = Math.abs(state.omega);
       const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
       const levitated = isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
+      
       let r, g, b;
-      if (levitated)        { r = 0x40; g = 0xff; b = 0x70; }
-      else                  { r = 0xff; g = 0xee; b = 0x33; }
+      if (levitated) { r = 0x40; g = 0xff; b = 0x70; }
+      else           { r = 0xff; g = 0xee; b = 0x33; }
 
       ctx.lineWidth = TUNING.trails.lineWidth;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      const n = trail.length;
-      for (let i = n - 1; i > 0; i--) {
+
+      for (let i = trail.length - 1; i > 0; i--) {
         const s1 = trail[i];
         const s0 = trail[i - 1];
+        
+        // Calculate age based on simulation time
         const age = state.t - s1.t;
         if (age > dur) break;
 
         const u = age / dur;
         const a = headA + (tailA - headA) * u;
         if (a <= 0.01) continue;
+        
         ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${a.toFixed(3)})`;
         ctx.beginPath();
         ctx.moveTo(X2px(s0.x), Y2px(s0.y));
@@ -3070,7 +3138,10 @@
   function recordTrails() {
     if (!state.trailsOn) return;
     if (CFG.N_P >= TUNING.trails.maxN) return;
+    
+    // Use simulation time (state.t) for consistent length during slow-mo
     const dur = TUNING.trails.durationS;
+    
     for (const p of state.particles) {
       if (!p.alive) continue;
       if (p.stuck) {
@@ -3079,8 +3150,12 @@
       }
       if (!p.insideOnce) continue;
       if (!p.trail) p.trail = [];
+
       p.trail.push({ x: p.x, y: p.y, t: state.t });
-      while (p.trail.length && (state.t - p.trail[0].t) > dur) p.trail.shift();
+
+      while (p.trail.length && (state.t - p.trail[0].t) > dur) {
+        p.trail.shift();
+      }
     }
   }
 
@@ -5692,13 +5767,37 @@ function updateViewport(dt) {
       const now = performance.now() / 1000;
       let dt = now - lastT;
       lastT = now;
+
+      // --- STABILIZED 5X SLOW MOTION LOGIC ---
+      // Check if ANY merge is happening
+      const isMerging = !!(state.eggMerging || state.aggMerging || state.globeMerging);
+      const applySlowMo = (typeof slowMoArmed !== 'undefined' && slowMoArmed && isMerging);
+
+      if (applySlowMo) {
+        // 1. Slow down the global physics heartbeat by 5x
+        dt /= 5; 
+        
+        // 2. Ensure animation durations stay at standard lab-spec[cite: 2]
+        // Standard durations naturally take 5x longer because the clock (dt) is 5x slower
+        TUNING.egg.mergeDur = TUNING_DEFAULT.egg.mergeDur;
+        TUNING.aggregate.mergeDur = TUNING_DEFAULT.aggregate.mergeDur;
+        TUNING.globe.mergeDur = TUNING_DEFAULT.globe.mergeDur;
+      } else {
+        // Restore standard speeds[cite: 2]
+        TUNING.egg.mergeDur = TUNING_DEFAULT.egg.mergeDur;
+        TUNING.aggregate.mergeDur = TUNING_DEFAULT.aggregate.mergeDur;
+        TUNING.globe.mergeDur = TUNING_DEFAULT.globe.mergeDur;
+      }
+
       if (dt > CFG.MAX_DT) dt = CFG.MAX_DT;
       const sub = Math.max(1, Math.ceil(dt / 0.01));
       const h = dt / sub;
+      
       for (let i = 0; i < sub; i++) updateDrum(h);
       if (state.running) { for (let i = 0; i < sub; i++) step(h); }
       for (let i = 0; i < sub; i++) updateEgg(h);
       for (let i = 0; i < sub; i++) updateAggregates(h);
+      
       updateMotorSound();
       recordTrails();
       pollAggregateCounter();
@@ -5716,7 +5815,7 @@ function updateViewport(dt) {
           setTimeout(() => {
               showSheet(
                   "LIMIT OF SIMULATION SPACE REACHED", 
-                  "Many planets, and you are still playing? Time to go do something else! But thank you for exploring the limits of our little simulation.", 
+                  "Many planets, and you are still playing? Time to go do something else!", 
                   "Reset Lab", 
                   () => { 
                       gameSheet.hidden = true;
@@ -5730,8 +5829,6 @@ function updateViewport(dt) {
     }
     requestAnimationFrame(loop);
   }
-
-
 
   // --- EVENT LISTENERS ---
   document.getElementById('btnHudMaster').addEventListener('click', () => {
@@ -5760,6 +5857,83 @@ function updateViewport(dt) {
     TUNING.aggregate.flashOrbit = !TUNING.aggregate.flashOrbit;
     this.classList.toggle('on', TUNING.aggregate.flashOrbit);
   });
+
+  // --- EXPERT PROCESSES CONTROLLER ---
+  
+  // Helper to toggle buttons and update TUNING
+  function wireProcessButton(id, colorClass, onActivate) {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.addEventListener('click', function() {
+      const isActive = this.classList.toggle(colorClass || 'on');
+      onActivate(isActive);
+    });
+  }
+
+  // 1. Nano-Coating (Green light when ON)
+  wireProcessButton('btnProcInvinc', 'on', (active) => {
+    TUNING.particle.invincible = active;
+  });
+
+  // 2. Aggregate formation OFF (Red light when active)
+  wireProcessButton('btnProcNoAgg', 'warn', (active) => {
+    TUNING.aggregate.minLevitated = active ? 999999 : TUNING_DEFAULT.aggregate.minLevitated;
+  });
+
+  // 3. Pebble formation OFF (Red light when active)
+  wireProcessButton('btnProcNoPeb', 'warn', (active) => {
+    TUNING.egg.nCrit = active ? 999999 : TUNING_DEFAULT.egg.nCrit;
+  });
+
+  // 4. Pure Velocity Average
+  wireProcessButton('btnProcPureV', 'on', (active) => {
+    // Revert vtFactor to 1.0 (pure average) or back to default multiplier[cite: 2]
+    TUNING.aggregate.vtFactor = active ? 1.0 : TUNING_DEFAULT.aggregate.vtFactor;
+  });
+
+
+  // 5. Dynamic Slow Motion (Armed state)
+  let slowMoArmed = false;
+  wireProcessButton('btnProcSlowMo', 'on', (active) => {
+    slowMoArmed = active;
+    // Ensure we restore physics if turned off mid-merge
+    if (!active) {
+      CFG.MAX_DT = 0.033;
+      TUNING.egg.mergeDur = TUNING_DEFAULT.egg.mergeDur;
+      TUNING.aggregate.mergeDur = TUNING_DEFAULT.aggregate.mergeDur;
+      TUNING.globe.mergeDur = TUNING_DEFAULT.globe.mergeDur;
+    }
+  });
+
+  // 6. Fast Chain (Accelerated Synthesis)
+  wireProcessButton('btnProcFast', 'on', (active) => {
+    if (active) {
+      // Aggregate synthesis acceleration
+      TUNING.aggregate.mergeCount = 2;   
+      TUNING.aggregate.initialHoldRevs = 0; 
+      TUNING.aggregate.subseqHoldRevs = 0;
+
+      // Pebble synthesis (egg system) acceleration
+      TUNING.egg.nCrit = 2;              // Only 2 aggregates for a pebble
+      TUNING.egg.holdTarget = 2;         // First pebble forms after 2 rotations
+      TUNING.egg.holdSubseq = 1;         // Subsequent pebbles form every 1 rotation
+
+      // Planet synthesis acceleration
+      TUNING.globe.nCrit = 2;            
+    } else {
+      // Restore all from backup[cite: 2]
+      TUNING.aggregate.mergeCount = TUNING_DEFAULT.aggregate.mergeCount;
+      TUNING.aggregate.initialHoldRevs = TUNING_DEFAULT.aggregate.initialHoldRevs;
+      TUNING.aggregate.subseqHoldRevs = TUNING_DEFAULT.aggregate.subseqHoldRevs;
+
+      TUNING.egg.nCrit = TUNING_DEFAULT.egg.nCrit;
+      TUNING.egg.holdTarget = TUNING_DEFAULT.egg.holdTarget; 
+      TUNING.egg.holdSubseq = TUNING_DEFAULT.egg.holdSubseq; 
+
+      TUNING.globe.nCrit = TUNING_DEFAULT.globe.nCrit;
+    }
+  });
+   
 
   // Kick off the animation loop
   requestAnimationFrame(loop);
