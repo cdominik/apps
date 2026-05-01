@@ -828,10 +828,10 @@
         <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
         <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
 
-        <!-- Row 2 -->
-        <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
-        <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
-        <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
+        <!-- Row 2: Speed Controls (Radio-style toggles) -->
+        <button class="btnind btnsq" id="btnWarp2" title="2x Simulation Speed"><span class="cap"><span class="cap-label" style="font-size:11px;">2x</span></span></button>
+        <button class="btnind btnsq" id="btnWarp4" title="4x Simulation Speed"><span class="cap"><span class="cap-label" style="font-size:11px;">4x</span></span></button>
+        <button class="btnind btnsq" id="btnWarp8" title="8x Simulation Speed"><span class="cap"><span class="cap-label" style="font-size:11px;">8x</span></span></button>
         <hr>
       </div>
     </div>
@@ -1448,7 +1448,8 @@
     aggHoldRevs: 0,
     aggCount: 0,
     aggMerging: null,
-    showVectors: false,  
+    showVectors: false,
+    simSpeed: 1.0,      
   };
 
   const heatmap = {
@@ -5592,7 +5593,7 @@ function updateViewport(dt) {
   function loop() {
     try {
       const now = performance.now() / 1000;
-      let dt = now - lastT;
+        let dt = now - lastT
       lastT = now;
 
       // --- STABILIZED 5X SLOW MOTION LOGIC ---
@@ -5617,6 +5618,8 @@ function updateViewport(dt) {
       }
 
       if (dt > CFG.MAX_DT) dt = CFG.MAX_DT;
+      // Warp speed
+      dt *= state.simSpeed;
       const sub = Math.max(1, Math.ceil(dt / 0.01));
       const h = dt / sub;
       
@@ -5787,13 +5790,41 @@ function updateViewport(dt) {
     }
   },7);
    
-  // PROCESSES 1. synchronized Omega Decay off
+  // SYSTEM 1. synchronized Omega Decay off
   const btnSysNoDecay = document.getElementById('btnSysNoDecay');
   if (btnSysNoDecay) {
     btnSysNoDecay.addEventListener('click', () => {
       applyCheat(!cheatNoDecay);
     });
   }
+
+  // SYSTEM 4-6. Simulation speed
+    
+  function setSimWarp(multiplier) {
+    const warpButtons = {
+      2: document.getElementById('btnWarp2'),
+      4: document.getElementById('btnWarp4'),
+      8: document.getElementById('btnWarp8')
+    };
+
+    if (state.simSpeed === multiplier) {
+      // Toggle OFF: Return to normal speed
+      state.simSpeed = 1.0;
+    } else {
+      // Toggle ON: Set new speed
+      state.simSpeed = multiplier;
+    }
+
+    // Update UI: Only the button matching the current speed glows green
+    Object.entries(warpButtons).forEach(([m, btn]) => {
+      if (btn) btn.classList.toggle('on', state.simSpeed === parseFloat(m));
+    });
+  }
+
+  // Wire up the row
+  document.getElementById('btnWarp2').addEventListener('click', () => setSimWarp(2.0));
+  document.getElementById('btnWarp4').addEventListener('click', () => setSimWarp(4.0));
+  document.getElementById('btnWarp8').addEventListener('click', () => setSimWarp(8.0));
 
   // --- SECRET HANDSHAKE: DOOR LOGIC ---
   const expertContainer = document.getElementById('expertContainer');
