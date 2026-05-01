@@ -528,10 +528,6 @@
   body.regime-compact #expertBlock { 
     display: none; 
   }
-  /* Ensure icons adapt to Light Mode */
-  body.theme-light #expertBlock .cap-icon {
-    color: #1a1006 !important;
-  }
 
   #viewportVideo {
     position: absolute;
@@ -657,6 +653,81 @@
     height: 16px;
     cursor: pointer;
   }
+
+  /* Expert Door Container */
+  #expertContainer {
+    position: relative;
+    width: 96px;
+    margin-top: 8px;
+    perspective: 1000px; /* Gives the door 3D depth when opening */
+    z-index: 100;
+  }
+
+  /* The physical door matched to wing colors */
+  #expertDoor {
+    position: absolute;
+    inset: -2px;
+    z-index: 110;
+    /* Default Dark Mode: Matches PAL_DARK wingStops */
+    background: linear-gradient(180deg, #1a1a22 0%, #3a3a42 5%, #4a4a52 20%, #2e2e34 50%, #1a1a22 85%, #0e0e14 100%);
+    border: 1px solid #101014;
+    border-radius: 4px;
+    box-shadow: 2px 2px 8px rgba(0,0,0,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: default;
+    transform-origin: left;
+    transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1), background 0.5s ease-in-out;
+    backface-visibility: hidden;
+  }
+
+  /* Light Mode: Professional Matte Finish */
+  body.theme-light #expertDoor {
+    /* Uses PAL_LIGHT wing colors: avoids the 'silver' look */
+    background: linear-gradient(180deg, #9a968a 0%, #cfc9bc 5%, #d8d2c4 20%, #b0aa9c 50%, #888274 85%, #6a6558 100%);
+    border: 1px solid rgba(90, 68, 24, 0.4); /* Subtle brass-toned border */
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.25);
+  }
+
+  /* Door opened state */
+  #expertContainer.open #expertDoor {
+    transform: rotateY(-120deg);
+    pointer-events: none; /* Let clicks reach the buttons when open */
+  }
+
+  /* Brass Hinges */
+  .hinge {
+    position: absolute;
+    left: -4px;
+    width: 6px;
+    height: 12px;
+    background: linear-gradient(180deg, #e8c77a, #8a6b2e);
+    border: 1px solid #2a1a06;
+    border-radius: 2px;
+  }
+  .hinge.top { top: 15%; }
+  .hinge.bot { bottom: 15%; }
+
+  /* Padlock icon on the door */
+  .lock-plate {
+    font-size: 24px;
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.8));
+  }
+
+  /* Hide Expert Block until door opens */
+  #expertBlock {
+    opacity: 0;
+    /* When closing: wait 0.4s then fade out quickly */
+    transition: opacity 0.3s ease-in 0.4s; 
+    pointer-events: none;
+  }
+  #expertContainer.open #expertBlock {
+    opacity: 1;
+    /* When opening: fade in immediately */
+    transition: opacity 0.4s ease-out 0.2s;
+    pointer-events: auto;
+  }
 </style>
 </head>
 <body>
@@ -689,87 +760,55 @@
       <div class="sel-lbl">Δt inject</div>
     </div>
 
-    <!-- New Expert Control Block -->
-    <div id="expertBlock">
-      <!-- BLOCK 1: HUD -->
-      <div class="expert-head">HUD</div>
-      <button class="btnind btnsq" id="btnVtProj" title="v_t Center Projection"><span class="cap"><span class="cap-icon">⊕</span></span></button>
-      <button class="btnind btnsq" id="btnFlashOrbit" title="Flash New Aggregates"><span class="cap"><span class="cap-icon">✨</span></span></button>
-      <button class="btnind btnsq disabled" id="btnExpertDoor" title="Service Access" disabled><span class="cap"><span class="cap-icon">🔒</span></span></button>
+    <!-- New Expert Container wrapping the Door and the Block -->
+    <div id="expertContainer">
+      <!-- The Door (Initially Visible) -->
+      <div id="expertDoor" title="Click to open Service Access">
+        <div class="hinge top"></div>
+        <div class="hinge bot"></div>
+        <span class="lock-plate">🔒</span>
+      </div>
 
-      <button class="btnind btnsq" id="btnModePrev" title="Previous Mode"><span class="cap"><span class="cap-icon">◀</span></span></button>
-      <button class="btnind btnsq" id="btnHudMaster" title="Analysis HUD Master"><span class="cap"><span class="cap-icon">📊</span></span></button>
-      <button class="btnind btnsq" id="btnModeNext" title="Next Mode"><span class="cap"><span class="cap-icon">▶</span></span></button>
-      <hr>
+      <!-- The Panel Content (Underneath) -->
+      <div id="expertBlock">
+        <div class="expert-head">HUD</div>
+        <button class="btnind btnsq" id="btnVtProj" title="v_t Center Projection"><span class="cap"><span class="cap-icon">⊕</span></span></button>
+        <button class="btnind btnsq" id="btnFlashOrbit" title="Flash New Aggregates"><span class="cap"><span class="cap-icon">✨</span></span></button>
+        <!-- Inactive Placeholder Button -->
+        <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
 
-      <!-- BLOCK 2: PROCESSES -->
-      <div class="expert-head">Processes</div>
-      <!-- 1. Nano-Coating -->
-      <button class="btnind btnsq" id="btnProcInvinc" title="Nano-coating drum, no particle losses">
-        <span class="cap"><span class="cap-icon">🛡️</span></span>
-      </button>
+        <button class="btnind btnsq" id="btnModePrev" title="Previous Mode"><span class="cap"><span class="cap-icon">◀</span></span></button>
+        <button class="btnind btnsq" id="btnHudMaster" title="Analysis HUD Master"><span class="cap"><span class="cap-icon">📊</span></span></button>
+        <button class="btnind btnsq" id="btnModeNext" title="Next Mode"><span class="cap"><span class="cap-icon">▶</span></span></button>
+        <hr>
 
-      <!-- 2. No Aggregates (Cluster with permanent X) -->
-      <button class="btnind btnsq" id="btnProcNoAgg" title="Disable aggregate formation">
-        <span class="cap">
-          <span class="cap-icon">
-            <svg viewBox="0 0 24 24" width="20" height="20">
-              <!-- The Aggregate Tree -->
-              <circle cx="12" cy="12" r="3" fill="currentColor"/>
-              <circle cx="8" cy="9" r="2.5" fill="currentColor"/>
-              <circle cx="16" cy="10" r="2.5" fill="currentColor"/>
-              <circle cx="10" cy="16" r="2.5" fill="currentColor"/>
-              <circle cx="15" cy="16" r="2.5" fill="currentColor"/>
-              <circle cx="5" cy="12" r="2" fill="currentColor"/>
-              <!-- Permanent X Cross-out -->
-              <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
-              <line x1="20" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
-            </svg>
-          </span>
-        </span>
-      </button>
+        <div class="expert-head">Processes</div>
+        <button class="btnind btnsq" id="btnProcInvinc" title="Nano-coating drum, no particle losses"><span class="cap"><span class="cap-icon">🛡️</span></span></button>
+        <button class="btnind btnsq" id="btnProcNoAgg" title="Disable aggregate formation">
+           <span class="cap"><span class="cap-icon"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="3" fill="currentColor"/><circle cx="8" cy="9" r="2.5" fill="currentColor"/><circle cx="16" cy="10" r="2.5" fill="currentColor"/><circle cx="10" cy="16" r="2.5" fill="currentColor"/><circle cx="15" cy="16" r="2.5" fill="currentColor"/><circle cx="5" cy="12" r="2" fill="currentColor"/><line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/><line x1="20" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/></svg></span></span>
+        </button>
+        <button class="btnind btnsq" id="btnProcNoPeb" title="Disable pebble formation">
+           <span class="cap"><span class="cap-icon"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="7" fill="currentColor"/><line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/><line x1="20" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/></svg></span></span>
+        </button>
+        
+        <button class="btnind btnsq" id="btnProcPureV" title="Aggregates keep pure average v_t"><span class="cap"><span class="cap-icon">⚖️</span></span></button>
+        <button class="btnind btnsq" id="btnProcSlowMo" title="5x Slow-motion during merging"><span class="cap"><span class="cap-icon">🐌</span></span></button>
+        <button class="btnind btnsq" id="btnProcFast" title="Accelerated synthesis"><span class="cap"><span class="cap-icon">⏩</span></span></button>
+        <hr>
 
-      <!-- 3. No Pebbles (Large Sphere with permanent X) -->
-      <button class="btnind btnsq" id="btnProcNoPeb" title="Disable pebble formation">
-        <span class="cap">
-          <span class="cap-icon">
-            <svg viewBox="0 0 24 24" width="20" height="20">
-              <!-- Large Pebble Sphere -->
-              <circle cx="12" cy="12" r="7" fill="currentColor"/>
-              <!-- Permanent X Cross-out -->
-              <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
-              <line x1="20" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
-            </svg>
-          </span>
-        </span>
-      </button>
-
-      <!-- 4. Pure Velocity -->
-      <button class="btnind btnsq" id="btnProcPureV" title="Aggregates keep pure average v_t">
-        <span class="cap"><span class="cap-icon">⚖️</span></span>
-      </button>
-      <!-- 5. Slow-Mo Inspect -->
-      <button class="btnind btnsq" id="btnProcSlowMo" title="10x Slow-motion during merging">
-        <span class="cap"><span class="cap-icon">🐌</span></span>
-      </button>
-      <!-- 6. Fast-Chain -->
-      <button class="btnind btnsq" id="btnProcFast" title="Accelerated synthesis (Skip wait times)">
-        <span class="cap"><span class="cap-icon">⏩</span></span>
-      </button>
-      <hr>
-
-      <!-- BLOCK 3: Placeholder Section 2 -->
-      <div class="expert-head">System</div>
-      <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
-      <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
-      <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
-      
-      <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
-      <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
-      <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
-      <hr>
-    </div>    
-
+        <div class="expert-head">System</div>
+        <!-- Row 1 -->
+        <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
+        <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
+        <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
+        
+        <!-- Row 2 (Restored) -->
+        <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
+        <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
+        <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
+        <hr>
+      </div>
+    </div>
   </div>
 
   <div class="wing" id="wingRight">
@@ -897,80 +936,6 @@
       </ul>
 
       <p class="manual-footer">Press <kbd>Esc</kbd> or × to close.</p>
-    </div>
-  </div>
-
-  <div class="manual-overlay" id="devOverlay" hidden>
-    <div class="manual-box">
-      <button class="manual-close" id="devClose" aria-label="Close developer settings">×</button>
-      <h2>DEV SETTINGS</h2>
-
-      <div class="dev-control">
-        <label>
-          <input type="checkbox" id="chkShowVtProjection">
-          Show orbital center range reference projection
-        </label>
-      </div>
-
-      <div class="dev-control">
-        <label>
-          <input type="checkbox" id="chkFlashOrbit">
-          Flash aggregate orbits at moment of formation
-        </label>
-      </div>
-      
-      <div class="dev-control">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-          <span>Ω decay time (seconds)</span>
-          <span id="valOmegaDecay"></span>
-        </div>
-        <input type="range" id="sldOmegaDecay" min="0" max="1" step="0.01" style="width: 100%; cursor: pointer;">
-      </div>
-      
-      <div class="dev-control">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-          <span>Min number of levitated particles for aggregate formation</span>
-          <span id="valMinLev"></span>
-        </div>
-        <input type="range" id="sldMinLev" min="10" max="100" step="1" style="width: 100%; cursor: pointer;">
-      </div>
-
-      <div class="dev-control">
-        <label>
-          <input type="checkbox" id="chkInvincible">
-          Nanocoat the drum wall, so particles do not stick
-        </label>
-      </div>
-
-      
-      <div class="dev-control">
-        <label>
-        <input type="checkbox" id="chkShowVectors">
-        Show Resultant Vector Field (Gas Drag + Gravity)
-        </label>
-      </div>
-
-      <!-- Add this block inside devOverlay -->
-      <div class="dev-control">
-        <label>
-          <input type="checkbox" id="chkShowHeatmap">
-          Show Collision Analysis Heatmap
-        </label>
-        <div class="dev-control">
-          <div style="margin-bottom: 6px;">Heatmap Visualization Mode:</div>
-          <label style="display: block; margin-bottom: 4px;">
-            <input type="radio" name="hmMode" id="radDispersion" checked> Velocity Dispersion (σ)
-          </label>
-          <label style="display: block; margin-bottom: 4px;">
-            <input type="radio" name="hmMode" id="radDensity"> Average Particle Density (ρ)
-          </label>
-          <label style="display: block;">
-            <input type="radio" name="hmMode" id="radProduct"> Collision Proxy (ρ × σ²)
-          </label>
-        </div>
-      </div>
-
-
     </div>
   </div>
 
@@ -4374,7 +4339,7 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
   let cheatNoDecay = false;
   let cheatHoldTimer = null;
   let cheatHoldFired = false;
-  const CHEAT_HOLD_MS = 3000;
+  const CHEAT_HOLD_MS = 2000;
 
   function applyCheat(on) {
     cheatNoDecay = on;
@@ -4871,176 +4836,6 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
     if (GAME.on && GAME.phase === 'playing') endGameRun('aborted');
     if (CHALLENGE.on && CHALLENGE.phase === 'playing') endChallengeRun(0);
   });
-
-
-  // ============================================================
-  // DEV SETTINGS PANEL (SECRET HANDSHAKE)
-  // ============================================================
-  const devOverlay = document.getElementById('devOverlay');
-  const devClose = document.getElementById('devClose');
-  const titlePlateLink = document.getElementById('titlePlate');
-  
-  const chkFlashOrbit = document.getElementById('chkFlashOrbit');
-  const sldOmegaDecay = document.getElementById('sldOmegaDecay');
-  const valOmegaDecay = document.getElementById('valOmegaDecay');
-  const sldMinLev = document.getElementById('sldMinLev');
-  const valMinLev = document.getElementById('valMinLev');
-  const chkInvincible = document.getElementById('chkInvincible');
-
-  const chkShowHeatmap = document.getElementById('chkShowHeatmap');
-  if (chkShowHeatmap) {
-    chkShowHeatmap.addEventListener('change', (e) => {
-      heatmap.enabled = e.target.checked;
-      if (!heatmap.enabled) {
-        // Clear the overlay when disabled
-        ctxOv.clearRect(0, 0, W, H);
-      }
-    });
-  }
-   
-  const chkShowVectors = document.getElementById('chkShowVectors');
-  if (chkShowVectors) {
-    chkShowVectors.addEventListener('change', (e) => {
-      state.showVectors = e.target.checked;
-    });
-  }
-
-
-
-              
-  let tapCount = 0;
-  let tapTimer = null;
-
-  if (titlePlateLink) {
-    titlePlateLink.addEventListener('click', (e) => {
-      e.preventDefault(); 
-      tapCount++;
-      
-      if (tapTimer) clearTimeout(tapTimer);
-      
-      if (tapCount >= 3) {
-        tapCount = 0;
-        
-        // Populate current values
-        if (chkFlashOrbit) chkFlashOrbit.checked = TUNING.aggregate.flashOrbit;
-        if (sldOmegaDecay) {
-          sldOmegaDecay.value = TUNING.drum.omegaDecay;
-          valOmegaDecay.textContent = parseFloat(TUNING.drum.omegaDecay).toFixed(2);
-        }
-        if (sldMinLev) {
-          sldMinLev.value = TUNING.aggregate.minLevitated;
-          valMinLev.textContent = TUNING.aggregate.minLevitated;
-        }
-        if (chkInvincible) chkInvincible.checked = TUNING.particle.invincible;
-
-        devOverlay.hidden = false;
-      } else {
-        tapTimer = setTimeout(() => { 
-          if (tapCount === 1 && titlePlateLink.href) {
-            window.open(titlePlateLink.href, titlePlateLink.target || '_self');
-          }
-          tapCount = 0; 
-        }, 400);
-      }
-    });
-  }
-
-  function closeDevPanel() {
-    devOverlay.hidden = true;
-  }
-
-  if (devClose) devClose.addEventListener('click', closeDevPanel);
-  if (devOverlay) {
-    devOverlay.addEventListener('click', (e) => {
-      if (e.target === devOverlay) closeDevPanel();
-    });
-  }
-
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && devOverlay && !devOverlay.hidden) closeDevPanel();
-  });
-
-  // Parameter Event Listeners
-  if (chkFlashOrbit) {
-    chkFlashOrbit.addEventListener('change', (e) => {
-      TUNING.aggregate.flashOrbit = e.target.checked;
-    });
-  }
-  
-  const chkShowVtProjection = document.getElementById('chkShowVtProjection');
-  if (chkShowVtProjection) {
-    chkShowVtProjection.checked = TUNING.particle.showVtProjection;
-    chkShowVtProjection.addEventListener('change', (e) => {
-      TUNING.particle.showVtProjection = e.target.checked;
-    });
-  }
-
-  if (sldOmegaDecay) {
-    sldOmegaDecay.addEventListener('input', (e) => {
-      const v = parseFloat(e.target.value);
-      TUNING.drum.omegaDecay = v;
-      valOmegaDecay.textContent = v.toFixed(2);
-    });
-  }
-
-  if (sldMinLev) {
-    sldMinLev.addEventListener('input', (e) => {
-      const v = parseInt(e.target.value, 10);
-      TUNING.aggregate.minLevitated = v;
-      valMinLev.textContent = v;
-    });
-  }
-
-  if (chkInvincible) {
-    chkInvincible.addEventListener('change', (e) => {
-      TUNING.particle.invincible = e.target.checked;
-    });
-  }
-
-  const radDisp = document.getElementById('radDispersion');
-  const radDens = document.getElementById('radDensity');
-  const radProd = document.getElementById('radProduct');
-  
-
-  const updateHMMode = () => {
-      if (radDisp.checked) heatmap.mode = 'dispersion';
-      else if (radDens.checked) heatmap.mode = 'density';
-      else if (radProd.checked) heatmap.mode = 'product';
-      
-      // REMOVED: heatmap.ready = false; 
-      // We keep the data we have and just re-render it instantly.
-      
-      // Clear the overlay so the old mode's pixels don't linger
-      ctxOv.clearRect(0, 0, W, H);
-      
-      // Manually trigger a draw call if the loop isn't already running
-      draw(); 
-    };
-
-//  const updateHMMode = () => {
-//    if (radDisp.checked) heatmap.mode = 'dispersion';
-//    else if (radDens.checked) heatmap.mode = 'density';
-//    else if (radProd.checked) heatmap.mode = 'product';
-//    
-//    heatmap.ready = false; 
-//    heatmap.maxSigma = 0;   // Reset these so the HUD
-//    heatmap.maxDensity = 0; // doesn't show confusing 
-//    heatmap.maxProduct = 0; // numbers during the first rotation
-//    
-//    // Clear accumulators
-//    heatmap.accN.fill(0);
-//    heatmap.accV.fill(0);
-//    heatmap.accV2.fill(0);
-//    heatmap.angleProgress = 0;
-//  };
-
-  [radDisp, radDens, radProd].forEach(r => r.addEventListener('change', updateHMMode));
-
-
-  // ============================================================
-  // End DEV SETTINGS PANEL (SECRET HANDSHAKE)
-  // ============================================================
-  
 
   window.addEventListener('resize', layout);
   layout();
@@ -5934,6 +5729,41 @@ function updateViewport(dt) {
     }
   });
    
+  // --- SECRET HANDSHAKE: DOOR LOGIC ---
+  const expertContainer = document.getElementById('expertContainer');
+  const titlePlateLink = document.getElementById('titlePlate');
+  let tapCount = 0;
+  let tapTimer = null;
+
+  if (titlePlateLink && expertContainer) {
+    titlePlateLink.addEventListener('click', (e) => {
+      e.preventDefault(); 
+      tapCount++;
+      
+      if (tapTimer) clearTimeout(tapTimer);
+      
+      if (tapCount >= 3) {
+        tapCount = 0;
+        // Toggle the door state
+        const isOpening = !expertContainer.classList.contains('open');
+        if (isOpening) {
+          expertContainer.classList.add('open');
+          soundSnap(); // Mechanical unlock
+        } else {
+          expertContainer.classList.remove('open');
+          soundTink(); // Soft lock
+        }
+      } else {
+        tapTimer = setTimeout(() => { 
+          // If only one click, still allow the link to open in new tab
+          if (tapCount === 1 && titlePlateLink.href) {
+            window.open(titlePlateLink.href, titlePlateLink.target || '_self');
+          }
+          tapCount = 0; 
+        }, 400);
+      }
+    });
+  }
 
   // Kick off the animation loop
   requestAnimationFrame(loop);
