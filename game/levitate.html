@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -43,7 +43,6 @@
     padding: 10px 8px; gap: 10px; box-sizing: border-box;
     z-index: 10;
   }
-
 
   /* Make the chevron arrows slightly darker too for visibility */
   body.theme-light .sel .chev {
@@ -263,6 +262,36 @@
     letter-spacing: 0.5px;
   }
 
+  /* Emergency Stop Button Styling */
+  .btnind.btn-emergency {
+    /* Safety Yellow Housing */
+    background: linear-gradient(180deg, #ffd700 0%, #e6be00 18%, #b39700 55%, #806c00 85%, #4d4500 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 3px 5px rgba(0,0,0,0.6);
+  }
+
+  .btnind.btn-emergency .cap {
+    /* Large Red Plunger */
+    background: radial-gradient(ellipse at 50% 30%, #ff4d4d 0%, #cc0000 70%, #800000 100%);
+    border: 1px solid #660000;
+  }
+
+  .btnind.btn-emergency .cap-label {
+    /* High-contrast White Text */
+    color: #ffffff;
+    text-shadow: 0 1px 2px #000;
+    letter-spacing: 2px;
+  }
+
+  /* Interaction States */
+  .btnind.btn-emergency:hover .cap {
+    background: radial-gradient(ellipse at 50% 30%, #ff6666 0%, #e60000 70%, #990000 100%);
+  }
+
+  .btnind.btn-emergency:active .cap {
+    transform: translateY(2px); /* Deeper "click" feel */
+    box-shadow: inset 0 5px 10px rgba(0,0,0,0.8);
+  }
+
   body.regime-compact #btnChallenge .cap-label {
     font-size: 10px;
     letter-spacing: 0px;
@@ -453,21 +482,37 @@
   #expertBlock {
     display: grid;
     grid-template-columns: repeat(3, 30px);
-    gap: 4px;
-    margin-top: 10px;
+    gap: 3px;
+    margin-top: 8px;
     justify-content: center;
+    align-items: center;
   }
   #expertBlock .btnind.btnsq {
     width: 30px; height: 30px;
   }
-  #expertBlock .btnind.btnsq .cap {
-    left: 3px; right: 3px; top: 3px; bottom: 3px;
+  #expertBlock .expert-head {
+    grid-column: span 3;
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #ffcc55;
+    text-align: center;
+    margin-top: 2px; /* Reduced from 6px */
+    text-shadow: 0 1px 0 #000;
   }
-  #expertBlock .btnind.btnsq .cap-icon {
-    font-size: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  #expertBlock hr {
+    grid-column: span 3;
+    border: none;
+    border-bottom: 1px solid rgba(90, 68, 24, 0.4);
+    margin: 1px 0; /* Reduced from 4px */
+    width: 100%;
+  }
+  /* Hiding Logic for specific regimes */
+  body.regime-portrait #expertBlock { 
+    display: none; 
+  }
+  body.regime-compact #expertBlock { 
+    display: none; 
   }
   /* Ensure icons adapt to Light Mode */
   body.theme-light #expertBlock .cap-icon {
@@ -613,10 +658,6 @@
       <img src="gt4pebbles.png" alt="logo" onerror="this.classList.add('broken')">
     </a>
 
-    <a class="wing-logo" href="https://erc.europa.eu/" style="margin-bottom: 4px;" target="_blank" rel="noopener noreferrer">
-      <img src="erc.jpg" alt="ERC logo" onerror="this.classList.add('broken')">
-    </a>
-
     <div class="sel" data-key="NP">
       <div class="sel-body"><div class="chev" data-dir="-1">◀</div><div class="win" id="winNP">3</div><div class="chev" data-dir="+1">▶</div></div>
       <div class="sel-lbl">Particles</div>
@@ -636,22 +677,45 @@
 
     <!-- New Expert Control Block -->
     <div id="expertBlock">
-      <!-- Row 1: Independent Toggles -->
+      <!-- BLOCK 1: HUD -->
+      <div class="expert-head">HUD</div>
       <button class="btnind btnsq" id="btnVtProj" title="v_t Center Projection"><span class="cap"><span class="cap-icon">⊕</span></span></button>
       <button class="btnind btnsq" id="btnFlashOrbit" title="Flash New Aggregates"><span class="cap"><span class="cap-icon">✨</span></span></button>
-      <button class="btnind btnsq" id="btnExpertDoor" title="Expert Door"><span class="cap"><span class="cap-icon">🔒</span></span></button>
+      <button class="btnind btnsq disabled" id="btnExpertDoor" title="Service Access" disabled><span class="cap"><span class="cap-icon">🔒</span></span></button>
 
-      <!-- Row 2: Analysis Master Group -->
       <button class="btnind btnsq" id="btnModePrev" title="Previous Mode"><span class="cap"><span class="cap-icon">◀</span></span></button>
       <button class="btnind btnsq" id="btnHudMaster" title="Analysis HUD Master"><span class="cap"><span class="cap-icon">📊</span></span></button>
       <button class="btnind btnsq" id="btnModeNext" title="Next Mode"><span class="cap"><span class="cap-icon">▶</span></span></button>
-    </div>
+      <hr>
+
+      <!-- BLOCK 2: Placeholder Section 1 -->
+      <div class="expert-head">Optics</div>
+      <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
+      <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
+      <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
+      
+      <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
+      <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
+      <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
+      <hr>
+
+      <!-- BLOCK 3: Placeholder Section 2 -->
+      <div class="expert-head">System</div>
+      <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
+      <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
+      <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
+      
+      <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
+      <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
+      <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
+      <hr>
+    </div>    
 
   </div>
 
   <div class="wing" id="wingRight">
     <button class="btnind inject" id="btnStart"><span class="cap"><span class="cap-label">Inject</span></span></button>
-    <button class="btnind" id="btnReset"><span class="cap"><span class="cap-label">Reset</span></span></button>
+    <button class="btnind btn-emergency" id="btnReset"><span class="cap"><span class="cap-label">Reset</span></span></button>
     <div class="btn-grid2x2" id="instrumentBlock">
       <button class="btnind btnsq" id="btnSound" title="Sound"><span class="cap"><span class="cap-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 9 L4 15 L8 15 L13 19 L13 5 L8 9 Z" fill="currentColor"/><path d="M16 8 Q19 12 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M18.5 6 Q22 12 18.5 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
@@ -3380,7 +3444,7 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
 
     drawViewport();
 
-if (heatmap.enabled) {
+  if (heatmap.enabled) {
       // --- 1. RENDER DATA PIXELS (Only if ready) ---
       if (heatmap.ready && (heatmap.maxSigma > 0 || heatmap.maxDensity > 0 || heatmap.maxProduct > 0)) {
         const res = heatmap.resolution;
@@ -3527,6 +3591,199 @@ if (heatmap.enabled) {
       ctxOv.restore(); // Ends the circular clipping
     }
   }
+
+    // FIxme start
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    drawLabBackground();
+    if (REGIME !== 'portrait') {
+      drawWing(GEO.wingLeftX, GEO.wingTop, GEO.wingW, GEO.wingBot - GEO.wingTop);
+      drawWing(GEO.wingRightX, GEO.wingTop, GEO.wingW, GEO.wingBot - GEO.wingTop);
+    } else {
+      drawWing(GEO.wingLeftX, GEO.wingTop, GEO.wingW, (GEO.wingBot - GEO.wingTop));
+    }
+    if (REGIME !== 'portrait') drawInjector();
+    drawPuffs();
+    drawSteelBand();
+    if (REGIME !== 'portrait') drawOmegaBar();
+    drawBackplate();
+    drawTrails();
+    drawDrumInterior();
+    drawVectorField();
+    drawAxis();
+    drawParticles();
+    drawAggregates();
+    drawMergeStreaks();
+    drawGoldenBalls();
+    drawGlobes();
+    drawGlare();
+    drawBoltRing();
+
+    // --- v_t Reference Projection Overlay ---
+    if (TUNING.particle.showVtProjection) {
+      const absOm = Math.abs(state.omega);
+      // Only draw if the drum is actually spinning enough to have an orbit center
+      if (absOm > 0.01) {
+        const vtBase = CFG.V_T;
+        // Uses the dynamic spread from the left wing settings
+        const delta = vtBase * CFG.VT_SPREAD; 
+        const velocities = [vtBase - delta, vtBase, vtBase + delta];
+        const py0 = Y2px(0);
+        
+        ctx.save();
+        // Cyan "HUD" style
+        ctx.strokeStyle = 'rgba(0, 255, 255, 0.5)';
+        ctx.fillStyle = 'rgba(0, 255, 255, 0.7)';
+        ctx.setLineDash([4, 4]); 
+        ctx.lineWidth = 1.2;
+
+        // Calculate x = v_t / omega
+        let points = velocities.map(v => X2px(v / state.omega));
+
+        // Draw horizontal connecting line
+        ctx.beginPath();
+        ctx.moveTo(points[0], py0);
+        ctx.lineTo(points[2], py0);
+        ctx.stroke();
+
+        // Draw the 3 reference points
+        points.forEach((px, i) => {
+          ctx.beginPath();
+          // Middle point (v_t) is larger
+          const radius = (i === 1) ? 5 : 2.5;
+          ctx.arc(px, py0, radius, 0, Math.PI * 2);
+          
+          if (i === 1) {
+            ctx.fill();   // Solid center target
+          } else {
+            ctx.setLineDash([]); // Delta points are open rings
+            ctx.stroke();
+          }
+        });
+        
+        ctx.restore();
+      }
+    }
+
+    drawViewport();
+
+    // --- EXPERT HUD OVERLAY (Heatmap & Captions) ---
+    if (heatmap.enabled || state.showVectors) {
+      // 1. RENDER HEATMAP PIXELS (Only if heatmap is enabled and data is ready)[cite: 5, 7]
+      if (heatmap.enabled && heatmap.ready && (heatmap.maxSigma > 0 || heatmap.maxDensity > 0 || heatmap.maxProduct > 0)) {
+        const res = heatmap.resolution;
+        const cellW = pxDist(200 / res);
+        const cellH = pxDist(200 / res);
+        const startX = X2px(-100); 
+        const startY = Y2px(100); 
+
+        ctxOv.save();
+        ctxOv.beginPath();
+        ctxOv.arc(CX, CY, pxDist(CFG.R_DRUM), 0, Math.PI * 2);
+        ctxOv.clip();
+        ctxOv.globalAlpha = heatmap.opacity;
+        
+        for (let gy = 0; gy < res; gy++) {
+          for (let gx = 0; gx < res; gx++) {
+            const idx = gy * res + gx;
+            let u = 0;
+            if (heatmap.mode === 'dispersion') u = heatmap.maxSigma > 0 ? heatmap.data[idx] / heatmap.maxSigma : 0;
+            else if (heatmap.mode === 'density') u = heatmap.maxDensity > 0 ? heatmap.densData[idx] / heatmap.maxDensity : 0;
+            else if (heatmap.mode === 'product') u = heatmap.maxProduct > 0 ? heatmap.prodData[idx] / heatmap.maxProduct : 0;
+
+            if (u <= 0) continue;
+            const r = Math.floor(0 + 255 * u);
+            const g = Math.floor(16 + 239 * u);
+            const b = Math.floor(64 + 191 * u);
+            ctxOv.fillStyle = `rgb(${r},${g},${b})`;
+            ctxOv.fillRect(startX + gx * cellW, startY + gy * cellH, cellW + 1, cellH + 1);
+          }
+        }
+        ctxOv.restore();
+
+        // 2. DRAW COLOR BAR[cite: 5]
+        const rOuter = pxDist(CFG.R_DRUM) + (REGIME === 'wide' ? 32 : (REGIME === 'compact' ? 18 : 14));
+        const barW = 15;
+        const barH = pxDist(60);
+        const bx = CX + rOuter + 10; 
+        const by = CY - barH / 2;
+        
+        const grad = ctxOv.createLinearGradient(0, by + barH, 0, by);
+        grad.addColorStop(0, 'rgb(0,16,64)');
+        grad.addColorStop(1, 'rgb(255,255,255)');
+        ctxOv.fillStyle = grad;
+        ctxOv.fillRect(bx, by, barW, barH);
+        ctxOv.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctxOv.lineWidth = 1;
+        ctxOv.strokeRect(bx, by, barW, barH);
+
+        ctxOv.save();
+        ctxOv.globalAlpha = 1.0;
+        ctxOv.fillStyle = (PAL.name === 'light') ? '#000000' : '#ffffff';
+        ctxOv.font = 'bold 11px monospace';
+        ctxOv.textAlign = 'center';
+        
+        let topL = "", unitL = "";
+        if (heatmap.mode === 'dispersion') { topL = heatmap.maxSigma.toFixed(1); unitL = "cm/s (σ)"; }
+        else if (heatmap.mode === 'density') { topL = heatmap.maxDensity.toFixed(1); unitL = "parts/cell (ρ)"; }
+        else if (heatmap.mode === 'product') { topL = heatmap.maxProduct.toFixed(1); unitL = "collision proxy"; }
+
+        ctxOv.fillText(topL, bx + barW/2, by - 8);
+        ctxOv.fillText("0.0", bx + barW/2, by + barH + 14);
+        ctxOv.font = '8px monospace';
+        ctxOv.fillText(unitL, bx + barW/2, by - 20);
+        ctxOv.restore();
+      }
+
+      // 3. DRAW CAPTION (Heatmaps & Vectors)
+      ctxOv.save();
+      ctxOv.globalAlpha = heatmap.opacity;
+      const hudColor = (PAL.name === 'light') ? '#000000' : '#ffffff';
+      ctxOv.fillStyle = hudColor;
+      
+      if (PAL.name !== 'light') {
+        ctxOv.shadowColor = 'rgba(255, 255, 255, 0.4)';
+        ctxOv.shadowBlur = 4;
+      }
+      
+      ctxOv.font = 'bold 20px "Courier New", monospace'; 
+      ctxOv.textAlign = 'center';
+      ctxOv.textBaseline = 'top';
+
+      let caption = "";
+      if (state.showVectors) {
+          caption = "resultant vector field";
+      } else if (heatmap.mode === 'dispersion') {
+          caption = "velocity variance σ_v";
+      } else if (heatmap.mode === 'density') {
+          caption = "particle density n_p";
+      } else if (heatmap.mode === 'product') {
+          caption = "collision proxy n_p · σ_v";
+      }
+
+      const rInnerCaption = pxDist(CFG.R_DRUM); 
+      const bandWidthCaption = (REGIME === 'wide' ? 32 : (REGIME === 'compact' ? 18 : 14));
+      const textY = CY + rInnerCaption + bandWidthCaption + 25; 
+
+      ctxOv.fillText(caption, CX, textY);
+
+      // Data collection notice (Only for heatmaps)[cite: 7]
+      if (heatmap.enabled && !heatmap.ready) {
+        ctxOv.font = 'italic 13px "Courier New", monospace';
+        ctxOv.globalAlpha = heatmap.opacity * 0.7; 
+        ctxOv.fillText("(accumulating orbital data...)", CX, textY + 28);
+      }
+      ctxOv.restore();
+    }
+  }
+
+
+
+// FIXME end
+
+
+
 
   function rgbLerp(a, b, t) { return Math.round(a + (b - a) * t); }
   function mixHex(h1, h2, t) {
