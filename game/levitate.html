@@ -449,6 +449,31 @@
   body.regime-portrait .btnind.btnsq .cap { left: 4px; right: 4px; top: 4px; bottom: 4px; }
   body.regime-portrait .btnind.btnsq svg { width: 18px; height: 18px; }
 
+  /* Expert Grid Container for Left Wing */
+  #expertBlock {
+    display: grid;
+    grid-template-columns: repeat(3, 30px);
+    gap: 4px;
+    margin-top: 10px;
+    justify-content: center;
+  }
+  #expertBlock .btnind.btnsq {
+    width: 30px; height: 30px;
+  }
+  #expertBlock .btnind.btnsq .cap {
+    left: 3px; right: 3px; top: 3px; bottom: 3px;
+  }
+  #expertBlock .btnind.btnsq .cap-icon {
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* Ensure icons adapt to Light Mode */
+  body.theme-light #expertBlock .cap-icon {
+    color: #1a1006 !important;
+  }
+
   #viewportVideo {
     position: absolute;
     pointer-events: none;
@@ -608,6 +633,20 @@
       <div class="sel-body"><div class="chev" data-dir="-1">◀</div><div class="win" id="winDT">1 s</div><div class="chev" data-dir="+1">▶</div></div>
       <div class="sel-lbl">Δt inject</div>
     </div>
+
+    <!-- New Expert Control Block -->
+    <div id="expertBlock">
+      <!-- Row 1: Independent Toggles -->
+      <button class="btnind btnsq" id="btnVtProj" title="v_t Center Projection"><span class="cap"><span class="cap-icon">⊕</span></span></button>
+      <button class="btnind btnsq" id="btnFlashOrbit" title="Flash New Aggregates"><span class="cap"><span class="cap-icon">✨</span></span></button>
+      <button class="btnind btnsq" id="btnExpertDoor" title="Expert Door"><span class="cap"><span class="cap-icon">🔒</span></span></button>
+
+      <!-- Row 2: Analysis Master Group -->
+      <button class="btnind btnsq" id="btnModePrev" title="Previous Mode"><span class="cap"><span class="cap-icon">◀</span></span></button>
+      <button class="btnind btnsq" id="btnHudMaster" title="Analysis HUD Master"><span class="cap"><span class="cap-icon">📊</span></span></button>
+      <button class="btnind btnsq" id="btnModeNext" title="Next Mode"><span class="cap"><span class="cap-icon">▶</span></span></button>
+    </div>
+
   </div>
 
   <div class="wing" id="wingRight">
@@ -1339,6 +1378,45 @@
     globeMaps.push(img);
   }
 
+  // --- EXPERT ANALYSIS CONTROLLER ---
+  const ANALYSIS_MODES = ['vectors', 'dispersion', 'density', 'product'];
+  let currentAnalysisIdx = 0;
+  let hudMasterOn = false;
+
+  function updateAnalysisInstrument() {
+    const btnPrev = document.getElementById('btnModePrev');
+    const btnNext = document.getElementById('btnModeNext');
+    const btnMaster = document.getElementById('btnHudMaster');
+    
+    if (!btnPrev || !btnNext || !btnMaster) return;
+
+    // 1. Reset underlying simulation states
+    state.showVectors = false;
+    heatmap.enabled = false;
+
+    // 2. Visual dependencies: Dim/Lock arrows if Master is OFF[cite: 5]
+    btnPrev.classList.toggle('disabled', !hudMasterOn);
+    btnNext.classList.toggle('disabled', !hudMasterOn);
+    btnMaster.classList.toggle('on', hudMasterOn);
+
+    if (!hudMasterOn) {
+        ctxOv.clearRect(0, 0, W, H); 
+        return;
+    }
+
+    // 3. Activate selection[cite: 5]
+    const mode = ANALYSIS_MODES[currentAnalysisIdx];
+    if (mode === 'vectors') {
+      state.showVectors = true;
+    } else {
+      heatmap.enabled = true;
+      heatmap.mode = mode;
+      // Force accumulation restart for the new mode[cite: 5]
+      heatmap.ready = false; 
+      heatmap.accN.fill(0);
+    }
+  }
+
   function initLevel() {
     state.running = false;
     state.particles = [];
@@ -1357,6 +1435,17 @@
     state.aggHoldRevs = 0;
     state.aggCount = 0;
     state.aggMerging = null;
+
+    // Reset Expert UI states
+    hudMasterOn = false;
+    const btnMaster = document.getElementById('btnHudMaster');
+    if (btnMaster) btnMaster.classList.remove('on');
+    
+    // Safety check: Only call if the controller at the bottom is loaded
+    if (typeof updateAnalysisInstrument === 'function') {
+        updateAnalysisInstrument(); 
+    }
+    
     updateHUD();
   }
 
@@ -5565,18 +5654,15 @@ function updateViewport(dt) {
       pollAggregateCounter();
       updateViewport(dt);
       draw();
-      updateGlobe(dt); // Physics for the globe
-      drawGlobes();    // Drawing the globe on top
+      updateGlobe(dt); 
+      drawGlobes();    
       updateHUD();
       updateGame();
       updateChallenge();
+
       // --- UNIVERSAL SUCCESS CHECK ---
-      // This runs in every mode: Game, Normal, or Challenge
       if (state.globes.length >= TUNING.globe.limit && gameSheet.hidden) {
-          // 1. Disable injection so no more pebbles can form
           state.running = false; 
-          
-          // 2. Show the "Game Over" message
           setTimeout(() => {
               showSheet(
                   "LIMIT OF SIMULATION SPACE REACHED", 
@@ -5594,6 +5680,38 @@ function updateViewport(dt) {
     }
     requestAnimationFrame(loop);
   }
+
+
+
+  // --- EVENT LISTENERS ---
+  document.getElementById('btnHudMaster').addEventListener('click', () => {
+    hudMasterOn = !hudMasterOn;
+    updateAnalysisInstrument();
+  });
+
+  document.getElementById('btnModeNext').addEventListener('click', () => {
+    if (!hudMasterOn) return;
+    currentAnalysisIdx = (currentAnalysisIdx + 1) % ANALYSIS_MODES.length;
+    updateAnalysisInstrument();
+  });
+
+  document.getElementById('btnModePrev').addEventListener('click', () => {
+    if (!hudMasterOn) return;
+    currentAnalysisIdx = (currentAnalysisIdx - 1 + ANALYSIS_MODES.length) % ANALYSIS_MODES.length;
+    updateAnalysisInstrument();
+  });
+
+  document.getElementById('btnVtProj').addEventListener('click', function() {
+    TUNING.particle.showVtProjection = !TUNING.particle.showVtProjection;
+    this.classList.toggle('on', TUNING.particle.showVtProjection);
+  });
+
+  document.getElementById('btnFlashOrbit').addEventListener('click', function() {
+    TUNING.aggregate.flashOrbit = !TUNING.aggregate.flashOrbit;
+    this.classList.toggle('on', TUNING.aggregate.flashOrbit);
+  });
+
+  // Kick off the animation loop
   requestAnimationFrame(loop);
 })();
 </script>
