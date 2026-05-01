@@ -793,7 +793,7 @@
         
         <button class="btnind btnsq" id="btnProcPureV" title="Aggregates keep pure average v_t"><span class="cap"><span class="cap-icon">⚖️</span></span></button>
         <button class="btnind btnsq" id="btnProcSlowMo" title="5x Slow-motion during merging"><span class="cap"><span class="cap-icon">🐌</span></span></button>
-        <button class="btnind btnsq" id="btnProcFast" title="Accelerated synthesis"><span class="cap"><span class="cap-icon">⏩</span></span></button>
+        <button class="btnind btnsq" id="btnProcFast" title="This button is only for testing by the game developer, because activating it ruins discovery and joy in the game"><span class="cap"><span class="cap-icon">⏩</span></span></button>
         <hr>
 
         <div class="expert-head">System</div>
@@ -5655,11 +5655,37 @@ function updateViewport(dt) {
 
   // --- EXPERT PROCESSES CONTROLLER ---
   
-  // Helper to toggle buttons and update TUNING
-  function wireProcessButton(id, colorClass, onActivate) {
+  // Helper to toggle buttons and update TUNING with optional click-count requirement
+  function wireProcessButton(id, colorClass, onActivate, requiredClicks = 1) {
     const btn = document.getElementById(id);
     if (!btn) return;
+
+    let clickCount = 0;
+    let clickTimer = null;
+
     btn.addEventListener('click', function() {
+      // If a multi-click is required
+      if (requiredClicks > 1) {
+        clickCount++;
+        if (clickTimer) clearTimeout(clickTimer);
+
+        // Reset if the user is too slow (500ms window)
+        clickTimer = setTimeout(() => {
+          clickCount = 0;
+        }, 500);
+
+        if (clickCount < requiredClicks) {
+          // Visual feedback for partial progress: a quick flash
+          btn.classList.add('flash');
+          setTimeout(() => btn.classList.remove('flash'), 100);
+          return; 
+        }
+        
+        // Success: Reset counter and continue to toggle logic
+        clickCount = 0;
+        clearTimeout(clickTimer);
+      }
+
       const isActive = this.classList.toggle(colorClass || 'on');
       onActivate(isActive);
     });
@@ -5727,7 +5753,7 @@ function updateViewport(dt) {
 
       TUNING.globe.nCrit = TUNING_DEFAULT.globe.nCrit;
     }
-  });
+  },7);
    
   // --- SECRET HANDSHAKE: DOOR LOGIC ---
   const expertContainer = document.getElementById('expertContainer');
