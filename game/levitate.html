@@ -468,7 +468,6 @@
   body.regime-compact .sel .sel-body { height: 26px; }
   body.regime-compact .sel .win { font-size: 12px; }
   body.regime-compact .sel-lbl { font-size: 8px; }
-  body.regime-compact .wing-logo { display: none; }
 
   body.regime-portrait { background: var(--bg-root, #0a0a0c); }
   body.regime-portrait .title-plate { display: none; }
@@ -521,12 +520,22 @@
     margin: 1px 0; /* Reduced from 4px */
     width: 100%;
   }
-  /* Hiding Logic for specific regimes */
-  body.regime-portrait #expertBlock { 
-    display: none; 
+
+  /* TIER 1: Expert Panel vanishes in both Compact and Portrait modes */
+  body.regime-compact #expertContainer,
+  body.regime-portrait #expertContainer { 
+    display: none !important; 
   }
-  body.regime-compact #expertBlock { 
-    display: none; 
+
+  /* TIER 2: Logo survives Compact but vanishes in Portrait */
+  body.regime-portrait .wing-logo { 
+    display: none !important; 
+  }
+
+  /* Ensure logo is flex and centered when visible in compact mode */
+  body.regime-compact .wing-logo {
+    display: flex;
+    margin-bottom: 8px;
   }
 
   #viewportVideo {
@@ -1242,7 +1251,7 @@
     const BOT_MARGIN   = isWide ? 30 : 16;
     const FOOT_HEIGHT  = isWide ? 70 : 14;
     const BAR_HEIGHT   = isWide ? 96 : 72;
-    const WING_WIDTH   = isWide ? 120 : 110;
+    const WING_WIDTH   = isWide ? 120 : 100;
     const WING_GAP     = isWide ? 40 : 18;
     const ARROW_ROOM   = isWide ? 84 : 60;
     const SIDE_RESERVE = WING_WIDTH + WING_GAP + ARROW_ROOM;
