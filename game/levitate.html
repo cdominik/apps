@@ -907,7 +907,7 @@
       nCrit:      7,
       holdTarget: 3,
       holdSubseq: 3,
-      maxBalls:   20,
+      maxBalls:   30,
       mergeDur:   0.6,
       minSpread:  0.30,
     },
@@ -3291,6 +3291,109 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
 
     drawViewport();
 
+if (heatmap.enabled) {
+      // --- 1. RENDER DATA PIXELS (Only if ready) ---
+      if (heatmap.ready && (heatmap.maxSigma > 0 || heatmap.maxDensity > 0 || heatmap.maxProduct > 0)) {
+        const res = heatmap.resolution;
+        const cellW = pxDist(200 / res);
+        const cellH = pxDist(200 / res);
+        const startX = X2px(-100); 
+        const startY = Y2px(100); 
+
+        ctxOv.save();
+        ctxOv.beginPath();
+        ctxOv.arc(CX, CY, pxDist(CFG.R_DRUM), 0, Math.PI * 2);
+        ctxOv.clip();
+        ctxOv.globalAlpha = heatmap.opacity;
+        
+        for (let gy = 0; gy < res; gy++) {
+          for (let gx = 0; gx < res; gx++) {
+            const idx = gy * res + gx;
+            let u = 0;
+            if (heatmap.mode === 'dispersion') u = heatmap.maxSigma > 0 ? heatmap.data[idx] / heatmap.maxSigma : 0;
+            else if (heatmap.mode === 'density') u = heatmap.maxDensity > 0 ? heatmap.densData[idx] / heatmap.maxDensity : 0;
+            else if (heatmap.mode === 'product') u = heatmap.maxProduct > 0 ? heatmap.prodData[idx] / heatmap.maxProduct : 0;
+
+            if (u <= 0) continue;
+            const r = Math.floor(0 + 255 * u);
+            const g = Math.floor(16 + 239 * u);
+            const b = Math.floor(64 + 191 * u);
+            ctxOv.fillStyle = `rgb(${r},${g},${b})`;
+            ctxOv.fillRect(startX + gx * cellW, startY + gy * cellH, cellW + 1, cellH + 1);
+          }
+        }
+        ctxOv.restore();
+
+        // --- 2. DRAW COLOR BAR (Only if ready) ---
+        const rOuter = pxDist(CFG.R_DRUM) + (REGIME === 'wide' ? 32 : (REGIME === 'compact' ? 18 : 14));
+        const barW = 15;
+        const barH = pxDist(60);
+        const bx = CX + rOuter + 10; 
+        const by = CY - barH / 2;
+        
+        const grad = ctxOv.createLinearGradient(0, by + barH, 0, by);
+        grad.addColorStop(0, 'rgb(0,16,64)');
+        grad.addColorStop(1, 'rgb(255,255,255)');
+        ctxOv.fillStyle = grad;
+        ctxOv.fillRect(bx, by, barW, barH);
+        ctxOv.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctxOv.lineWidth = 1;
+        ctxOv.strokeRect(bx, by, barW, barH);
+
+        ctxOv.save();
+        ctxOv.globalAlpha = 1.0;
+        ctxOv.fillStyle = (PAL.name === 'light') ? '#000000' : '#ffffff';
+        ctxOv.font = 'bold 11px monospace';
+        ctxOv.textAlign = 'center';
+        
+        let topL = "", unitL = "";
+        if (heatmap.mode === 'dispersion') { topL = heatmap.maxSigma.toFixed(1); unitL = "cm/s (σ)"; }
+        else if (heatmap.mode === 'density') { topL = heatmap.maxDensity.toFixed(1); unitL = "parts/cell (ρ)"; }
+        else if (heatmap.mode === 'product') { topL = heatmap.maxProduct.toFixed(1); unitL = "collision proxy"; }
+
+        ctxOv.fillText(topL, bx + barW/2, by - 8);
+        ctxOv.fillText("0.0", bx + barW/2, by + barH + 14);
+        ctxOv.font = '8px monospace';
+        ctxOv.fillText(unitL, bx + barW/2, by - 20);
+        ctxOv.restore();
+      }
+
+      // --- 3. DRAW CAPTION (Always visible if enabled) ---
+      ctxOv.save();
+      ctxOv.globalAlpha = heatmap.opacity;
+      const hudColor = (PAL.name === 'light') ? '#000000' : '#ffffff';
+      ctxOv.fillStyle = hudColor;
+      
+      if (PAL.name !== 'light') {
+        ctxOv.shadowColor = 'rgba(255, 255, 255, 0.4)';
+        ctxOv.shadowBlur = 4;
+      }
+      
+      ctxOv.font = 'bold 20px "Courier New", monospace'; 
+      ctxOv.textAlign = 'center';
+      ctxOv.textBaseline = 'top';
+
+      let caption = "";
+      if (heatmap.mode === 'dispersion') caption = "velocity variance σ_v";
+      else if (heatmap.mode === 'density') caption = "particle density n_p";
+      else if (heatmap.mode === 'product') caption = "collision proxy n_p · σ_v";
+
+      const rInnerCaption = pxDist(CFG.R_DRUM); 
+      const bandWidthCaption = (REGIME === 'wide' ? 32 : (REGIME === 'compact' ? 18 : 14));
+      const textY = CY + rInnerCaption + bandWidthCaption + 25; 
+
+      ctxOv.fillText(caption, CX, textY);
+
+      // Data collection sub-text notice
+      if (!heatmap.ready) {
+        ctxOv.font = 'italic 13px "Courier New", monospace';
+        ctxOv.globalAlpha = heatmap.opacity * 0.7; 
+        ctxOv.fillText("(accumulating orbital data...)", CX, textY + 28);
+      }
+      ctxOv.restore();
+    }
+    
+
     if (heatmap.enabled && (heatmap.maxSigma > 0 || heatmap.maxDensity > 0 || heatmap.maxProduct > 0) && heatmap.ready) {
       const res = heatmap.resolution;
       // Grid now covers 200cm diameter
@@ -3333,60 +3436,6 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
         }
       }
       ctxOv.restore(); // Ends the circular clipping
-
-
-
-
-      // Draw Color Bar
-      const rOuter = pxDist(CFG.R_DRUM) + (REGIME === 'wide' ? 32 : (REGIME === 'compact' ? 18 : 14));
-      const barW = 15;
-      const barH = pxDist(60); // Scale height relative to drum size
-      
-      // Position just outside the drum band on the right
-      const bx = CX + rOuter + 10; 
-      const by = CY - barH / 2;
-      
-      const grad = ctxOv.createLinearGradient(0, by + barH, 0, by);
-      grad.addColorStop(0, 'rgb(0,16,64)');
-      grad.addColorStop(1, 'rgb(255,255,255)');
-      
-      ctxOv.fillStyle = grad;
-      ctxOv.fillRect(bx, by, barW, barH);
-      
-      // Border for the bar
-      ctxOv.strokeStyle = 'rgba(255,255,255,0.3)';
-      ctxOv.lineWidth = 1;
-      ctxOv.strokeRect(bx, by, barW, barH);
-      
-      // --- Dynamic Color Bar Labels ---
-      ctxOv.globalAlpha = 1.0;
-      ctxOv.fillStyle = '#fff';
-      ctxOv.font = 'bold 11px monospace';
-      ctxOv.textAlign = 'center';
-      
-      let topLabel = "";
-      let unitLabel = "";
-
-      if (heatmap.mode === 'dispersion') {
-          topLabel = heatmap.maxSigma.toFixed(1);
-          unitLabel = "cm/s (σ)";
-      } else if (heatmap.mode === 'density') {
-          topLabel = heatmap.maxDensity.toFixed(1);
-          unitLabel = "parts/cell (ρ)";
-      } else if (heatmap.mode === 'product') {
-          topLabel = heatmap.maxProduct.toFixed(1);
-          unitLabel = "collision proxy"; 
-      }
-
-      // Max value above the bar
-      ctxOv.fillText(topLabel, bx + barW/2, by - 8);
-      // Zero below the bar
-      ctxOv.fillText("0.0", bx + barW/2, by + barH + 14);
-      // Dynamic Unit Label
-      ctxOv.font = '8px monospace';
-      ctxOv.fillText(unitLabel, bx + barW/2, by - 20);
-
-      ctxOv.restore();
     }
   }
 
