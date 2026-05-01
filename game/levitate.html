@@ -780,18 +780,24 @@
 
       <!-- The Panel Content (Underneath) -->
       <div id="expertBlock">
+        <!-- The Heads-Up display -->
+        <!-- Row 1 -->
         <div class="expert-head">HUD</div>
         <button class="btnind btnsq" id="btnVtProj" title="v_t Center Projection"><span class="cap"><span class="cap-icon">⊕</span></span></button>
         <button class="btnind btnsq" id="btnFlashOrbit" title="Flash New Aggregates"><span class="cap"><span class="cap-icon">✨</span></span></button>
         <!-- Inactive Placeholder Button -->
         <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
 
+        <!-- Row 2 -->
         <button class="btnind btnsq" id="btnModePrev" title="Previous Mode"><span class="cap"><span class="cap-icon">◀</span></span></button>
         <button class="btnind btnsq" id="btnHudMaster" title="Analysis HUD Master"><span class="cap"><span class="cap-icon">📊</span></span></button>
         <button class="btnind btnsq" id="btnModeNext" title="Next Mode"><span class="cap"><span class="cap-icon">▶</span></span></button>
         <hr>
 
+        <!-- The PROCESSES buttons -->
         <div class="expert-head">Processes</div>
+
+        <!-- Row 1 -->
         <button class="btnind btnsq" id="btnProcInvinc" title="Nano-coating drum, no particle losses"><span class="cap"><span class="cap-icon">🛡️</span></span></button>
         <button class="btnind btnsq" id="btnProcNoAgg" title="Disable aggregate formation">
            <span class="cap"><span class="cap-icon"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="3" fill="currentColor"/><circle cx="8" cy="9" r="2.5" fill="currentColor"/><circle cx="16" cy="10" r="2.5" fill="currentColor"/><circle cx="10" cy="16" r="2.5" fill="currentColor"/><circle cx="15" cy="16" r="2.5" fill="currentColor"/><circle cx="5" cy="12" r="2" fill="currentColor"/><line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/><line x1="20" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/></svg></span></span>
@@ -800,18 +806,29 @@
            <span class="cap"><span class="cap-icon"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="7" fill="currentColor"/><line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/><line x1="20" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/></svg></span></span>
         </button>
         
+        <!-- Row 2 -->
         <button class="btnind btnsq" id="btnProcPureV" title="Aggregates keep pure average v_t"><span class="cap"><span class="cap-icon">⚖️</span></span></button>
         <button class="btnind btnsq" id="btnProcSlowMo" title="5x Slow-motion during merging"><span class="cap"><span class="cap-icon">🐌</span></span></button>
         <button class="btnind btnsq" id="btnProcFast" title="This button is only for testing by the game developer, because activating it ruins discovery and joy in the game"><span class="cap"><span class="cap-icon">⏩</span></span></button>
         <hr>
 
+        
+        <!-- The SYSTEM buttons -->
         <div class="expert-head">System</div>
         <!-- Row 1 -->
+        <button class="btnind btnsq" id="btnSysNoDecay" title="Disable Ω rotation decay">
+          <span class="cap">
+            <span class="cap-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <text x="12" y="17" text-anchor="middle" font-family="serif" font-size="16" font-weight="bold" fill="currentColor">Ω</text>
+              </svg>
+            </span>
+          </span>
+        </button>
         <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
         <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
-        <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
-        
-        <!-- Row 2 (Restored) -->
+
+        <!-- Row 2 -->
         <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
         <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
         <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
@@ -1003,7 +1020,7 @@
 
   const TUNING = {
     viewport: {
-      slideDur:       3.0,
+      slideDur:       2.0,
       warmUpDur:      0.45,
       crossfadeDur:   0.4,
       ruleEvalHz:     5,
@@ -1025,6 +1042,11 @@
       omegaStep:  2 * Math.PI / 300,
       omegaMax:   2 * Math.PI * 1.5,
     },
+    highlight: {
+      cx:     50,
+      cy:     0,
+      radius: 50,
+    },
     particle: {
       settleFloor: 2.0,
       sizeRefVt:   30,
@@ -1033,19 +1055,6 @@
       collisionR:  0.5,
       invincible:  false,
       showVtProjection: false,
-    },
-    highlight: {
-      cx:     50,
-      cy:     0,
-      radius: 50,
-    },
-    egg: {
-      nCrit:      7,
-      holdTarget: 3,
-      holdSubseq: 3,
-      maxBalls:   30,
-      mergeDur:   0.6,
-      minSpread:  0.30,
     },
     aggregate: {
       minLevitated: 30,
@@ -1057,6 +1066,14 @@
       minSpread: 0.20,
       vtFactor: 1.2,
       flashOrbit: false,
+    },
+    egg: {
+      nCrit:      7,
+      holdTarget: 3,
+      holdSubseq: 3,
+      maxBalls:   30,
+      mergeDur:   0.6,
+      minSpread:  0.30,
     },
     ball: {
       gravity:      200,
@@ -4353,7 +4370,13 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
   function applyCheat(on) {
     cheatNoDecay = on;
     TUNING.drum.omegaDecay = on ? 0 : ORIGINAL_OMEGA_DECAY;
-    btnOmegaCtl.classList.toggle('cheat', on);
+    
+    // Synchronize both buttons to use the orange "cheat" state
+    const btnOmega = document.getElementById('btnOmegaCtl');
+    const btnSys = document.getElementById('btnSysNoDecay');
+    
+    if (btnOmega) btnOmega.classList.toggle('cheat', on);
+    if (btnSys) btnSys.classList.toggle('cheat', on);
   }
 
   btnOmegaCtl.addEventListener('pointerdown', (e) => {
@@ -5700,29 +5723,29 @@ function updateViewport(dt) {
     });
   }
 
-  // 1. Nano-Coating (Green light when ON)
+  // PROCESSES 1. Nano-Coating (Green light when ON)
   wireProcessButton('btnProcInvinc', 'on', (active) => {
     TUNING.particle.invincible = active;
   });
 
-  // 2. Aggregate formation OFF (Red light when active)
+  // PROCESSES 2. Aggregate formation OFF (Red light when active)
   wireProcessButton('btnProcNoAgg', 'warn', (active) => {
     TUNING.aggregate.minLevitated = active ? 999999 : TUNING_DEFAULT.aggregate.minLevitated;
   });
 
-  // 3. Pebble formation OFF (Red light when active)
+  // PROCESSES 3. Pebble formation OFF (Red light when active)
   wireProcessButton('btnProcNoPeb', 'warn', (active) => {
     TUNING.egg.nCrit = active ? 999999 : TUNING_DEFAULT.egg.nCrit;
   });
 
-  // 4. Pure Velocity Average
+  // PROCESSES 4. Pure Velocity Average
   wireProcessButton('btnProcPureV', 'on', (active) => {
     // Revert vtFactor to 1.0 (pure average) or back to default multiplier[cite: 2]
     TUNING.aggregate.vtFactor = active ? 1.0 : TUNING_DEFAULT.aggregate.vtFactor;
   });
 
 
-  // 5. Dynamic Slow Motion (Armed state)
+  // PROCESSES 5. Dynamic Slow Motion (Armed state)
   let slowMoArmed = false;
   wireProcessButton('btnProcSlowMo', 'on', (active) => {
     slowMoArmed = active;
@@ -5735,7 +5758,7 @@ function updateViewport(dt) {
     }
   });
 
-  // 6. Fast Chain (Accelerated Synthesis)
+  // PROCESSES 6. Fast Chain (Accelerated Synthesis)
   wireProcessButton('btnProcFast', 'on', (active) => {
     if (active) {
       // Aggregate synthesis acceleration
@@ -5764,6 +5787,14 @@ function updateViewport(dt) {
     }
   },7);
    
+  // PROCESSES 1. synchronized Omega Decay off
+  const btnSysNoDecay = document.getElementById('btnSysNoDecay');
+  if (btnSysNoDecay) {
+    btnSysNoDecay.addEventListener('click', () => {
+      applyCheat(!cheatNoDecay);
+    });
+  }
+
   // --- SECRET HANDSHAKE: DOOR LOGIC ---
   const expertContainer = document.getElementById('expertContainer');
   const titlePlateLink = document.getElementById('titlePlate');
