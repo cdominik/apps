@@ -829,7 +829,6 @@
           <span class="cap"><span class="cap-icon">👻</span></span>
         </button>
         <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
-        <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
 
         <!-- Row 2: Speed Controls (Radio-style toggles) -->
         <button class="btnind btnsq" id="btnWarp2" title="2x Simulation Speed"><span class="cap"><span class="cap-label" style="font-size:11px;">2x</span></span></button>
@@ -1650,30 +1649,17 @@
     for (const p of state.particles) {
       if (!p.alive) continue;
 
-      // --- DUAL GHOST PHYSICS LOGIC ---
-      if (p.ghostGas && p.ghostVac) {
-          // 1. Gas Ghost: Pure rotation
-          p.ghostGas.x += (-omega * p.ghostGas.y) * dt;
-          p.ghostGas.y += (omega * p.ghostGas.x) * dt;
-      
-          // 2. Vacuum Ghost: Pure gravity/falling
-          // Since there's no drag, it just accelerates downward
-          // p.ghostVac.vy -= 980 * dt; // Standard gravity in cm/s^2 (scaled)
-          p.ghostVac.vy -= 200 * dt; // Standard gravity in cm/s^2 (scaled)
-          p.ghostVac.x  += p.ghostVac.vx * dt;
-          p.ghostVac.y  += p.ghostVac.vy * dt;
-      
-          // Decay logic: Pulse lasts for 2 rotations
+      // --- GHOST PATH DECAY ---
+      if (p.ghostPathGas || p.ghostPathVac) {
           const absOm = Math.abs(omega);
           const decay = (absOm > 0.01) ? (absOm * dt) / (4 * Math.PI) : dt * 0.2;
           p.ghostLife -= decay;
       
           if (p.ghostLife <= 0) {
-              delete p.ghostGas;
-              delete p.ghostVac;
+              delete p.ghostPathGas;
+              delete p.ghostPathVac;
           }
       }
-
       if (p.merging) continue;
       if (p.stuck) {
         p.stuckAngle += omega * dt;
@@ -3252,31 +3238,68 @@ function updateAggregates(dt) {
     const sizeFac = visualSizeFactor(p.vt);
     const rpx = Math.max(2, pxDist(TUNING.particle.collisionR) * 2 * sizeFac);
 
-    // --- DUAL GHOST TRACERS (SYSTEM OVERRIDE) ---
-    if (p.ghostGas && p.ghostVac) {
-        ctx.save();
-        ctx.globalAlpha = Math.max(0, p.ghostLife);
-        ctx.lineWidth = 1;
-        ctx.setLineDash([2, 2]);
+    if (p.isDiagnosticTarget && TUNING.particle.showFlowGhosts) {
+      const omega = state.omega;
+      const g = 200; 
+      const steps = 40;
+      const dt_sim = 0.05;
+  
+      ctx.save();
+      ctx.lineWidth = 1.5;
 
-        const gx = X2px(p.ghostGas.x), gy = Y2px(p.ghostGas.y);
-        const vx = X2px(p.ghostVac.x), vy = Y2px(p.ghostVac.y);
-
-        // 1. Gas Tracer (Cyan) - Shows ideal gas rotation
-        ctx.strokeStyle = '#5ad0ff';
-        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(gx, gy); ctx.stroke();
-        ctx.fillStyle = '#5ad0ff';
-        ctx.beginPath(); ctx.arc(gx, gy, rpx * 0.7, 0, Math.PI * 2); ctx.fill();
-
-        // 2. Vacuum Tracer (Purple) - Shows ballistic free-fall
-        ctx.strokeStyle = '#ff5aff';
-        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(vx, vy); ctx.stroke();
-        ctx.fillStyle = '#ff5aff';
-        ctx.beginPath(); ctx.arc(vx, vy, rpx * 0.7, 0, Math.PI * 2); ctx.fill();
-
-        ctx.restore();
+      // --- PATH 1: ACTUAL ORBIT (Solid White) ---
+      // This uses the current particle's vt to show its real future
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.setLineDash([]); // Solid line for reality
+      ctx.beginPath();
+      let ax = p.x, ay = p.y;
+      ctx.moveTo(x, y);
+      for (let i = 0; i < steps; i++) {
+        const vxg = -omega * ay;
+        const vyg = omega * ax;
+        ax += vxg * dt_sim;
+        ay += (vyg - p.vt) * dt_sim; // Real physics includes vt[cite: 1]
+        ctx.lineTo(X2px(ax), Y2px(ay));
+        if (ax*ax + ay*ay > 10000) break; 
+      }
+      ctx.stroke();
+  
+      // --- PATH 2: GAS PATH (Dashed Cyan) ---
+      ctx.strokeStyle = '#5ad0ff';
+      ctx.setLineDash([4, 2]);
+      ctx.beginPath();
+      let gx = p.x, gy = p.y;
+      ctx.moveTo(x, y);
+      for (let i = 0; i < steps; i++) {
+        const ox = gx, oy = gy;
+        gx += (-omega * oy) * dt_sim;
+        gy += (omega * ox) * dt_sim;
+        ctx.lineTo(X2px(gx), Y2px(gy));
+      }
+      ctx.stroke();
+  
+      // --- PATH 3: VACUUM PATH (Dashed Purple) ---
+      ctx.strokeStyle = '#ff5aff';
+      ctx.beginPath();
+      let vx = p.x, vy = p.y, vvx = p.vx, vvy = p.vy;
+      ctx.moveTo(x, y);
+      for (let i = 0; i < steps; i++) {
+        vvy -= g * dt_sim;
+        vx += vvx * dt_sim;
+        vy += vvy * dt_sim;
+        ctx.lineTo(X2px(vx), Y2px(vy));
+        if (vx*vx + vy*vy > 10000) break;
+      }
+      ctx.stroke();
+  
+      // --- HIGHLIGHT RING ---
+      ctx.setLineDash([]);
+      ctx.strokeStyle = 'white';
+      ctx.beginPath();
+      ctx.arc(x, y, rpx + 4, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
     }
-    // --- END GHOSTS ---
 
     // --- SUCCESS-PROBABILITY HUD ---
     // Draws a progress arc around particles currently in the levitation zone[cite: 3]
@@ -5888,19 +5911,14 @@ function updateViewport(dt) {
 
   // SYSTEM 2. Ghost renderer
   document.getElementById('btnFlowGhost').addEventListener('click', function() {
-    if (state.particles.length > 300) return;
-
-    state.particles.forEach(p => {
-        if (p.alive && !p.stuck) {
-            p.ghostLife = 1.0;
-            // Snap Gas Ghost to current position
-            p.ghostGas = { x: p.x, y: p.y };
-            // Snap Vacuum Ghost with current particle velocity
-            p.ghostVac = { x: p.x, y: p.y, vx: p.vx, vy: p.vy };
-        }
-    });
+    TUNING.particle.showFlowGhosts = !TUNING.particle.showFlowGhosts;
+    this.classList.toggle('on', TUNING.particle.showFlowGhosts);
+    
+    // If turning off, clear all targets
+    if (!TUNING.particle.showFlowGhosts) {
+      state.particles.forEach(p => p.isDiagnosticTarget = false);
+    }
   });
-
 
   // SYSTEM 4-6. Simulation speed
     
@@ -5930,6 +5948,31 @@ function updateViewport(dt) {
   document.getElementById('btnWarp4').addEventListener('click', () => setSimWarp(4.0));
   document.getElementById('btnWarp8').addEventListener('click', () => setSimWarp(8.0));
 
+  cv.addEventListener('mousedown', function(e) {
+    if (!TUNING.particle.showFlowGhosts) return;
+
+    const coords = getLocalCoords(e.clientX, e.clientY);
+    let closestDist = Infinity;
+    let selected = null;
+  
+    state.particles.forEach(p => {
+      if (!p.alive || p.stuck) return;
+      const dx = p.x - coords.x;
+      const dy = p.y - coords.y;
+      const d2 = dx*dx + dy*dy;
+      if (d2 < closestDist) {
+        closestDist = d2;
+        selected = p;
+      }
+    });
+  
+    state.particles.forEach(p => p.isDiagnosticTarget = false);
+    if (selected) { 
+      selected.isDiagnosticTarget = true;
+      // Note: No distance check here ensures "nearest particle" behavior
+    }
+  });
+    
   // --- SECRET HANDSHAKE: DOOR LOGIC ---
   const expertContainer = document.getElementById('expertContainer');
   const titlePlateLink = document.getElementById('titlePlate');
