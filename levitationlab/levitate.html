@@ -724,6 +724,18 @@
     filter: drop-shadow(0 2px 2px rgba(0,0,0,0.8));
   }
 
+  @keyframes doorRattle {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(5px); }
+    50% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+    100% { transform: translateX(0); }
+  }
+
+  .rattle {
+    animation: doorRattle 0.15s linear;
+  }
+
   /* Hide Expert Block until door opens */
   #expertBlock {
     opacity: 0;
@@ -772,7 +784,7 @@
     <!-- New Expert Container wrapping the Door and the Block -->
     <div id="expertContainer">
       <!-- The Door (Initially Visible) -->
-      <div id="expertDoor" title="Click to open Service Access">
+      <div id="expertDoor" title="Expert controls behind this door">
         <div class="hinge top"></div>
         <div class="hinge bot"></div>
         <span class="lock-plate">🔒</span>
@@ -783,7 +795,7 @@
         <!-- The Heads-Up display -->
         <!-- Row 1 -->
         <div class="expert-head">HUD</div>
-        <button class="btnind btnsq" id="btnVtProj" title="Orbit Center Range Projection">
+        <button class="btnind btnsq" id="btnVtProj" title="Orbit center projection - display the range of orbit locations for the current particle properties and drum rotation">
           <span class="cap">
             <span class="cap-icon">
               <svg viewBox="0 0 24 24" width="20" height="20">
@@ -800,7 +812,7 @@
           </span>
         </button>
 
-        <button class="btnind btnsq" id="btnFlashOrbit" title="Flash Orbit of New Aggregates">
+        <button class="btnind btnsq" id="btnFlashOrbit" title="Flash Orbit of New Aggregates - interesting because they get slightly increased Stokes number">
           <span class="cap">
             <span class="cap-icon">
               <svg viewBox="0 0 24 24" width="20" height="20">
@@ -819,39 +831,39 @@
           </span>
         </button>
 
-        <button class="btnind btnsq" id="btnFlowGhost" title="Ghost Mode - select particles with mouse to show gas-free and gas-rich path limits">
+        <button class="btnind btnsq" id="btnFlowGhost" title="Ghost mode - select particles with mouse to show gas-free and gas-rich path limits">
           <span class="cap"><span class="cap-icon">👻</span></span>
         </button>
         
         <!-- Row 2 -->
-        <button class="btnind btnsq" id="btnModePrev"  title="Previous HUD Mode"><span class="cap"><span class="cap-icon">◀</span></span></button>
-        <button class="btnind btnsq" id="btnHudMaster" title="Analysis HUD Master"><span class="cap"><span class="cap-icon">📊</span></span></button>
-        <button class="btnind btnsq" id="btnModeNext"  title="Next HUD Mode"><span class="cap"><span class="cap-icon">▶</span></span></button>
+        <button class="btnind btnsq" id="btnModePrev"  title="Previous HUD mode"><span class="cap"><span class="cap-icon">◀</span></span></button>
+        <button class="btnind btnsq" id="btnHudMaster" title="Analysis projections - acceleration vector field and collision data, use arrows to cycle through"><span class="cap"><span class="cap-icon">📊</span></span></button>
+        <button class="btnind btnsq" id="btnModeNext"  title="Next HUD mode"><span class="cap"><span class="cap-icon">▶</span></span></button>
         <hr>
 
         <!-- The PROCESSES buttons -->
         <div class="expert-head">Processes</div>
 
         <!-- Row 1 -->
-        <button class="btnind btnsq" id="btnProcInvinc" title="Nanocoating the Drum - no particle losses">
+        <button class="btnind btnsq" id="btnProcInvinc" title="Nanocoating the drum - no particle losses">
           <span class="cap"><span class="cap-icon">🛡️</span></span></button>
-        <button class="btnind btnsq" id="btnProcNoAgg"  title="Disable Aggregate Formation">
+        <button class="btnind btnsq" id="btnProcNoAgg"  title="Disable aggregate formation">
           <span class="cap"><span class="cap-icon"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="3" fill="currentColor"/><circle cx="8" cy="9" r="2.5" fill="currentColor"/><circle cx="16" cy="10" r="2.5" fill="currentColor"/><circle cx="10" cy="16" r="2.5" fill="currentColor"/><circle cx="15" cy="16" r="2.5" fill="currentColor"/><circle cx="5" cy="12" r="2" fill="currentColor"/><line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/><line x1="20" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/></svg></span></span>
         </button>
-        <button class="btnind btnsq" id="btnProcNoPeb"  title="Disable Pebble Formation">
+        <button class="btnind btnsq" id="btnProcNoPeb"  title="Disable pebble formation">
            <span class="cap"><span class="cap-icon"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="7" fill="currentColor"/><line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/><line x1="20" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/></svg></span></span>
         </button>
         
         <!-- Row 2 -->
-        <button class="btnind btnsq" id="btnProcPureV"  title="Aggregates keep pure average v_t, no change in Stokes number"><span class="cap"><span class="cap-icon">⚖️</span></span></button>
-        <button class="btnind btnsq" id="btnProcSlowMo" title="5x Slow-motion during merging"><span class="cap"><span class="cap-icon">🐌</span></span></button>
+        <button class="btnind btnsq" id="btnProcPureV"  title="Aggregates keep pure average v_t of constituent monomers, no change in Stokes number"><span class="cap"><span class="cap-icon">⚖️</span></span></button>
+        <button class="btnind btnsq" id="btnProcSlowMo" title="Slow-motion during merging - watch aggregates and pebbles form"><span class="cap"><span class="cap-icon">🐌</span></span></button>
         <button class="btnind btnsq" id="btnProcFast"   title="This button is only for testing by the true game developer, because activating it ruins discovery and joy in the game"><span class="cap"><span class="cap-icon">⏩</span></span></button>
         <hr>
         
         <!-- The SYSTEM buttons -->
         <div class="expert-head">System</div>
         <!-- Row 1 -->
-        <button class="btnind btnsq" id="btnSysNoDecay" title="Disable Ω Rotation Decay. A 2-second press on Ω on the right wing does the same">
+        <button class="btnind btnsq" id="btnSysNoDecay" title="Disable Ω rotation decay. A 2-second press on Ω on the right wing is a cheat for non-experts to get the same">
           <span class="cap">
             <span class="cap-icon">
               <svg viewBox="0 0 24 24" width="18" height="18">
@@ -864,13 +876,13 @@
         <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
 
         <!-- Row 2: Speed Gear Shifter -->
-        <button class="btnind btnsq" id="btnSpeedDown" title="Slower">
+        <button class="btnind btnsq" id="btnSpeedDown" title="Slower simulation speed">
           <span class="cap"><span class="cap-icon">◀</span></span>
         </button>
-        <button class="btnind btnsq" id="btnSpeedReset" title="Reset to 1x Speed">
+        <button class="btnind btnsq" id="btnSpeedReset" title="Shows current simulation speed - press to reset to 1x">
           <span class="cap"><span class="cap-label" id="speedDisp" style="font-size:10px;">1x</span></span>
         </button>
-        <button class="btnind btnsq" id="btnSpeedUp" title="Faster">
+        <button class="btnind btnsq" id="btnSpeedUp" title="Faster simulation speed">
           <span class="cap"><span class="cap-icon">▶</span></span>
         </button>       
         <hr>
@@ -879,35 +891,34 @@
   </div>
 
   <div class="wing" id="wingRight">
-    <button class="btnind inject" id="btnStart" title="Inject Particles"><span class="cap"><span class="cap-label">Inject</span></span></button>
+    <button class="btnind inject" id="btnStart" title="Inject particles - number, settling velocity and spread, injection time span can be changed on the left wing"><span class="cap"><span class="cap-label">Inject</span></span></button>
     <div class="btn-grid2x2" id="instrumentBlock">
-      <button class="btnind btnsq" id="btnSound" title="Sound"><span class="cap"><span class="cap-icon" aria-hidden="true">
+      <button class="btnind btnsq" id="btnSound" title="Sound - deselect to experiment in silence"><span class="cap"><span class="cap-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 9 L4 15 L8 15 L13 19 L13 5 L8 9 Z" fill="currentColor"/><path d="M16 8 Q19 12 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M18.5 6 Q22 12 18.5 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
       </span></span></button>
-      <button class="btnind btnsq" id="btnOmegaCtl" title="Activate
-      Arrows for Ω Rotation Control"><span class="cap"><span class="cap-icon" aria-hidden="true">
+      <button class="btnind btnsq" id="btnOmegaCtl" title="Activate red and green curved arrows as buttons for rotation control - when swiping is not your thing"><span class="cap"><span class="cap-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="22" height="22"><text x="12" y="17" text-anchor="middle" font-family="serif" font-size="18" font-weight="bold" fill="currentColor">Ω</text></svg>
       </span></span></button>
-      <button class="btnind btnsq" id="btnTrails" title="Particle trails"><span class="cap"><span class="cap-icon" aria-hidden="true">
+      <button class="btnind btnsq" id="btnTrails" title="Particle trails - they indicate the curvature of the motion of each particle (diabled for high particle numbers)"><span class="cap"><span class="cap-icon" aria-hidden="true">
         <svg viewBox="-12 -12 24 24" width="22" height="22"><g fill="currentColor" stroke="none"><g id="sp-cell"><path d="M 0 -9 Q 1.6 -5 0.8 -1 Q 0.2 1.5 -0.6 4 Q -1.4 6.5 -2.4 8.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="0" cy="-9" r="2.2"/></g><use href="#sp-cell" transform="rotate(120)"/><use href="#sp-cell" transform="rotate(240)"/></g></svg>
       </span></span></button>
-      <button class="btnind btnsq" id="btnLaser" title="Laser"><span class="cap"><span class="cap-icon" aria-hidden="true">
+      <button class="btnind btnsq" id="btnLaser" title="Lidar - show particles only when the laser illuminates them"><span class="cap"><span class="cap-icon" aria-hidden="true">
         <svg viewBox="-12 -12 24 24" width="22" height="22"><g fill="currentColor" stroke="none"><g id="lz-card"><polygon points="0,-11 0.7,-2.2 -0.7,-2.2"/></g><use href="#lz-card" transform="rotate(90)"/><use href="#lz-card" transform="rotate(180)"/><use href="#lz-card" transform="rotate(270)"/><g id="lz-diag"><polygon points="0,-9.5 0.6,-2.2 -0.6,-2.2"/></g><use href="#lz-diag" transform="rotate(45)"/><use href="#lz-diag" transform="rotate(135)"/><use href="#lz-diag" transform="rotate(225)"/><use href="#lz-diag" transform="rotate(315)"/><g id="lz-short"><polygon points="0,-5.5 0.5,-2.2 -0.5,-2.2"/></g><use href="#lz-short" transform="rotate(22.5)"/><use href="#lz-short" transform="rotate(67.5)"/><use href="#lz-short" transform="rotate(112.5)"/><use href="#lz-short" transform="rotate(157.5)"/><use href="#lz-short" transform="rotate(202.5)"/><use href="#lz-short" transform="rotate(247.5)"/><use href="#lz-short" transform="rotate(292.5)"/><use href="#lz-short" transform="rotate(337.5)"/><circle cx="0" cy="0" r="2.2"/></g></svg>
       </span></span></button>
-      <button class="btnind btnsq" id="btnMicro" title="Microscope view"><span class="cap"><span class="cap-icon" aria-hidden="true">
+      <button class="btnind btnsq" id="btnMicro" title="Microscope view - real-time microscope imagery triggered by simulation events (forthcoming)"><span class="cap"><span class="cap-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="22" height="22"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 L13 4 L13 11 L9 11 Z"/><path d="M11 11 L11 14"/><circle cx="11" cy="16.5" r="2.2"/><path d="M6 21 L18 21"/><path d="M8 21 L8 19 L14 19 L14 21"/><path d="M13 4 L16 6"/></g></svg>
       </span></span></button>
-      <button class="btnind btnsq" id="btnChart" title="Chart view"><span class="cap"><span class="cap-icon" aria-hidden="true">
+      <button class="btnind btnsq" id="btnChart" title="Chart view - real-time research data triggered by simulation events (forthcoming)"><span class="cap"><span class="cap-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="22" height="22"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 L4 4"/><path d="M4 20 L20 20"/><path d="M6 16 L10 11 L13 13 L18 6"/><circle cx="6" cy="16" r="0.8" fill="currentColor"/><circle cx="10" cy="11" r="0.8" fill="currentColor"/><circle cx="13" cy="13" r="0.8" fill="currentColor"/><circle cx="18" cy="6" r="0.8" fill="currentColor"/></g></svg>
       </span></span></button>
     </div>
-    <button class="btnind" id="btnTheme" title="Lighting (dark / light)"><span class="cap"><span class="cap-icon" aria-hidden="true">
+    <button class="btnind" id="btnTheme" title="Lighting of the laboratory (dark / light)"><span class="cap"><span class="cap-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24" width="22" height="22"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17 L15 17"/><path d="M9.5 19 L14.5 19"/><path d="M10.5 21 L13.5 21"/><path d="M8.5 15.5 C 7 14 6.2 12.2 6.2 10.3 C 6.2 7 8.8 4.3 12 4.3 C 15.2 4.3 17.8 7 17.8 10.3 C 17.8 12.2 17 14 15.5 15.5 Z"/><path d="M10 15.5 C 10 13 11 11 12 9 C 13 11 14 13 14 15.5"/></g></svg>
     </span></span></button>
-    <button class="btnind" id="btnGameMode" title="Start Game Level 1"><span class="cap"><span class="cap-label">Game</span></span></button>
-    <button class="btnind" id="btnChallenge" title="Start Challenge with Scoreboard"><span class="cap"><span class="cap-label">Challenge</span></span></button>
-    <button class="btnind" id="btnManual"><span class="cap"><span class="cap-label">Manual</span></span></button>
-    <button class="btnind btn-emergency" id="btnReset"><span class="cap"><span class="cap-label">Reset</span></span></button>
+    <button class="btnind" id="btnGameMode" title="Start 7-level game at level 1 - the game will lead you to the more interesting corners of the simulation"><span class="cap"><span class="cap-label">Game</span></span></button>
+    <button class="btnind" id="btnChallenge" title="Start challenge with scoreboard, using current settings"><span class="cap"><span class="cap-label">Challenge</span></span></button>
+    <button class="btnind" id="btnManual" title="Compact manual of the simulation"><span class="cap"><span class="cap-label">Manual</span></span></button>
+    <button class="btnind btn-emergency" id="btnReset" title="Reset - returns the trum to a state ready for a new injection"><span class="cap"><span class="cap-label">Reset</span></span></button>
   </div>
 
   <div class="wing" id="wingMiddle"></div>

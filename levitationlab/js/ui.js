@@ -636,6 +636,30 @@
   isExpertURL = uP.has('expert');
   isDesignerURL = uP.has('designer');
 
+  const expertDoor = document.getElementById('expertDoor');
+
+  // 1. PHYSICAL DOOR INTERACTION (Sound & Rattle)
+  if (expertDoor && expertContainer) {
+    expertDoor.addEventListener('click', (e) => {
+      // Only rattle/sound if the door is currently closed
+      if (!expertContainer.classList.contains('open')) {
+        e.preventDefault();
+        e.stopPropagation(); // Prevents this click from reaching the Title Plate secret
+
+        // Play the heavy cavernous sound defined in audio_3.js
+        if (window.soundExpertDoorKnock) {
+          window.soundExpertDoorKnock();
+        }
+
+        // Trigger visual rattle
+        expertDoor.classList.remove('rattle'); 
+        void expertDoor.offsetWidth; // Magic line to force animation reset
+        expertDoor.classList.add('rattle');
+      }
+    });
+  }
+
+
   // Unified access: Either ?expert or ?designer automatically opens the door
   if ((isExpertURL || isDesignerURL) && expertContainer) {
     expertContainer.classList.add('open');

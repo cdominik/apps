@@ -278,6 +278,59 @@
     return buf;
   }
 
+  
+  /**
+ * Plays a heavy metallic clunk followed by a long, cavernous reverb.
+ * Simulates a huge space behind the expert door.
+ */
+  function soundExpertDoorKnock() {
+    if (!AUDIO.ctx) return;
+    const t = AUDIO.ctx.currentTime;
+  
+    // 1. THE "CLUNK" (Heavy Metal Impact)
+    const osc = AUDIO.ctx.createOscillator();
+    const gain = AUDIO.ctx.createGain();
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(120, t);
+    osc.frequency.exponentialRampToValueAtTime(40, t + 0.1);
+  
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.5, t + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+  
+    osc.connect(gain);
+    gain.connect(AUDIO.master);
+  
+    // 2. THE "SPACE" (Deep Reverb Tail / Air Rush)
+    const noiseLen = Math.floor(AUDIO.ctx.sampleRate * 3);
+    const noiseBuf = AUDIO.ctx.createBuffer(1, noiseLen, AUDIO.ctx.sampleRate);
+    const data = noiseBuf.getChannelData(0);
+    for (let i = 0; i < noiseLen; i++) data[i] = Math.random() * 2 - 1;
+    
+    const noise = AUDIO.ctx.createBufferSource();
+    noise.buffer = noiseBuf;
+  
+    const filter = AUDIO.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(800, t);
+    filter.frequency.exponentialRampToValueAtTime(200, t + 2.5);
+  
+    const nGain = AUDIO.ctx.createGain();
+    nGain.gain.setValueAtTime(0, t);
+    nGain.gain.linearRampToValueAtTime(0.15, t + 0.1);
+    nGain.gain.exponentialRampToValueAtTime(0.001, t + 2.8);
+  
+    noise.connect(filter);
+    filter.connect(nGain);
+    nGain.connect(AUDIO.master);
+  
+    osc.start(t);
+    osc.stop(t + 0.2);
+    noise.start(t);
+    noise.stop(t + 3);
+  }
+  
   /**
    * Plays the full mill sound sequence (blade, hiss, grind, thud, body) for the given duration.
    *
@@ -502,4 +555,5 @@
   window.soundMillStop  = soundMillStop;
   window.soundGoldenChime = soundGoldenChime;
   window.soundGoldenThud  = soundGoldenThud;
+  window.soundExpertDoorKnock = soundExpertDoorKnock;
 })();
