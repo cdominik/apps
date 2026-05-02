@@ -6006,7 +6006,8 @@ function updateViewport(dt) {
   // Unified access: Either ?expert or ?designer automatically opens the door
   if ((isExpertURL || isDesignerURL) && expertContainer) {
     expertContainer.classList.add('open');
-    if (isExpertURL) applyCheat(true); 
+    if (isExpertURL) applyCheat(true);
+    applyCheat(true);
   }
 
   // Visual lockdown for the Designer-only button
