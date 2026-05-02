@@ -1,0 +1,1884 @@
+/**
+ * @file render.js
+ * @description
+ *   Canvas setup, layout computation, and all drawing functions: lab
+ *   background, drum interior, particles, aggregates, golden balls, globes,
+ *   trails, vector field, heatmap overlay, and the omega-control SVG.
+ *
+ * Exposes globals: cv, ctxOv, W, H, DPR, CX, CY, SCALE, GEO, REGIME,
+ *                  layout, draw, drawGlobes, recordTrails,
+ *                  X2px, Y2px, pxDist, visualSizeFactor, angleSwept,
+ *                  buildOmegaControls
+ * Reads globals:   TUNING, CFG, PAL, PAL_DARK, PAL_LIGHT,
+ *                  state, heatmap, aggregateImages, globeMaps,
+ *                  eggLevitatedParticles,
+ *                  bumpOmega, wirePressHold,
+ *                  drawViewport
+ */
+(() => {
+  'use strict';
+
+  // SECTION: CANVAS & LAYOUT
+  // ============================================================
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const cvOv = document.getElementById('cvOverlay');
+  const ctxOv = cvOv.getContext('2d');
+  let W = 800, H = 600, DPR = 1;
+  let CX = 400, CY = 300, SCALE = 2;
+
+  const GEO = {
+    barTop: 0, barBot: 0, barHalfW: 0,
+    footTopY: 0, footBotY: 0, footTopHalfW: 0, footBotHalfW: 0,
+    wingW: 120, wingTop: 60, wingBot: 0, wingLeftX: 20, wingRightX: 0,
+    nozzleXs: [], nozzleTipY: 0,
+    drawFeet: true, drawSideBeams: true,
+    injectBtnX: 0, injectBtnY: 0, injectBtnW: 0, injectBtnH: 0,
+    leftWingTopX: 0, leftWingTopY: 0,
+  };
+
+  let REGIME = 'wide';
+  /**
+   * Returns the layout regime string based on window dimensions.
+   *
+   * @param {number} W - Window width in pixels.
+   * @param {number} H - Window height in pixels.
+   * @returns {string} 'wide', 'compact', or 'portrait'.
+   */
+  function pickRegime(W, H) {
+    if (H >= W) return 'portrait';
+    if (W >= 720 && H >= 540) return 'wide';
+    return 'compact';
+  }
+
+  /**
+   * Resizes canvases, recomputes CX/CY/SCALE, applies regime classes, calls
+   * buildOmegaControls; updates all window.* primitives.
+   */
+  function layout() {
+    DPR = Math.max(1, window.devicePixelRatio || 1);
+    W = Math.max(200, window.innerWidth);
+    H = Math.max(200, window.innerHeight);
+    cv.width = W * DPR; cv.height = H * DPR;
+    cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    cvOv.width = W * DPR; cvOv.height = H * DPR;
+    cvOv.style.width = W + 'px'; cvOv.style.height = H + 'px';
+    ctxOv.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+    REGIME = pickRegime(W, H);
+    document.body.classList.toggle('regime-wide',     REGIME === 'wide');
+    document.body.classList.toggle('regime-compact',  REGIME === 'compact');
+    document.body.classList.toggle('regime-portrait', REGIME === 'portrait');
+
+    const instrBlock = document.getElementById('instrumentBlock');
+    const wMiddle = document.getElementById('wingMiddle');
+    const wRight = document.getElementById('wingRight');
+    if (instrBlock && wMiddle && wRight) {
+      if (REGIME === 'portrait') {
+        if (instrBlock.parentElement !== wMiddle) wMiddle.appendChild(instrBlock);
+        wMiddle.style.display = 'flex';
+      } else {
+        if (instrBlock.parentElement !== wRight) {
+          const btnTheme = document.getElementById('btnTheme');
+          if (btnTheme) wRight.insertBefore(instrBlock, btnTheme);
+          else wRight.appendChild(instrBlock);
+        }
+        wMiddle.style.display = 'none';
+      }
+    }
+
+    if (REGIME === 'portrait') layoutPortrait();
+    else                       layoutSideWings(REGIME);
+
+    const startBtn = document.getElementById('btnStart');
+    if (startBtn) {
+      const r = startBtn.getBoundingClientRect();
+      GEO.injectBtnX = r.left;
+      GEO.injectBtnY = r.top;
+      GEO.injectBtnW = r.width;
+      GEO.injectBtnH = r.height;
+    }
+    GEO.leftWingTopX = GEO.wingLeftX + GEO.wingW * 0.5;
+    GEO.leftWingTopY = GEO.wingTop;
+
+    buildOmegaControls();
+    window.W = W; window.H = H; window.DPR = DPR;
+    window.CX = CX; window.CY = CY; window.SCALE = SCALE;
+    window.REGIME = REGIME;
+  }
+
+  /**
+   * Positions drum, band, gauges, and wings for wide/compact regimes.
+   *
+   * @param {string} regime - Current layout regime ('wide' or 'compact').
+   */
+  function layoutSideWings(regime) {
+    const isWide = (regime === 'wide');
+    const BAND_OUTSIDE = isWide ? 32 : 18;
+    const TOP_MARGIN   = isWide ? 40 : 16;
+    const BOT_MARGIN   = isWide ? 30 : 16;
+    const FOOT_HEIGHT  = isWide ? 70 : 14;
+    const BAR_HEIGHT   = isWide ? 96 : 72;
+    const WING_WIDTH   = isWide ? 120 : 100;
+    const WING_GAP     = isWide ? 40 : 18;
+    const ARROW_ROOM   = isWide ? 84 : 60;
+    const SIDE_RESERVE = WING_WIDTH + WING_GAP + ARROW_ROOM;
+
+    const vBudget = Math.max(140, H - TOP_MARGIN - BOT_MARGIN - FOOT_HEIGHT - BAR_HEIGHT);
+    const hBudget = Math.max(140, W - 2 * SIDE_RESERVE);
+    const outerDia = Math.min(hBudget, vBudget);
+    const rDrumPx = Math.max(40, outerDia * 0.5 - BAND_OUTSIDE);
+    SCALE = Math.max(0.2, rDrumPx / CFG.R_DRUM);
+
+    CX = W * 0.5;
+    const dPx = CFG.R_DRUM * SCALE;
+    CY = TOP_MARGIN + BAND_OUTSIDE + dPx;
+    const bandBot = CY + dPx + BAND_OUTSIDE;
+    const barTop = bandBot + FOOT_HEIGHT;
+    const barBot = barTop + BAR_HEIGHT;
+    const halfW = Math.min(W * 0.46, Math.max(dPx * 1.3, (dPx + BAND_OUTSIDE) * 1.15));
+
+    GEO.barTop = barTop;
+    GEO.barBot = barBot;
+    GEO.barHalfW = halfW;
+    GEO.footTopY = bandBot - 2;
+    GEO.footBotY = barTop + 2;
+    GEO.footTopHalfW = (dPx + BAND_OUTSIDE) * Math.sin(28 * Math.PI / 180);
+    GEO.footBotHalfW = halfW * 0.92;
+    GEO.wingW = WING_WIDTH;
+    GEO.wingTop = TOP_MARGIN;
+    GEO.wingBot = barBot;
+    GEO.wingLeftX = isWide ? 20 : 12;
+    GEO.wingRightX = W - (isWide ? 20 : 12) - WING_WIDTH;
+    GEO.drawFeet = true;
+    GEO.drawSideBeams = isWide;
+
+    const g = document.getElementById('gauges');
+    if (g) {
+      g.style.left = (CX - halfW) + 'px';
+      g.style.top = barTop + 'px';
+      g.style.width = (2 * halfW) + 'px';
+      g.style.height = BAR_HEIGHT + 'px';
+      g.style.flexDirection = 'row';
+      g.style.flexWrap = 'nowrap';
+      g.style.padding = '0 12px';
+    }
+    const wL = document.getElementById('wingLeft');
+    const wR = document.getElementById('wingRight');
+    if (wL) {
+      wL.style.left = GEO.wingLeftX + 'px';
+      wL.style.top = GEO.wingTop + 'px';
+      wL.style.width = WING_WIDTH + 'px';
+      wL.style.height = (GEO.wingBot - GEO.wingTop) + 'px';
+      wL.style.flexDirection = 'column';
+      wL.style.gap = isWide ? '8px' : '5px';
+    }
+    if (wR) {
+      wR.style.left = GEO.wingRightX + 'px';
+      wR.style.top = GEO.wingTop + 'px';
+      wR.style.width = WING_WIDTH + 'px';
+      wR.style.height = (GEO.wingBot - GEO.wingTop) + 'px';
+      wR.style.flexDirection = 'column';
+      wR.style.gap = isWide ? '6px' : '4px';
+    }
+  }
+
+  /**
+   * Positions drum, gauges, and deck rows for portrait regime.
+   */
+  function layoutPortrait() {
+    const TOP_MARGIN   = 12;
+    const SIDE_MARGIN  = 8;
+    const BAND_OUTSIDE = 14;
+    const ARROW_ROOM   = 36;
+    const GAUGE_H      = 56;
+    const GAP_DRUM_GAUGES = 8;
+    const GAP_GAUGES_DECK = 6;
+
+    const ROW_PARAMS = 64;
+    const ROW_INSTR  = 50;
+    const ROW_ACTS   = 64;
+    const ROW_GAP    = 4;
+    const DECK_H = ROW_PARAMS + ROW_INSTR + ROW_ACTS + 2 * ROW_GAP;
+
+    const hBudget = Math.max(120, W - 2 * SIDE_MARGIN - ARROW_ROOM);
+    const totalAvail = Math.max(220, H - TOP_MARGIN);
+    const drumVMax = totalAvail - GAUGE_H - DECK_H - GAP_DRUM_GAUGES - GAP_GAUGES_DECK - 4;
+
+    const outerDia = Math.min(hBudget, drumVMax);
+    const rDrumPx = Math.max(40, outerDia * 0.5 - BAND_OUTSIDE);
+    SCALE = Math.max(0.2, rDrumPx / CFG.R_DRUM);
+
+    const dPx = CFG.R_DRUM * SCALE;
+    CX = SIDE_MARGIN + ARROW_ROOM + (W - 2 * SIDE_MARGIN - ARROW_ROOM) * 0.5;
+    CY = TOP_MARGIN + BAND_OUTSIDE + dPx;
+
+    const bandBot = CY + dPx + BAND_OUTSIDE;
+    const gaugeTop = bandBot + GAP_DRUM_GAUGES;
+    const gaugeBot = gaugeTop + GAUGE_H;
+    const deckTop  = gaugeBot + GAP_GAUGES_DECK;
+
+    const rowParamsTop = deckTop;
+    const rowParamsBot = rowParamsTop + ROW_PARAMS;
+    const rowInstrTop  = rowParamsBot + ROW_GAP;
+    const rowInstrBot  = rowInstrTop + ROW_INSTR;
+    const rowActsTop   = rowInstrBot + ROW_GAP;
+    const rowActsBot   = rowActsTop + ROW_ACTS;
+
+    const gaugeHalfW = (W - 2 * SIDE_MARGIN) * 0.5;
+
+    GEO.barTop = gaugeTop;
+    GEO.barBot = gaugeBot;
+    GEO.barHalfW = gaugeHalfW;
+    GEO.footTopY = bandBot;
+    GEO.footBotY = bandBot;
+    GEO.footTopHalfW = 0;
+    GEO.footBotHalfW = 0;
+    GEO.wingW = W - 2 * SIDE_MARGIN;
+    GEO.wingTop = deckTop;
+    GEO.wingBot = rowActsBot;
+    GEO.wingLeftX = SIDE_MARGIN;
+    GEO.wingRightX = SIDE_MARGIN;
+    GEO.drawFeet = false;
+    GEO.drawSideBeams = false;
+
+    const g = document.getElementById('gauges');
+    if (g) {
+      g.style.left = SIDE_MARGIN + 'px';
+      g.style.top = gaugeTop + 'px';
+      g.style.width = (W - 2 * SIDE_MARGIN) + 'px';
+      g.style.height = GAUGE_H + 'px';
+      g.style.flexDirection = 'row';
+      g.style.flexWrap = 'nowrap';
+      g.style.padding = '0 6px';
+    }
+
+    const wL = document.getElementById('wingLeft');
+    const wM = document.getElementById('wingMiddle');
+    const wR = document.getElementById('wingRight');
+    if (wL) {
+      wL.style.left = SIDE_MARGIN + 'px';
+      wL.style.top = rowParamsTop + 'px';
+      wL.style.width = (W - 2 * SIDE_MARGIN) + 'px';
+      wL.style.height = ROW_PARAMS + 'px';
+      wL.style.flexDirection = 'row';
+      wL.style.gap = '6px';
+    }
+    if (wM) {
+      wM.style.left = SIDE_MARGIN + 'px';
+      wM.style.top = rowInstrTop + 'px';
+      wM.style.width = (W - 2 * SIDE_MARGIN) + 'px';
+      wM.style.height = ROW_INSTR + 'px';
+      wM.style.flexDirection = 'row';
+      wM.style.gap = '6px';
+      wM.style.justifyContent = 'center';
+      wM.style.alignItems = 'center';
+    }
+    if (wR) {
+      wR.style.left = SIDE_MARGIN + 'px';
+      wR.style.top = rowActsTop + 'px';
+      wR.style.width = (W - 2 * SIDE_MARGIN) + 'px';
+      wR.style.height = ROW_ACTS + 'px';
+      wR.style.flexDirection = 'row';
+      wR.style.gap = '6px';
+    }
+  }
+
+  // ============================================================
+
+  // SECTION: RENDER — AGGREGATES
+  // ============================================================
+  /**
+   * Draws particles streaking toward the egg-merge target.
+   */
+  function drawMergeStreaks() {
+    if (!state.eggMerging) return;
+    const m = state.eggMerging;
+    const u = Math.min(1, (state.t - m.startedAt) / m.dur);
+    const ease = u * u * (3 - 2 * u);
+
+    for (const agg of m.particles) {
+      const sx = agg.mergeStart.x, sy = agg.mergeStart.y;
+      const tx = m.target.x, ty = m.target.y;
+      const cx = sx + (tx - sx) * ease;
+      const cy = sy + (ty - sy) * ease;
+
+      agg.x = cx; agg.y = cy;
+
+      const ax = X2px(cx), ay = Y2px(cy);
+      const scale = 1 - u;
+      const ar = Math.max(0, pxDist(agg.r) * scale);
+
+      if (ar < 0.5) continue;
+
+      ctx.save();
+      ctx.translate(ax, ay);
+      ctx.rotate(-agg.rot);
+      ctx.globalAlpha = scale;
+
+      const img = aggregateImages[agg.imgIdx !== undefined ? agg.imgIdx : 0];
+      if (img && img.complete && img.naturalHeight !== 0) {
+        const drawH = ar * 2;
+        const drawW = drawH * (img.naturalWidth / img.naturalHeight);
+        ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+      } else {
+        ctx.fillStyle = '#6a6a72';
+        ctx.beginPath(); ctx.arc(0, 0, ar, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  // ============================================================
+  // SECTION: RENDER — GOLDEN BALLS & PEBBLES
+  // ============================================================
+  /**
+   * Draws all golden balls and the success text overlay.
+   */
+  function drawGoldenBalls() {
+    for (const b of state.goldenBalls) drawOneGoldenBall(b);
+    drawSuccessText();
+  }
+
+  // ============================================================
+  // SECTION: RENDER — GLOBES
+  // ============================================================
+  /**
+   * Draws all hovering globes (texture, shading, shine) and merging pebbles.
+   */
+  function drawGlobes() {
+    // 1. Draw existing planets
+    for (const g of state.globes) {
+      const cx = X2px(g.x), cy = Y2px(g.y);
+      const rpx = pxDist(g.r);
+      const texture = globeMaps[g.mapIdx]; // Select the specific map for this planet[cite: 3]
+
+      ctx.save();
+      
+      // A. Atmospheric Halo (Outer blue glow)[cite: 3]
+      const halo = ctx.createRadialGradient(cx, cy, rpx * 0.9, cx, cy, rpx * 1.3);
+      halo.addColorStop(0, 'rgba(100, 200, 255, 0.3)');
+      halo.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = halo;
+      ctx.beginPath(); ctx.arc(cx, cy, rpx * 1.3, 0, Math.PI * 2); ctx.fill();
+
+      // B. Setup the Sphere Clipping[cite: 3]
+      ctx.beginPath(); 
+      ctx.arc(cx, cy, rpx, 0, Math.PI * 2); 
+      ctx.clip(); 
+
+      // C. Draw the Texture (Seamless looping)[cite: 3]
+      if (texture && texture.complete) {
+        const tw = rpx * 4; 
+        const th = rpx * 2;
+        
+        // Horizontal shift based on g.spin for rotation effect[cite: 3]
+        const shift = (g.spin * 50) % tw; 
+
+        // Draw texture twice side-by-side[cite: 3]
+        ctx.drawImage(texture, cx - rpx - shift, cy - rpx, tw, th);
+        ctx.drawImage(texture, cx - rpx - shift + tw, cy - rpx, tw, th);
+      } else {
+        // Fallback color if image is missing[cite: 3]
+        ctx.fillStyle = '#1e4a6d';
+        ctx.fill();
+      }
+
+      // D. Spherical Shading (Overlay to give 3D depth)[cite: 3]
+      const shade = ctx.createRadialGradient(cx - rpx*0.3, cy - rpx*0.3, 0, cx, cy, rpx);
+      shade.addColorStop(0, 'rgba(255, 255, 255, 0.2)'); // Top-left highlight[cite: 3]
+      shade.addColorStop(0.5, 'rgba(0, 0, 0, 0)');      // Midtones[cite: 3]
+      shade.addColorStop(1, 'rgba(0, 0, 0, 0.6)');      // Shadowed edge[cite: 3]
+      ctx.fillStyle = shade;
+      ctx.fillRect(cx - rpx, cy - rpx, rpx * 2, rpx * 2);
+
+      ctx.restore(); // Exit clipping[cite: 3]
+
+      // E. Specular Shine (Glossy surface spot)[cite: 3]
+      const shine = ctx.createRadialGradient(cx - rpx*0.4, cy - rpx*0.4, 0, cx - rpx*0.4, cy - rpx*0.4, rpx * 0.7);
+      shine.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
+      shine.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = shine;
+      ctx.beginPath(); ctx.arc(cx - rpx*0.4, cy - rpx*0.4, rpx * 0.7, 0, Math.PI * 2); ctx.fill();
+    }
+    
+    // 2. Draw the merging pebbles during the "soft motion" phase[cite: 3]
+    if (state.globeMerging) {
+      const m = state.globeMerging;
+      const u = Math.min(1, (state.t - m.startedAt) / m.dur);
+      
+      // Drawing the pebbles as they drift toward the meeting point[cite: 3]
+      for (const b of m.pebbles) {
+        // Re-use the existing golden ball renderer while they are in motion[cite: 3]
+        drawOneGoldenBall(b);
+      }
+    }
+  }
+
+  /**
+   * Draws a single golden ball with aura, flash, body gradient, and spin shine.
+   *
+   * @param {Object} b - Golden ball state object (x, y, r, spin, bornAt).
+   */
+  function drawOneGoldenBall(b) {
+    const cx = X2px(b.x), cy = Y2px(b.y);
+    const rpx = pxDist(b.r);
+    const age = state.t - b.bornAt;
+
+    const pulse = 0.85 + 0.15 * Math.sin(state.t * 4);
+    const auraR = rpx * (3.5 + 0.2 * Math.sin(state.t * 2));
+    const aura = ctx.createRadialGradient(cx, cy, rpx * 0.9, cx, cy, auraR);
+    aura.addColorStop(0.0, `rgba(255, 220, 130, ${0.55 * pulse})`);
+    aura.addColorStop(0.4, `rgba(255, 190, 80, ${0.30 * pulse})`);
+    aura.addColorStop(1.0, 'rgba(255, 170, 40, 0)');
+    ctx.fillStyle = aura;
+    ctx.beginPath(); ctx.arc(cx, cy, auraR, 0, Math.PI * 2); ctx.fill();
+
+    if (age < 0.25) {
+      const f = 1 - age / 0.25;
+      const flashR = rpx * (2.0 + 6 * (1 - f));
+      const fl = ctx.createRadialGradient(cx, cy, 0, cx, cy, flashR);
+      fl.addColorStop(0.0, `rgba(255, 255, 240, ${0.9 * f})`);
+      fl.addColorStop(0.4, `rgba(255, 230, 150, ${0.5 * f})`);
+      fl.addColorStop(1.0, 'rgba(255, 200, 80, 0)');
+      ctx.fillStyle = fl;
+      ctx.beginPath(); ctx.arc(cx, cy, flashR, 0, Math.PI * 2); ctx.fill();
+    }
+
+    const hlx = cx - rpx * 0.35, hly = cy - rpx * 0.4;
+    const body = ctx.createRadialGradient(hlx, hly, 0, cx, cy, rpx);
+    body.addColorStop(0.00, '#fff8d8');
+    body.addColorStop(0.18, '#ffe48a');
+    body.addColorStop(0.50, '#e0a830');
+    body.addColorStop(0.85, '#8a5a14');
+    body.addColorStop(1.00, '#3a2008');
+    ctx.fillStyle = body;
+    ctx.beginPath(); ctx.arc(cx, cy, rpx, 0, Math.PI * 2); ctx.fill();
+
+    const rim = ctx.createRadialGradient(cx + rpx * 0.3, cy + rpx * 0.4, rpx * 0.6, cx, cy, rpx * 1.05);
+    rim.addColorStop(0, 'rgba(0,0,0,0)');
+    rim.addColorStop(0.7, 'rgba(60, 30, 5, 0)');
+    rim.addColorStop(1.0, 'rgba(40, 20, 5, 0.55)');
+    ctx.fillStyle = rim;
+    ctx.beginPath(); ctx.arc(cx, cy, rpx, 0, Math.PI * 2); ctx.fill();
+
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, rpx, 0, Math.PI * 2); ctx.clip();
+    const spec = ctx.createRadialGradient(cx - rpx * 0.4, cy - rpx * 0.5, 0, cx - rpx * 0.4, cy - rpx * 0.5, rpx * 0.7);
+    spec.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+    spec.addColorStop(0.4, 'rgba(255, 250, 220, 0.4)');
+    spec.addColorStop(1.0, 'rgba(255, 240, 180, 0)');
+    ctx.fillStyle = spec;
+    ctx.beginPath(); ctx.arc(cx - rpx * 0.4, cy - rpx * 0.5, rpx * 0.7, 0, Math.PI * 2); ctx.fill();
+
+    const sparkles = [
+      { ang: 0.3, rad: 0.55, sz: 0.10 },
+      { ang: 1.7, rad: 0.42, sz: 0.08 },
+      { ang: 3.4, rad: 0.65, sz: 0.06 },
+      { ang: 5.1, rad: 0.50, sz: 0.07 },
+    ];
+    for (const s of sparkles) {
+      const a = s.ang + b.spin;
+      const sx = cx + Math.cos(a) * rpx * s.rad;
+      const sy = cy + Math.sin(a) * rpx * s.rad;
+      const sr = rpx * s.sz;
+      const sg = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr * 2.5);
+      sg.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+      sg.addColorStop(0.4, 'rgba(255, 250, 200, 0.6)');
+      sg.addColorStop(1.0, 'rgba(255, 240, 180, 0)');
+      ctx.fillStyle = sg;
+      ctx.beginPath(); ctx.arc(sx, sy, sr * 2.5, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+
+    ctx.strokeStyle = 'rgba(40, 20, 5, 0.7)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, rpx, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  /**
+   * Draws all live aggregates with optional orbit flash ring.
+   */
+  function drawAggregates() {
+    if (state.aggMerging) {
+      const m = state.aggMerging;
+      const u = Math.min(1, (state.t - m.startedAt) / m.dur);
+      const ease = u * u * (3 - 2 * u);
+      for (const p of m.particles) {
+        const sx = p.mergeStart.x, sy = p.mergeStart.y;
+        const cx = sx + (m.target.x - sx) * ease;
+        const cy = sy + (m.target.y - sy) * ease;
+        p.x = cx; p.y = cy;
+        ctx.strokeStyle = `rgba(180, 220, 255, ${1 - u})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(X2px(sx), Y2px(sy)); ctx.lineTo(X2px(cx), Y2px(cy)); ctx.stroke();
+      }
+    }
+
+    const rInnerPx = pxDist(CFG.R_DRUM) + 2;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(CX, CY, rInnerPx, 0, Math.PI * 2); ctx.clip();
+
+    for (const agg of state.aggregates) {
+      if (agg.merging || agg.stuck) continue;
+      if (TUNING.aggregate.flashOrbit && state.t < agg.orbitFlashEndsAt) {
+        const absOm = Math.abs(state.omega);
+        if (absOm > 1e-3) {
+          const alpha = Math.max(0, (agg.orbitFlashEndsAt - state.t) / 2);
+          
+          // 1. Draw the aggregate orbit
+          const xcAgg = agg.vt / state.omega;
+          const rOrb = Math.hypot(agg.x - xcAgg, agg.y);
+          ctx.beginPath();
+          ctx.arc(X2px(xcAgg), Y2px(0), pxDist(rOrb), 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(200, 255, 220, ${alpha * 0.75})`;
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+
+          // 2. Calculate mean vt of currently levitated particles
+          const levParticles = eggLevitatedParticles();
+          let sumVt = 0;
+          for (const p of levParticles) {
+            sumVt += p.vt;
+          }
+          const meanVt = levParticles.length > 0 ? (sumVt / levParticles.length) : agg.vt;
+          const xcMean = meanVt / state.omega;
+
+          // 3. Draw dots and connecting line
+          const pxAggX = X2px(xcAgg);
+          const pxMeanX = X2px(xcMean);
+          const py0 = Y2px(0);
+
+          ctx.strokeStyle = `rgba(255, 220, 100, ${alpha * 0.9})`;
+          ctx.fillStyle = `rgba(255, 220, 100, ${alpha})`;
+          ctx.lineWidth = 1.5;
+
+          // Line
+          ctx.beginPath();
+          ctx.moveTo(pxAggX, py0);
+          ctx.lineTo(pxMeanX, py0);
+          ctx.stroke();
+
+          // Dot at aggregate orbit center
+          ctx.beginPath();
+          ctx.arc(pxAggX, py0, 3, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Dot at mean particle orbit center
+          ctx.beginPath();
+          ctx.arc(pxMeanX, py0, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    for (const agg of state.aggregates) {
+      if (agg.merging) continue;
+      const ax = X2px(agg.x), ay = Y2px(agg.y);
+      const ar = pxDist(agg.r);
+      ctx.save();
+      ctx.translate(ax, ay);
+      ctx.rotate(-agg.rot);
+
+      const img = aggregateImages[agg.imgIdx !== undefined ? agg.imgIdx : 0];
+      if (img && img.complete && img.naturalHeight !== 0) {
+        const drawH = ar * 2;
+        const drawW = drawH * (img.naturalWidth / img.naturalHeight);
+        ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+      } else {
+        ctx.fillStyle = '#6a6a72';
+        ctx.beginPath(); ctx.arc(0, 0, ar, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  /**
+   * Draws the "Pebble formed!" flash text when a new golden ball appears.
+   */
+  function drawSuccessText() {
+    for (const b of state.goldenBalls) {
+      const age = state.t - b.bornAt;
+      if (age < 1 || age > 3) continue;
+      const u = (age - 1) / 2;
+      let alpha;
+      if (u < 0.075)      alpha = u / 0.075;
+      else if (u > 0.925) alpha = (1 - u) / 0.075;
+      else                alpha = 1;
+      if (alpha <= 0) continue;
+
+      const cxScreen = X2px(0);
+      const cyScreen = Y2px(50);
+      const big = Math.max(14, pxDist(16));
+      const small = Math.max(10, pxDist(9));
+
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.globalAlpha = alpha;
+
+      ctx.font = 'bold ' + big + 'px "Courier New", monospace';
+      ctx.shadowColor = 'rgba(255, 200, 80, 0.9)';
+      ctx.shadowBlur = big * 0.6;
+      ctx.fillStyle = '#fff2c0';
+      ctx.fillText('Success!', cxScreen, cyScreen - big * 0.55);
+
+      ctx.font = 'bold ' + small + 'px "Courier New", monospace';
+      ctx.shadowColor = 'rgba(255, 180, 60, 0.7)';
+      ctx.shadowBlur = small * 0.5;
+      ctx.fillStyle = '#ffcc55';
+      ctx.fillText('Pebble formed!', cxScreen, cyScreen + small * 0.7);
+
+      ctx.restore();
+    }
+  }
+
+  // ============================================================
+  // SECTION: RENDER — HELPERS
+  // ============================================================
+  /**
+   * Returns true if angle t falls within the arc swept from a0 to a1.
+   *
+   * @param {number} a0 - Start angle in radians.
+   * @param {number} a1 - End angle in radians.
+   * @param {number} t - Test angle in radians.
+   * @returns {boolean} True if t is within the swept arc.
+   */
+  function angleSwept(a0, a1, t) {
+    let d = a1 - a0;
+    if (d === 0) return false;
+    if (Math.abs(d) >= 2 * Math.PI) return true;
+    const TAU = 2 * Math.PI;
+    const norm = (x) => { let r = x % TAU; if (r > Math.PI) r -= TAU; if (r <= -Math.PI) r += TAU; return r; };
+    const dN = norm(d);
+    const tN = norm(t - a0);
+    if (dN > 0) return tN >= 0 && tN <= dN;
+    else        return tN <= 0 && tN >= dN;
+  }
+
+  /**
+   * Converts a drum x-coordinate to canvas pixels.
+   *
+   * @param {number} x - Drum x-coordinate in cm.
+   * @returns {number} Canvas x in pixels.
+   */
+  function X2px(x) { return CX + x * SCALE; }
+  /**
+   * Converts a drum y-coordinate to canvas pixels.
+   *
+   * @param {number} y - Drum y-coordinate in cm.
+   * @returns {number} Canvas y in pixels.
+   */
+  function Y2px(y) { return CY - y * SCALE; }
+  /**
+   * Converts a drum-unit distance to canvas pixels.
+   *
+   * @param {number} cm - Distance in drum units (cm).
+   * @returns {number} Distance in canvas pixels.
+   */
+  function pxDist(cm) { return cm * SCALE; }
+
+  /**
+   * Computes a size multiplier for a particle based on its terminal velocity.
+   *
+   * @param {number} vt - Particle terminal velocity in cm/s.
+   * @returns {number} Size multiplier clamped to [sizeMin, sizeMax].
+   */
+  function visualSizeFactor(vt) {
+    let s = Math.sqrt(Math.max(0.01, vt) / TUNING.particle.sizeRefVt);
+    if (s < TUNING.particle.sizeMin) s = TUNING.particle.sizeMin;
+    if (s > TUNING.particle.sizeMax) s = TUNING.particle.sizeMax;
+    if (CFG.N_P >= 10000)     s *= 0.10;
+    else if (CFG.N_P >= 3000) s *= 0.20;
+    else if (CFG.N_P >= 1000) s *= 0.50;
+    else if (CFG.N_P >= 300)  s *= 0.70;
+    return s;
+  }
+
+  /**
+   * Draws a single rivet circle at canvas position (x, y) with radius r.
+   *
+   * @param {number} x - Canvas x position in pixels.
+   * @param {number} y - Canvas y position in pixels.
+   * @param {number} r - Rivet radius in pixels.
+   */
+  function rivet(x, y, r) {
+    const rr = Math.max(0.5, r);
+    const g = ctx.createRadialGradient(x - rr * 0.4, y - rr * 0.4, 0, x, y, rr);
+    g.addColorStop(0, '#9a9aa2');
+    g.addColorStop(0.6, '#3a3a44');
+    g.addColorStop(1, '#101014');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, rr, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // ============================================================
+  // SECTION: RENDER — BACKGROUND & STRUCTURE
+  // ============================================================
+  /**
+   * Fills the background with the side-wall colour and optional grid.
+   */
+  function drawLabBackground() {
+//    if (REGIME !== 'portrait') drawFloor();
+  }
+
+  /**
+   * Draws the gauge bar across the bottom of the lab.
+   */
+  function drawFloor() {
+    const floorH = (REGIME === 'wide') ? 22 : 14;
+    const floorTop = H - floorH;
+    const isLight = (PAL.name === 'light');
+    const g = ctx.createLinearGradient(0, floorTop, 0, H);
+    if (isLight) {
+      g.addColorStop(0.00, '#a8a496');
+      g.addColorStop(0.35, '#928e80');
+      g.addColorStop(0.85, '#6e6a5c');
+      g.addColorStop(1.00, '#54503f');
+    } else {
+      g.addColorStop(0.00, '#26262e');
+      g.addColorStop(0.35, '#1a1a22');
+      g.addColorStop(0.85, '#101018');
+      g.addColorStop(1.00, '#06060a');
+    }
+    ctx.fillStyle = g;
+    ctx.fillRect(0, floorTop, W, floorH);
+    ctx.strokeStyle = isLight ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.10)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, floorTop + 0.5); ctx.lineTo(W, floorTop + 0.5); ctx.stroke();
+    ctx.save();
+    ctx.globalAlpha = isLight ? 0.10 : 0.18;
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    for (let yy = floorTop + 4; yy < H - 2; yy += 4) {
+      ctx.beginPath(); ctx.moveTo(8, yy); ctx.lineTo(W - 8, yy); ctx.stroke();
+    }
+    ctx.restore();
+    const rivetSpacing = (REGIME === 'wide') ? 80 : 60;
+    for (let x = 30; x < W - 20; x += rivetSpacing) {
+      rivet(x, floorTop + Math.max(5, floorH * 0.45), Math.max(2, floorH * 0.18));
+    }
+  }
+
+  /**
+   * Draws one side wing panel with gradient and border.
+   *
+   * @param {number} x - Left edge of the wing in pixels.
+   * @param {number} y - Top edge of the wing in pixels.
+   * @param {number} w - Wing width in pixels.
+   * @param {number} h - Wing height in pixels.
+   */
+  function drawWing(x, y, w, h) {
+    if (w <= 0 || h <= 0) return;
+    const g = ctx.createLinearGradient(x, 0, x + w, 0);
+    for (const [pos, col] of PAL.wingStops) g.addColorStop(pos, col);
+    ctx.fillStyle = g;
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = PAL.wingTopLine;
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, y + 0.5); ctx.lineTo(x + w, y + 0.5); ctx.stroke();
+    ctx.strokeStyle = PAL.wingBotLine;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(x, y + h - 0.5); ctx.lineTo(x + w, y + h - 0.5); ctx.stroke();
+    ctx.save();
+    ctx.globalAlpha = 0.06;
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    for (let yy = y + 2; yy < y + h - 2; yy += 2) { ctx.beginPath(); ctx.moveTo(x + 2, yy); ctx.lineTo(x + w - 2, yy); ctx.stroke(); }
+    ctx.restore();
+    rivet(x + 8, y + 10, 3);
+    rivet(x + w - 8, y + 10, 3);
+    rivet(x + 8, y + h - 10, 3);
+    rivet(x + w - 8, y + h - 10, 3);
+    const midCount = Math.max(1, Math.floor((h - 40) / 70));
+    for (let i = 1; i <= midCount; i++) {
+      const yy = y + 10 + i * ((h - 20) / (midCount + 1));
+      rivet(x + 8, yy, 3);
+      rivet(x + w - 8, yy, 3);
+    }
+  }
+
+  // ============================================================
+  // SECTION: RENDER — INJECTOR
+  // ============================================================
+  /** Draws the particle injector nozzle assembly above the drum. */
+  function drawInjector() {
+    const barHeightCm = 9;
+    const yNozzleTip = Y2px(CFG.RELEASE_Y);
+    const yBar = yNozzleTip;
+    const x0 = X2px(CFG.RELEASE_X_MIN - 8);
+    const x1 = X2px(CFG.RELEASE_X_MAX + 8);
+    if (!isFinite(yBar) || !isFinite(x0) || !isFinite(x1) || x1 <= x0) { GEO.nozzleXs = []; return; }
+
+    const barH = Math.max(12, pxDist(barHeightCm));
+    const yTop = yBar - barH;
+    const yBot = yBar;
+    if (yBot < 0) { GEO.nozzleXs = []; return; }
+
+    const capW = Math.max(6, pxDist(4));
+
+    const beamW = Math.max(8, pxDist(5));
+    const beam1X = x0 + capW + barH * 1.5;
+    const beam2X = x1 - capW - barH * 1.5 - beamW;
+
+    if (yTop > 0) {
+      const isLight = PAL.name === 'light';
+      for (const bx of [beam1X, beam2X]) {
+        const bg = ctx.createLinearGradient(bx, 0, bx + beamW, 0);
+        if (isLight) {
+          bg.addColorStop(0.00, '#d6d2c2');
+          bg.addColorStop(0.30, '#e2dece');
+          bg.addColorStop(0.70, '#b4ae9e');
+          bg.addColorStop(1.00, '#6e6858');
+        } else {
+          bg.addColorStop(0.00, '#6a6a72');
+          bg.addColorStop(0.30, '#8a8a92');
+          bg.addColorStop(0.70, '#4a4a52');
+          bg.addColorStop(1.00, '#1a1a22');
+        }
+
+        ctx.fillStyle = bg;
+        ctx.fillRect(bx, 0, beamW, yTop);
+
+        ctx.strokeStyle = isLight ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(bx + 0.5, 0); ctx.lineTo(bx + 0.5, yTop); ctx.stroke();
+        ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+        ctx.beginPath(); ctx.moveTo(bx + beamW - 0.5, 0); ctx.lineTo(bx + beamW - 0.5, yTop); ctx.stroke();
+
+        const flW = beamW * 1.8;
+        const flH = Math.max(4, pxDist(2.5));
+        const flX = bx - (flW - beamW) / 2;
+        const flY = yTop - flH;
+
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(flX + 1, flY + 2, flW, flH);
+
+        const fg = ctx.createLinearGradient(0, flY, 0, flY + flH);
+        fg.addColorStop(0.00, '#f0d088');
+        fg.addColorStop(0.40, '#d9b76a');
+        fg.addColorStop(1.00, '#5a4418');
+        ctx.fillStyle = fg;
+        ctx.fillRect(flX, flY, flW, flH);
+        ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(flX, flY, flW, flH);
+
+        const rivetR = Math.max(1.6, beamW * 0.15);
+        rivet(flX + flW * 0.2, flY + flH * 0.5, rivetR);
+        rivet(flX + flW * 0.8, flY + flH * 0.5, rivetR);
+      }
+    }
+
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(x0 + 3, yBot + 1, x1 - x0, 4);
+
+    const gBrass = ctx.createLinearGradient(0, yTop, 0, yBot);
+    gBrass.addColorStop(0.00, '#f0d088');
+    gBrass.addColorStop(0.10, '#e8c77a');
+    gBrass.addColorStop(0.30, '#d9b76a');
+    gBrass.addColorStop(0.65, '#8a6b2e');
+    gBrass.addColorStop(0.90, '#5a4418');
+    gBrass.addColorStop(1.00, '#2a1a06');
+    ctx.fillStyle = gBrass;
+    ctx.fillRect(x0, yTop, x1 - x0, yBot - yTop);
+
+    ctx.strokeStyle = 'rgba(255,245,200,0.75)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(x0, yTop + 0.6); ctx.lineTo(x1, yTop + 0.6); ctx.stroke();
+    ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(x0, yBot - 0.6); ctx.lineTo(x1, yBot - 0.6); ctx.stroke();
+
+    const capA = ctx.createLinearGradient(x0, 0, x0 + capW, 0);
+    capA.addColorStop(0, 'rgba(0,0,0,0.55)'); capA.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = capA; ctx.fillRect(x0, yTop, capW, yBot - yTop);
+    const capB = ctx.createLinearGradient(x1 - capW, 0, x1, 0);
+    capB.addColorStop(0, 'rgba(0,0,0,0)'); capB.addColorStop(1, 'rgba(0,0,0,0.55)');
+    ctx.fillStyle = capB; ctx.fillRect(x1 - capW, yTop, capW, yBot - yTop);
+
+    const endBoltR = Math.max(2.2, barH * 0.16);
+    rivet(x0 + capW * 0.5, yTop + barH * 0.25, endBoltR);
+    rivet(x0 + capW * 0.5, yTop + barH * 0.75, endBoltR);
+    rivet(x1 - capW * 0.5, yTop + barH * 0.25, endBoltR);
+    rivet(x1 - capW * 0.5, yTop + barH * 0.75, endBoltR);
+
+    const ribCount = 5;
+    const ribAreaX0 = x0 + capW;
+    const ribAreaX1 = x1 - capW;
+    for (let i = 0; i < ribCount; i++) {
+      const cx = ribAreaX0 + (i + 1) * (ribAreaX1 - ribAreaX0) / (ribCount + 1);
+      const ribW = Math.max(3, pxDist(2));
+      const ribX = cx - ribW / 2;
+      const rg = ctx.createLinearGradient(ribX, 0, ribX + ribW, 0);
+      rg.addColorStop(0.00, 'rgba(0,0,0,0.45)');
+      rg.addColorStop(0.45, 'rgba(255,235,170,0.30)');
+      rg.addColorStop(1.00, 'rgba(0,0,0,0.45)');
+      ctx.fillStyle = rg;
+      ctx.fillRect(ribX, yTop + 2, ribW, barH - 4);
+      const ribBoltR = Math.max(1.6, barH * 0.10);
+      rivet(cx, yTop + barH * 0.18, ribBoltR);
+      rivet(cx, yTop + barH * 0.82, ribBoltR);
+    }
+
+    const nozzleCount = 5;
+    const nozzleAreaX0 = X2px(CFG.RELEASE_X_MIN + 5);
+    const nozzleAreaX1 = X2px(CFG.RELEASE_X_MAX - 5);
+    const nozzleH = Math.max(5, pxDist(3.5));
+    const nozzleHalfW = Math.max(3, pxDist(2.6));
+    const collarH = Math.max(2, pxDist(1.0));
+    const collarHalfW = nozzleHalfW * 1.15;
+    GEO.nozzleXs = [];
+    for (let i = 0; i < nozzleCount; i++) {
+      const cx = nozzleAreaX0 + (i + 0.5) * (nozzleAreaX1 - nozzleAreaX0) / nozzleCount;
+      GEO.nozzleXs.push(cx);
+
+      const colG = ctx.createLinearGradient(0, yBot - collarH, 0, yBot + collarH);
+      colG.addColorStop(0, '#e8c77a');
+      colG.addColorStop(0.5, '#a07a30');
+      colG.addColorStop(1, '#5a4418');
+      ctx.fillStyle = colG;
+      ctx.fillRect(cx - collarHalfW, yBot - collarH * 0.4, collarHalfW * 2, collarH);
+      ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(cx - collarHalfW, yBot - collarH * 0.4, collarHalfW * 2, collarH);
+
+      const tipHalfW = nozzleHalfW * 0.55;
+      const nGrad = ctx.createLinearGradient(0, yBot, 0, yBot + nozzleH);
+      nGrad.addColorStop(0.00, '#a07a30');
+      nGrad.addColorStop(0.40, '#7a5a22');
+      nGrad.addColorStop(1.00, '#1a1004');
+      ctx.fillStyle = nGrad;
+      ctx.beginPath();
+      ctx.moveTo(cx - nozzleHalfW, yBot + collarH * 0.6);
+      ctx.lineTo(cx + nozzleHalfW, yBot + collarH * 0.6);
+      ctx.lineTo(cx + tipHalfW, yBot + nozzleH);
+      ctx.lineTo(cx - tipHalfW, yBot + nozzleH);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.fillStyle = '#040206';
+      ctx.beginPath();
+      ctx.ellipse(cx, yBot + nozzleH - 1, tipHalfW * 0.8, Math.max(1, nozzleH * 0.20), 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(255,235,170,0.45)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx - nozzleHalfW + 0.6, yBot + collarH * 0.6);
+      ctx.lineTo(cx - tipHalfW + 0.4, yBot + nozzleH);
+      ctx.stroke();
+    }
+    GEO.nozzleTipY = yBot + nozzleH - 1;
+  }
+
+  /** Draws all active injection puff animations above the drum nozzles. */
+  function drawPuffs() {
+    if (!state.puffs.length) return;
+    ctx.save();
+    for (const pf of state.puffs) {
+      const age = state.t - pf.bornAt;
+      if (age < 0 || age > pf.life) continue;
+      const u = age / pf.life;
+      const rise = u * 18;
+      const r0 = 4 + u * 18;
+      const cy = pf.y + 2 - rise;
+      const alpha = (1 - u) * 0.55;
+      const g = ctx.createRadialGradient(pf.x, cy, 0, pf.x, cy, r0);
+      g.addColorStop(0.00, `rgba(255, 245, 225, ${alpha})`);
+      g.addColorStop(0.35, `rgba(230, 225, 215, ${alpha * 0.6})`);
+      g.addColorStop(1.00, 'rgba(200, 200, 200, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(pf.x, cy, r0, 0, Math.PI * 2); ctx.fill();
+      const lobeR = r0 * 0.55;
+      const g2 = ctx.createRadialGradient(pf.x - r0 * 0.3, cy + 2, 0, pf.x - r0 * 0.3, cy + 2, lobeR);
+      g2.addColorStop(0, `rgba(240, 235, 225, ${alpha * 0.5})`);
+      g2.addColorStop(1, 'rgba(200, 200, 200, 0)');
+      ctx.fillStyle = g2;
+      ctx.beginPath(); ctx.arc(pf.x - r0 * 0.3, cy + 2, lobeR, 0, Math.PI * 2); ctx.fill();
+      const g3 = ctx.createRadialGradient(pf.x + r0 * 0.35, cy + 1, 0, pf.x + r0 * 0.35, cy + 1, lobeR * 0.9);
+      g3.addColorStop(0, `rgba(240, 235, 225, ${alpha * 0.45})`);
+      g3.addColorStop(1, 'rgba(200, 200, 200, 0)');
+      ctx.fillStyle = g3;
+      ctx.beginPath(); ctx.arc(pf.x + r0 * 0.35, cy + 1, lobeR * 0.9, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /** Draws the structural feet connecting the drum to the instrument bar. */
+  function drawOmegaFeet() {
+    const yTop = GEO.footTopY, yBot = GEO.footBotY;
+    if (!isFinite(yTop) || !isFinite(yBot) || yBot <= yTop) return;
+    const xTopInner = GEO.footTopHalfW * 0.55;
+    const xTopOuter = GEO.footTopHalfW;
+    const xBotInner = GEO.footBotHalfW * 0.55;
+    const xBotOuter = GEO.footBotHalfW;
+    const sg = ctx.createLinearGradient(0, yTop, 0, yBot);
+    if (PAL.name === 'light') {
+      sg.addColorStop(0.00, '#d0ccbc');
+      sg.addColorStop(0.25, '#b0ac9c');
+      sg.addColorStop(0.55, '#8a8678');
+      sg.addColorStop(1.00, '#6a6658');
+    } else {
+      sg.addColorStop(0.00, '#6a6a72');
+      sg.addColorStop(0.25, '#4a4a52');
+      sg.addColorStop(0.55, '#2a2a32');
+      sg.addColorStop(1.00, '#1a1a22');
+    }
+    for (const sign of [-1, +1]) {
+      ctx.beginPath();
+      ctx.moveTo(CX + sign * xTopInner, yTop);
+      ctx.lineTo(CX + sign * xTopOuter, yTop);
+      ctx.lineTo(CX + sign * xBotOuter, yBot);
+      ctx.lineTo(CX + sign * xBotInner, yBot);
+      ctx.closePath();
+      ctx.fillStyle = sg; ctx.fill();
+      ctx.strokeStyle = (PAL.name === 'light') ? 'rgba(255,255,255,0.55)' : 'rgba(210,210,220,0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(CX + sign * xTopOuter, yTop); ctx.lineTo(CX + sign * xBotOuter, yBot); ctx.stroke();
+      ctx.strokeStyle = (PAL.name === 'light') ? 'rgba(20,20,30,0.45)' : 'rgba(0,0,0,0.55)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(CX + sign * xTopInner, yTop); ctx.lineTo(CX + sign * xBotInner, yBot); ctx.stroke();
+      const midTop = (xTopInner + xTopOuter) * 0.5;
+      const midBot = (xBotInner + xBotOuter) * 0.5;
+      rivet(CX + sign * midTop, yTop + 6, 3.5);
+      rivet(CX + sign * midBot, yBot - 8, 3.5);
+    }
+  }
+
+  /** Draws the horizontal instrument bar spanning below the drum. */
+  function drawOmegaBar() {
+    const x0 = CX - GEO.barHalfW, x1 = CX + GEO.barHalfW;
+    const y0 = GEO.barTop, y1 = GEO.barBot;
+    if (!isFinite(x0) || !isFinite(x1) || !isFinite(y0) || !isFinite(y1) || y1 <= y0 || x1 <= x0) return;
+    const g = ctx.createLinearGradient(0, y0, 0, y1);
+    if (PAL.name === 'light') {
+      g.addColorStop(0.00, '#d6d2c2');
+      g.addColorStop(0.05, '#e2dece');
+      g.addColorStop(0.20, '#b4ae9e');
+      g.addColorStop(0.55, '#928c7c');
+      g.addColorStop(0.85, '#6e6858');
+      g.addColorStop(1.00, '#54503f');
+    } else {
+      g.addColorStop(0.00, '#6a6a72');
+      g.addColorStop(0.05, '#8a8a92');
+      g.addColorStop(0.20, '#4a4a52');
+      g.addColorStop(0.55, '#2e2e34');
+      g.addColorStop(0.85, '#1a1a22');
+      g.addColorStop(1.00, '#0e0e14');
+    }
+    ctx.fillStyle = g; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+    ctx.strokeStyle = (PAL.name === 'light') ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.22)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x0, y0 + 0.5); ctx.lineTo(x1, y0 + 0.5); ctx.stroke();
+    ctx.strokeStyle = (PAL.name === 'light') ? 'rgba(20,20,30,0.45)' : 'rgba(0,0,0,0.9)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(x0, y1 - 0.5); ctx.lineTo(x1, y1 - 0.5); ctx.stroke();
+    ctx.save();
+    ctx.globalAlpha = 0.08; ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+    for (let x = x0; x < x1; x += 2) { ctx.beginPath(); ctx.moveTo(x, y0 + 2); ctx.lineTo(x, y1 - 2); ctx.stroke(); }
+    ctx.restore();
+    for (let x = x0 + 14; x < x1 - 10; x += 28) { rivet(x, y0 + 8, 3); rivet(x, y1 - 8, 3); }
+    const capW = 6;
+    const capA = ctx.createLinearGradient(x0, 0, x0 + capW, 0);
+    capA.addColorStop(0, 'rgba(0,0,0,0.55)'); capA.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = capA; ctx.fillRect(x0, y0, capW, y1 - y0);
+    const capB = ctx.createLinearGradient(x1 - capW, 0, x1, 0);
+    capB.addColorStop(0, 'rgba(0,0,0,0)'); capB.addColorStop(1, 'rgba(0,0,0,0.55)');
+    ctx.fillStyle = capB; ctx.fillRect(x1 - capW, y0, capW, y1 - y0);
+  }
+
+  /** Draws the steel band ring surrounding the drum, including feet if applicable. */
+  function drawSteelBand() {
+    const rInner = Math.max(1, pxDist(CFG.R_DRUM));
+    const rOuter = rInner + (REGIME === 'wide' ? 32 : (REGIME === 'compact' ? 18 : 14));
+    if (GEO.drawFeet) drawOmegaFeet();
+    const g = ctx.createRadialGradient(CX, CY, rInner, CX, CY, rOuter);
+    g.addColorStop(0, PAL.bandInner);
+    g.addColorStop(0.4, PAL.bandMid1);
+    g.addColorStop(0.7, PAL.bandMid2);
+    g.addColorStop(1, PAL.bandOuter);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(CX, CY, rOuter, 0, Math.PI * 2);
+    ctx.arc(CX, CY, rInner, 0, Math.PI * 2, true);
+    ctx.fill();
+    ctx.strokeStyle = PAL.bandInnerLine; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(CX, CY, rInner, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = PAL.bandOuterLine; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(CX, CY, rOuter - 1, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  /** Draws evenly spaced rivets around the steel band ring. */
+  function drawBoltRing() {
+    const bandPad = (REGIME === 'wide' ? 16 : (REGIME === 'compact' ? 9 : 7));
+    const r = pxDist(CFG.R_DRUM) + bandPad;
+    const N = REGIME === 'portrait' ? 16 : 24;
+    for (let i = 0; i < N; i++) {
+      const a = (i / N) * Math.PI * 2 - state.drumAngle;
+      rivet(CX + r * Math.cos(a), CY + r * Math.sin(a), REGIME === 'wide' ? 4 : 3);
+    }
+  }
+
+  /** Draws the drum interior backplate with a radial gradient, dimmed in lidar mode. */
+  function drawBackplate() {
+    const r = Math.max(1, pxDist(CFG.R_DRUM));
+    const lidar = state.laserOn;
+    const dim = lidar ? TUNING.lidar.backplateDim : 1;
+    const g = ctx.createRadialGradient(CX, CY, 0, CX, CY, r);
+    g.addColorStop(0, mixHex(PAL.backplateInner, '#000000', 1 - dim));
+    g.addColorStop(0.7, mixHex(PAL.backplateMid,   '#000000', 1 - dim));
+    g.addColorStop(1,   mixHex(PAL.backplateOuter, '#000000', 1 - dim));
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(CX, CY, r, 0, Math.PI * 2); ctx.fill();
+    const hx = X2px(TUNING.highlight.cx);
+    const hy = Y2px(TUNING.highlight.cy);
+    const hr = Math.max(1, pxDist(TUNING.highlight.radius));
+    ctx.save();
+    ctx.beginPath(); ctx.arc(CX, CY, r, 0, Math.PI * 2); ctx.clip();
+    const hDim = lidar ? TUNING.lidar.highlightDim : 1;
+    ctx.fillStyle = mixHex(PAL.highlightFill, '#000000', 1 - hDim);
+    ctx.beginPath(); ctx.arc(hx, hy, hr, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  // ============================================================
+  // SECTION: RENDER — TRAILS
+  // ============================================================
+  /** Renders all particle trail lines with a head-to-tail opacity fade. */
+  function drawTrails() {
+    if (!state.trailsOn) return;
+    if (CFG.N_P >= TUNING.trails.maxN) return;
+    if (state.laserOn) return;
+    
+    const dur = TUNING.trails.durationS;
+    const headA = TUNING.trails.headAlpha;
+    const tailA = TUNING.trails.tailAlpha;
+
+    const rInnerPx = pxDist(CFG.R_DRUM) + 2;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(CX, CY, rInnerPx, 0, Math.PI * 2); ctx.clip();
+
+    for (const p of state.particles) {
+      if (!p.alive || p.stuck) continue;
+      const trail = p.trail;
+      if (!trail || trail.length < 2) continue;
+
+      const absOm = Math.abs(state.omega);
+      const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+      const levitated = isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
+      
+      let r, g, b;
+      if (levitated) { r = 0x40; g = 0xff; b = 0x70; }
+      else           { r = 0xff; g = 0xee; b = 0x33; }
+
+      ctx.lineWidth = TUNING.trails.lineWidth;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      for (let i = trail.length - 1; i > 0; i--) {
+        const s1 = trail[i];
+        const s0 = trail[i - 1];
+        
+        // Calculate age based on simulation time
+        const age = state.t - s1.t;
+        if (age > dur) break;
+
+        const u = age / dur;
+        const a = headA + (tailA - headA) * u;
+        if (a <= 0.01) continue;
+        
+        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${a.toFixed(3)})`;
+        ctx.beginPath();
+        ctx.moveTo(X2px(s0.x), Y2px(s0.y));
+        ctx.lineTo(X2px(s1.x), Y2px(s1.y));
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  /** Appends the current position of each live, non-stuck particle to its trail buffer. */
+  function recordTrails() {
+    if (!state.trailsOn) return;
+    if (CFG.N_P >= TUNING.trails.maxN) return;
+    
+    // Use simulation time (state.t) for consistent length during slow-mo
+    const dur = TUNING.trails.durationS;
+    
+    for (const p of state.particles) {
+      if (!p.alive) continue;
+      if (p.stuck) {
+        if (p.trail && p.trail.length) p.trail.length = 0;
+        continue;
+      }
+      if (!p.insideOnce) continue;
+      if (!p.trail) p.trail = [];
+
+      p.trail.push({ x: p.x, y: p.y, t: state.t });
+
+      while (p.trail.length && (state.t - p.trail[0].t) > dur) {
+        p.trail.shift();
+      }
+    }
+  }
+
+  // ============================================================
+  // SECTION: RENDER — DRUM INTERIOR
+  // ============================================================
+  /** Draws the levitation highlight zone and laser beam inside the drum. */
+  function drawDrumInterior() {
+    const r = pxDist(CFG.R_DRUM);
+    ctx.save();
+    ctx.translate(CX, CY); ctx.rotate(-state.drumAngle);
+    ctx.strokeStyle = 'rgba(80,80,100,0.18)'; ctx.lineWidth = 1;
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * pxDist(8), Math.sin(a) * pxDist(8));
+      ctx.lineTo(Math.cos(a) * r * 0.98, Math.sin(a) * r * 0.98);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    if (state.laserOn) {
+      ctx.save();
+      ctx.translate(CX, CY); ctx.rotate(-state.laserAngle);
+      const lidar = state.laserOn;
+      const fanHalfAngle = lidar ? TUNING.lidar.laserFanHalf : 0.025;
+      const am = lidar ? TUNING.lidar.laserAlphaMul : 1;
+      const innerR = pxDist(8);
+      const outerR = r * 0.99;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(-fanHalfAngle) * innerR, Math.sin(-fanHalfAngle) * innerR);
+      ctx.arc(0, 0, outerR, -fanHalfAngle, fanHalfAngle, false);
+      ctx.lineTo(Math.cos(fanHalfAngle) * innerR, Math.sin(fanHalfAngle) * innerR);
+      ctx.arc(0, 0, innerR, fanHalfAngle, -fanHalfAngle, true);
+      ctx.closePath();
+      const grad = ctx.createLinearGradient(innerR, 0, outerR, 0);
+      grad.addColorStop(0.0, 'rgba(60, 255, 120, 0.0)');
+      grad.addColorStop(0.1, `rgba(60, 255, 120, ${Math.min(1, 0.18 * am)})`);
+      grad.addColorStop(0.7, `rgba(60, 255, 120, ${Math.min(1, 0.10 * am)})`);
+      grad.addColorStop(1.0, 'rgba(60, 255, 120, 0.0)');
+      ctx.fillStyle = grad; ctx.fill();
+      ctx.shadowColor = 'rgba(60, 255, 120, 0.9)'; ctx.shadowBlur = 8;
+      ctx.strokeStyle = 'rgba(150, 255, 180, 0.95)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(innerR, 0); ctx.lineTo(outerR, 0); ctx.stroke();
+      ctx.shadowBlur = 10; ctx.fillStyle = 'rgba(180, 255, 200, 1)';
+      ctx.beginPath(); ctx.arc(innerR + 2, 0, 2, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+  }
+  /** Draws the central axis hub with drop shadow and specular highlight. */
+  function drawAxis() {
+    const r = Math.max(3, pxDist(CFG.R_AXIS));
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.beginPath(); ctx.arc(CX, CY + 2, r + 4, 0, Math.PI * 2); ctx.fill();
+    const g = ctx.createRadialGradient(CX - r * 0.4, CY - r * 0.4, 0, CX, CY, r);
+    g.addColorStop(0, '#b8b8c0');
+    g.addColorStop(0.5, '#6a6a72');
+    g.addColorStop(1, '#2a2a32');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(CX, CY, r, 0, Math.PI * 2); ctx.fill();
+    ctx.save();
+    ctx.translate(CX, CY); ctx.rotate(-state.drumAngle);
+    ctx.strokeStyle = 'rgba(20,20,26,0.9)'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.7, 0); ctx.lineTo(r * 0.7, 0);
+    ctx.moveTo(0, -r * 0.7); ctx.lineTo(0, r * 0.7);
+    ctx.stroke();
+    ctx.restore();
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 - state.drumAngle;
+      rivet(CX + Math.cos(a) * r * 0.65, CY + Math.sin(a) * r * 0.65, 2);
+    }
+    ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(CX, CY, r, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  // ============================================================
+  // SECTION: RENDER — PARTICLES
+  // ============================================================
+  /**
+   * Draws a single particle in normal or lidar mode.
+   *
+   * @param {object} p - Particle object from state.particles.
+   */
+  function drawOneParticle(p) {
+    const x = X2px(p.x), y = Y2px(p.y);
+    const sizeFac = visualSizeFactor(p.vt);
+    const rpx = Math.max(2, pxDist(TUNING.particle.collisionR) * 2 * sizeFac);
+
+    if (p.isDiagnosticTarget && TUNING.particle.showFlowGhosts) {
+      const omega = state.omega;
+      const g = 200; 
+      const steps = 40;
+      const dt_sim = 0.05;
+  
+      ctx.save();
+      ctx.lineWidth = 1.5;
+
+      // --- PATH 1: ACTUAL ORBIT (Solid White) ---
+      // This uses the current particle's vt to show its real future
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.setLineDash([]); // Solid line for reality
+      ctx.beginPath();
+      let ax = p.x, ay = p.y;
+      ctx.moveTo(x, y);
+      for (let i = 0; i < steps; i++) {
+        const vxg = -omega * ay;
+        const vyg = omega * ax;
+        ax += vxg * dt_sim;
+        ay += (vyg - p.vt) * dt_sim; // Real physics includes vt[cite: 1]
+        ctx.lineTo(X2px(ax), Y2px(ay));
+        if (ax*ax + ay*ay > 10000) break; 
+      }
+      ctx.stroke();
+  
+      // --- PATH 2: GAS PATH (Dashed Cyan) ---
+      ctx.strokeStyle = '#5ad0ff';
+      ctx.setLineDash([4, 2]);
+      ctx.beginPath();
+      let gx = p.x, gy = p.y;
+      ctx.moveTo(x, y);
+      for (let i = 0; i < steps; i++) {
+        const ox = gx, oy = gy;
+        gx += (-omega * oy) * dt_sim;
+        gy += (omega * ox) * dt_sim;
+        ctx.lineTo(X2px(gx), Y2px(gy));
+      }
+      ctx.stroke();
+  
+      // --- PATH 3: VACUUM PATH (Dashed Purple) ---
+      ctx.strokeStyle = '#ff5aff';
+      ctx.beginPath();
+      let vx = p.x, vy = p.y, vvx = p.vx, vvy = p.vy;
+      ctx.moveTo(x, y);
+      for (let i = 0; i < steps; i++) {
+        vvy -= g * dt_sim;
+        vx += vvx * dt_sim;
+        vy += vvy * dt_sim;
+        ctx.lineTo(X2px(vx), Y2px(vy));
+        if (vx*vx + vy*vy > 10000) break;
+      }
+      ctx.stroke();
+  
+      // --- HIGHLIGHT RING ---
+      ctx.setLineDash([]);
+      ctx.strokeStyle = 'white';
+      ctx.beginPath();
+      ctx.arc(x, y, rpx + 4, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    const lidar = state.laserOn;
+    const FLASH_DUR = 0.40 * (lidar ? TUNING.lidar.flashDurMul : 1);
+    let flash = 0;
+    if (state.t < p.flashEndsAt) {
+      flash = (p.flashEndsAt - state.t) / FLASH_DUR;
+      if (flash > 1) flash = 1; if (flash < 0) flash = 0;
+    }
+    const absOm = Math.abs(state.omega);
+    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+    const levitated = !p.stuck && isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
+
+    let alphaMul = 1;
+    if (p.stuck && p.stuckAt !== undefined) {
+      const age = state.t - p.stuckAt;
+      if (age > 4) alphaMul = Math.max(0, 1 - (age - 4));
+      if (alphaMul <= 0) return;
+    }
+
+    if (lidar) {
+      if (!p.stuck && flash <= 0) return;
+      if (p.stuck) alphaMul *= TUNING.lidar.stuckAlpha;
+    }
+
+    const drawGlow = lidar || (CFG.N_P < 300);
+
+    let coreColor, glowColor;
+    if (p.stuck) {
+      coreColor = flash > 0 ? mixHex('#ff4040', '#e6ffea', flash) : '#ff4040';
+      glowColor = flash > 0
+        ? `rgba(${rgbLerp(0xff, 0x60, flash)}, ${rgbLerp(0x40, 0xff, flash)}, ${rgbLerp(0x40, 0x90, flash)}, ${(0.35 + 0.55 * flash) * alphaMul})`
+        : `rgba(255,64,64,${0.35 * alphaMul})`;
+    } else if (levitated) {
+      coreColor = flash > 0 ? mixHex('#40ff70', '#e6ffea', flash) : '#40ff70';
+      glowColor = flash > 0
+        ? `rgba(${rgbLerp(0x60, 0xb0, flash)}, 255, ${rgbLerp(0x80, 0xd0, flash)}, ${0.55 + 0.35 * flash})`
+        : 'rgba(80, 255, 130, 0.55)';
+    } else {
+      coreColor = flash > 0 ? mixHex('#ffee33', '#e6ffea', flash) : '#ffee33';
+      glowColor = flash > 0
+        ? `rgba(${rgbLerp(0xff, 0x60, flash)}, ${rgbLerp(0xee, 0xff, flash)}, ${rgbLerp(0x33, 0x90, flash)}, ${0.45 + 0.55 * flash})`
+        : 'rgba(255,238,51,0.45)';
+    }
+
+    if (alphaMul < 1) ctx.globalAlpha = alphaMul;
+
+    if (drawGlow) {
+      const glowR = Math.max(rpx + 1, rpx * (3 + flash * 3.5));
+      const g = ctx.createRadialGradient(x, y, 0, x, y, glowR);
+      g.addColorStop(0, glowColor);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, glowR, 0, Math.PI * 2); ctx.fill();
+    }
+
+    if (flash > 0 && drawGlow) {
+      const hr = rpx * (2.2 + flash * 2.5);
+      const hg = ctx.createRadialGradient(x, y, 0, x, y, hr);
+      hg.addColorStop(0, `rgba(180, 255, 210, ${0.5 * flash})`);
+      hg.addColorStop(0.6, `rgba(80, 255, 130, ${0.25 * flash})`);
+      hg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = hg;
+      ctx.beginPath(); ctx.arc(x, y, hr, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = coreColor;
+    ctx.beginPath(); ctx.arc(x, y, rpx * (1 + flash * 0.3), 0, Math.PI * 2); ctx.fill();
+    if (drawGlow) {
+      ctx.fillStyle = 'rgba(255,255,255,' + (0.7 + flash * 0.3) + ')';
+      ctx.beginPath(); ctx.arc(x - rpx * 0.3, y - rpx * 0.3, rpx * 0.35, 0, Math.PI * 2); ctx.fill();
+    }
+
+    if (alphaMul < 1) ctx.globalAlpha = 1;
+  }
+
+  /** Draws all live particles, clipped to the drum interior. */
+  function drawParticles() {
+    const rInnerPx = pxDist(CFG.R_DRUM) + 2;
+    const R_DRUM_CM = CFG.R_DRUM;
+    const R_BAND_OUT_CM = CFG.R_DRUM + 30 / SCALE;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(CX, CY, rInnerPx, 0, Math.PI * 2); ctx.clip();
+    for (const p of state.particles) {
+      if (!p.alive) continue;
+      if (Math.hypot(p.x, p.y) > R_DRUM_CM + 0.5) continue;
+      drawOneParticle(p);
+    }
+    ctx.restore();
+    for (const p of state.particles) {
+      if (!p.alive) continue;
+      if (Math.hypot(p.x, p.y) <= R_BAND_OUT_CM) continue;
+      drawOneParticle(p);
+    }
+  }
+
+  /** Draws the glass glare arc across the front face of the drum. */
+  function drawGlare() {
+    const r = pxDist(CFG.R_DRUM);
+    const g = ctx.createLinearGradient(CX - r, CY - r, CX + r, CY + r);
+    g.addColorStop(0, 'rgba(255,255,255,0.05)');
+    g.addColorStop(0.3, 'rgba(255,255,255,0)');
+    g.addColorStop(0.55, 'rgba(255,255,255,0.03)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.save();
+    ctx.beginPath(); ctx.arc(CX, CY, r, 0, Math.PI * 2); ctx.clip();
+    ctx.fillStyle = g;
+    ctx.fillRect(CX - r, CY - r, r * 2, r * 2);
+    ctx.restore();
+  }
+
+  // ============================================================
+  // SECTION: RENDER — VECTOR FIELD
+  // ============================================================
+  /** Draws the expert vector-field overlay showing per-cell drag and gravity arrows. */
+  function drawVectorField() {
+    if (!state.showVectors) return;
+  
+    const res = 15; 
+    const vScale = 0.15;
+    const vt = CFG.V_T;
+    const omega = state.omega;
+    const step = (CFG.R_DRUM * 2) / res;
+  
+    ctx.save();
+    ctx.lineWidth = 1.2;
+  
+    for (let x = -CFG.R_DRUM; x <= CFG.R_DRUM; x += step) {
+      for (let y = -CFG.R_DRUM; y <= CFG.R_DRUM; y += step) {
+        if (x * x + y * y > CFG.R_DRUM * CFG.R_DRUM) continue;
+  
+        const px = X2px(x);
+        const py = Y2px(y);
+  
+        // 1. Settling Velocity (Gravity) - Points Down
+        const gravLen = vt * vScale * SCALE;
+        drawSimpleArrow(px, py, px, py + gravLen, 'rgba(255, 220, 100, 0.4)');
+  
+        // 2. Gas Drag (Tangent) - Perpendicular to radius
+        const dragVx = -omega * y;
+        const dragVy = omega * x;
+        const dx = dragVx * vScale * SCALE;
+        const dy = -dragVy * vScale * SCALE;
+        drawSimpleArrow(px, py, px + dx, py + dy, 'rgba(90, 200, 255, 0.4)');
+  
+        // 3. Resulting Vector (Net Flow) - Sum of both
+        // Only draw if there is actually movement
+        if (Math.abs(omega) > 0.01 || vt > 0) {
+          drawSimpleArrow(px, py, px + dx, py + dy + gravLen, 'rgba(96, 255, 144, 0.8)');
+        }
+      }
+    }
+    ctx.restore();
+  }
+  
+  /**
+   * Draws a line with an arrowhead between two canvas points.
+   *
+   * @param {number} x1 - Start x in canvas pixels.
+   * @param {number} y1 - Start y in canvas pixels.
+   * @param {number} x2 - End x in canvas pixels.
+   * @param {number} y2 - End y in canvas pixels.
+   * @param {string} color - CSS colour string for the stroke.
+   */
+  function drawSimpleArrow(x1, y1, x2, y2, color) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return; // Don't draw tiny dots
+  
+    const headlen = 4;
+    const angle = Math.atan2(dy, dx);
+  
+    ctx.strokeStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.lineTo(x2 - headlen * Math.cos(angle - Math.PI / 6), y2 - headlen * Math.sin(angle - Math.PI / 6));
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - headlen * Math.cos(angle + Math.PI / 6), y2 - headlen * Math.sin(angle + Math.PI / 6));
+    ctx.stroke();
+  }
+
+  // ============================================================
+  // SECTION: RENDER — MASTER DRAW
+  // ============================================================
+  /** Master draw function: clears the canvas and calls all draw functions in order. */
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    drawLabBackground();
+    if (REGIME !== 'portrait') {
+      drawWing(GEO.wingLeftX, GEO.wingTop, GEO.wingW, GEO.wingBot - GEO.wingTop);
+      drawWing(GEO.wingRightX, GEO.wingTop, GEO.wingW, GEO.wingBot - GEO.wingTop);
+    } else {
+      drawWing(GEO.wingLeftX, GEO.wingTop, GEO.wingW, (GEO.wingBot - GEO.wingTop));
+    }
+    if (REGIME !== 'portrait') drawInjector();
+    drawPuffs();
+    drawSteelBand();
+    if (REGIME !== 'portrait') drawOmegaBar();
+    drawBackplate();
+    drawTrails();
+    drawDrumInterior();
+    drawVectorField();
+    drawAxis();
+    drawParticles();
+    drawAggregates();
+    drawMergeStreaks();
+    drawGoldenBalls();
+    drawGlobes();
+    drawGlare();
+    drawBoltRing();
+
+    // --- v_t Reference Projection Overlay ---
+    if (TUNING.particle.showVtProjection) {
+      const absOm = Math.abs(state.omega);
+      // Only draw if the drum is actually spinning enough to have an orbit center
+      if (absOm > 0.01) {
+        const vtBase = CFG.V_T;
+        // Uses the dynamic spread from the left wing settings
+        const delta = vtBase * CFG.VT_SPREAD; 
+        const velocities = [vtBase - delta, vtBase, vtBase + delta];
+        const py0 = Y2px(0);
+        
+        ctx.save();
+        // Cyan "HUD" style
+        ctx.strokeStyle = 'rgba(0, 255, 255, 0.5)';
+        ctx.fillStyle = 'rgba(0, 255, 255, 0.7)';
+        ctx.setLineDash([4, 4]); 
+        ctx.lineWidth = 1.2;
+
+        // Calculate x = v_t / omega
+        let points = velocities.map(v => X2px(v / state.omega));
+
+        // Draw horizontal connecting line
+        ctx.beginPath();
+        ctx.moveTo(points[0], py0);
+        ctx.lineTo(points[2], py0);
+        ctx.stroke();
+
+        // Draw the 3 reference points
+        points.forEach((px, i) => {
+          ctx.beginPath();
+          // Middle point (v_t) is larger
+          const radius = (i === 1) ? 5 : 2.5;
+          ctx.arc(px, py0, radius, 0, Math.PI * 2);
+          
+          if (i === 1) {
+            ctx.fill();   // Solid center target
+          } else {
+            ctx.setLineDash([]); // Delta points are open rings
+            ctx.stroke();
+          }
+        });
+        
+        ctx.restore();
+      }
+    }
+
+    drawViewport();
+
+    // --- EXPERT HUD OVERLAY (Heatmap & Captions) ---
+    if (heatmap.enabled || state.showVectors) {
+      // 1. RENDER HEATMAP PIXELS (Only if heatmap is enabled and data is ready)[cite: 5, 7]
+      if (heatmap.enabled && heatmap.ready && (heatmap.maxSigma > 0 || heatmap.maxDensity > 0 || heatmap.maxProduct > 0)) {
+        const res = heatmap.resolution;
+        const cellW = pxDist(200 / res);
+        const cellH = pxDist(200 / res);
+        const startX = X2px(-100); 
+        const startY = Y2px(100); 
+
+        ctxOv.save();
+        ctxOv.beginPath();
+        ctxOv.arc(CX, CY, pxDist(CFG.R_DRUM), 0, Math.PI * 2);
+        ctxOv.clip();
+        ctxOv.globalAlpha = heatmap.opacity;
+        
+        for (let gy = 0; gy < res; gy++) {
+          for (let gx = 0; gx < res; gx++) {
+            const idx = gy * res + gx;
+            let u = 0;
+            if (heatmap.mode === 'dispersion') u = heatmap.maxSigma > 0 ? heatmap.data[idx] / heatmap.maxSigma : 0;
+            else if (heatmap.mode === 'density') u = heatmap.maxDensity > 0 ? heatmap.densData[idx] / heatmap.maxDensity : 0;
+            else if (heatmap.mode === 'product') u = heatmap.maxProduct > 0 ? heatmap.prodData[idx] / heatmap.maxProduct : 0;
+
+            if (u <= 0) continue;
+            const r = Math.floor(0 + 255 * u);
+            const g = Math.floor(16 + 239 * u);
+            const b = Math.floor(64 + 191 * u);
+            ctxOv.fillStyle = `rgb(${r},${g},${b})`;
+            ctxOv.fillRect(startX + gx * cellW, startY + gy * cellH, cellW + 1, cellH + 1);
+          }
+        }
+        ctxOv.restore();
+
+        // 2. DRAW COLOR BAR[cite: 5]
+        const rOuter = pxDist(CFG.R_DRUM) + (REGIME === 'wide' ? 32 : (REGIME === 'compact' ? 18 : 14));
+        const barW = 15;
+        const barH = pxDist(60);
+        const bx = CX + rOuter + 10; 
+        const by = CY - barH / 2;
+        
+        const grad = ctxOv.createLinearGradient(0, by + barH, 0, by);
+        grad.addColorStop(0, 'rgb(0,16,64)');
+        grad.addColorStop(1, 'rgb(255,255,255)');
+        ctxOv.fillStyle = grad;
+        ctxOv.fillRect(bx, by, barW, barH);
+        ctxOv.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctxOv.lineWidth = 1;
+        ctxOv.strokeRect(bx, by, barW, barH);
+
+        ctxOv.save();
+        ctxOv.globalAlpha = 1.0;
+        ctxOv.fillStyle = (PAL.name === 'light') ? '#000000' : '#ffffff';
+        ctxOv.font = 'bold 11px monospace';
+        ctxOv.textAlign = 'center';
+        
+        let topL = "", unitL = "";
+        if (heatmap.mode === 'dispersion') { topL = heatmap.maxSigma.toFixed(1); unitL = "cm/s (σ)"; }
+        else if (heatmap.mode === 'density') { topL = heatmap.maxDensity.toFixed(1); unitL = "parts/cell (ρ)"; }
+        else if (heatmap.mode === 'product') { topL = heatmap.maxProduct.toFixed(1); unitL = "collision proxy"; }
+
+        ctxOv.fillText(topL, bx + barW/2, by - 8);
+        ctxOv.fillText("0.0", bx + barW/2, by + barH + 14);
+        ctxOv.font = '8px monospace';
+        ctxOv.fillText(unitL, bx + barW/2, by - 20);
+        ctxOv.restore();
+      }
+
+      // 3. DRAW CAPTION (Heatmaps & Vectors)
+      ctxOv.save();
+      ctxOv.globalAlpha = heatmap.opacity;
+      const hudColor = (PAL.name === 'light') ? '#000000' : '#ffffff';
+      ctxOv.fillStyle = hudColor;
+      
+      if (PAL.name !== 'light') {
+        ctxOv.shadowColor = 'rgba(255, 255, 255, 0.4)';
+        ctxOv.shadowBlur = 4;
+      }
+      
+      ctxOv.font = 'bold 20px "Courier New", monospace'; 
+      ctxOv.textAlign = 'center';
+      ctxOv.textBaseline = 'top';
+
+      let caption = "";
+      if (state.showVectors) {
+          caption = "resultant vector field";
+      } else if (heatmap.mode === 'dispersion') {
+          caption = "velocity variance σ_v";
+      } else if (heatmap.mode === 'density') {
+          caption = "particle density n_p";
+      } else if (heatmap.mode === 'product') {
+          caption = "collision proxy n_p · σ_v";
+      }
+
+      const rInnerCaption = pxDist(CFG.R_DRUM); 
+      const bandWidthCaption = (REGIME === 'wide' ? 32 : (REGIME === 'compact' ? 18 : 14));
+      const textY = CY + rInnerCaption + bandWidthCaption + 25; 
+
+      ctxOv.fillText(caption, CX, textY);
+
+      // Data collection notice (Only for heatmaps)[cite: 7]
+      if (heatmap.enabled && !heatmap.ready) {
+        ctxOv.font = 'italic 13px "Courier New", monospace';
+        ctxOv.globalAlpha = heatmap.opacity * 0.7; 
+        ctxOv.fillText("(accumulating orbital data...)", CX, textY + 28);
+      }
+      ctxOv.restore();
+    }
+  }
+
+
+
+// FIXME end
+
+
+
+
+  /**
+   * Linearly interpolates between two integer channel values.
+   *
+   * @param {number} a - Start channel value (0–255).
+   * @param {number} b - End channel value (0–255).
+   * @param {number} t - Blend factor in [0, 1].
+   * @returns {number} Rounded interpolated channel value.
+   */
+  function rgbLerp(a, b, t) { return Math.round(a + (b - a) * t); }
+  /**
+   * Blends two CSS hex colour strings by factor t.
+   *
+   * @param {string} h1 - Start hex colour (e.g. '#1a2b3c').
+   * @param {string} h2 - End hex colour.
+   * @param {number} t - Blend factor in [0, 1].
+   * @returns {string} Blended hex colour string.
+   */
+  function mixHex(h1, h2, t) {
+    const c1 = parseInt(h1.slice(1), 16), c2 = parseInt(h2.slice(1), 16);
+    const r = rgbLerp((c1>>16)&0xff, (c2>>16)&0xff, t);
+    const g = rgbLerp((c1>>8)&0xff, (c2>>8)&0xff, t);
+    const b = rgbLerp(c1&0xff, c2&0xff, t);
+    return '#' + ((1<<24) | (r<<16) | (g<<8) | b).toString(16).slice(1);
+  }
+
+  // ============================================================
+
+  /**
+   * Returns an SVG path string for a curved arrow arc.
+   *
+   * @param {number} cx - Centre x in pixels.
+   * @param {number} cy - Centre y in pixels.
+   * @param {number} R - Arc radius in pixels.
+   * @param {number} a0 - Start angle in radians.
+   * @param {number} a1 - End angle in radians.
+   * @param {number} thickness - Half-thickness of the arc body in pixels.
+   * @param {number} direction - +1 for arrowhead at a1, -1 for arrowhead at a0.
+   * @returns {string} SVG path data string.
+   */
+  function curvedArrowPath(cx, cy, R, a0, a1, thickness, direction) {
+    const toPt = (ang, r) => [cx + r * Math.cos(ang), cy - r * Math.sin(ang)];
+    const rOut = R + thickness, rIn = R - thickness;
+    const headSpan = Math.min(0.35, Math.abs(a1 - a0) * 0.35);
+    const aHeadTip = (direction > 0) ? a1 : a0;
+    const aHeadBase = (direction > 0) ? (a1 - Math.sign(a1 - a0) * headSpan) : (a0 + Math.sign(a1 - a0) * headSpan);
+    const aBody0 = (direction > 0) ? a0 : a1;
+    const aBody1 = aHeadBase;
+    const sweepOuter = (aBody1 > aBody0) ? 0 : 1;
+    const sweepInner = 1 - sweepOuter;
+    const [pOut0x, pOut0y] = toPt(aBody0, rOut);
+    const [pOut1x, pOut1y] = toPt(aBody1, rOut);
+    const [pIn1x, pIn1y] = toPt(aBody1, rIn);
+    const [pIn0x, pIn0y] = toPt(aBody0, rIn);
+    const headT = thickness * 1.9;
+    const [tipX, tipY] = toPt(aHeadTip, R);
+    const [baseOutX, baseOutY] = toPt(aHeadBase, R + headT);
+    const [baseInX, baseInY] = toPt(aHeadBase, R - headT);
+    let d = `M ${pOut0x.toFixed(2)} ${pOut0y.toFixed(2)} `;
+    d += `A ${rOut} ${rOut} 0 0 ${sweepOuter} ${pOut1x.toFixed(2)} ${pOut1y.toFixed(2)} `;
+    d += `L ${baseOutX.toFixed(2)} ${baseOutY.toFixed(2)} `;
+    d += `L ${tipX.toFixed(2)} ${tipY.toFixed(2)} `;
+    d += `L ${baseInX.toFixed(2)} ${baseInY.toFixed(2)} `;
+    d += `L ${pIn1x.toFixed(2)} ${pIn1y.toFixed(2)} `;
+    d += `A ${rIn} ${rIn} 0 0 ${sweepInner} ${pIn0x.toFixed(2)} ${pIn0y.toFixed(2)} `;
+    d += `Z`;
+    return d;
+  }
+  /** Builds the SVG omega-control arrows and wires their press-hold handlers. */
+  function buildOmegaControls() {
+    const svg = document.getElementById('omegaCtl');
+    if (!svg) return;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.style.width = W + 'px';
+    svg.style.height = H + 'px';
+    const drumPx = pxDist(CFG.R_DRUM);
+    const armOffset = REGIME === 'portrait' ? 30 : 60;
+    const R = drumPx + armOffset;
+    const thickness = REGIME === 'portrait' ? 14 : 22;
+    const gap = 12 * Math.PI / 180;
+    const span = 45 * Math.PI / 180;
+    const aPlusStart = Math.PI + gap;
+    const aPlusEnd   = Math.PI + gap + span;
+    const aMinusStart = Math.PI - gap - span;
+    const aMinusEnd   = Math.PI - gap;
+    const plusD  = curvedArrowPath(CX, CY, R, aPlusStart, aPlusEnd, thickness, +1);
+    const minusD = curvedArrowPath(CX, CY, R, aMinusEnd, aMinusStart, thickness, +1);
+    const aPM = (aPlusStart + aPlusEnd) / 2;
+    const aMM = (aMinusStart + aMinusEnd) / 2;
+    const pL = { x: CX + R * Math.cos(aPM), y: CY - R * Math.sin(aPM) };
+    const mL = { x: CX + R * Math.cos(aMM), y: CY - R * Math.sin(aMM) };
+    svg.innerHTML = `
+      <defs>
+        <linearGradient id="gradRed" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6a5a"/><stop offset="0.5" stop-color="#d22818"/><stop offset="1" stop-color="#6a0a0a"/></linearGradient>
+        <linearGradient id="gradRedHover" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8876"/><stop offset="0.5" stop-color="#e63a22"/><stop offset="1" stop-color="#801010"/></linearGradient>
+        <linearGradient id="gradGreen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7ef09a"/><stop offset="0.5" stop-color="#22a04a"/><stop offset="1" stop-color="#0a4018"/></linearGradient>
+        <linearGradient id="gradGreenHover" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a0ffb8"/><stop offset="0.5" stop-color="#2cc058"/><stop offset="1" stop-color="#0e5020"/></linearGradient>
+      </defs>
+      <g class="btn" id="btnOmegaPlus">
+        <path class="btn-arrow" d="${plusD}"/>
+        <text class="btn-label" x="${pL.x.toFixed(1)}" y="${pL.y.toFixed(1)}" text-anchor="middle" dominant-baseline="middle">+Ω</text>
+      </g>
+      <g class="btn" id="btnOmegaMinus">
+        <path class="btn-arrow" d="${minusD}"/>
+        <text class="btn-label" x="${mL.x.toFixed(1)}" y="${mL.y.toFixed(1)}" text-anchor="middle" dominant-baseline="middle">−Ω</text>
+      </g>
+    `;
+    wirePressHold(document.getElementById('btnOmegaPlus'),  () => bumpOmega(+1));
+    wirePressHold(document.getElementById('btnOmegaMinus'), () => bumpOmega(-1));
+  }
+
+  window.cv            = cv;
+  window.ctxOv         = ctxOv;
+  window.W             = W;
+  window.H             = H;
+  window.DPR           = DPR;
+  window.CX            = CX;
+  window.CY            = CY;
+  window.SCALE         = SCALE;
+  window.GEO           = GEO;
+  window.REGIME        = REGIME;
+  window.layout        = layout;
+  window.draw          = draw;
+  window.drawGlobes    = drawGlobes;
+  window.recordTrails  = recordTrails;
+  window.X2px          = X2px;
+  window.Y2px          = Y2px;
+  window.pxDist        = pxDist;
+  window.visualSizeFactor = visualSizeFactor;
+  window.angleSwept    = angleSwept;
+  window.buildOmegaControls = buildOmegaControls;
+})();

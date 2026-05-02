@@ -1,0 +1,1070 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Particle Levitation Drum</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-select: none; touch-action: none; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-root, #0a0a0c); font-family: 'Courier New', monospace; color: #d0d0d0; }
+  #app { position: relative; width: 100vw; height: 100vh; background: var(--bg-app, radial-gradient(ellipse at center, #1a1a1f 0%, #08080a 100%)); }
+  canvas { display: block; position: absolute; inset: 0; }
+
+  :root {
+    --bg-root: #0a0a0c;
+    --bg-app: radial-gradient(ellipse at center, #1a1a1f 0%, #08080a 100%);
+  }
+  body.theme-light {
+    --bg-root: #d8d4c8;
+    --bg-app: radial-gradient(ellipse at center, #e8e4dc 0%, #c8c4b8 100%);
+  }
+
+  /* Default Dark Mode Background */
+  #app {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    background-image: url('assets/background/lab_night.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    transition: background-image 0.5s ease-in-out; /* Smooth transition */
+  }
+  
+  /* Light Mode Background */
+  body.theme-light #app {
+    background-image: url('assets/background/lab_day.png');
+  }
+
+  .wing {
+    position: absolute;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center;
+    padding: 10px 8px; gap: 10px; box-sizing: border-box;
+    z-index: 10;
+  }
+
+  /* Make the chevron arrows slightly darker too for visibility */
+  body.theme-light .sel .chev {
+    color: #1a1006;
+  }
+
+  #wingMiddle { display: none; }
+  body.regime-portrait #wingMiddle { display: flex; }
+
+  .btnind.inject { width: 96px; height: 96px; margin-bottom: 4px; }
+  .btnind.inject .cap-label { font-size: 15px; letter-spacing: 2px; }
+
+  /* Red active state for disable-toggles */
+  .btnind.warn .cap {
+    background: radial-gradient(ellipse at 50% 35%, #ffc0c0 0%, #ff5050 40%, #601a1a 85%, #2c0808 100%) !important;
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.5), 0 0 10px rgba(255,120,120,0.6), 0 0 8px rgba(255,80,80,0.45) !important;
+  }
+  .btnind.warn .cap-label, .btnind.warn .cap-icon { 
+    color: #2c0808 !important; 
+    text-shadow: 0 1px 0 rgba(255,255,255,0.4) !important;
+  }
+  .wing-logo {
+    margin-bottom: 4px;
+    padding: 3px;
+    border-radius: 3px;
+    background: linear-gradient(180deg, #e8c77a 0%, #c9a858 20%, #8a6b2e 60%, #5a4418 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255,235,170,0.7),
+      inset 0 -1px 0 rgba(0,0,0,0.6),
+      0 2px 3px rgba(0,0,0,0.6);
+    width: 100px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: filter 0.1s, transform 0.05s;
+    text-decoration: none;
+  }
+  .wing-logo:hover {
+    filter: brightness(1.15);
+    box-shadow:
+      inset 0 1px 0 rgba(255,245,190,0.9),
+      inset 0 -1px 0 rgba(0,0,0,0.6),
+      0 0 8px rgba(255,204,85,0.5),
+      0 2px 3px rgba(0,0,0,0.6);
+  }
+  .wing-logo:active { transform: translateY(1px); }
+  .wing-logo img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 72px;
+    border-radius: 2px;
+    background: #1a1a22;
+  }
+  .wing-logo img.broken { display: none; }
+  .wing-logo:has(img.broken) { display: none; }
+
+  .manual-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(8, 8, 12, 0.75);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 50;
+  }
+  .manual-overlay[hidden] { display: none; }
+  .manual-box {
+    position: relative;
+    max-width: 640px;
+    width: calc(100% - 64px);
+    max-height: calc(100% - 64px);
+    overflow-y: auto;
+    padding: 28px 32px;
+    background:
+      linear-gradient(180deg,
+        #3a3a44 0%,
+        #2a2a32 30%,
+        #1e1e26 80%,
+        #12121a 100%);
+    border: 1px solid #5a4418;
+    border-radius: 6px;
+    box-shadow:
+      inset 0 1px 0 rgba(255,235,170,0.25),
+      inset 0 -2px 6px rgba(0,0,0,0.7),
+      0 10px 30px rgba(0,0,0,0.8);
+    color: #d8d0c0;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.65;
+    letter-spacing: 0.3px;
+  }
+  .manual-box h2 {
+    font-size: 15px;
+    letter-spacing: 3px;
+    color: #ffcc55;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #5a4418;
+    text-shadow: 0 1px 0 #000;
+  }
+  .manual-box h3 {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #d9b76a;
+    text-transform: uppercase;
+    margin: 16px 0 6px;
+    text-shadow: 0 1px 0 #000;
+  }
+  .manual-box p { margin: 0 0 10px; }
+  .manual-box ul { margin: 0 0 8px 18px; }
+  .manual-box li { margin-bottom: 5px; }
+  .manual-box strong { color: #ffcc55; font-weight: bold; }
+  .manual-box em { color: #a0c0ff; font-style: normal; }
+  .manual-box kbd {
+    display: inline-block;
+    padding: 1px 6px;
+    background: linear-gradient(180deg, #4a4a54, #2a2a32);
+    border: 1px solid #1a1a22;
+    border-radius: 3px;
+    color: #ffcc55;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 1px 1px rgba(0,0,0,0.6);
+  }
+  .manual-footer { color: #888; margin-top: 12px; font-size: 11px; }
+  .manual-close {
+    position: absolute;
+    top: 10px; right: 12px;
+    width: 28px; height: 28px;
+    border: 1px solid #5a4418; border-radius: 3px;
+    background: linear-gradient(180deg, #d9b76a, #8a6b2e);
+    color: #2a1a06;
+    font-family: 'Courier New', monospace;
+    font-size: 18px; font-weight: bold; line-height: 1;
+    cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(255,235,170,0.5), 0 1px 2px rgba(0,0,0,0.6);
+  }
+  .manual-close:hover { background: linear-gradient(180deg, #e8c77a, #9a7a38); color: #000; }
+  .manual-close:active { box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); }
+
+  .sel { position: relative; width: 96px; display: flex; flex-direction: column; align-items: center; gap: 3px; pointer-events: auto; }
+  .sel .sel-body {
+    position: relative; width: 100%; height: 30px; border-radius: 4px; padding: 3px;
+    background: linear-gradient(180deg, #d9b76a 0%, #8a6b2e 40%, #5a4418 70%, #8a6b2e 100%);
+    box-shadow: inset 0 1px 0 rgba(255,230,150,0.5), inset 0 -1px 0 rgba(0,0,0,0.6), 0 2px 3px rgba(0,0,0,0.6);
+    display: flex; align-items: stretch; gap: 2px;
+  }
+  .sel .chev {
+    width: 16px; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(180deg, #c9a85a 0%, #8a6b2e 70%);
+    border-radius: 2px; color: #2a1a06; font-size: 11px; font-weight: bold; cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(255,230,150,0.5), inset 0 -1px 0 rgba(0,0,0,0.4);
+    user-select: none; -webkit-user-select: none;
+  }
+  .sel .chev:hover { background: linear-gradient(180deg, #e0c078, #9a7a38); }
+  .sel .chev:active { box-shadow: inset 0 2px 3px rgba(0,0,0,0.5); }
+  .sel .win {
+    flex: 1; border-radius: 2px;
+    background: radial-gradient(ellipse at 50% 30%, #143018 0%, #0a1a0e 70%, #050a06 100%);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.9);
+    color: #6fff8a; font-family: 'Courier New', monospace;
+    font-weight: bold; font-size: 14px; letter-spacing: 1px;
+    display: flex; align-items: center; justify-content: center;
+    text-shadow: 0 0 4px rgba(111,255,138,0.6), 0 0 8px rgba(111,255,138,0.25);
+    font-variant-numeric: tabular-nums; cursor: pointer;
+    user-select: none; -webkit-user-select: none;
+  }
+  .sel .sel-lbl { font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 1.5px; color: #d8c18a; text-transform: uppercase; text-shadow: 0 1px 0 #000; white-space: nowrap; }
+
+  .btnind {
+    position: relative; width: 96px; height: 56px; padding: 0; border: none; border-radius: 6px;
+    background: linear-gradient(180deg, #e8c77a 0%, #c9a858 18%, #8a6b2e 55%, #5a4418 85%, #3a2a0e 100%);
+    box-shadow: inset 0 1px 0 rgba(255,235,170,0.7), inset 0 -2px 3px rgba(0,0,0,0.55), 0 3px 5px rgba(0,0,0,0.6), 0 1px 0 rgba(255,235,170,0.2);
+    cursor: pointer; pointer-events: auto; user-select: none; -webkit-user-select: none; overflow: hidden; display: block;
+  }
+  .btnind::before, .btnind::after {
+    content: ''; position: absolute; width: 4px; height: 4px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #c8c8d0 0%, #5a5a62 55%, #101014 100%);
+    box-shadow: inset -1px -1px 1px rgba(0,0,0,0.7), 0 1px 1px rgba(0,0,0,0.5);
+  }
+  .btnind::before { top: 4px; left: 4px; }
+  .btnind::after  { bottom: 4px; right: 4px; }
+  .btnind .cap {
+    position: absolute; left: 10px; right: 10px; top: 10px; bottom: 10px; border-radius: 4px;
+    background: radial-gradient(ellipse at 50% 30%, #2a1810 0%, #180c08 70%, #080404 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), inset 0 -1px 0 rgba(0,0,0,0.8), inset 0 2px 5px rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.05s ease-out, box-shadow 0.05s ease-out, background 0.12s ease-out;
+  }
+  .btnind .cap-label {
+    font-family: 'Courier New', monospace; font-size: 12px; font-weight: bold; letter-spacing: 1.5px; text-transform: uppercase;
+    color: #ffb070; text-shadow: 0 1px 0 #000, 0 0 4px rgba(255,140,60,0.35);
+    transition: color 0.12s ease-out, text-shadow 0.12s ease-out;
+  }
+  .btnind:hover .cap { background: radial-gradient(ellipse at 50% 30%, #4a2a1a 0%, #2a140a 70%, #140604 100%); }
+  .btnind:hover .cap-label { color: #ffd0a0; text-shadow: 0 1px 0 #000, 0 0 6px rgba(255,180,90,0.6); }
+  .btnind:active .cap { transform: translateY(1px); box-shadow: inset 0 2px 6px rgba(0,0,0,0.9), inset 0 -1px 0 rgba(255,255,255,0.04); }
+  .btnind.on .cap {
+    background: radial-gradient(ellipse at 50% 35%, #c0ffd4 0%, #50e080 40%, #1a6028 85%, #082c10 100%);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.4), inset 0 0 10px rgba(120,255,160,0.6), 0 0 8px rgba(80,255,130,0.45);
+  }
+  .btnind.on .cap-label { color: #0a3018; text-shadow: 0 1px 0 rgba(255,255,255,0.4), 0 0 6px rgba(255,255,255,0.6); }
+  .btnind.flash .cap {
+    background: radial-gradient(ellipse at 50% 35%, #fff2bb 0%, #ffcc55 40%, #a06820 85%, #3a2208 100%);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.6), inset 0 0 10px rgba(255,220,120,0.7), 0 0 10px rgba(255,204,85,0.6);
+  }
+  .btnind.flash .cap-label { color: #3a2208; text-shadow: 0 1px 0 rgba(255,255,255,0.5), 0 0 4px rgba(255,255,255,0.5); }
+
+  .btnind.cheat .cap {
+    background: radial-gradient(ellipse at 50% 35%, #ffe0a8 0%, #ff8c30 40%, #a04408 85%, #3a1804 100%);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.4), inset 0 0 10px rgba(255,170,80,0.65), 0 0 8px rgba(255,140,40,0.55);
+  }
+  .btnind.cheat .cap-label { color: #3a1804; text-shadow: 0 1px 0 rgba(255,255,255,0.4), 0 0 6px rgba(255,255,255,0.55); }
+  .btnind.cheat .cap-icon { color: #3a1804; filter: drop-shadow(0 1px 0 rgba(255,255,255,0.4)); }
+
+  #btnGameMode.on .cap, #btnChallenge.on .cap {
+    background: radial-gradient(ellipse at 50% 35%, #ffe0a8 0%, #ff8c30 40%, #a04408 85%, #3a1804 100%);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.4), inset 0 0 10px rgba(255,170,80,0.65), 0 0 8px rgba(255,140,40,0.55);
+  }
+  #btnGameMode.on .cap-label, #btnChallenge.on .cap-label {
+    color: #3a1804; text-shadow: 0 1px 0 rgba(255,255,255,0.4), 0 0 6px rgba(255,255,255,0.55);
+  }
+  #btnChallenge .cap-label {
+    font-size: 11px;
+    letter-spacing: 0.5px;
+  }
+
+  /* Emergency Stop Button Styling */
+  .btnind.btn-emergency {
+    /* Safety Yellow Housing */
+    background: linear-gradient(180deg, #ffd700 0%, #e6be00 18%, #b39700 55%, #806c00 85%, #4d4500 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 3px 5px rgba(0,0,0,0.6);
+  }
+
+  .btnind.btn-emergency .cap {
+    /* Large Red Plunger */
+    background: radial-gradient(ellipse at 50% 30%, #ff4d4d 0%, #cc0000 70%, #800000 100%);
+    border: 1px solid #660000;
+  }
+
+  .btnind.btn-emergency .cap-label {
+    /* High-contrast White Text */
+    color: #ffffff;
+    text-shadow: 0 1px 2px #000;
+    letter-spacing: 2px;
+  }
+
+  /* Interaction States */
+  .btnind.btn-emergency:hover .cap {
+    background: radial-gradient(ellipse at 50% 30%, #ff6666 0%, #e60000 70%, #990000 100%);
+  }
+
+  .btnind.btn-emergency:active .cap {
+    transform: translateY(2px); /* Deeper "click" feel */
+    box-shadow: inset 0 5px 10px rgba(0,0,0,0.8);
+  }
+
+  body.regime-compact #btnChallenge .cap-label {
+    font-size: 10px;
+    letter-spacing: 0px;
+  }
+
+  body.regime-portrait #btnChallenge .cap-label {
+    font-size: 8.5px;
+    letter-spacing: -0.2px;
+  }
+  .highscore-table { width: 100%; margin: 16px 0; border-collapse: collapse; color: #d8c18a; font-family: 'Courier New', monospace; font-size: 14px; }
+  .highscore-table th { border-bottom: 1px solid #5a4418; padding: 4px; text-align: left; color: #ffcc55; }
+  .highscore-table td { padding: 4px; border-bottom: 1px solid rgba(90, 68, 24, 0.3); }
+  .highscore-table tr:nth-child(even) td { background: rgba(255,255,255,0.03); }
+  .highscore-table .score-col { text-align: right; font-weight: bold; color: #60ff90; }
+
+  .name-input { background: #1a1a22; border: 1px solid #5a4418; color: #fff; padding: 8px 12px; font-family: 'Courier New', monospace; font-size: 16px; width: 100%; border-radius: 4px; margin-bottom: 16px; text-align: center; }
+  .name-input:focus { outline: none; border-color: #ffcc55; box-shadow: 0 0 8px rgba(255,204,85,0.4); }
+
+  .btnind.disabled { cursor: not-allowed; filter: brightness(0.55) saturate(0.55); }
+  .btnind.disabled:hover .cap { background: radial-gradient(ellipse at 50% 30%, #2a1810 0%, #180c08 70%, #080404 100%); }
+  .btnind.disabled:hover .cap-label { color: #ffb070; text-shadow: 0 1px 0 #000, 0 0 4px rgba(255,140,60,0.35); }
+
+  .btn-grid2x2 {
+    display: grid;
+    grid-template-columns: 46px 46px;
+    grid-template-rows: 46px 46px 46px;
+    gap: 4px;
+    width: 96px;
+  }
+  .btnind.btnsq {
+    width: 46px; height: 46px;
+  }
+  .btnind.btnsq .cap {
+    left: 6px; right: 6px; top: 6px; bottom: 6px;
+    border-radius: 3px;
+  }
+  .btnind.btnsq::before { top: 3px; left: 3px; }
+  .btnind.btnsq::after  { bottom: 3px; right: 3px; }
+  .cap-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    color: #ffb070;
+    line-height: 0;
+    transition: color 0.12s ease-out, filter 0.12s ease-out;
+    filter: drop-shadow(0 1px 0 #000);
+  }
+  .btnind:hover .cap-icon { color: #ffd0a0; filter: drop-shadow(0 1px 0 #000) drop-shadow(0 0 4px rgba(255,180,90,0.6)); }
+  .btnind.on .cap-icon { color: #0a3018; filter: drop-shadow(0 1px 0 rgba(255,255,255,0.4)); }
+
+  .omega-ctl { position: absolute; pointer-events: none; z-index: 9; left: 0; top: 0; }
+  .omega-ctl .btn { pointer-events: auto; cursor: pointer; }
+  .omega-ctl.disabled .btn { pointer-events: none; cursor: default; }
+  .omega-ctl.disabled .btn-label { opacity: 0; }
+  .omega-ctl .btn-arrow { stroke: #2a2a32; stroke-width: 1.5; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.7)); transition: filter 0.1s; }
+  #btnOmegaPlus  .btn-arrow { fill: url(#gradGreen); }
+  #btnOmegaMinus .btn-arrow { fill: url(#gradRed); }
+  #btnOmegaPlus:hover  .btn-arrow { fill: url(#gradGreenHover); }
+  #btnOmegaMinus:hover .btn-arrow { fill: url(#gradRedHover); }
+  .omega-ctl .btn:active .btn-arrow { filter: drop-shadow(0 1px 1px rgba(0,0,0,0.7)); }
+  .omega-ctl .btn-label { fill: #ffffff; font-family: 'Courier New', monospace; font-weight: bold; font-size: 22px; pointer-events: none; paint-order: stroke; stroke: #000; stroke-width: 4; }
+
+  .gauges { position: absolute; display: flex; justify-content: center; align-items: center; gap: 10px; padding: 0 20px; box-sizing: border-box; z-index: 10; pointer-events: none; }
+  .gauge { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 78px; }
+
+  /* Unified High-Contrast Fix for Light Mode */
+  body.theme-light #wingLeft .sel-lbl,
+  body.theme-light #wingRight .sel-lbl,
+  body.theme-light #gauges .lbl,
+  body.theme-light #expertBlock .expert-head {
+    color: #000000 !important;    /* Solid black for all labels */
+    text-shadow: none !important;  /* Remove gold/glow shadows */
+    opacity: 1 !important;         /* Ensure full opacity */
+    font-weight: 900 !important;   /* Extra thick font weight[cite: 1] */
+  }
+  /* Sharpen separators for light mode */
+  body.theme-light #expertBlock hr {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.25); /* Darker line for contrast */
+  }
+  /* Fix for the digital readout numbers (the green/red text) */
+  body.theme-light .scr {
+    filter: brightness(0.8) contrast(1.2); /* Make the "glow" text deeper and sharper */
+  }
+  .disp {
+    position: relative; width: 78px; height: 36px; border-radius: 4px; padding: 3px;
+    background: linear-gradient(180deg, #d9b76a 0%, #8a6b2e 40%, #5a4418 70%, #8a6b2e 100%);
+    box-shadow: inset 0 1px 0 rgba(255,230,150,0.5), inset 0 -1px 0 rgba(0,0,0,0.6), 0 2px 3px rgba(0,0,0,0.6);
+  }
+  .scr {
+    width: 100%; height: 100%; border-radius: 2px;
+    background: radial-gradient(ellipse at 50% 30%, #143018 0%, #0a1a0e 70%, #050a06 100%);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.9);
+    color: #6fff8a; font-family: 'Courier New', monospace;
+    font-weight: bold; font-size: 16px; letter-spacing: 1px;
+    display: flex; align-items: center; justify-content: center;
+    text-shadow: 0 0 4px rgba(111,255,138,0.6), 0 0 10px rgba(111,255,138,0.25);
+    font-variant-numeric: tabular-nums;
+  }
+  .scr.warn { color: #ff7a5a; text-shadow: 0 0 4px rgba(255,122,90,0.7); background: radial-gradient(ellipse at 50% 30%, #30140a 0%, #1a0a06 70%, #0a0302 100%); }
+  .scr.rot  { color: #5ad0ff; text-shadow: 0 0 4px rgba(90,208,255,0.6); background: radial-gradient(ellipse at 50% 30%, #0a2034 0%, #061020 70%, #02060a 100%); }
+  .scr.gold { color: #ffcc55; text-shadow: 0 0 4px rgba(255,204,85,0.6); background: radial-gradient(ellipse at 50% 30%, #2a1c06 0%, #1a1204 70%, #0a0602 100%); }
+  .lbl { font-family: 'Courier New', monospace; font-size: 9px; letter-spacing: 1.5px; color: #d8c18a; text-transform: uppercase; text-shadow: 0 1px 0 #000; white-space: nowrap; }
+
+  .title-plate {
+    padding: 4px 8px;
+    background: linear-gradient(180deg, #d9b76a, #8a6b2e);
+    border: 1px solid #5a4418; border-radius: 3px;
+    box-shadow: inset 0 1px 0 rgba(255,230,150,0.5), 0 1px 2px rgba(0,0,0,0.6);
+    margin-right: 6px;
+    display: flex; align-items: center; gap: 8px;
+    height: 44px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: filter 0.1s, transform 0.05s;
+    pointer-events: auto;
+  }
+  .title-plate:hover { filter: brightness(1.15); }
+  .title-plate:active { transform: translateY(1px); box-shadow: inset 0 2px 3px rgba(0,0,0,0.5); }
+
+  .title-plate img {
+    height: 32px; width: auto; display: block;
+    background: transparent;
+  }
+  .title-plate img.broken { display: none; }
+  .title-plate .title-text {
+    font-family: 'Courier New', monospace; font-size: 10px; font-weight: bold; letter-spacing: 2px;
+    color: #2a1a06; text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+    white-space: nowrap;
+  }
+
+  .game-sheet {
+    position: absolute; inset: 0;
+    background: rgba(8, 8, 12, 0.85); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center; z-index: 100;
+  }
+  .game-sheet[hidden] { display: none; }
+  .sheet-content {
+    background: linear-gradient(180deg, #3a3a44 0%, #1e1e26 100%);
+    border: 1px solid #5a4418; border-radius: 6px; padding: 30px 40px;
+    text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    max-width: 400px; width: 90%;
+  }
+  .sheet-title { color: #ffcc55; font-size: 20px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 12px; font-family: 'Courier New', monospace; font-weight: bold; }
+  .sheet-desc { color: #d8c18a; font-size: 14px; margin-bottom: 24px; line-height: 1.5; font-family: 'Courier New', monospace; }
+  .sheet-btn {
+    background: linear-gradient(180deg, #e8c77a 0%, #8a6b2e 100%); border: none; border-radius: 4px;
+    padding: 10px 24px; font-family: 'Courier New', monospace; font-size: 16px; font-weight: bold; color: #2a1a06;
+    cursor: pointer; box-shadow: inset 0 1px 0 rgba(255,235,170,0.7), 0 2px 4px rgba(0,0,0,0.6);
+  }
+  .sheet-btn:hover { filter: brightness(1.15); }
+  .sheet-btn:active { transform: translateY(1px); box-shadow: inset 0 2px 3px rgba(0,0,0,0.5); }
+
+  .sel.locked { pointer-events: none; filter: brightness(0.7) saturate(0.7); }
+  .sel.locked .chev { cursor: default; }
+
+  body.regime-compact .title-plate { display: none; }
+  body.regime-compact .gauge { min-width: 64px; }
+  body.regime-compact .disp { width: 64px; height: 30px; }
+  body.regime-compact .scr { font-size: 13px; }
+  body.regime-compact .lbl { font-size: 8px; letter-spacing: 1px; }
+  body.regime-compact .btnind { width: 84px; height: 46px; }
+  body.regime-compact .btnind.inject { width: 84px; height: 84px; }
+  body.regime-compact .btnind .cap-label { font-size: 11px; letter-spacing: 1.2px; }
+  body.regime-compact .btnind.btnsq { width: 40px; height: 40px; }
+  body.regime-compact .btn-grid2x2 { grid-template-columns: 40px 40px; grid-template-rows: 40px 40px 40px; width: 84px; }
+  body.regime-compact .sel { width: 84px; }
+  body.regime-compact .sel .sel-body { height: 26px; }
+  body.regime-compact .sel .win { font-size: 12px; }
+  body.regime-compact .sel-lbl { font-size: 8px; }
+
+  body.regime-portrait { background: var(--bg-root, #0a0a0c); }
+  body.regime-portrait .title-plate { display: none; }
+  body.regime-portrait .gauges { gap: 4px; }
+  body.regime-portrait .gauge { min-width: 56px; gap: 1px; }
+  body.regime-portrait .disp { width: 56px; height: 28px; padding: 2px; }
+  body.regime-portrait .scr { font-size: 12px; }
+  body.regime-portrait .lbl { font-size: 8px; letter-spacing: 1px; }
+  body.regime-portrait .wing { padding: 6px 8px; flex-wrap: wrap; justify-content: center; }
+  body.regime-portrait .wing-logo { display: none; }
+  body.regime-portrait .sel { width: auto; min-width: 0; flex: 1 1 0; max-width: 110px; }
+  body.regime-portrait .sel .sel-body { height: 28px; }
+  body.regime-portrait .sel .win { font-size: 12px; }
+  body.regime-portrait .sel-lbl { font-size: 8px; }
+  body.regime-portrait .btnind { width: 64px; height: 44px; }
+  body.regime-portrait .btnind.inject { width: 78px; height: 56px; margin: 0; }
+  body.regime-portrait .btnind.inject .cap-label { font-size: 12px; }
+  body.regime-portrait .btnind .cap-label { font-size: 10px; letter-spacing: 1px; }
+  body.regime-portrait .btnind.btnsq { width: 38px; height: 38px; }
+  body.regime-portrait .btn-grid2x2 { grid-template-columns: repeat(6, 38px); grid-template-rows: 38px; width: auto; gap: 4px; }
+  body.regime-portrait .btnind.btnsq .cap { left: 4px; right: 4px; top: 4px; bottom: 4px; }
+  body.regime-portrait .btnind.btnsq svg { width: 18px; height: 18px; }
+
+  /* Expert Grid Container for Left Wing */
+  #expertBlock {
+    display: grid;
+    grid-template-columns: repeat(3, 30px);
+    gap: 3px;
+    margin-top: 8px;
+    justify-content: center;
+    align-items: center;
+  }
+  #expertBlock .btnind.btnsq {
+    width: 30px; height: 30px;
+  }
+  #expertBlock .expert-head {
+    grid-column: span 3;
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #ffcc55;
+    text-align: center;
+    margin-top: 2px; /* Reduced from 6px */
+    text-shadow: 0 1px 0 #000;
+  }
+  #expertBlock hr {
+    grid-column: span 3;
+    border: none;
+    border-bottom: 1px solid rgba(90, 68, 24, 0.4);
+    margin: 1px 0; /* Reduced from 4px */
+    width: 100%;
+  }
+
+  /* TIER 1: Expert Panel vanishes in both Compact and Portrait modes */
+  body.regime-compact #expertContainer,
+  body.regime-portrait #expertContainer { 
+    display: none !important; 
+  }
+
+  /* TIER 2: Logo survives Compact but vanishes in Portrait */
+  body.regime-portrait .wing-logo { 
+    display: none !important; 
+  }
+
+  /* Ensure logo is flex and centered when visible in compact mode */
+  body.regime-compact .wing-logo {
+    display: flex;
+    margin-bottom: 8px;
+  }
+
+  #viewportVideo {
+    position: absolute;
+    pointer-events: none;
+    z-index: 20;
+    object-fit: cover;
+    background: #000;
+    display: none;
+  }
+  #viewportVideo.show { display: block; }
+  #cvOverlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 15;
+  }
+
+  .splash-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(8, 8, 12, 0.92);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    cursor: pointer;
+    transition: opacity 0.5s ease-out;
+  }
+  .splash-overlay[hidden] { display: none; }
+  .splash-overlay.fading { opacity: 0; }
+
+  .splash-box {
+    max-width: 560px;
+    width: calc(100% - 64px);
+    padding: 36px 40px;
+    background:
+      linear-gradient(180deg,
+        #3a3a44 0%,
+        #2a2a32 30%,
+        #1e1e26 80%,
+        #12121a 100%);
+    border: 1px solid #5a4418;
+    border-radius: 6px;
+    box-shadow:
+      inset 0 1px 0 rgba(255,235,170,0.25),
+      inset 0 -2px 6px rgba(0,0,0,0.7),
+      0 10px 30px rgba(0,0,0,0.8);
+    color: #d8d0c0;
+    font-family: 'Courier New', monospace;
+    text-align: center;
+    cursor: default;
+  }
+
+  .splash-title {
+    font-size: 24px;
+    font-weight: bold;
+    letter-spacing: 6px;
+    color: #ffcc55;
+    text-shadow: 0 1px 0 #000, 0 0 12px rgba(255,204,85,0.4);
+    margin-bottom: 6px;
+  }
+  .splash-tagline {
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #d9b76a;
+    margin-bottom: 22px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #5a4418;
+  }
+  .splash-body {
+    font-size: 13px;
+    line-height: 1.7;
+    color: #c8c0b0;
+    margin-bottom: 14px;
+    text-align: left;
+  }
+  .splash-body em {
+    color: #a0c0ff;
+    font-style: normal;
+  }
+  .splash-btn {
+    margin-top: 16px;
+    padding: 12px 36px;
+    background: linear-gradient(180deg, #e8c77a 0%, #8a6b2e 100%);
+    border: none; border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 16px; font-weight: bold;
+    letter-spacing: 3px;
+    color: #2a1a06;
+    cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(255,235,170,0.7), 0 2px 4px rgba(0,0,0,0.6);
+  }
+  .splash-btn:hover { filter: brightness(1.15); }
+  .splash-btn:active { transform: translateY(1px); box-shadow: inset 0 2px 3px rgba(0,0,0,0.5); }
+  .splash-footer {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: #888;
+    margin-top: 14px;
+    text-transform: uppercase;
+  }  
+  .dev-control {
+    margin-bottom: 12px;
+    padding: 10px;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid #5a4418;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #ffcc55;
+  }
+  .dev-control label {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .dev-control input[type="checkbox"] {
+    accent-color: #d9b76a;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+
+  /* Expert Door Container */
+  #expertContainer {
+    position: relative;
+    width: 96px;
+    margin-top: 8px;
+    perspective: 1000px; /* Gives the door 3D depth when opening */
+    z-index: 100;
+  }
+
+  /* The physical door matched to wing colors */
+  #expertDoor {
+    position: absolute;
+    inset: -2px;
+    z-index: 110;
+    /* Default Dark Mode: Matches PAL_DARK wingStops */
+    background: linear-gradient(180deg, #1a1a22 0%, #3a3a42 5%, #4a4a52 20%, #2e2e34 50%, #1a1a22 85%, #0e0e14 100%);
+    border: 1px solid #101014;
+    border-radius: 4px;
+    box-shadow: 2px 2px 8px rgba(0,0,0,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: default;
+    transform-origin: left;
+    transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1), background 0.5s ease-in-out;
+    backface-visibility: hidden;
+  }
+
+  /* Light Mode: Professional Matte Finish */
+  body.theme-light #expertDoor {
+    /* Uses PAL_LIGHT wing colors: avoids the 'silver' look */
+    background: linear-gradient(180deg, #9a968a 0%, #cfc9bc 5%, #d8d2c4 20%, #b0aa9c 50%, #888274 85%, #6a6558 100%);
+    border: 1px solid rgba(90, 68, 24, 0.4); /* Subtle brass-toned border */
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.25);
+  }
+
+  /* Door opened state */
+  #expertContainer.open #expertDoor {
+    transform: rotateY(-120deg);
+    pointer-events: none; /* Let clicks reach the buttons when open */
+  }
+
+  /* Brass Hinges */
+  .hinge {
+    position: absolute;
+    left: -4px;
+    width: 6px;
+    height: 12px;
+    background: linear-gradient(180deg, #e8c77a, #8a6b2e);
+    border: 1px solid #2a1a06;
+    border-radius: 2px;
+  }
+  .hinge.top { top: 15%; }
+  .hinge.bot { bottom: 15%; }
+
+  /* Padlock icon on the door */
+  .lock-plate {
+    font-size: 24px;
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.8));
+  }
+
+  /* Hide Expert Block until door opens */
+  #expertBlock {
+    opacity: 0;
+    /* When closing: wait 0.4s then fade out quickly */
+    transition: opacity 0.3s ease-in 0.4s; 
+    pointer-events: none;
+  }
+  #expertContainer.open #expertBlock {
+    opacity: 1;
+    /* When opening: fade in immediately */
+    transition: opacity 0.4s ease-out 0.2s;
+    pointer-events: auto;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+<canvas id="cv"></canvas>
+  <video id="viewportVideo" muted playsinline loop></video>
+  <svg id="omegaCtl" class="omega-ctl" xmlns="http://www.w3.org/2000/svg"></svg>
+  <canvas id="cvOverlay"></canvas>
+
+  <div class="wing" id="wingLeft">
+
+    <a class="wing-logo" href="https://gt4pebbles.github.io/Website/" target="_blank" rel="noopener noreferrer">
+      <img src="assets/logos/gt4pebbles.png" alt="logo" onerror="this.classList.add('broken')">
+    </a>
+
+    <div class="sel" data-key="NP">
+      <div class="sel-body"><div class="chev" data-dir="-1">◀</div><div class="win" id="winNP">3</div><div class="chev" data-dir="+1">▶</div></div>
+      <div class="sel-lbl">Particles</div>
+    </div>
+    <div class="sel" data-key="VT">
+      <div class="sel-body"><div class="chev" data-dir="-1">◀</div><div class="win" id="winVT">30</div><div class="chev" data-dir="+1">▶</div></div>
+      <div class="sel-lbl">v_t cm/s</div>
+    </div>
+    <div class="sel" data-key="SPREAD">
+      <div class="sel-body"><div class="chev" data-dir="-1">◀</div><div class="win" id="winSpread">0%</div><div class="chev" data-dir="+1">▶</div></div>
+      <div class="sel-lbl">v_t spread</div>
+    </div>
+    <div class="sel" data-key="DT">
+      <div class="sel-body"><div class="chev" data-dir="-1">◀</div><div class="win" id="winDT">1 s</div><div class="chev" data-dir="+1">▶</div></div>
+      <div class="sel-lbl">Δt inject</div>
+    </div>
+
+    <!-- New Expert Container wrapping the Door and the Block -->
+    <div id="expertContainer">
+      <!-- The Door (Initially Visible) -->
+      <div id="expertDoor" title="Click to open Service Access">
+        <div class="hinge top"></div>
+        <div class="hinge bot"></div>
+        <span class="lock-plate">🔒</span>
+      </div>
+
+      <!-- The Panel Content (Underneath) -->
+      <div id="expertBlock">
+        <!-- The Heads-Up display -->
+        <!-- Row 1 -->
+        <div class="expert-head">HUD</div>
+        <button class="btnind btnsq" id="btnVtProj" title="Orbit Center Range Projection">
+          <span class="cap">
+            <span class="cap-icon">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <!-- Connecting Line -->
+                <line x1="4" y1="12" x2="20" y2="12" stroke="currentColor" stroke-width="1.5" />
+                <!-- Flanking Dots -->
+                <circle cx="5" cy="12" r="2" fill="currentColor" />
+                <circle cx="19" cy="12" r="2" fill="currentColor" />
+                <!-- Center Circle -->
+                <circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+                <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+              </svg>
+            </span>
+          </span>
+        </button>
+
+        <button class="btnind btnsq" id="btnFlashOrbit" title="Flash Orbit of New Aggregates">
+          <span class="cap">
+            <span class="cap-icon">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <!-- Central Anchor Dot -->
+                <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+                <!-- Orbital Path Circle -->
+                <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2,1" />
+                <!-- Irregular Aggregate at 45 degrees -->
+                <!-- Placed at x=17, y=7 roughly -->
+                <path d="M16.5,5.5 c0.8,0 1.5,0.5 2,1.2 s0.2,1.8 -0.5,2.3 s-1.8,0.2 -2.5,-0.5 s-0.5,-1.8 0.2,-2.5" 
+                      fill="currentColor" transform="rotate(-10, 17, 7)" />
+                <circle cx="18" cy="6.5" r="1.2" fill="currentColor" />
+                <circle cx="16.2" cy="7.8" r="1" fill="currentColor" />
+              </svg>
+            </span>
+          </span>
+        </button>
+
+        <button class="btnind btnsq" id="btnFlowGhost" title="Ghost Mode - select particles with mouse to show gas-free and gas-rich path limits">
+          <span class="cap"><span class="cap-icon">👻</span></span>
+        </button>
+        
+        <!-- Row 2 -->
+        <button class="btnind btnsq" id="btnModePrev"  title="Previous HUD Mode"><span class="cap"><span class="cap-icon">◀</span></span></button>
+        <button class="btnind btnsq" id="btnHudMaster" title="Analysis HUD Master"><span class="cap"><span class="cap-icon">📊</span></span></button>
+        <button class="btnind btnsq" id="btnModeNext"  title="Next HUD Mode"><span class="cap"><span class="cap-icon">▶</span></span></button>
+        <hr>
+
+        <!-- The PROCESSES buttons -->
+        <div class="expert-head">Processes</div>
+
+        <!-- Row 1 -->
+        <button class="btnind btnsq" id="btnProcInvinc" title="Nanocoating the Drum - no particle losses">
+          <span class="cap"><span class="cap-icon">🛡️</span></span></button>
+        <button class="btnind btnsq" id="btnProcNoAgg"  title="Disable Aggregate Formation">
+          <span class="cap"><span class="cap-icon"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="3" fill="currentColor"/><circle cx="8" cy="9" r="2.5" fill="currentColor"/><circle cx="16" cy="10" r="2.5" fill="currentColor"/><circle cx="10" cy="16" r="2.5" fill="currentColor"/><circle cx="15" cy="16" r="2.5" fill="currentColor"/><circle cx="5" cy="12" r="2" fill="currentColor"/><line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/><line x1="20" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/></svg></span></span>
+        </button>
+        <button class="btnind btnsq" id="btnProcNoPeb"  title="Disable Pebble Formation">
+           <span class="cap"><span class="cap-icon"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="7" fill="currentColor"/><line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/><line x1="20" y1="4" x2="4" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.8"/></svg></span></span>
+        </button>
+        
+        <!-- Row 2 -->
+        <button class="btnind btnsq" id="btnProcPureV"  title="Aggregates keep pure average v_t, no change in Stokes number"><span class="cap"><span class="cap-icon">⚖️</span></span></button>
+        <button class="btnind btnsq" id="btnProcSlowMo" title="5x Slow-motion during merging"><span class="cap"><span class="cap-icon">🐌</span></span></button>
+        <button class="btnind btnsq" id="btnProcFast"   title="This button is only for testing by the true game developer, because activating it ruins discovery and joy in the game"><span class="cap"><span class="cap-icon">⏩</span></span></button>
+        <hr>
+        
+        <!-- The SYSTEM buttons -->
+        <div class="expert-head">System</div>
+        <!-- Row 1 -->
+        <button class="btnind btnsq" id="btnSysNoDecay" title="Disable Ω Rotation Decay. A 2-second press on Ω on the right wing does the same">
+          <span class="cap">
+            <span class="cap-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <text x="12" y="17" text-anchor="middle" font-family="serif" font-size="16" font-weight="bold" fill="currentColor">Ω</text>
+              </svg>
+            </span>
+          </span>
+        </button>
+        <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
+        <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
+
+        <!-- Row 2: Speed Gear Shifter -->
+        <button class="btnind btnsq" id="btnSpeedDown" title="Slower">
+          <span class="cap"><span class="cap-icon">◀</span></span>
+        </button>
+        <button class="btnind btnsq" id="btnSpeedReset" title="Reset to 1x Speed">
+          <span class="cap"><span class="cap-label" id="speedDisp" style="font-size:10px;">1x</span></span>
+        </button>
+        <button class="btnind btnsq" id="btnSpeedUp" title="Faster">
+          <span class="cap"><span class="cap-icon">▶</span></span>
+        </button>       
+        <hr>
+      </div>
+    </div>
+  </div>
+
+  <div class="wing" id="wingRight">
+    <button class="btnind inject" id="btnStart" title="Inject Particles"><span class="cap"><span class="cap-label">Inject</span></span></button>
+    <div class="btn-grid2x2" id="instrumentBlock">
+      <button class="btnind btnsq" id="btnSound" title="Sound"><span class="cap"><span class="cap-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 9 L4 15 L8 15 L13 19 L13 5 L8 9 Z" fill="currentColor"/><path d="M16 8 Q19 12 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M18.5 6 Q22 12 18.5 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </span></span></button>
+      <button class="btnind btnsq" id="btnOmegaCtl" title="Activate
+      Arrows for Ω Rotation Control"><span class="cap"><span class="cap-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><text x="12" y="17" text-anchor="middle" font-family="serif" font-size="18" font-weight="bold" fill="currentColor">Ω</text></svg>
+      </span></span></button>
+      <button class="btnind btnsq" id="btnTrails" title="Particle trails"><span class="cap"><span class="cap-icon" aria-hidden="true">
+        <svg viewBox="-12 -12 24 24" width="22" height="22"><g fill="currentColor" stroke="none"><g id="sp-cell"><path d="M 0 -9 Q 1.6 -5 0.8 -1 Q 0.2 1.5 -0.6 4 Q -1.4 6.5 -2.4 8.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="0" cy="-9" r="2.2"/></g><use href="#sp-cell" transform="rotate(120)"/><use href="#sp-cell" transform="rotate(240)"/></g></svg>
+      </span></span></button>
+      <button class="btnind btnsq" id="btnLaser" title="Laser"><span class="cap"><span class="cap-icon" aria-hidden="true">
+        <svg viewBox="-12 -12 24 24" width="22" height="22"><g fill="currentColor" stroke="none"><g id="lz-card"><polygon points="0,-11 0.7,-2.2 -0.7,-2.2"/></g><use href="#lz-card" transform="rotate(90)"/><use href="#lz-card" transform="rotate(180)"/><use href="#lz-card" transform="rotate(270)"/><g id="lz-diag"><polygon points="0,-9.5 0.6,-2.2 -0.6,-2.2"/></g><use href="#lz-diag" transform="rotate(45)"/><use href="#lz-diag" transform="rotate(135)"/><use href="#lz-diag" transform="rotate(225)"/><use href="#lz-diag" transform="rotate(315)"/><g id="lz-short"><polygon points="0,-5.5 0.5,-2.2 -0.5,-2.2"/></g><use href="#lz-short" transform="rotate(22.5)"/><use href="#lz-short" transform="rotate(67.5)"/><use href="#lz-short" transform="rotate(112.5)"/><use href="#lz-short" transform="rotate(157.5)"/><use href="#lz-short" transform="rotate(202.5)"/><use href="#lz-short" transform="rotate(247.5)"/><use href="#lz-short" transform="rotate(292.5)"/><use href="#lz-short" transform="rotate(337.5)"/><circle cx="0" cy="0" r="2.2"/></g></svg>
+      </span></span></button>
+      <button class="btnind btnsq" id="btnMicro" title="Microscope view"><span class="cap"><span class="cap-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 L13 4 L13 11 L9 11 Z"/><path d="M11 11 L11 14"/><circle cx="11" cy="16.5" r="2.2"/><path d="M6 21 L18 21"/><path d="M8 21 L8 19 L14 19 L14 21"/><path d="M13 4 L16 6"/></g></svg>
+      </span></span></button>
+      <button class="btnind btnsq" id="btnChart" title="Chart view"><span class="cap"><span class="cap-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 L4 4"/><path d="M4 20 L20 20"/><path d="M6 16 L10 11 L13 13 L18 6"/><circle cx="6" cy="16" r="0.8" fill="currentColor"/><circle cx="10" cy="11" r="0.8" fill="currentColor"/><circle cx="13" cy="13" r="0.8" fill="currentColor"/><circle cx="18" cy="6" r="0.8" fill="currentColor"/></g></svg>
+      </span></span></button>
+    </div>
+    <button class="btnind" id="btnTheme" title="Lighting (dark / light)"><span class="cap"><span class="cap-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="22" height="22"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17 L15 17"/><path d="M9.5 19 L14.5 19"/><path d="M10.5 21 L13.5 21"/><path d="M8.5 15.5 C 7 14 6.2 12.2 6.2 10.3 C 6.2 7 8.8 4.3 12 4.3 C 15.2 4.3 17.8 7 17.8 10.3 C 17.8 12.2 17 14 15.5 15.5 Z"/><path d="M10 15.5 C 10 13 11 11 12 9 C 13 11 14 13 14 15.5"/></g></svg>
+    </span></span></button>
+    <button class="btnind" id="btnGameMode" title="Start Game Level 1"><span class="cap"><span class="cap-label">Game</span></span></button>
+    <button class="btnind" id="btnChallenge" title="Start Challenge with Scoreboard"><span class="cap"><span class="cap-label">Challenge</span></span></button>
+    <button class="btnind" id="btnManual"><span class="cap"><span class="cap-label">Manual</span></span></button>
+    <button class="btnind btn-emergency" id="btnReset"><span class="cap"><span class="cap-label">Reset</span></span></button>
+  </div>
+
+  <div class="wing" id="wingMiddle"></div>
+
+  <div class="splash-overlay" id="splashOverlay" hidden>
+    <div class="splash-box">
+      <h1 class="splash-title">LEVITATION LAB</h1>
+      <p class="splash-tagline">A real laboratory experiment, in playable form.</p>
+      <p class="splash-body">
+        The ERC funded project <b>GT4Pebbles</b>, Ground Truth for Pebbles, is a
+        program to study how planet formation begins in disks around
+        young stars.  In our lab, we levitate dust particles in a
+        rotating drum for extended periods of time to allow them to
+        collide and grow.
+      </p>
+      <p class="splash-body">
+        This simulation captures the physics of that
+        experiment — the same equations, the same trade-offs — and
+        lets you explore them yourself. Once the experiment is
+        running in the real world, we will also expose real lab data
+        in this game.
+      </p>
+      <p class="splash-body">
+        Particles fall through a thin gas. Spin the drum, and the gas drags
+        them into orbits. Hold them in the highlighted zone long enough and
+        they become <em>levitated</em>. You can explore yourself, or you
+        can enter GAME mode to walk you through a series of increasingly
+        difficult challenges to make you master of the levitation drum.
+      </p>
+      <button class="splash-btn" id="splashBtn">Begin</button>
+      <p class="splash-footer">Click anywhere to continue.</p>
+    </div>
+  </div>
+  
+  <div class="manual-overlay" id="manualOverlay" hidden>
+    <div class="manual-box">
+      <button class="manual-close" id="manualClose" aria-label="Close manual">×</button>
+      <h2>LEVITATION LAB · Manual</h2>
+      <p>
+        The drum is a cylindrical vacuum chamber viewed head-on. Particles are injected
+        from the brass manifold above the drum and fall through rarified gas
+        toward the bottom wall. By rotating the drum, you rotate the gas with it, which
+        drags particles into orbits. The goal is to <em>levitate</em> as many particles
+        as possible in the highlighted region on the right of the drum.
+      </p>
+      <h3>How to play</h3>
+      <ul>
+        <li><strong>Set up</strong> the run with the left wing:
+          number of particles (1–1000), settling velocity
+          <em>v<sub>t</sub></em>, optional spread of <em>v<sub>t</sub></em> across particles,
+          and the time interval over which particles are injected.
+          Particles with larger <em>v<sub>t</sub></em> appear visibly larger.</li>
+        <li><strong>Inject</strong> particles with the right-wing button.
+          You can start rotating the drum <em>before or after</em> injection.</li>
+        <li><strong>Rotate the drum</strong> by swiping across it. To slow down,
+          swipe in the opposite direction. If swiping does not work well on your
+          interface, activate the  <strong>Ω&nbsp;Ctrl</strong> button and the use
+          the +Ω / −Ω curved arrows.
+          </li>
+        <li>Particles that hit the wall become <span style="color:#ff6060">red</span>
+          (<strong>LOST</strong>). Particles floating are <span style="color:#ffcc55">yellow</span>.
+          A particle that stays in the highlighted region for at least one full rotation
+          period turns <span style="color:#60ff90">green</span> and counts as
+          <strong>LEVITATED</strong>.</li>
+      </ul>
+
+      <h3>Optional instruments</h3>
+      <ul>
+        <li><strong>Sound</strong> — motor hum (pitch tracks rotation speed),
+          a dull plonk when a particle is lost, and a soft chime when one becomes
+          levitated.</li>
+        <li><strong>Trails</strong> — each particle leaves a fading trail of
+          its recent path, so orbits become visible. Disabled at very high
+          particle counts.</li>
+        <li><strong>Laser</strong> — engages <em>lidar mode</em>: the drum interior
+          goes dark and particles become invisible. A scanning green laser beam
+          sweeps the chamber, briefly revealing any particles it crosses.</li>
+        <li><strong>Lighting</strong> — toggles the lab between a dim night
+          setting and a bright day setting.</li>
+        <li><strong>Microscope / Chart</strong> — slide the ceiling-mounted
+          viewport down to display close-up imagery (microscope) or data
+          plots (chart). That data actually comes from our real lab
+          and simulations.</li>
+      </ul>
+
+      <h3>Game & Challenge</h3>
+      <ul>
+        <li><strong>Game Mode</strong> — Progress through predefined levels with
+          locked parameters. You must levitate a target number of particles for
+          a set duration to clear the level.</li>
+        <li><strong>Challenge Mode</strong> — A high-score competition. Using
+          the current parameter setup, levitate as many particles as you can
+          for 3 full orbits, then enter your name on the local leaderboard.</li>
+      </ul>
+
+      <p class="manual-footer">Press <kbd>Esc</kbd> or × to close.</p>
+    </div>
+  </div>
+
+  <div class="gauges" id="gauges">
+
+  <a class="title-plate" id="titlePlate" href="https://staff.fnwi.uva.nl/c.dominik/" target="_blank" rel="noopener noreferrer">
+      <span class="title-text" id="titleText">LEVITATION&nbsp;LAB<br>(c)&nbsp;C.&nbsp;Dominik</span>
+    </a>
+    <div class="gauge"><div class="disp"><div class="scr rot" id="period">∞</div></div><div class="lbl">Period s</div></div>
+    <div class="gauge"><div class="disp"><div class="scr warn" id="captured">0</div></div><div class="lbl">Lost</div></div>
+    <div class="gauge"><div class="disp"><div class="scr gold" id="floating">0</div></div><div class="lbl">Floating</div></div>
+    <div class="gauge"><div class="disp"><div class="scr" id="remaining">0</div></div><div class="lbl">Levitated</div></div>
+    <div class="gauge" id="gaugeAgg" style="display: none;"><div class="disp"><div class="scr rot" id="aggCount">0</div></div><div class="lbl">Aggregates</div></div>
+    <div class="gauge" id="gaugePebble" style="display: none;"><div class="disp"><div class="scr gold" id="pebbleCount">0</div></div><div class="lbl">Pebbles</div></div>
+  </div>
+
+  <div id="gameSheet" class="game-sheet" hidden>
+    <div class="sheet-content">
+      <div class="sheet-title" id="sheetTitle">Level 1</div>
+      <div class="sheet-desc" id="sheetDesc">Description</div>
+      <button class="sheet-btn" id="sheetBtn">Start</button>
+    </div>
+  </div>
+
+  <div id="challengeSheet" class="game-sheet" hidden>
+    <div class="sheet-content">
+      <div class="sheet-title" id="chalTitle">Outreach Challenge</div>
+      <div class="sheet-desc" id="chalDesc">Levitate as many particles as possible for 3 full orbits.</div>
+
+      <div id="chalInputArea" hidden>
+        <div style="margin-bottom: 10px; color: #60ff90; font-size: 18px; font-weight: bold;">Score: <span id="chalFinalScore">0</span></div>
+        <input type="text" id="chalNameInput" class="name-input" placeholder="Enter your name" maxlength="15" autocomplete="off">
+        <button class="sheet-btn" id="chalSubmitBtn">Save Score</button>
+      </div>
+
+      <div id="chalBoardArea" hidden>
+        <table class="highscore-table" id="chalTable">
+          <thead><tr><th>Rank</th><th>Name</th><th style="text-align:right;">Score</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div style="display: flex; gap: 8px; justify-content: center; margin-top: 12px;">
+          <button class="sheet-btn" id="chalNextBtn">Next Player</button>
+          <button class="sheet-btn" id="chalExitBtn" style="background: linear-gradient(180deg, #b0b0b0 0%, #606060 100%);">Exit</button>
+        </div>
+        <button id="chalClearBtn" style="margin-top: 20px; background: none; border: none; color: #ff6060; font-family: monospace; font-size: 10px; cursor: pointer; text-decoration: underline;">Clear Leaderboard</button>
+      </div>
+
+      <button class="sheet-btn" id="chalStartBtn">Start Challenge</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/state.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/physics.js"></script>
+<script src="js/render.js"></script>
+<script src="js/hud.js"></script>
+<script src="js/game.js"></script>
+<script src="js/viewport.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
