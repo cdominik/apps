@@ -845,7 +845,7 @@
         <!-- Row 2 -->
         <button class="btnind btnsq" id="btnProcPureV"  title="Aggregates keep pure average v_t, no change in Stokes number"><span class="cap"><span class="cap-icon">⚖️</span></span></button>
         <button class="btnind btnsq" id="btnProcSlowMo" title="5x Slow-motion during merging"><span class="cap"><span class="cap-icon">🐌</span></span></button>
-        <button class="btnind btnsq" id="btnProcFast"   title="This button is only for testing by the game developer, because activating it ruins discovery and joy in the game"><span class="cap"><span class="cap-icon">⏩</span></span></button>
+        <button class="btnind btnsq" id="btnProcFast"   title="This button is only for testing by the true game developer, because activating it ruins discovery and joy in the game"><span class="cap"><span class="cap-icon">⏩</span></span></button>
         <hr>
         
         <!-- The SYSTEM buttons -->
@@ -1059,6 +1059,8 @@
 <script>
 (() => {
   'use strict';
+  let isExpertURL = false;
+  let isDesignerURL = false;
 
   const TUNING = {
     viewport: {
@@ -5816,28 +5818,31 @@ function updateViewport(dt) {
     let clickTimer = null;
 
     btn.addEventListener('click', function() {
-      // If a multi-click is required
-      if (requiredClicks > 1) {
+      // DESIGNER LOCKDOWN: Check for ?designer parameter before allowing interaction
+      if (id === 'btnProcFast' && !isDesignerURL) return;
+
+      const isCurrentlyActive = this.classList.contains(colorClass || 'on');
+
+      // NEW LOGIC: If button is ON, bypass the 7-click requirement to turn it OFF
+      if (requiredClicks > 1 && !isCurrentlyActive) {
         clickCount++;
         if (clickTimer) clearTimeout(clickTimer);
 
-        // Reset if the user is too slow (500ms window)
         clickTimer = setTimeout(() => {
           clickCount = 0;
         }, 500);
 
         if (clickCount < requiredClicks) {
-          // Visual feedback for partial progress: a quick flash
           btn.classList.add('flash');
           setTimeout(() => btn.classList.remove('flash'), 100);
           return; 
         }
         
-        // Success: Reset counter and continue to toggle logic
         clickCount = 0;
         clearTimeout(clickTimer);
       }
 
+      // Standard toggle behavior
       const isActive = this.classList.toggle(colorClass || 'on');
       onActivate(isActive);
     });
@@ -5990,9 +5995,27 @@ function updateViewport(dt) {
     }
   });
     
-  // --- SECRET HANDSHAKE: DOOR LOGIC ---
   const expertContainer = document.getElementById('expertContainer');
   const titlePlateLink = document.getElementById('titlePlate');
+
+  // --- HIDDEN LABORATORY PRIVILEGE CHECKS ---
+  const uP = new URLSearchParams(window.location.search);
+  isExpertURL = uP.has('expert');
+  isDesignerURL = uP.has('designer');
+
+  // Unified access: Either ?expert or ?designer automatically opens the door
+  if ((isExpertURL || isDesignerURL) && expertContainer) {
+    expertContainer.classList.add('open');
+    if (isExpertURL) applyCheat(true); 
+  }
+
+  // Visual lockdown for the Designer-only button
+  const btnFast = document.getElementById('btnProcFast');
+  if (btnFast && !isDesignerURL) {
+    btnFast.classList.add('disabled');
+    btnFast.title = "Access restricted to lab designers.";
+  }
+
   let tapCount = 0;
   let tapTimer = null;
 
