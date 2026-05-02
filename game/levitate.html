@@ -1059,107 +1059,114 @@
 <script>
 (() => {
   'use strict';
+
+  // ============================================================
+  // SECTION: FEATURE FLAGS
+  // ============================================================
   let isExpertURL = false;
   let isDesignerURL = false;
 
+  // ============================================================
+  // SECTION: TUNING & CONFIG
+  // ============================================================
   const TUNING = {
     viewport: {
-      slideDur:       2.0,
-      warmUpDur:      0.45,
-      crossfadeDur:   0.4,
-      ruleEvalHz:     5,
-      switchDebounce: 1.0,
-      sizeCm:         120,
-      screenAspect:   4 / 3,
-      gapToWingPx:    8,
-      assetDir:       '',
+      slideDur:       2.0,   // s — time for the viewport panel to slide fully into view
+      warmUpDur:      0.45,  // s — warm-up animation duration after the panel slides in
+      crossfadeDur:   0.4,   // s — duration of the crossfade between viewport modes
+      ruleEvalHz:     5,     // Hz — how often per second the display rules are re-evaluated
+      switchDebounce: 1.0,   // s — minimum time between automatic viewport switches
+      sizeCm:         120,   // cm — physical size hint used to compute pixel scale
+      screenAspect:   4 / 3, // ratio — width-to-height aspect ratio of the viewport screen
+      gapToWingPx:    8,     // px — gap between the viewport panel and the wing structure
+      assetDir:       '',    // path prefix for asset files (images, maps)
     },
     splash: {
-      enabled:     true,     // master switch — set to true to show splash
-      autoDismiss: 0,        // 0 = wait for click; >0 = auto-dismiss after N seconds
-      onceOnly:    true,    // if true, only show on first visit (uses localStorage)
+      enabled:     true,  // bool — master switch; set false to skip the splash screen entirely
+      autoDismiss: 0,     // s — 0 = wait for tap; >0 = auto-dismiss after this many seconds
+      onceOnly:    true,  // bool — if true, show only on first visit (persisted in localStorage)
     },
     drum: {
-      slipRate:   0.7,
-      omegaDecay: 1.0 / 30.0,
-      swipeGain:  0.003,
-      omegaStep:  2 * Math.PI / 300,
-      omegaMax:   2 * Math.PI * 1.5,
+      slipRate:   0.7,               // fraction — particles slip against the wall at this fraction of drum velocity
+      omegaDecay: 1.0 / 30.0,       // rad/s² — exponential decay rate of drum angular velocity
+      swipeGain:  0.003,             // rad/s per px — swipe pixel distance to angular velocity conversion
+      omegaStep:  2 * Math.PI / 300, // rad/s — angular velocity added per +Ω / −Ω button press
+      omegaMax:   2 * Math.PI * 1.5, // rad/s — maximum drum speed (1.5 rev/s)
     },
     highlight: {
-      cx:     50,
-      cy:     0,
-      radius: 50,
+      cx:     50, // drum-units — x-centre of the levitation highlight zone
+      cy:     0,  // drum-units — y-centre of the levitation highlight zone
+      radius: 50, // drum-units — radius of the levitation highlight zone
     },
     particle: {
-      settleFloor: 2.0,
-      sizeRefVt:   30,
-      sizeMin:     0.55,
-      sizeMax:     1.8,
-      collisionR:  0.5,
-      invincible:  false,
-      showVtProjection: false,
+      settleFloor: 2.0,   // drum-units — floor height above drum bottom where particles settle
+      sizeRefVt:   30,    // cm/s — reference terminal velocity for particle size normalisation
+      sizeMin:     0.55,  // drum-units — minimum rendered particle radius
+      sizeMax:     1.8,   // drum-units — maximum rendered particle radius
+      collisionR:  0.5,   // drum-units — collision radius for particle-particle interaction
+      invincible:  false, // bool — if true, particles cannot be lost from the drum
+      showVtProjection: false, // bool — if true, show the Vt projection indicator on each particle
     },
     aggregate: {
-      minLevitated: 30,
-      mergeCount: 10,
-      initialHoldRevs: 3,
-      subseqHoldRevs: 1,
-      sizeMult: 10,
-      mergeDur: 0.6,
-      minSpread: 0.20,
-      vtFactor: 1.2,
-      flashOrbit: false,
+      minLevitated:    30,    // count — minimum levitated particles to allow aggregate formation
+      mergeCount:      10,    // count — particles consumed per aggregate merge event
+      initialHoldRevs: 3,     // rev — drum revolutions a particle must stay levitated before the first aggregate
+      subseqHoldRevs:  1,     // rev — hold revolutions required for each subsequent aggregate
+      sizeMult:        10,    // multiplier — visual radius of aggregate relative to one particle
+      mergeDur:        0.6,   // s — duration of the aggregate merge animation
+      minSpread:       0.20,  // fraction — minimum angular spread of levitated particles to trigger aggregate
+      vtFactor:        1.2,   // multiplier — Vt threshold multiplier during aggregate levitation check
+      flashOrbit:      false, // bool — if true, flash the orbit ring when an aggregate forms
     },
     egg: {
-      nCrit:      7,
-      holdTarget: 3,
-      holdSubseq: 3,
-      maxBalls:   30,
-      mergeDur:   0.6,
-      minSpread:  0.30,
+      nCrit:      7,    // count — aggregates required to trigger pebble (golden-ball) formation
+      holdTarget: 3,    // rev — hold revolutions before the first pebble merge
+      holdSubseq: 3,    // rev — hold revolutions before each subsequent pebble merge
+      maxBalls:   30,   // count — maximum golden pebbles allowed simultaneously
+      mergeDur:   0.6,  // s — duration of the pebble merge animation
+      minSpread:  0.30, // fraction — minimum angular spread of aggregates to allow pebble formation
     },
     ball: {
-      gravity:      200,
-      radius:       2.5,
-      wallE:        0.85,
-      wallFriction: 0.92,
-      contactDrag:  0.7,
-      ballE:        0.90,
-      settleVel:    0.6,
+      gravity:      200,  // drum-units/s² — gravitational acceleration applied to golden balls
+      radius:       2.5,  // drum-units — physical radius of each golden ball
+      wallE:        0.85, // coefficient — restitution against drum wall (energy retained on bounce)
+      wallFriction: 0.92, // coefficient — tangential velocity fraction retained after wall contact
+      contactDrag:  0.7,  // coefficient — velocity damping while two balls are in contact
+      ballE:        0.90, // coefficient — restitution in ball-ball collisions
+      settleVel:    0.6,  // drum-units/s — speed below which a ball is considered settled
     },
     globe: {
-      nCrit:      3,       // Trigger with 3 pebbles for testing
-      radius:     12.5,    // 5 times the pebble radius
-      mergeDur:   1.2,     // Duration of the merge animation
-      hoverY:     -50,     // Halfway between axis (0) and bottom wall (-100)
-      rotationSpeed: 0.8,  // How fast the Earth spins while hovering
-      repulsion:  15000,   // Strength of the push between globes
-      limit: 7             // Maximum number of globes
+      nCrit:         3,      // count — pebbles required to trigger globe (planet) formation
+      radius:        12.5,   // drum-units — physical radius of each globe (5× pebble radius)
+      mergeDur:      1.2,    // s — duration of the globe merge animation
+      hoverY:        -50,    // drum-units — y hover position (0 = axis, −100 = bottom wall)
+      rotationSpeed: 0.8,    // rad/s — self-rotation speed while globe is hovering
+      repulsion:     15000,  // drum-units³/s² — repulsion force constant between globes
+      limit:         7,      // count — maximum number of simultaneous globes
     },
     audio: {
-      masterGain: 0.6,
-      millBlade:  0.085,
-      millHiss:   0.10,
-      millGrind:  0.85,
-      millThud:   0.20,
-      millBody:   0.035,
+      masterGain: 0.6,   // 0-1 — overall audio output volume
+      millBlade:  0.085, // 0-1 — gain of the mill blade noise component
+      millHiss:   0.10,  // 0-1 — gain of the mill hiss noise component
+      millGrind:  0.85,  // 0-1 — gain of the mill grind noise component
+      millThud:   0.20,  // 0-1 — gain of the mill thud impact component
+      millBody:   0.035, // 0-1 — gain of the mill body resonance component
     },
     lidar: {
-      backplateDim:   0.35,
-      highlightDim:   0.55,
-      stuckAlpha:     0.45,
-      levitatedAlpha: 0.85,
-      flashDurMul:    1.6,
-      laserFanHalf:   0.040,
-      laserAlphaMul:  1.5,
+      backplateDim:   0.35,  // 0-1 — alpha multiplier for drum backplate in lidar mode
+      highlightDim:   0.55,  // 0-1 — alpha multiplier for highlight zone in lidar mode
+      stuckAlpha:     0.45,  // 0-1 — opacity of stuck (non-levitated) particles in lidar mode
+      levitatedAlpha: 0.85,  // 0-1 — opacity of levitated particles in lidar mode
+      flashDurMul:    1.6,   // multiplier — scales flash duration for lidar mode
+      laserFanHalf:   0.040, // rad — half-angle of the laser fan beam
+      laserAlphaMul:  1.5,   // multiplier — opacity boost applied to the laser beam drawing
     },
     trails: {
-      durationS:  1.0,
-      maxN:       300,
-      lineWidth:  1.5,
-      headAlpha:  0.85,
-      tailAlpha:  0.0,
+      durationS:  1.0,  // s — how long a trail segment persists before fading out
+      maxN:       300,  // count — maximum trail segments stored per particle
+      lineWidth:  1.5,  // px — stroke width of trail lines
+      headAlpha:  0.85, // 0-1 — opacity at the newest (head) point of each trail
+      tailAlpha:  0.0,  // 0-1 — opacity at the oldest (tail) point of each trail
     },
   };
   // Create a permanent backup of initial tuning values for restoration
@@ -1167,16 +1174,19 @@
   window.TUNING = TUNING;
 
   const CFG = {
-    R_DRUM: 100, R_AXIS: 5, DEPTH: 20,
-    N_P: 3, V_T: 30, DT_INJECT: 1.0,
-    VT_SPREAD: 0.10,
-    RELEASE_Y: 110, RELEASE_X_MIN: 0, RELEASE_X_MAX: 100,
-    BRAKE_DAMP: 1.2,
-    MAX_DT: 0.033,
+    R_DRUM: 100, R_AXIS: 5, DEPTH: 20,                    // drum-units — inner drum radius; axis hub radius; drum extrusion depth
+    N_P: 3, V_T: 30, DT_INJECT: 1.0,                      // count; cm/s; s — particles per inject event; terminal velocity; auto-inject interval
+    VT_SPREAD: 0.10,                                        // fraction — random ±spread applied to each particle's terminal velocity
+    RELEASE_Y: 110, RELEASE_X_MIN: 0, RELEASE_X_MAX: 100, // drum-units — y position and x range where released particles appear
+    BRAKE_DAMP: 1.2,                                        // coefficient — extra velocity damping applied while the drum is braking
+    MAX_DT: 0.033,                                          // s — maximum allowed physics timestep (caps simulation at ~30 fps)
   };
 
-  const LASER_OMEGA = 2 * Math.PI / 1.2;
+  const LASER_OMEGA = 2 * Math.PI / 1.2;  // rad/s — laser sweep angular velocity: one full revolution in 1.2 s
 
+  // ============================================================
+  // SECTION: PALETTE
+  // ============================================================
   const PAL_DARK = {
     name: 'dark',
     labBgSide: '#1c1c22',
@@ -1231,6 +1241,9 @@
   };
   let PAL = PAL_DARK;
 
+  // ============================================================
+  // SECTION: CANVAS & LAYOUT
+  // ============================================================
   const cv = document.getElementById('cv');
   const ctx = cv.getContext('2d');
   const cvOv = document.getElementById('cvOverlay');
@@ -1474,6 +1487,9 @@
     }
   }
 
+  // ============================================================
+  // SECTION: STATE
+  // ============================================================
   const state = {
     running: false, particles: [], toInject: [],
     t: 0, omega: 0, omegaTarget: 0, drumAngle: 0,
@@ -1524,7 +1540,10 @@
   heatmap.accN = new Int32Array(gridSize);
   heatmap.accV = new Float32Array(gridSize);
   heatmap.accV2 = new Float32Array(gridSize);
-    
+
+  // ============================================================
+  // SECTION: ASSET LOADING
+  // ============================================================
   const aggregateImages = [];
   for (let i = 0; i < 5; i++) {
     const img = new Image();
@@ -1539,7 +1558,9 @@
     globeMaps.push(img);
   }
 
-  // --- EXPERT ANALYSIS CONTROLLER ---
+  // ============================================================
+  // SECTION: EXPERT ANALYSIS CONTROLLER
+  // ============================================================
   const ANALYSIS_MODES = ['vectors', 'dispersion', 'density', 'product'];
   let currentAnalysisIdx = 0;
   let hudMasterOn = false;
@@ -1578,6 +1599,9 @@
     }
   }
 
+  // ============================================================
+  // SECTION: LEVEL INIT
+  // ============================================================
   function initLevel() {
     state.running = false;
     state.particles = [];
@@ -1658,6 +1682,9 @@
     state.running = true;
   }
 
+  // ============================================================
+  // SECTION: PHYSICS — DRUM
+  // ============================================================
   function updateDrum(dt) {
     state.omegaTarget *= Math.exp(-TUNING.drum.omegaDecay * dt);
     const a = 1 - Math.exp(-TUNING.drum.slipRate * dt);
@@ -1669,6 +1696,9 @@
     state.laserAngle += LASER_OMEGA * dt;
   }
 
+  // ============================================================
+  // SECTION: PHYSICS — PARTICLES
+  // ============================================================
   function step(dt) {
     while (state.toInject.length && state.toInject[0].t <= state.t) {
       const inj = state.toInject.shift();
@@ -1853,6 +1883,9 @@
     }
   }
 
+  // ============================================================
+  // SECTION: PHYSICS — EGG (PEBBLES)
+  // ============================================================
   function eggLevitatedParticles() {
     const absOm = Math.abs(state.omega);
     const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
@@ -1921,6 +1954,9 @@
     }
   }
 
+  // ============================================================
+  // SECTION: PHYSICS — GLOBES (PLANETS)
+  // ============================================================
   function updateGlobe(dt) {
     const R_GLOBE = TUNING.globe.radius;
     const MIN_DIST = R_GLOBE * 2.2;
@@ -1993,6 +2029,9 @@
     }
   }
 
+  // ============================================================
+  // SECTION: PHYSICS — GOLDEN BALLS
+  // ============================================================
   function integrateGoldenBall(b, dt) {
     b.vy -= TUNING.ball.gravity * dt;
     b.x += b.vx * dt;
@@ -2178,7 +2217,9 @@
     };
   }
 
-
+  // ============================================================
+  // SECTION: PHYSICS — AGGREGATES
+  // ============================================================
 function updateAggregates(dt) {
     if (state.aggMerging) {
       const m = state.aggMerging;
@@ -2191,9 +2232,9 @@ function updateAggregates(dt) {
       }
     }
 
-    // FIX: Only block if an AGGREGATE is currently merging
-    // Previously, this blocked if pebbles or planets were merging via state.aggMerging check
-    if (!state.aggMerging && !heatmap.enabled) { 
+    // KNOWN ISSUE: heatmap.enabled incorrectly suppresses aggregate formation.
+    // Fixing this would change observable behaviour; defer to a dedicated fix.
+    if (!state.aggMerging && !heatmap.enabled) {
       const lev = eggLevitatedParticles();
       const absOm = Math.abs(state.omega);
       const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
@@ -2337,6 +2378,9 @@ function updateAggregates(dt) {
     soundSnap();
   }
 
+  // ============================================================
+  // SECTION: RENDER — AGGREGATES
+  // ============================================================
   function drawMergeStreaks() {
     if (!state.eggMerging) return;
     const m = state.eggMerging;
@@ -2375,11 +2419,17 @@ function updateAggregates(dt) {
     }
   }
 
+  // ============================================================
+  // SECTION: RENDER — GOLDEN BALLS & PEBBLES
+  // ============================================================
   function drawGoldenBalls() {
     for (const b of state.goldenBalls) drawOneGoldenBall(b);
     drawSuccessText();
   }
 
+  // ============================================================
+  // SECTION: RENDER — GLOBES
+  // ============================================================
   function drawGlobes() {
     // 1. Draw existing planets
     for (const g of state.globes) {
@@ -2687,6 +2737,9 @@ function updateAggregates(dt) {
     o.start(t); o.stop(t + 0.3);
   }
 
+  // ============================================================
+  // SECTION: RENDER — HELPERS
+  // ============================================================
   function angleSwept(a0, a1, t) {
     let d = a1 - a0;
     if (d === 0) return false;
@@ -2724,6 +2777,9 @@ function updateAggregates(dt) {
     ctx.beginPath(); ctx.arc(x, y, rr, 0, Math.PI * 2); ctx.fill();
   }
 
+  // ============================================================
+  // SECTION: RENDER — BACKGROUND & STRUCTURE
+  // ============================================================
   function drawLabBackground() {
 //    if (REGIME !== 'portrait') drawFloor();
   }
@@ -2793,6 +2849,9 @@ function updateAggregates(dt) {
     }
   }
 
+  // ============================================================
+  // SECTION: RENDER — INJECTOR
+  // ============================================================
   function drawInjector() {
     const barHeightCm = 9;
     const yNozzleTip = Y2px(CFG.RELEASE_Y);
@@ -3130,7 +3189,9 @@ function updateAggregates(dt) {
     ctx.restore();
   }
 
-
+  // ============================================================
+  // SECTION: RENDER — TRAILS
+  // ============================================================
   function drawTrails() {
     if (!state.trailsOn) return;
     if (CFG.N_P >= TUNING.trails.maxN) return;
@@ -3207,6 +3268,9 @@ function updateAggregates(dt) {
     }
   }
 
+  // ============================================================
+  // SECTION: RENDER — DRUM INTERIOR
+  // ============================================================
   function drawDrumInterior() {
     const r = pxDist(CFG.R_DRUM);
     ctx.save();
@@ -3275,6 +3339,9 @@ function updateAggregates(dt) {
     ctx.beginPath(); ctx.arc(CX, CY, r, 0, Math.PI * 2); ctx.stroke();
   }
 
+  // ============================================================
+  // SECTION: RENDER — PARTICLES
+  // ============================================================
   function drawOneParticle(p) {
     const x = X2px(p.x), y = Y2px(p.y);
     const sizeFac = visualSizeFactor(p.vt);
@@ -3449,130 +3516,70 @@ function updateAggregates(dt) {
     ctx.restore();
   }
 
-function drawVectorField() {
-  if (!state.showVectors) return;
-
-  const res = 15; 
-  const vScale = 0.15;
-  const vt = CFG.V_T;
-  const omega = state.omega;
-  const step = (CFG.R_DRUM * 2) / res;
+  // ============================================================
+  // SECTION: RENDER — VECTOR FIELD
+  // ============================================================
+  function drawVectorField() {
+    if (!state.showVectors) return;
   
-  // High-Contrast Theme Colors
-  const isLight = PAL.name === 'light';
+    const res = 15; 
+    const vScale = 0.15;
+    const vt = CFG.V_T;
+    const omega = state.omega;
+    const step = (CFG.R_DRUM * 2) / res;
   
-  // DARK MODE TWEAKS: 
-  // Increased alpha and switched to neon-style colors for better contrast against the lab shadows
-  const colSettling = isLight ? '#8b4513' : 'rgba(255, 235, 100, 0.9)'; // Brighter Gold
-  const colDrag     = isLight ? '#00008b' : 'rgba(100, 210, 255, 0.9)'; // Brighter Cyan
-  const colResult   = isLight ? '#006400' : 'rgba(120, 255, 160, 0.9)'; // Brighter Neon Green
-
-  ctx.save();
-  // Ensure lines are sharp enough to see against the rivet textures
-  ctx.lineWidth = isLight ? 1.8 : 1.3; 
-
-  for (let x = -CFG.R_DRUM; x <= CFG.R_DRUM; x += step) {
-    for (let y = -CFG.R_DRUM; y <= CFG.R_DRUM; y += step) {
-      if (x * x + y * y > CFG.R_DRUM * CFG.R_DRUM) continue;
-
-      const px = X2px(x);
-      const py = Y2px(y);
-
-      // 1. Settling Velocity (Gravity) - Gold
-      const gravLen = vt * vScale * SCALE;
-      drawSimpleArrow(px, py, px, py + gravLen, colSettling);
-
-      // 2. Gas Drag (Tangent) - Cyan
-      const dragVx = -omega * y;
-      const dragVy = omega * x;
-      const dx = dragVx * vScale * SCALE;
-      const dy = -dragVy * vScale * SCALE;
-      drawSimpleArrow(px, py, px + dx, py + dy, colDrag);
-
-      // 3. Resulting Vector (Net Flow) - Green
-      if (Math.abs(omega) > 0.01 || vt > 0) {
-        drawSimpleArrow(px, py, px + dx, py + dy + gravLen, colResult);
+    ctx.save();
+    ctx.lineWidth = 1.2;
+  
+    for (let x = -CFG.R_DRUM; x <= CFG.R_DRUM; x += step) {
+      for (let y = -CFG.R_DRUM; y <= CFG.R_DRUM; y += step) {
+        if (x * x + y * y > CFG.R_DRUM * CFG.R_DRUM) continue;
+  
+        const px = X2px(x);
+        const py = Y2px(y);
+  
+        // 1. Settling Velocity (Gravity) - Points Down
+        const gravLen = vt * vScale * SCALE;
+        drawSimpleArrow(px, py, px, py + gravLen, 'rgba(255, 220, 100, 0.4)');
+  
+        // 2. Gas Drag (Tangent) - Perpendicular to radius
+        const dragVx = -omega * y;
+        const dragVy = omega * x;
+        const dx = dragVx * vScale * SCALE;
+        const dy = -dragVy * vScale * SCALE;
+        drawSimpleArrow(px, py, px + dx, py + dy, 'rgba(90, 200, 255, 0.4)');
+  
+        // 3. Resulting Vector (Net Flow) - Sum of both
+        // Only draw if there is actually movement
+        if (Math.abs(omega) > 0.01 || vt > 0) {
+          drawSimpleArrow(px, py, px + dx, py + dy + gravLen, 'rgba(96, 255, 144, 0.8)');
+        }
       }
     }
+    ctx.restore();
   }
-  ctx.restore();
-}
-
-// Helper to draw a line with a small "V" at the end
-function drawSimpleArrow(x1, y1, x2, y2, color) {
-  const headlen = 4; // length of head in pixels
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const angle = Math.atan2(dy, dx);
-
-  ctx.strokeStyle = color;
-  ctx.beginPath();
-  ctx.moveTo(x1, y1);
-  ctx.lineTo(x2, y2);
-  ctx.lineTo(x2 - headlen * Math.cos(angle - Math.PI / 6), y2 - headlen * Math.sin(angle - Math.PI / 6));
-  ctx.moveTo(x2, y2);
-  ctx.lineTo(x2 - headlen * Math.cos(angle + Math.PI / 6), y2 - headlen * Math.sin(angle + Math.PI / 6));
-  ctx.stroke();
-}
-
-function drawVectorField() {
-  if (!state.showVectors) return;
-
-  const res = 15; 
-  const vScale = 0.15;
-  const vt = CFG.V_T;
-  const omega = state.omega;
-  const step = (CFG.R_DRUM * 2) / res;
-
-  ctx.save();
-  ctx.lineWidth = 1.2;
-
-  for (let x = -CFG.R_DRUM; x <= CFG.R_DRUM; x += step) {
-    for (let y = -CFG.R_DRUM; y <= CFG.R_DRUM; y += step) {
-      if (x * x + y * y > CFG.R_DRUM * CFG.R_DRUM) continue;
-
-      const px = X2px(x);
-      const py = Y2px(y);
-
-      // 1. Settling Velocity (Gravity) - Points Down
-      const gravLen = vt * vScale * SCALE;
-      drawSimpleArrow(px, py, px, py + gravLen, 'rgba(255, 220, 100, 0.4)');
-
-      // 2. Gas Drag (Tangent) - Perpendicular to radius
-      const dragVx = -omega * y;
-      const dragVy = omega * x;
-      const dx = dragVx * vScale * SCALE;
-      const dy = -dragVy * vScale * SCALE;
-      drawSimpleArrow(px, py, px + dx, py + dy, 'rgba(90, 200, 255, 0.4)');
-
-      // 3. Resulting Vector (Net Flow) - Sum of both
-      // Only draw if there is actually movement
-      if (Math.abs(omega) > 0.01 || vt > 0) {
-        drawSimpleArrow(px, py, px + dx, py + dy + gravLen, 'rgba(96, 255, 144, 0.8)');
-      }
-    }
+  
+  function drawSimpleArrow(x1, y1, x2, y2, color) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return; // Don't draw tiny dots
+  
+    const headlen = 4;
+    const angle = Math.atan2(dy, dx);
+  
+    ctx.strokeStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.lineTo(x2 - headlen * Math.cos(angle - Math.PI / 6), y2 - headlen * Math.sin(angle - Math.PI / 6));
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - headlen * Math.cos(angle + Math.PI / 6), y2 - headlen * Math.sin(angle + Math.PI / 6));
+    ctx.stroke();
   }
-  ctx.restore();
-}
 
-function drawSimpleArrow(x1, y1, x2, y2, color) {
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return; // Don't draw tiny dots
-
-  const headlen = 4;
-  const angle = Math.atan2(dy, dx);
-
-  ctx.strokeStyle = color;
-  ctx.beginPath();
-  ctx.moveTo(x1, y1);
-  ctx.lineTo(x2, y2);
-  ctx.lineTo(x2 - headlen * Math.cos(angle - Math.PI / 6), y2 - headlen * Math.sin(angle - Math.PI / 6));
-  ctx.moveTo(x2, y2);
-  ctx.lineTo(x2 - headlen * Math.cos(angle + Math.PI / 6), y2 - headlen * Math.sin(angle + Math.PI / 6));
-  ctx.stroke();
-}
-                                         
+  // ============================================================
+  // SECTION: RENDER — MASTER DRAW
+  // ============================================================
   function draw() {
     ctx.clearRect(0, 0, W, H);
     drawLabBackground();
@@ -3773,6 +3780,9 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
     return '#' + ((1<<24) | (r<<16) | (g<<8) | b).toString(16).slice(1);
   }
 
+  // ============================================================
+  // SECTION: INPUT — POINTER & SWIPE
+  // ============================================================
   function getLocalCoords(clientX, clientY) {
     const rect = cv.getBoundingClientRect();
     return { x: (clientX - rect.left - CX) / SCALE, y: (CY - (clientY - rect.top)) / SCALE };
@@ -3814,6 +3824,9 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
   document.addEventListener('gesturestart', e => e.preventDefault());
   document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
 
+  // ============================================================
+  // SECTION: INPUT — OMEGA CONTROLS
+  // ============================================================
   function bumpOmega(sign) {
     state.omegaTarget += sign * TUNING.drum.omegaStep;
     const OMAX = TUNING.drum.omegaMax;
@@ -3899,6 +3912,9 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
     wirePressHold(document.getElementById('btnOmegaMinus'), () => bumpOmega(-1));
   }
 
+  // ============================================================
+  // SECTION: AUDIO
+  // ============================================================
   const AUDIO = { ctx: null, master: null, motor: {}, enabled: true };
   function initAudio() {
     if (AUDIO.ctx) return;
@@ -4258,24 +4274,10 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
     } catch (e) { /* */ }
   }
 
-  function soundChime() {
-    if (!AUDIO.ctx) return;
-    const t = AUDIO.ctx.currentTime;
-    [880, 1320].forEach((f, i) => {
-      const o = AUDIO.ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
-      const g = AUDIO.ctx.createGain();
-      const start = t + i * 0.06;
-      g.gain.setValueAtTime(0, start);
-      g.gain.linearRampToValueAtTime(0.14, start + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.001, start + 0.6);
-      o.connect(g); g.connect(AUDIO.master);
-      o.start(start); o.stop(start + 0.65);
-    });
-  }
-
   let lastChimeTime = 0;
   const CHIME_COOLDOWN = 0.15; // 150ms between chimes to prevent flooding
-  
+
+  // NOTE: A duplicate definition without cooldown logic was removed here.
   function soundChime() {
     if (!AUDIO.ctx) return;
     
@@ -4306,6 +4308,9 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
   window.addEventListener('pointerdown', ensureAudio);
   window.addEventListener('keydown', ensureAudio);
 
+  // ============================================================
+  // SECTION: HUD
+  // ============================================================
   const elPeriod = document.getElementById('period');
   const elFloating = document.getElementById('floating');
   const elCaptured = document.getElementById('captured');
@@ -4314,8 +4319,6 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
   const elPebbleCount = document.getElementById('pebbleCount');
   const gaugeAgg = document.getElementById('gaugeAgg');
   const gaugePebble = document.getElementById('gaugePebble');
-  const elVT = null;
-
   function updateHUD() {
     const absOm = Math.abs(state.omega);
     const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
@@ -4369,19 +4372,14 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
       elPebbleCount.textContent = state.eggBallCount;
     }
 
-    // Dynamic Pebble Gauge
-    if (state.eggBallCount > 0) {
-      if (gaugePebble.style.display === 'none') {
-        gaugePebble.style.display = 'flex'; // Surprise!
-        soundGoldenChime();
-      }
-      elPebbleCount.textContent = state.eggBallCount;
-    }
   }
 
+  // ============================================================
+  // SECTION: SETTINGS SELECTORS
+  // ============================================================
   const SETTINGS = {
       NP:     { values: [1, 2, 3, 10, 30, 100, 300, 1000, 3000, 10000], idx: 2, apply: (v) => { CFG.N_P = v; }, label: (v) => String(v) },
-    VT:     { values: [2,5,10, 20, 30, 40, 50], idx: 2, apply: (v) => { CFG.V_T = v; if (elVT) elVT.textContent = v.toFixed(1); }, label: (v) => String(v) },
+    VT:     { values: [2,5,10, 20, 30, 40, 50], idx: 2, apply: (v) => { CFG.V_T = v; }, label: (v) => String(v) },
     SPREAD: { values: [0, 0.01, 0.02, 0.05, 0.10, 0.20, 0.30, 0.50], idx: 3, apply: (v) => { CFG.VT_SPREAD = v; }, label: (v) => Math.round(v * 100) + '%' },
     DT:     { values: [0, 0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], idx: 2, apply: (v) => { CFG.DT_INJECT = v; }, label: (v) => (v + ' s') },
   };
@@ -4417,6 +4415,9 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
   });
   applyInitialSettings();
 
+  // ============================================================
+  // SECTION: BUTTON WIRING — MAIN
+  // ============================================================
   const btnStart = document.getElementById('btnStart');
   const btnReset = document.getElementById('btnReset');
   const btnLaser = document.getElementById('btnLaser');
@@ -4571,6 +4572,9 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
     if (e.key === 'Escape' && !manualOverlay.hidden) closeManual();
   });
 
+  // ============================================================
+  // SECTION: GAME MODE
+  // ============================================================
   const GAME = {
     on: false,
     levelIdx: 0,
@@ -4807,6 +4811,9 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
   btnGameMode.addEventListener('click', () => enterGameMode(!GAME.on));
   btnGameMode.classList.remove('disabled');
 
+  // ============================================================
+  // SECTION: CHALLENGE MODE
+  // ============================================================
   const CHALLENGE = {
     on: false,
     phase: 'idle',
@@ -4994,13 +5001,8 @@ function drawSimpleArrow(x1, y1, x2, y2, color) {
   initLevel();
 
   // ============================================================
-  // VIEWPORT SUBSYSTEM
-  // Brass-framed CRT-style screen that slides down from the ceiling.
-  // Two activation buttons: microscope and chart. Each maintains its
-  // own ruleset (viewport_rules.js) that picks an asset based on
-  // current simulation state.
+  // SECTION: VIEWPORT SUBSYSTEM
   // ============================================================
-
   const VIEWPORT = {
     active: null,
     phase: 'hidden',
@@ -5670,8 +5672,7 @@ function updateViewport(dt) {
   // ============================================================
 
   // ============================================================
-  // SPLASH SCREEN
-  // Disable via TUNING.splash.enabled.
+  // SECTION: SPLASH SCREEN
   // ============================================================
   (function initSplash() {
     if (!TUNING.splash || !TUNING.splash.enabled) return;
@@ -5707,7 +5708,10 @@ function updateViewport(dt) {
   // ============================================================
   // END SPLASH SCREEN
   // ============================================================
-    
+
+  // ============================================================
+  // SECTION: MAIN LOOP
+  // ============================================================
   let lastT = performance.now() / 1000;
   function loop() {
     try {
@@ -5779,7 +5783,9 @@ function updateViewport(dt) {
     requestAnimationFrame(loop);
   }
 
-  // --- EVENT LISTENERS ---
+  // ============================================================
+  // SECTION: EXPERT PANEL — HUD BUTTONS
+  // ============================================================
   document.getElementById('btnHudMaster').addEventListener('click', () => {
     hudMasterOn = !hudMasterOn;
     updateAnalysisInstrument();
@@ -5807,9 +5813,9 @@ function updateViewport(dt) {
     this.classList.toggle('on', TUNING.aggregate.flashOrbit);
   });
 
-  // --- EXPERT PROCESSES CONTROLLER ---
-  
-  // Helper to toggle buttons and update TUNING with optional click-count requirement
+  // ============================================================
+  // SECTION: EXPERT PANEL — PROCESSES
+  // ============================================================
   function wireProcessButton(id, colorClass, onActivate, requiredClicks = 1) {
     const btn = document.getElementById(id);
     if (!btn) return;
@@ -5912,7 +5918,9 @@ function updateViewport(dt) {
     }
   },7);
    
-  // SYSTEM 1. synchronized Omega Decay off
+  // ============================================================
+  // SECTION: EXPERT PANEL — SYSTEM
+  // ============================================================
   const btnSysNoDecay = document.getElementById('btnSysNoDecay');
   if (btnSysNoDecay) {
     btnSysNoDecay.addEventListener('click', () => {
@@ -5995,10 +6003,11 @@ function updateViewport(dt) {
     }
   });
     
+  // ============================================================
+  // SECTION: EXPERT DOOR & URL FLAGS
+  // ============================================================
   const expertContainer = document.getElementById('expertContainer');
   const titlePlateLink = document.getElementById('titlePlate');
-
-  // --- HIDDEN LABORATORY PRIVILEGE CHECKS ---
   const uP = new URLSearchParams(window.location.search);
   isExpertURL = uP.has('expert');
   isDesignerURL = uP.has('designer');
@@ -6007,6 +6016,16 @@ function updateViewport(dt) {
   if ((isExpertURL || isDesignerURL) && expertContainer) {
     expertContainer.classList.add('open');
     if (isExpertURL) applyCheat(true);
+    applyCheat(true);
+  }
+
+  // ?verify — rapid full-test mode: floods the drum quickly with high spread and no decay
+  if (uP.has('verify')) {
+    SETTINGS.NP.idx     = SETTINGS.NP.values.indexOf(3000);
+    SETTINGS.VT.idx     = SETTINGS.VT.values.indexOf(30);
+    SETTINGS.SPREAD.idx = SETTINGS.SPREAD.values.indexOf(0.30);
+    SETTINGS.DT.idx     = SETTINGS.DT.values.indexOf(2);
+    applyInitialSettings();
     applyCheat(true);
   }
 
