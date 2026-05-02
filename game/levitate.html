@@ -863,10 +863,16 @@
         <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
         <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
 
-        <!-- Row 2: Speed Controls (Radio-style toggles) -->
-        <button class="btnind btnsq" id="btnWarp2" title="2x Simulation Speed"><span class="cap"><span class="cap-label" style="font-size:11px;">2x</span></span></button>
-        <button class="btnind btnsq" id="btnWarp4" title="4x Simulation Speed"><span class="cap"><span class="cap-label" style="font-size:11px;">4x</span></span></button>
-        <button class="btnind btnsq" id="btnWarp8" title="8x Simulation Speed"><span class="cap"><span class="cap-label" style="font-size:11px;">8x</span></span></button>
+        <!-- Row 2: Speed Gear Shifter -->
+        <button class="btnind btnsq" id="btnSpeedDown" title="Slower">
+          <span class="cap"><span class="cap-icon">◀</span></span>
+        </button>
+        <button class="btnind btnsq" id="btnSpeedReset" title="Reset to 1x Speed">
+          <span class="cap"><span class="cap-label" id="speedDisp" style="font-size:10px;">1x</span></span>
+        </button>
+        <button class="btnind btnsq" id="btnSpeedUp" title="Faster">
+          <span class="cap"><span class="cap-icon">▶</span></span>
+        </button>       
         <hr>
       </div>
     </div>
@@ -5921,32 +5927,43 @@ function updateViewport(dt) {
   });
 
   // SYSTEM 4-6. Simulation speed
-    
-  function setSimWarp(multiplier) {
-    const warpButtons = {
-      2: document.getElementById('btnWarp2'),
-      4: document.getElementById('btnWarp4'),
-      8: document.getElementById('btnWarp8')
-    };
 
-    if (state.simSpeed === multiplier) {
-      // Toggle OFF: Return to normal speed
-      state.simSpeed = 1.0;
-    } else {
-      // Toggle ON: Set new speed
-      state.simSpeed = multiplier;
+    const speedGears = [0.25, 0.5, 1.0, 2.0, 4.0, 8.0];
+    let currentGearIdx = 2; // Default to 1.0x
+  
+    function updateSpeedUI() {
+      const speed = speedGears[currentGearIdx];
+      state.simSpeed = speed;
+      
+      // Use single-character Unicode fractions for better fit
+      let label;
+      if (speed === 0.5) label = "½x";
+      else if (speed === 0.25) label = "¼x";
+      else label = speed + 'x';
+
+      document.getElementById('speedDisp').textContent = label;
+      
+      // Visual feedback: Glow the middle button if not at standard 1x
+      document.getElementById('btnSpeedReset').classList.toggle('on', speed !== 1.0);
     }
-
-    // Update UI: Only the button matching the current speed glows green
-    Object.entries(warpButtons).forEach(([m, btn]) => {
-      if (btn) btn.classList.toggle('on', state.simSpeed === parseFloat(m));
+  
+    document.getElementById('btnSpeedUp').addEventListener('click', () => {
+      if (currentGearIdx < speedGears.length - 1) {
+        currentGearIdx++;
+        updateSpeedUI();
+      }
     });
-  }
+    document.getElementById('btnSpeedDown').addEventListener('click', () => {
+      if (currentGearIdx > 0) {
+        currentGearIdx--;
+        updateSpeedUI();
+      }
+    });
+    document.getElementById('btnSpeedReset').addEventListener('click', () => {
+      currentGearIdx = 2; // Snap back to 1.0x
+      updateSpeedUI();
+    });
 
-  // Wire up the row
-  document.getElementById('btnWarp2').addEventListener('click', () => setSimWarp(2.0));
-  document.getElementById('btnWarp4').addEventListener('click', () => setSimWarp(4.0));
-  document.getElementById('btnWarp8').addEventListener('click', () => setSimWarp(8.0));
 
   cv.addEventListener('mousedown', function(e) {
     if (!TUNING.particle.showFlowGhosts) return;
