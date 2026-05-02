@@ -35,38 +35,44 @@
 
   /**
    * Syncs the expert HUD master button state and activates the selected analysis mode.
+   * isActivation=true resets the accumulation buffers (only on fresh HUD power-on).
    */
-  function updateAnalysisInstrument() {
+  function updateAnalysisInstrument(isActivation = false) {
     const btnPrev = document.getElementById('btnModePrev');
     const btnNext = document.getElementById('btnModeNext');
     const btnMaster = document.getElementById('btnHudMaster');
-    
+
     if (!btnPrev || !btnNext || !btnMaster) return;
 
-    // 1. Reset underlying simulation states
     state.showVectors = false;
-    heatmap.enabled = false;
 
-    // 2. Visual dependencies: Dim/Lock arrows if Master is OFF[cite: 5]
     btnPrev.classList.toggle('disabled', !hudMasterOn);
     btnNext.classList.toggle('disabled', !hudMasterOn);
     btnMaster.classList.toggle('on', hudMasterOn);
 
     if (!hudMasterOn) {
-        ctxOv.clearRect(0, 0, W, H); 
+        heatmap.enabled = false;
+        ctxOv.clearRect(0, 0, W, H);
         return;
     }
 
-    // 3. Activate selection[cite: 5]
+    // Keep heatmap collecting for all three maps whenever HUD is on.
+    // Only wipe the buffers when the HUD is freshly powered on.
+    heatmap.enabled = true;
+    if (isActivation) {
+      heatmap.ready = false;
+      heatmap.accN.fill(0);
+      heatmap.accV.fill(0);
+      heatmap.accV2.fill(0);
+      heatmap.angleProgress = 0;
+      heatmap.tickCount = 0;
+    }
+
     const mode = ANALYSIS_MODES[currentAnalysisIdx];
     if (mode === 'vectors') {
       state.showVectors = true;
     } else {
-      heatmap.enabled = true;
       heatmap.mode = mode;
-      // Force accumulation restart for the new mode[cite: 5]
-      heatmap.ready = false;
-      heatmap.accN.fill(0);
     }
   }
   window.resetExpertUI = function() {
@@ -395,7 +401,7 @@
   // ============================================================
   document.getElementById('btnHudMaster').addEventListener('click', () => {
     hudMasterOn = !hudMasterOn;
-    updateAnalysisInstrument();
+    updateAnalysisInstrument(hudMasterOn); // true = fresh activation, triggers buffer reset
   });
 
   document.getElementById('btnModeNext').addEventListener('click', () => {

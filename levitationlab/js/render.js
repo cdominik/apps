@@ -1637,7 +1637,7 @@
     // --- EXPERT HUD OVERLAY (Heatmap & Captions) ---
     if (heatmap.enabled || state.showVectors) {
       // 1. RENDER HEATMAP PIXELS (Only if heatmap is enabled and data is ready)[cite: 5, 7]
-      if (heatmap.enabled && heatmap.ready && (heatmap.maxSigma > 0 || heatmap.maxDensity > 0 || heatmap.maxProduct > 0)) {
+      if (heatmap.enabled && heatmap.ready && !state.showVectors && (heatmap.maxSigma > 0 || heatmap.maxDensity > 0 || heatmap.maxProduct > 0)) {
         const res = heatmap.resolution;
         const cellW = pxDist(200 / res);
         const cellH = pxDist(200 / res);
@@ -1735,7 +1735,7 @@
       ctxOv.fillText(caption, CX, textY);
 
       // Data collection notice (Only for heatmaps)[cite: 7]
-      if (heatmap.enabled && !heatmap.ready) {
+      if (heatmap.enabled && !heatmap.ready && !state.showVectors) {
         ctxOv.font = 'italic 13px "Courier New", monospace';
         ctxOv.globalAlpha = heatmap.opacity * 0.7; 
         ctxOv.fillText("(accumulating orbital data...)", CX, textY + 28);
