@@ -151,7 +151,8 @@
         vx: 0, vy: 0, stuck: false, stuckAngle: 0, alive: true,
         inHighlightSince: null, flashEndsAt: -1, insideOnce: false,
         vt: inj.vt,
-        imgIdx: Math.floor(Math.random() * aggregateImages.length)
+        imgIdx: Math.floor(Math.random() * aggregateImages.length),
+        ghostlife: 0 /*FIXME: Is this really necessary*/
       });
       spawnPuffAtNozzle(inj.x);
     }
@@ -723,9 +724,8 @@
       }
     }
 
-    // KNOWN ISSUE: heatmap.enabled incorrectly suppresses aggregate formation.
-    // Fixing this would change observable behaviour; defer to a dedicated fix.
-    if (!state.aggMerging && !heatmap.enabled) {
+    /* FIXME: Is this still working?  */
+    if (!state.aggMerging) {
       const lev = eggLevitatedParticles();
       const absOm = Math.abs(state.omega);
       const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);

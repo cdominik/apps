@@ -102,7 +102,8 @@
    */
   function cycleSetting(key, dir) {
     const s = SETTINGS[key];
-    s.idx = (s.idx + dir + s.values.length) % s.values.length;
+    // Clamp the index between 0 and the highest available array index
+    s.idx = Math.max(0, Math.min(s.values.length - 1, s.idx + dir));
     const v = s.values[s.idx];
     s.apply(v);
     SEL_WIN[key].textContent = s.label(v);
