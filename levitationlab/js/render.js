@@ -522,55 +522,7 @@
 
     for (const agg of state.aggregates) {
       if (agg.merging || agg.stuck) continue;
-      if (TUNING.aggregate.flashOrbit && state.t < agg.orbitFlashEndsAt) {
-        const absOm = Math.abs(state.omega);
-        if (absOm > 1e-3) {
-          const alpha = Math.max(0, (agg.orbitFlashEndsAt - state.t) / 2);
-          
-          // 1. Draw the aggregate orbit
-          const xcAgg = agg.vt / state.omega;
-          const rOrb = Math.hypot(agg.x - xcAgg, agg.y);
-          ctx.beginPath();
-          ctx.arc(X2px(xcAgg), Y2px(0), pxDist(rOrb), 0, Math.PI * 2);
-          ctx.strokeStyle = `rgba(200, 255, 220, ${alpha * 0.75})`;
-          ctx.lineWidth = 1.2;
-          ctx.stroke();
-
-          // 2. Calculate mean vt of currently levitated particles
-          const levParticles = eggLevitatedParticles();
-          let sumVt = 0;
-          for (const p of levParticles) {
-            sumVt += p.vt;
-          }
-          const meanVt = levParticles.length > 0 ? (sumVt / levParticles.length) : agg.vt;
-          const xcMean = meanVt / state.omega;
-
-          // 3. Draw dots and connecting line
-          const pxAggX = X2px(xcAgg);
-          const pxMeanX = X2px(xcMean);
-          const py0 = Y2px(0);
-
-          ctx.strokeStyle = `rgba(255, 220, 100, ${alpha * 0.9})`;
-          ctx.fillStyle = `rgba(255, 220, 100, ${alpha})`;
-          ctx.lineWidth = 1.5;
-
-          // Line
-          ctx.beginPath();
-          ctx.moveTo(pxAggX, py0);
-          ctx.lineTo(pxMeanX, py0);
-          ctx.stroke();
-
-          // Dot at aggregate orbit center
-          ctx.beginPath();
-          ctx.arc(pxAggX, py0, 3, 0, Math.PI * 2);
-          ctx.fill();
-
-          // Dot at mean particle orbit center
-          ctx.beginPath();
-          ctx.arc(pxMeanX, py0, 3, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
+      /* FIXME this is an empty loop now... */
     }
 
     for (const agg of state.aggregates) {
@@ -1486,74 +1438,196 @@
   }
 
   // ============================================================
-  // SECTION: RENDER — VECTOR FIELD
+  // SECTION: RENDER — ANALYTICAL TOOLS
   // ============================================================
-  /** Draws the expert vector-field overlay showing per-cell drag and gravity arrows. */
+  
+  function drawAnalyticalBackdrop() {
+    // Triggers if opacity is 0.9 (or 1.0)
+    if (heatmap.opacity < 0.8) return; 
+    ctx.save();
+    
+    // Set the exact opacity and color
+    ctx.globalAlpha = heatmap.opacity;
+    ctx.fillStyle = PAL.name === 'light' ? '#d8d4c8' : '#0a0a0c'; 
+    
+    // 1. Draw the core circular drum backdrop
+    ctx.beginPath();
+    ctx.arc(CX, CY, pxDist(CFG.R_DRUM), 0, Math.PI * 2);
+    ctx.fill();
+
+    // Helper for drawing clean, independent rounded rectangles
+    const drawPad = (x, y, w, h, r) => {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.arcTo(x + w, y, x + w, y + r, r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+      ctx.lineTo(x + r, y + h);
+      ctx.arcTo(x, y + h, x, y + h - r, r);
+      ctx.lineTo(x, y + r);
+      ctx.arcTo(x, y, x + r, y, r);
+      ctx.closePath();
+      ctx.fill();
+    };
+
+    const bandW = (REGIME === 'wide' ? 32 : (REGIME === 'compact' ? 18 : 14));
+    const rOuter = pxDist(CFG.R_DRUM) + bandW;
+
+    // 2. Floating Pad for the Color Bar (Right Side)
+    if (heatmap.enabled && heatmap.ready && !state.showVectors && (heatmap.maxSigma > 0 || heatmap.maxDensity > 0 || heatmap.maxProduct > 0)) {
+      const barW = 15;
+      const barH = pxDist(60);
+      const bx = CX + rOuter + 10; 
+      const by = CY - barH / 2;
+      
+      // Nicely fitted padding around the color bar and its vertical text
+      drawPad(bx - 12, by - 32, barW + 24, barH + 54, 8);
+    }
+
+    // 3. Floating Pad for the Caption (Bottom)
+    if (heatmap.enabled || state.showVectors) {
+      const textY = CY + pxDist(CFG.R_DRUM) + bandW + 25; 
+      const isWaiting = (heatmap.enabled && !heatmap.ready && !state.showVectors);
+      
+      const padW = 320; // Reduced from 380 to perfectly frame the shorter text
+      const padH = isWaiting ? 56 : 36;
+      
+      // Nicely fitted padding around the 1-line or 2-line caption
+      drawPad(CX - padW / 2, textY - 8, padW, padH, 8);
+    }
+
+    ctx.restore();
+  }
+
   function drawVectorField() {
     if (!state.showVectors) return;
-  
     const res = 15; 
     const vScale = 0.15;
     const vt = CFG.V_T;
     const omega = state.omega;
     const step = (CFG.R_DRUM * 2) / res;
   
-    ctx.save();
-    ctx.lineWidth = 1.2;
-  
+    // Now drawing on ctxOv!
+    ctxOv.save();
+    ctxOv.lineWidth = 1.2;
     for (let x = -CFG.R_DRUM; x <= CFG.R_DRUM; x += step) {
       for (let y = -CFG.R_DRUM; y <= CFG.R_DRUM; y += step) {
         if (x * x + y * y > CFG.R_DRUM * CFG.R_DRUM) continue;
-  
         const px = X2px(x);
         const py = Y2px(y);
   
-        // 1. Settling Velocity (Gravity) - Points Down
         const gravLen = vt * vScale * SCALE;
         drawSimpleArrow(px, py, px, py + gravLen, 'rgba(255, 220, 100, 0.4)');
-  
-        // 2. Gas Drag (Tangent) - Perpendicular to radius
+        
         const dragVx = -omega * y;
         const dragVy = omega * x;
         const dx = dragVx * vScale * SCALE;
         const dy = -dragVy * vScale * SCALE;
         drawSimpleArrow(px, py, px + dx, py + dy, 'rgba(90, 200, 255, 0.4)');
   
-        // 3. Resulting Vector (Net Flow) - Sum of both
-        // Only draw if there is actually movement
         if (Math.abs(omega) > 0.01 || vt > 0) {
           drawSimpleArrow(px, py, px + dx, py + dy + gravLen, 'rgba(96, 255, 144, 0.8)');
         }
       }
     }
-    ctx.restore();
+    ctxOv.restore();
   }
-  
-  /**
-   * Draws a line with an arrowhead between two canvas points.
-   *
-   * @param {number} x1 - Start x in canvas pixels.
-   * @param {number} y1 - Start y in canvas pixels.
-   * @param {number} x2 - End x in canvas pixels.
-   * @param {number} y2 - End y in canvas pixels.
-   * @param {string} color - CSS colour string for the stroke.
-   */
+
   function drawSimpleArrow(x1, y1, x2, y2, color) {
     const dx = x2 - x1;
     const dy = y2 - y1;
-    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return; // Don't draw tiny dots
-  
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
     const headlen = 4;
     const angle = Math.atan2(dy, dx);
-  
-    ctx.strokeStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.lineTo(x2 - headlen * Math.cos(angle - Math.PI / 6), y2 - headlen * Math.sin(angle - Math.PI / 6));
-    ctx.moveTo(x2, y2);
-    ctx.lineTo(x2 - headlen * Math.cos(angle + Math.PI / 6), y2 - headlen * Math.sin(angle + Math.PI / 6));
-    ctx.stroke();
+    
+    // Now drawing on ctxOv!
+    ctxOv.strokeStyle = color;
+    ctxOv.beginPath();
+    ctxOv.moveTo(x1, y1);
+    ctxOv.lineTo(x2, y2);
+    ctxOv.lineTo(x2 - headlen * Math.cos(angle - Math.PI / 6), y2 - headlen * Math.sin(angle - Math.PI / 6));
+    ctxOv.moveTo(x2, y2);
+    ctxOv.lineTo(x2 - headlen * Math.cos(angle + Math.PI / 6), y2 - headlen * Math.sin(angle + Math.PI / 6));
+    ctxOv.stroke();
+  }
+
+  function drawAggregateOrbits() {
+    if (!TUNING.aggregate.flashOrbit) return;
+
+    const rInnerPx = pxDist(CFG.R_DRUM) + 2;
+    // Now drawing on ctxOv!
+    ctxOv.save();
+    ctxOv.beginPath(); ctxOv.arc(CX, CY, rInnerPx, 0, Math.PI * 2); ctxOv.clip();
+
+    for (const agg of state.aggregates) {
+      if (agg.merging || agg.stuck) continue;
+      if (state.t < agg.orbitFlashEndsAt) {
+        const absOm = Math.abs(state.omega);
+        if (absOm > 1e-3) {
+          const alpha = Math.max(0, (agg.orbitFlashEndsAt - state.t) / 2);
+          const xcAgg = agg.vt / state.omega;
+          const rOrb = Math.hypot(agg.x - xcAgg, agg.y);
+          
+          ctxOv.beginPath();
+          ctxOv.arc(X2px(xcAgg), Y2px(0), pxDist(rOrb), 0, Math.PI * 2);
+          ctxOv.strokeStyle = `rgba(200, 255, 220, ${alpha * 0.75})`;
+          ctxOv.lineWidth = 1.2;
+          ctxOv.stroke();
+
+          const levParticles = eggLevitatedParticles();
+          let sumVt = 0;
+          for (const p of levParticles) sumVt += p.vt;
+          const meanVt = levParticles.length > 0 ? (sumVt / levParticles.length) : agg.vt;
+          const xcMean = meanVt / state.omega;
+
+          const pxAggX = X2px(xcAgg);
+          const pxMeanX = X2px(xcMean);
+          const py0 = Y2px(0);
+
+          ctxOv.strokeStyle = `rgba(255, 220, 100, ${alpha * 0.9})`;
+          ctxOv.fillStyle = `rgba(255, 220, 100, ${alpha})`;
+          ctxOv.lineWidth = 1.5;
+
+          ctxOv.beginPath(); ctxOv.moveTo(pxAggX, py0); ctxOv.lineTo(pxMeanX, py0); ctxOv.stroke();
+          ctxOv.beginPath(); ctxOv.arc(pxAggX, py0, 3, 0, Math.PI * 2); ctxOv.fill();
+          ctxOv.beginPath(); ctxOv.arc(pxMeanX, py0, 3, 0, Math.PI * 2); ctxOv.fill();
+        }
+      }
+    }
+    ctxOv.restore();
+  }
+
+  function drawVtProjection() {
+    if (!TUNING.particle.showVtProjection) return;
+
+    const absOm = Math.abs(state.omega);
+    if (absOm > 0.01) {
+      const vtBase = CFG.V_T;
+      const delta = vtBase * CFG.VT_SPREAD; 
+      const velocities = [vtBase - delta, vtBase, vtBase + delta];
+      const py0 = Y2px(0);
+      
+      // Now drawing on ctxOv!
+      ctxOv.save();
+      ctxOv.strokeStyle = 'rgba(0, 255, 255, 0.5)';
+      ctxOv.fillStyle = 'rgba(0, 255, 255, 0.7)';
+      ctxOv.setLineDash([4, 4]); 
+      ctxOv.lineWidth = 1.2;
+
+      let points = velocities.map(v => X2px(v / state.omega));
+
+      ctxOv.beginPath(); ctxOv.moveTo(points[0], py0); ctxOv.lineTo(points[2], py0); ctxOv.stroke();
+
+      points.forEach((px, i) => {
+        ctxOv.beginPath();
+        const radius = (i === 1) ? 5 : 2.5;
+        ctxOv.arc(px, py0, radius, 0, Math.PI * 2);
+        if (i === 1) ctxOv.fill();
+        else { ctxOv.setLineDash([]); ctxOv.stroke(); }
+      });
+      ctxOv.restore();
+    }
   }
 
   // ============================================================
@@ -1576,67 +1650,25 @@
     drawBackplate();
     drawTrails();
     drawDrumInterior();
-    drawVectorField();
     drawAxis();
     drawParticles();
     drawAggregates();
     drawMergeStreaks();
     drawGoldenBalls();
     drawGlobes();
+    
+    // --- ANALYTICS BACKDROP (Main Canvas) ---
+    // Drawn before glare so the glass reflection still works
+    drawAnalyticalBackdrop();
+
     drawGlare();
     drawBoltRing();
 
-    // --- v_t Reference Projection Overlay ---
-    if (TUNING.particle.showVtProjection) {
-      const absOm = Math.abs(state.omega);
-      // Only draw if the drum is actually spinning enough to have an orbit center
-      if (absOm > 0.01) {
-        const vtBase = CFG.V_T;
-        // Uses the dynamic spread from the left wing settings
-        const delta = vtBase * CFG.VT_SPREAD; 
-        const velocities = [vtBase - delta, vtBase, vtBase + delta];
-        const py0 = Y2px(0);
-        
-        ctx.save();
-        // Cyan "HUD" style
-        ctx.strokeStyle = 'rgba(0, 255, 255, 0.5)';
-        ctx.fillStyle = 'rgba(0, 255, 255, 0.7)';
-        ctx.setLineDash([4, 4]); 
-        ctx.lineWidth = 1.2;
-
-        // Calculate x = v_t / omega
-        let points = velocities.map(v => X2px(v / state.omega));
-
-        // Draw horizontal connecting line
-        ctx.beginPath();
-        ctx.moveTo(points[0], py0);
-        ctx.lineTo(points[2], py0);
-        ctx.stroke();
-
-        // Draw the 3 reference points
-        points.forEach((px, i) => {
-          ctx.beginPath();
-          // Middle point (v_t) is larger
-          const radius = (i === 1) ? 5 : 2.5;
-          ctx.arc(px, py0, radius, 0, Math.PI * 2);
-          
-          if (i === 1) {
-            ctx.fill();   // Solid center target
-          } else {
-            ctx.setLineDash([]); // Delta points are open rings
-            ctx.stroke();
-          }
-        });
-        
-        ctx.restore();
-      }
-    }
-
+    // MUST execute before overlay tools, because it clears ctxOv!
     drawViewport();
-
+    
     // --- EXPERT HUD OVERLAY (Heatmap & Captions) ---
     if (heatmap.enabled || state.showVectors) {
-      // 1. RENDER HEATMAP PIXELS (Only if heatmap is enabled and data is ready)[cite: 5, 7]
       if (heatmap.enabled && heatmap.ready && !state.showVectors && (heatmap.maxSigma > 0 || heatmap.maxDensity > 0 || heatmap.maxProduct > 0)) {
         const res = heatmap.resolution;
         const cellW = pxDist(200 / res);
@@ -1668,7 +1700,7 @@
         }
         ctxOv.restore();
 
-        // 2. DRAW COLOR BAR[cite: 5]
+        // DRAW COLOR BAR
         const rOuter = pxDist(CFG.R_DRUM) + (REGIME === 'wide' ? 32 : (REGIME === 'compact' ? 18 : 14));
         const barW = 15;
         const barH = pxDist(60);
@@ -1693,7 +1725,7 @@
         let topL = "", unitL = "";
         if (heatmap.mode === 'dispersion') { topL = heatmap.maxSigma.toFixed(1); unitL = "cm/s (σ)"; }
         else if (heatmap.mode === 'density') { topL = heatmap.maxDensity.toFixed(1); unitL = "parts/cell (ρ)"; }
-        else if (heatmap.mode === 'product') { topL = heatmap.maxProduct.toFixed(1); unitL = "collision proxy"; }
+        else if (heatmap.mode === 'product') { topL = heatmap.maxProduct.toFixed(1); unitL = "collisions"; }
 
         ctxOv.fillText(topL, bx + barW/2, by - 8);
         ctxOv.fillText("0.0", bx + barW/2, by + barH + 14);
@@ -1702,7 +1734,7 @@
         ctxOv.restore();
       }
 
-      // 3. DRAW CAPTION (Heatmaps & Vectors)
+      // DRAW CAPTION
       ctxOv.save();
       ctxOv.globalAlpha = heatmap.opacity;
       const hudColor = (PAL.name === 'light') ? '#000000' : '#ffffff';
@@ -1725,7 +1757,7 @@
       } else if (heatmap.mode === 'density') {
           caption = "particle density n_p";
       } else if (heatmap.mode === 'product') {
-          caption = "collision proxy n_p · σ_v";
+          caption = "collisions n_p · σ_v";
       }
 
       const rInnerCaption = pxDist(CFG.R_DRUM); 
@@ -1734,7 +1766,6 @@
 
       ctxOv.fillText(caption, CX, textY);
 
-      // Data collection notice (Only for heatmaps)[cite: 7]
       if (heatmap.enabled && !heatmap.ready && !state.showVectors) {
         ctxOv.font = 'italic 13px "Courier New", monospace';
         ctxOv.globalAlpha = heatmap.opacity * 0.7; 
@@ -1742,15 +1773,12 @@
       }
       ctxOv.restore();
     }
+
+    // --- OVERLAY LINE-ART (Drawn ON TOP of Heatmap) ---
+    drawVectorField();
+    drawAggregateOrbits();
+    drawVtProjection();
   }
-
-
-
-// FIXME end
-
-
-
-
   /**
    * Linearly interpolates between two integer channel values.
    *

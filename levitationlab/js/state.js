@@ -38,7 +38,7 @@
   const heatmap = {
     enabled: false,
     mode: 'dispersion', // Default mode
-    resolution: 30,
+    resolution: 50,
     data: [],       // Stores finalized sigma (Dispersion)
     densData: [],   // Stores finalized density
     prodData: [],   // Stores finalized product
