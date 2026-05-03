@@ -830,9 +830,23 @@
             </span>
           </span>
         </button>
-
-        <button class="btnind btnsq" id="btnFlowGhost" title="Ghost mode - select particles with mouse to show gas-free and gas-rich path limits">
-          <span class="cap"><span class="cap-icon">👻</span></span>
+        <button class="btnind btnsq" id="btnSysSolidMap" title="Backdrop - slides an opaque sheet behind all active analytical tools for extra contrast">
+          <span class="cap">
+            <span class="cap-icon">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <!-- Data dots (behind the glass) -->
+                <circle cx="7" cy="8" r="2.5" fill="#ff4040" opacity="0.6" />
+                <circle cx="16" cy="10" r="3" fill="#40ff70" opacity="0.5" />
+                <circle cx="11" cy="16" r="2" fill="#ffee33" opacity="0.65" />
+                
+                <!-- The Milky Glass Sheet (Flat 45% white) -->
+                <circle cx="12" cy="12" r="10" fill="#ffffff" opacity="0.45" stroke="currentColor" stroke-width="1" stroke-opacity="0.6" />
+                
+                <!-- Specular Glare Arc -->
+                <path d="M 5.5 8.5 A 7.5 7.5 0 0 1 18.5 8.5" fill="none" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" opacity="0.4" />
+              </svg>
+            </span>
+          </span>
         </button>
         
         <!-- Row 2 -->
@@ -872,26 +886,10 @@
             </span>
           </span>
         </button>
-
-
-        <button class="btnind btnsq" id="btnSysSolidMap" title="Solid Backdrop - slides an opaque sheet behind all active analytical tools">
-          <span class="cap">
-            <span class="cap-icon">
-              <svg viewBox="0 0 24 24" width="20" height="20">
-                <!-- Data dots (behind the glass) -->
-                <circle cx="7" cy="8" r="2.5" fill="#ff4040" opacity="0.6" />
-                <circle cx="16" cy="10" r="3" fill="#40ff70" opacity="0.5" />
-                <circle cx="11" cy="16" r="2" fill="#ffee33" opacity="0.65" />
-                
-                <!-- The Milky Glass Sheet (Flat 45% white) -->
-                <circle cx="12" cy="12" r="10" fill="#ffffff" opacity="0.45" stroke="currentColor" stroke-width="1" stroke-opacity="0.6" />
-                
-                <!-- Specular Glare Arc -->
-                <path d="M 5.5 8.5 A 7.5 7.5 0 0 1 18.5 8.5" fill="none" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" opacity="0.4" />
-              </svg>
-            </span>
-          </span>
+        <button class="btnind btnsq" id="btnFlowGhost" title="Ghost mode - select particles with mouse to show gas-free and gas-rich path limits">
+          <span class="cap"><span class="cap-icon">👻</span></span>
         </button>
+
         <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
 
         <!-- Row 2: Speed Gear Shifter -->

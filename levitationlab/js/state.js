@@ -33,6 +33,8 @@
     aggMerging: null,
     showVectors: false,
     simSpeed: 1.0,
+    orbitSample: [],
+    lastOrbitUpdate: 0,
   };
 
   const heatmap = {

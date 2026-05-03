@@ -29,9 +29,9 @@
   // ============================================================
   // SECTION: EXPERT ANALYSIS CONTROLLER
   // ============================================================
-  const ANALYSIS_MODES = ['vectors', 'dispersion', 'density', 'product'];
+  const ANALYSIS_MODES = ['vectors', 'orbits', 'dispersion', 'density', 'product'];
   let currentAnalysisIdx = 0;
-  let hudMasterOn = false;
+  window.hudMasterOn = false;
 
   /**
    * Syncs the expert HUD master button state and activates the selected analysis mode.
@@ -46,9 +46,9 @@
 
     state.showVectors = false;
 
-    btnPrev.classList.toggle('disabled', !hudMasterOn);
-    btnNext.classList.toggle('disabled', !hudMasterOn);
-    btnMaster.classList.toggle('on', hudMasterOn);
+    btnPrev.classList.toggle('disabled', !window.hudMasterOn);
+    btnNext.classList.toggle('disabled', !window.hudMasterOn);
+    btnMaster.classList.toggle('on', window.hudMasterOn);
 
     if (!hudMasterOn) {
         heatmap.enabled = false;
@@ -424,8 +424,8 @@
 
   // HUD 4-6. HUD activation and gear shift
   document.getElementById('btnHudMaster').addEventListener('click', () => {
-    hudMasterOn = !hudMasterOn;
-    updateAnalysisInstrument(hudMasterOn); // true = fresh activation, triggers buffer reset
+    window.hudMasterOn = !window.hudMasterOn;
+    updateAnalysisInstrument(window.hudMasterOn); // true = fresh activation, triggers buffer reset
   });
 
   document.getElementById('btnModeNext').addEventListener('click', () => {
@@ -725,6 +725,5 @@
       }
     });
   }
-
-
 })();
+

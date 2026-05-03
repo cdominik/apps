@@ -352,40 +352,40 @@
     for (const g of state.globes) {
       const cx = X2px(g.x), cy = Y2px(g.y);
       const rpx = pxDist(g.r);
-      const texture = globeMaps[g.mapIdx]; // Select the specific map for this planet[cite: 3]
+      const texture = globeMaps[g.mapIdx]; // Select the specific map for this planet
 
       ctx.save();
       
-      // A. Atmospheric Halo (Outer blue glow)[cite: 3]
+      // A. Atmospheric Halo (Outer blue glow)
       const halo = ctx.createRadialGradient(cx, cy, rpx * 0.9, cx, cy, rpx * 1.3);
       halo.addColorStop(0, 'rgba(100, 200, 255, 0.3)');
       halo.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = halo;
       ctx.beginPath(); ctx.arc(cx, cy, rpx * 1.3, 0, Math.PI * 2); ctx.fill();
 
-      // B. Setup the Sphere Clipping[cite: 3]
+      // B. Setup the Sphere Clipping
       ctx.beginPath(); 
       ctx.arc(cx, cy, rpx, 0, Math.PI * 2); 
       ctx.clip(); 
 
-      // C. Draw the Texture (Seamless looping)[cite: 3]
+      // C. Draw the Texture (Seamless looping)
       if (texture && texture.complete) {
         const tw = rpx * 4; 
         const th = rpx * 2;
         
-        // Horizontal shift based on g.spin for rotation effect[cite: 3]
+        // Horizontal shift based on g.spin for rotation effect
         const shift = (g.spin * 50) % tw; 
 
-        // Draw texture twice side-by-side[cite: 3]
+        // Draw texture twice side-by-side
         ctx.drawImage(texture, cx - rpx - shift, cy - rpx, tw, th);
         ctx.drawImage(texture, cx - rpx - shift + tw, cy - rpx, tw, th);
       } else {
-        // Fallback color if image is missing[cite: 3]
+        // Fallback color if image is missing
         ctx.fillStyle = '#1e4a6d';
         ctx.fill();
       }
 
-      // D. Spherical Shading (Overlay to give 3D depth)[cite: 3]
+      // D. Spherical Shading (Overlay to give 3D depth)
       const shade = ctx.createRadialGradient(cx - rpx*0.3, cy - rpx*0.3, 0, cx, cy, rpx);
       shade.addColorStop(0, 'rgba(255, 255, 255, 0.2)'); // Top-left highlight[cite: 3]
       shade.addColorStop(0.5, 'rgba(0, 0, 0, 0)');      // Midtones[cite: 3]
@@ -1552,6 +1552,111 @@
     ctxOv.stroke();
   }
 
+function drawRepresentativeOrbits() {
+  if (typeof state.orbitSample === 'undefined' || !window.hudMasterOn || heatmap.mode !== 'orbits') {
+    return;
+  }
+
+  const R_DRUM = CFG.R_DRUM;
+
+  // 1. UPDATE THE SAMPLE EVERY 3.0 SECONDS
+  const lastUpdate = state.lastOrbitUpdate || 0;
+  if (state.t - lastUpdate > 3.0) {
+    state.lastOrbitUpdate = state.t;
+    
+    const getContainedOrb = (p, isLev) => {
+      if (!state.omega || Math.abs(state.omega) < 0.001) return null;
+      const xc = p.vt / state.omega;
+      const r = Math.hypot(p.x - xc, p.y);
+      if (Math.abs(xc) + r > R_DRUM) return null; 
+      return { p, xc, r, isLevitated: isLev };
+    };
+
+    const absOm = Math.abs(state.omega);
+    const T = (absOm < 1e-3) ? Infinity : (2 * Math.PI / absOm);
+
+    // Filter all floating particles first
+    const allValid = state.particles
+      .filter(p => p.alive && !p.stuck)
+      .map(p => {
+        const isL = p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
+        return getContainedOrb(p, isL);
+      })
+      .filter(o => o !== null);
+
+    if (allValid.length === 0) {
+      state.orbitSample = [];
+      return;
+    }
+
+    const finalSelection = new Set();
+
+    // --- CATEGORY 1: 5 Smallest Circumferences ---
+    const bySize = [...allValid].sort((a, b) => a.r - b.r);
+    bySize.slice(0, 5).forEach(o => finalSelection.add(o));
+
+    // --- CATEGORY 2: Levitated Spread (Min/Max Xc + 8 internal) ---
+    const levPool = allValid.filter(o => o.isLevitated).sort((a, b) => a.xc - b.xc);
+    if (levPool.length > 0) {
+      const count = 10;
+      if (levPool.length <= count) {
+        levPool.forEach(o => finalSelection.add(o));
+      } else {
+        for (let i = 0; i < count; i++) {
+          const idx = Math.floor(i * (levPool.length - 1) / (count - 1));
+          finalSelection.add(levPool[idx]);
+        }
+      }
+    }
+
+    // --- CATEGORY 3: Floating Spread (Min/Max Xc + 8 internal) ---
+    const floatPool = allValid.filter(o => !o.isLevitated).sort((a, b) => a.xc - b.xc);
+    if (floatPool.length > 0) {
+      const count = 10;
+      if (floatPool.length <= count) {
+        floatPool.forEach(o => finalSelection.add(o));
+      } else {
+        for (let i = 0; i < count; i++) {
+          const idx = Math.floor(i * (floatPool.length - 1) / (count - 1));
+          finalSelection.add(floatPool[idx]);
+        }
+      }
+    }
+
+    state.orbitSample = Array.from(finalSelection);
+  }
+
+  // 2. RENDER THE STEADY SAMPLE
+  if (state.orbitSample.length === 0) return;
+
+  ctxOv.save();
+  ctxOv.lineWidth = 1.2;
+  ctxOv.setLineDash([]);
+
+  state.orbitSample.forEach(orb => {
+    if (!orb.p.alive || orb.p.stuck) return;
+
+    const col = orb.isLevitated ? '0, 255, 255' : '255, 64, 64';
+    ctxOv.strokeStyle = `rgba(${col}, 0.6)`;
+    ctxOv.fillStyle = `rgba(${col}, 0.8)`;
+
+    const pxCenter = X2px(orb.xc);
+    const pyCenter = Y2px(0);
+    const currentR = Math.hypot(orb.p.x - orb.xc, orb.p.y);
+    const pxRadius = pxDist(currentR);
+
+    ctxOv.beginPath();
+    ctxOv.arc(pxCenter, pyCenter, pxRadius, 0, Math.PI * 2); 
+    ctxOv.stroke();
+
+    ctxOv.beginPath(); 
+    ctxOv.arc(pxCenter, pyCenter, 2.0, 0, Math.PI * 2); 
+    ctxOv.fill();
+  });
+  ctxOv.restore();
+}
+
+
   function drawAggregateOrbits() {
     if (!TUNING.aggregate.flashOrbit) return;
 
@@ -1752,6 +1857,8 @@
       let caption = "";
       if (state.showVectors) {
           caption = "resultant vector field";
+      } else if (heatmap.mode === 'orbits') {
+          caption = "selected orbits";
       } else if (heatmap.mode === 'dispersion') {
           caption = "velocity variance σ_v";
       } else if (heatmap.mode === 'density') {
@@ -1776,6 +1883,7 @@
 
     // --- OVERLAY LINE-ART (Drawn ON TOP of Heatmap) ---
     drawVectorField();
+    drawRepresentativeOrbits();
     drawAggregateOrbits();
     drawVtProjection();
   }
