@@ -70,42 +70,49 @@
   function scheduleInjections() {
     state.toInject = [];
     const N = CFG.N_P;
+    const dist = state.distMode;
+    const p = state.distParams;
+  
     for (let i = 0; i < N; i++) {
       const t = (N === 1 || CFG.DT_INJECT === 0) ? 0 : (i / (N - 1)) * CFG.DT_INJECT;
       const x = CFG.RELEASE_X_MIN + Math.random() * (CFG.RELEASE_X_MAX - CFG.RELEASE_X_MIN);
-      let vt = CFG.V_T;
-      if (CFG.VT_SPREAD > 0) {
+      let vt;
+  
+      if (dist === 'bi') {
+        const prob1 = p.bi.ratio / (1 + p.bi.ratio);
+        if (Math.random() < prob1) {
+          // Use v_t 1 and spread 1
+          vt = p.bi.vt1 * (1 + p.bi.s1 * randn());
+        } else {
+          // Use v_t 2 and spread 2
+          vt = p.bi.vt2 * (1 + p.bi.s2 * randn());
+        }
+      } 
+      else if (dist === 'power') {
+        // Powerlaw Inverse Transform Sampling: n(v) ~ v^q
+        const q = p.power.index;
+        const v0 = p.power.vtMin;
+        const v1 = p.power.vtMax;
+        const u = Math.random();
+        
+        if (Math.abs(q + 1) < 1e-6) { // Special case for q = -1 (log distribution)
+          vt = v0 * Math.pow(v1 / v0, u);
+        } else {
+          vt = Math.pow(u * (Math.pow(v1, q + 1) - Math.pow(v0, q + 1)) + Math.pow(v0, q + 1), 1 / (q + 1));
+        }
+        // Spread slider is ignored for powerlaw as the law defines the spread
+      } 
+      else {
+        // Default Gaussian behavior
         vt = CFG.V_T * (1 + CFG.VT_SPREAD * randn());
-        if (vt < TUNING.particle.settleFloor) vt = TUNING.particle.settleFloor;
       }
+  
+      if (vt < TUNING.particle.settleFloor) vt = TUNING.particle.settleFloor;
       state.toInject.push({ t, x, vt });
     }
     state.toInject.sort((a, b) => a.t - b.t);
   }
-
-  /**
-   * Adds a visual puff at the nozzle closest to the given x position.
-   *
-   * @param {number} particleX_cm - The particle's x coordinate in centimetres.
-   */
-  function spawnPuffAtNozzle(particleX_cm) {
-    if (!GEO.nozzleXs.length) return;
-    const particleX_px = X2px(particleX_cm);
-    let bestIdx = 0, bestD = Infinity;
-    for (let i = 0; i < GEO.nozzleXs.length; i++) {
-      const d = Math.abs(GEO.nozzleXs[i] - particleX_px);
-      if (d < bestD) { bestD = d; bestIdx = i; }
-    }
-    const x = GEO.nozzleXs[bestIdx];
-    const y = GEO.nozzleTipY;
-    state.puffs.push({ x, y, bornAt: state.t, life: 0.42 });
-  }
-
-  /**
-   * Triggers a new particle injection while preserving persistent 
-   * structures like pebbles (golden balls), globes, and aggregates.
-   */
-  /**
+ /**
    * Triggers a new particle injection while preserving persistent 
    * structures like pebbles (golden balls), globes, and aggregates.
    */

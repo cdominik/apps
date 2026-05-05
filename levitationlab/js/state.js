@@ -35,6 +35,14 @@
     simSpeed: 1.0,
     orbitSample: [],
     lastOrbitUpdate: 0,
+    distParams: {
+      bi: { 
+        vt1: 10, s1: 0.00, 
+        vt2: 40, s2: 0.00, 
+        ratio: 1.0 
+      },
+      power: { vtMin: 5, vtMax: 50, index: -3.5 }
+    },
   };
 
   const heatmap = {

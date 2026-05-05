@@ -749,6 +749,35 @@
     transition: opacity 0.4s ease-out 0.2s;
     pointer-events: auto;
   }
+
+  /* DISTRIBUTION OVERLAY SPECIFIC STYLES */
+  .dist-form { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
+  .dist-row { display: flex; align-items: center; gap: 12px; }
+  .dist-label { flex: 1; font-size: 11px; text-transform: uppercase; color: #ffcc55; letter-spacing: 1px; }
+  
+  /* Input styling to match the digital gauges */
+  .dist-input {
+    width: 65px; height: 28px; padding: 2px 6px;
+    background: radial-gradient(ellipse at 50% 30%, #143018 0%, #0a1a0e 70%, #050a06 100%);
+    border: 1px solid #5a4418; border-radius: 3px;
+    color: #6fff8a; font-family: 'Courier New', monospace; font-weight: bold;
+    text-align: center; font-size: 14px;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.9);
+  }
+  .dist-input:focus { outline: none; border-color: #ffcc55; box-shadow: 0 0 8px rgba(255,204,85,0.4); }
+  
+  /* Style for the radio group sections */
+  .dist-section {
+    padding: 8px;
+    border-radius: 4px;
+    background: rgba(0,0,0,0.15);
+    border-left: 2px solid transparent;
+    transition: border-color 0.2s;
+  }
+  .dist-section:has(input[type="radio"]:checked) {
+    border-left-color: #ffcc55;
+    background: rgba(255,204,85,0.05);
+  }
 </style>
 </head>
 <body>
@@ -890,7 +919,9 @@
           <span class="cap"><span class="cap-icon">👻</span></span>
         </button>
 
-        <button class="btnind btnsq disabled" disabled><span class="cap"></span></button>
+        <button class="btnind btnsq" id="btnDistMenu" title="Injection Distribution Settings">
+          <span class="cap"><span class="cap-icon">📊</span></span>
+        </button>
 
         <!-- Row 2: Speed Gear Shifter -->
         <button class="btnind btnsq" id="btnSpeedDown" title="Slower simulation speed">
@@ -1032,6 +1063,75 @@
       </ul>
 
       <p class="manual-footer">Press <kbd>Esc</kbd> or × to close.</p>
+    </div>
+  </div>
+
+
+  <!-- DISTRIBUTION OVERLAY -->
+  <div class="manual-overlay" id="distOverlay" hidden>
+    <div class="manual-box" style="max-width: 420px;">
+      <button class="manual-close" id="distClose">×</button>
+      <h2>Injection Profile</h2>
+      
+      <form class="dist-form" id="distForm">
+        <!-- MODE 1: DEFAULT -->
+        <div class="dist-section">
+          <label class="dist-row" style="cursor:pointer;">
+            <input type="radio" name="distMode" value="default" checked>
+            <span class="dist-label">Standard Gaussian (v_t slider)</span>
+          </label>
+        </div>
+
+        <!-- BI-MONODISPERSE SECTION -->
+        <div class="dist-section">
+          <label class="dist-row" style="cursor:pointer; margin-bottom: 8px;">
+            <input type="radio" name="distMode" value="bi">
+            <span class="dist-label">Bi-Monodisperse</span>
+          </label>
+          <div style="margin-left: 24px; display: flex; flex-direction: column; gap: 8px;">
+            <!-- Row 1: v_t 1 and its spread -->
+            <div class="dist-row">
+              <span class="dist-label" style="color:#d8d0c0">Group 1:</span>
+              <input type="number" id="biVt1" class="dist-input" value="10" placeholder="v_t">
+              <!-- Changed value from 0.05 to 0 -->
+              <input type="number" id="biS1" class="dist-input" value="0" step="0.01" placeholder="±%">
+            </div>
+            <!-- Row 2: v_t 2 and its spread -->
+            <div class="dist-row">
+              <span class="dist-label" style="color:#d8d0c0">Group 2:</span>
+              <input type="number" id="biVt2" class="dist-input" value="40" placeholder="v_t">
+              <!-- Changed value from 0.05 to 0 -->
+              <input type="number" id="biS2" class="dist-input" value="0" step="0.01" placeholder="±%">
+            </div>
+          </div>
+        </div>
+
+        <!-- MODE 3: POWERLAW -->
+        <div class="dist-section">
+          <label class="dist-row" style="cursor:pointer; margin-bottom: 8px;">
+            <input type="radio" name="distMode" value="power">
+            <span class="dist-label">Powerlaw Distribution</span>
+          </label>
+          <div style="margin-left: 24px; display: flex; flex-direction: column; gap: 6px;">
+            <div class="dist-row">
+              <span class="dist-label" style="color:#d8d0c0">v_min (cm/s)</span>
+              <input type="number" id="powMin" class="dist-input" value="5" step="1">
+            </div>
+            <div class="dist-row">
+              <span class="dist-label" style="color:#d8d0c0">v_max (cm/s)</span>
+              <input type="number" id="powMax" class="dist-input" value="50" step="1">
+            </div>
+            <div class="dist-row">
+              <span class="dist-label" style="color:#d8d0c0">Index (q)</span>
+              <input type="number" id="powIndex" class="dist-input" value="-3.5" step="0.1">
+            </div>
+          </div>
+        </div>
+      </form>
+      
+      <p class="manual-footer" style="margin-top:15px; text-align:center;">
+        New profiles apply to the <strong>next</strong> injection event.
+      </p>
     </div>
   </div>
 

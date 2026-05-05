@@ -352,6 +352,40 @@
     if (e.key === 'Escape' && !manualOverlay.hidden) closeManual();
   });
 
+  // SECTION: DISTRIBUTION OVERLAY LOGIC
+  const btnDistMenu = document.getElementById('btnDistMenu');
+  const distOverlay = document.getElementById('distOverlay');
+  const distClose   = document.getElementById('distClose');
+  const distForm    = document.getElementById('distForm');
+
+  btnDistMenu.addEventListener('click', () => { distOverlay.hidden = false; });
+  distClose.addEventListener('click', () => { distOverlay.hidden = true; });
+  
+  // Close on clicking the backdrop
+  distOverlay.addEventListener('click', (e) => {
+    if (e.target === distOverlay) distOverlay.hidden = true;
+  });
+
+  // Sync Form to State
+  distForm.addEventListener('change', () => {
+    const formData = new FormData(distForm);
+    state.distMode = formData.get('distMode');
+    
+    // Bi-Monodisperse Sync
+    state.distParams.bi.vt1 = parseFloat(document.getElementById('biVt1').value) || 10;
+    state.distParams.bi.s1  = parseFloat(document.getElementById('biS1').value) || 0;
+    state.distParams.bi.vt2 = parseFloat(document.getElementById('biVt2').value) || 40;
+    state.distParams.bi.s2  = parseFloat(document.getElementById('biS2').value) || 0;
+    state.distParams.bi.ratio = parseFloat(document.getElementById('biRatio').value) || 1.0;
+    
+    // Powerlaw Sync
+    state.distParams.power.vtMin = parseFloat(document.getElementById('powMin').value) || 5;
+    state.distParams.power.vtMax = parseFloat(document.getElementById('powMax').value) || 50;
+    state.distParams.power.index = parseFloat(document.getElementById('powIndex').value) || -3.5;
+    
+    btnDistMenu.classList.toggle('on', state.distMode !== 'default');
+  });
+
   // Initial layout and level setup — must run after all button wiring is complete
   window.addEventListener('resize', layout);
   layout();
