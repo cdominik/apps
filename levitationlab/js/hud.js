@@ -147,14 +147,37 @@
       SEL_WIN[key].textContent = s.label(v);
     }
   }
+  // Update the window click listeners to handle shortcuts
   document.querySelectorAll('.sel').forEach(sel => {
     const key = sel.getAttribute('data-key');
+    const win = sel.querySelector('.win');
+    
+    if (win) {
+      win.addEventListener('click', (e) => {
+        e.preventDefault();
+        
+        // If a custom distribution is active and the user clicks VT or SPREAD
+        const isCustom = state.distMode !== 'default';
+        const isTargetKey = (key === 'VT' || key === 'SPREAD');
+
+        if (isCustom && isTargetKey) {
+          // SHORTCUT: Open the distribution overlay
+          document.getElementById('distOverlay').hidden = false;
+        } else {
+          // DEFAULT: Cycle the setting normally
+          cycleSetting(key, +1);
+        }
+      });
+    }
+    
+    // Keep chevron behavior standard (optional: you could make them open the menu too)
     sel.querySelectorAll('.chev').forEach(ch => {
       const dir = parseInt(ch.getAttribute('data-dir'), 10);
-      ch.addEventListener('click', (e) => { e.preventDefault(); cycleSetting(key, dir); });
+      ch.addEventListener('click', (e) => { 
+        e.preventDefault(); 
+        cycleSetting(key, dir); 
+      });
     });
-    const win = sel.querySelector('.win');
-    if (win) win.addEventListener('click', (e) => { e.preventDefault(); cycleSetting(key, +1); });
   });
   applyInitialSettings();
 
