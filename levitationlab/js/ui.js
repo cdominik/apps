@@ -369,8 +369,7 @@
   // Sync Distribution Form to State
   distForm.addEventListener('change', () => {
     const formData = new FormData(distForm);
-    // Capture the value of the selected radio button: 'default', 'bi', or 'power'
-    state.distMode = formData.get('distMode');
+    state.distMode = formData.get('distMode'); // 'default', 'bi', or 'power'
     
     // Sync specific parameters
     state.distParams.bi.vt1 = parseFloat(document.getElementById('biVt1').value) || 10;

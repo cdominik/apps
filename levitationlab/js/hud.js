@@ -58,33 +58,33 @@
     elRemaining.textContent = levitated;
   
     // --- CONDITIONAL DISPLAY OVERRIDE ---
-    // Only show "CUSTOM" if we are NOT in the standard Gaussian mode
-    const isCustom = state.distMode && state.distMode !== 'default';
+    const label = state.distLabels[state.distMode];
     const winVT = SEL_WIN.VT;
     const winSpread = SEL_WIN.SPREAD;
   
-    if (isCustom) {
-      winVT.textContent = "CUSTOM";
-      winVT.style.color = "#ff8c30"; // Expert orange
+    if (label) {
+      // A custom label exists, apply the Expert Orange override
+      winVT.textContent = label;
+      winVT.style.color = "#ff8c30";
       winVT.style.fontSize = "10px";
       
-      winSpread.textContent = "CUSTOM";
+      winSpread.textContent = label;
       winSpread.style.color = "#ff8c30";
       winSpread.style.fontSize = "10px";
     } else {
-      // Restore default labels from SETTINGS[cite: 4]
+      // No custom label (default mode), restore Standard SETTINGS
       const sVT = SETTINGS.VT;
       const sSpread = SETTINGS.SPREAD;
       
       winVT.textContent = sVT.label(sVT.values[sVT.idx]);
-      winVT.style.color = ""; // Reverts to CSS green
+      winVT.style.color = ""; 
       winVT.style.fontSize = ""; 
   
       winSpread.textContent = sSpread.label(sSpread.values[sSpread.idx]);
       winSpread.style.color = "";
       winSpread.style.fontSize = "";
     }
-  
+
     // Dynamic Aggregate Gauge
     const activeAggs = state.aggCount;
     if (activeAggs > 0) {

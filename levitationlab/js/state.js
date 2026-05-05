@@ -35,7 +35,13 @@
     simSpeed: 1.0,
     orbitSample: [],
     lastOrbitUpdate: 0,
-    distParams: {
+    distMode: 'default',
+    distLabels: {
+      'default': null,      // Null tells HUD to use standard SETTINGS labels
+      'bi': 'BiDisp',
+      'power': 'PowLaw'
+    },
+    didistParams: {
       bi: { 
         vt1: 10, s1: 0.00, 
         vt2: 40, s2: 0.00, 
