@@ -41,7 +41,7 @@
       'bi': 'BiDisp',
       'power': 'PowLaw'
     },
-    didistParams: {
+    distParams: {
       bi: { 
         vt1: 10, s1: 0.00, 
         vt2: 40, s2: 0.00, 

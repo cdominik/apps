@@ -1705,34 +1705,97 @@ function drawRepresentativeOrbits() {
 
   function drawVtProjection() {
     if (!TUNING.particle.showVtProjection) return;
-
+  
     const absOm = Math.abs(state.omega);
-    if (absOm > 0.01) {
+    // Ensure we have a valid rotation and the state exists
+    if (absOm < 0.01 || !state.distParams) return;
+  
+    const py0 = Y2px(0);
+    const dist = state.distMode;
+    const p = state.distParams;
+  
+    ctxOv.save();
+    ctxOv.strokeStyle = 'rgba(0, 255, 255, 0.5)';
+    ctxOv.fillStyle = 'rgba(0, 255, 255, 0.7)';
+    ctxOv.lineWidth = 1.2;
+  
+    if (dist === 'bi') {
+      // MODE: BI-MONODISPERSE
+      // Safety check: ensure both groups have defined values
+      const groups = [
+        { vt: p.bi.vt1 || 10, s: p.bi.s1 ?? 0 },
+        { vt: p.bi.vt2 || 40, s: p.bi.s2 ?? 0 }
+      ];
+  
+      groups.forEach(group => {
+        const delta = group.vt * group.s;
+        const vts = [group.vt - delta, group.vt, group.vt + delta];
+        // Convert velocities to screen coordinates
+        const points = vts.map(v => X2px(v / state.omega));
+  
+        // Draw the horizontal dashed line for the spread
+        ctxOv.setLineDash([4, 4]);
+        ctxOv.beginPath(); 
+        ctxOv.moveTo(points[0], py0); 
+        ctxOv.lineTo(points[2], py0); 
+        ctxOv.stroke();
+  
+        // Draw the three indicator points
+        ctxOv.setLineDash([]);
+        points.forEach((px, i) => {
+          ctxOv.beginPath();
+          // Central point is a filled circle, outer points are rings
+          const radius = (i === 1) ? 4.5 : 2.2; 
+          ctxOv.arc(px, py0, radius, 0, Math.PI * 2);
+          if (i === 1) ctxOv.fill(); else ctxOv.stroke();
+        });
+      });
+  
+    } else if (dist === 'power') {
+      // MODE: POWERLAW
+      // Safety check: ensure min and max are valid numbers
+      const vMin = p.power.vtMin || 5;
+      const vMax = p.power.vtMax || 50;
+      const points = [vMin, vMax].map(v => X2px(v / state.omega));
+  
+      // Draw the range bar
+      ctxOv.setLineDash([4, 4]);
+      ctxOv.beginPath(); 
+      ctxOv.moveTo(points[0], py0); 
+      ctxOv.lineTo(points[1], py0); 
+      ctxOv.stroke();
+  
+      // Draw only the outer limit rings (no center)
+      ctxOv.setLineDash([]);
+      points.forEach(px => {
+        ctxOv.beginPath();
+        ctxOv.arc(px, py0, 2.5, 0, Math.PI * 2);
+        ctxOv.stroke();
+      });
+  
+    } else {
+      // DEFAULT GAUSSIAN (Standard behavior)
       const vtBase = CFG.V_T;
-      const delta = vtBase * CFG.VT_SPREAD; 
+      const delta = vtBase * CFG.VT_SPREAD;
       const velocities = [vtBase - delta, vtBase, vtBase + delta];
-      const py0 = Y2px(0);
-      
-      // Now drawing on ctxOv!
-      ctxOv.save();
-      ctxOv.strokeStyle = 'rgba(0, 255, 255, 0.5)';
-      ctxOv.fillStyle = 'rgba(0, 255, 255, 0.7)';
-      ctxOv.setLineDash([4, 4]); 
-      ctxOv.lineWidth = 1.2;
-
-      let points = velocities.map(v => X2px(v / state.omega));
-
-      ctxOv.beginPath(); ctxOv.moveTo(points[0], py0); ctxOv.lineTo(points[2], py0); ctxOv.stroke();
-
+      const points = velocities.map(v => X2px(v / state.omega));
+  
+      ctxOv.setLineDash([4, 4]);
+      ctxOv.beginPath(); 
+      ctxOv.moveTo(points[0], py0); 
+      ctxOv.lineTo(points[2], py0); 
+      ctxOv.stroke();
+  
+      ctxOv.setLineDash([]);
       points.forEach((px, i) => {
         ctxOv.beginPath();
         const radius = (i === 1) ? 5 : 2.5;
         ctxOv.arc(px, py0, radius, 0, Math.PI * 2);
-        if (i === 1) ctxOv.fill();
-        else { ctxOv.setLineDash([]); ctxOv.stroke(); }
+        if (i === 1) ctxOv.fill(); else ctxOv.stroke();
       });
-      ctxOv.restore();
     }
+  
+    ctxOv.restore();
   }
 
   // ============================================================
