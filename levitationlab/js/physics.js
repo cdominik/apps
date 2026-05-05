@@ -102,16 +102,40 @@
   }
 
   /**
-   * Resets the level while preserving drum speed, then schedules injections and starts running.
+   * Triggers a new particle injection while preserving persistent 
+   * structures like pebbles (golden balls), globes, and aggregates.
+   */
+  /**
+   * Triggers a new particle injection while preserving persistent 
+   * structures like pebbles (golden balls), globes, and aggregates.
    */
   function startRelease() {
-    const savedOmega = state.omega;
-    const savedTarget = state.omegaTarget;
-    const savedAngle = state.drumAngle;
-    initLevel();
-    state.omega = savedOmega;
-    state.omegaTarget = savedTarget;
-    state.drumAngle = savedAngle;
+    state.running = false;
+    state.particles = [];
+    state.toInject = [];
+    state.puffs = [];
+    
+    // 1. Reset simulation clock
+    state.t = 0;
+    state.lostCount = 0;
+  
+    // 2. RE-SYNC PERSISTENT OBJECTS TO THE NEW TIMELINE
+    state.goldenBalls.forEach(b => {
+      b.bornAt = 0; 
+    });
+    
+    state.aggregates.forEach(agg => {
+      // RESET LEVITATION TRACKING: Force them to earn levitation in the new run
+      agg.inHighlightSince = null; 
+      // Reset any time-dependent aggregate flashes
+      agg.orbitFlashEndsAt = 0; 
+    });
+  
+    state.globes.forEach(g => {
+      g.bornAt = 0;
+    });
+  
+    // 3. SCHEDULE AND START
     scheduleInjections();
     state.running = true;
   }
