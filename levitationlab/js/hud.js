@@ -33,15 +33,15 @@
     const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
     elPeriod.textContent = isFinite(T) ? T.toFixed(2) : '∞';
     let floating = 0, levitated = 0;
-
+  
     for (const p of state.particles) {
       if (!p.alive) continue;
       if (p.stuck) { p.wasLevitated = false; continue; }
       if (p.merging) continue;
-
+  
       floating++;
       const nowLev = isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
-
+  
       if (nowLev) {
         levitated++;
         if (!p.wasLevitated) {
@@ -52,11 +52,39 @@
         p.wasLevitated = false;
       }
     }
-
+  
     elFloating.textContent = floating;
     elCaptured.textContent = state.lostCount;
     elRemaining.textContent = levitated;
-
+  
+    // --- CONDITIONAL DISPLAY OVERRIDE ---
+    // Only show "CUSTOM" if we are NOT in the standard Gaussian mode
+    const isCustom = state.distMode && state.distMode !== 'default';
+    const winVT = SEL_WIN.VT;
+    const winSpread = SEL_WIN.SPREAD;
+  
+    if (isCustom) {
+      winVT.textContent = "CUSTOM";
+      winVT.style.color = "#ff8c30"; // Expert orange
+      winVT.style.fontSize = "10px";
+      
+      winSpread.textContent = "CUSTOM";
+      winSpread.style.color = "#ff8c30";
+      winSpread.style.fontSize = "10px";
+    } else {
+      // Restore default labels from SETTINGS[cite: 4]
+      const sVT = SETTINGS.VT;
+      const sSpread = SETTINGS.SPREAD;
+      
+      winVT.textContent = sVT.label(sVT.values[sVT.idx]);
+      winVT.style.color = ""; // Reverts to CSS green
+      winVT.style.fontSize = ""; 
+  
+      winSpread.textContent = sSpread.label(sSpread.values[sSpread.idx]);
+      winSpread.style.color = "";
+      winSpread.style.fontSize = "";
+    }
+  
     // Dynamic Aggregate Gauge
     const activeAggs = state.aggCount;
     if (activeAggs > 0) {
@@ -68,7 +96,7 @@
     } else {
       elAggCount.textContent = 0;
     }
-
+  
     // Dynamic Pebble Gauge
     if (state.eggBallCount > 0) {
       if (gaugePebble.style.display === 'none') {
@@ -78,7 +106,6 @@
       elPebbleCount.textContent = state.eggBallCount;
     }
   }
-
   // ============================================================
   // SECTION: SETTINGS SELECTORS
   // ============================================================
