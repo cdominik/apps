@@ -1864,7 +1864,7 @@ function drawRepresentativeOrbits() {
       } else if (heatmap.mode === 'density') {
           caption = "particle density n_p";
       } else if (heatmap.mode === 'product') {
-          caption = "collisions n_p · σ_v";
+          caption = "coll. proxy n_p · σ_v";
       }
 
       const rInnerCaption = pxDist(CFG.R_DRUM); 
