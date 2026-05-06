@@ -360,32 +360,36 @@
 
   btnDistMenu.addEventListener('click', () => { distOverlay.hidden = false; });
   distClose.addEventListener('click', () => { distOverlay.hidden = true; });
-  
-  // Close on clicking the backdrop
-  distOverlay.addEventListener('click', (e) => {
-    if (e.target === distOverlay) distOverlay.hidden = true;
-  });
-
-  // Sync Distribution Form to State
-  distForm.addEventListener('change', () => {
+    
+    // Close on clicking the backdrop
+    distForm.addEventListener('change', () => {
     const formData = new FormData(distForm);
-    state.distMode = formData.get('distMode'); // 'default', 'bi', or 'power'
-    
-    // Sync specific parameters
-    state.distParams.bi.vt1 = parseFloat(document.getElementById('biVt1').value) || 10;
-    state.distParams.bi.vt2 = parseFloat(document.getElementById('biVt2').value) || 40;
-    state.distParams.bi.s1  = parseFloat(document.getElementById('biS1').value) || 0;
-    state.distParams.bi.s2  = parseFloat(document.getElementById('biS2').value) || 0;
-    state.distParams.bi.ratio = parseFloat(document.getElementById('biRatio').value) || 1.0;
-    
-    state.distParams.power.vtMin = parseFloat(document.getElementById('powMin').value) || 5;
-    state.distParams.power.vtMax = parseFloat(document.getElementById('powMax').value) || 50;
-    state.distParams.power.index = parseFloat(document.getElementById('powIndex').value) || -3.5;
-    
-    // Light up the expert button if a custom mode is active
-    btnDistMenu.classList.toggle('on', state.distMode !== 'default');
-    
-    // Force immediate HUD update to swap "CUSTOM" for numbers or vice-versa
+    state.distMode = formData.get('distMode');
+  
+    // Helper to safely get values
+    const safeVal = (id, fallback) => {
+      const el = document.getElementById(id);
+      return el ? parseFloat(el.value) : fallback;
+    };
+  
+    // Sync Bi-Monodisperse
+    state.distParams.bi.vt1 = safeVal('biVt1', 10);
+    state.distParams.bi.s1  = safeVal('biS1', 0);
+    state.distParams.bi.vt2 = safeVal('biVt2', 40);
+    state.distParams.bi.s2  = safeVal('biS2', 0);
+    state.distParams.bi.ratio = safeVal('biRatio', 1.0);
+  
+    // Sync Powerlaw
+    state.distParams.power.vtMin = safeVal('powMin', 5);
+    state.distParams.power.vtMax = safeVal('powMax', 50);
+    state.distParams.power.index = safeVal('powIndex', -3.5);
+  
+    // FIX THE BUTTON LIGHTING HERE
+    const menuBtn = document.getElementById('btnDistMenu');
+    if (menuBtn) {
+      menuBtn.classList.toggle('on', state.distMode !== 'default');
+    }
+  
     updateHUD(); 
   });
 
