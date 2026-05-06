@@ -112,6 +112,23 @@
     }
     state.toInject.sort((a, b) => a.t - b.t);
   }
+  /**
+   * Adds a visual puff at the nozzle closest to the given x position.
+   *
+   * @param {number} particleX_cm - The particle's x coordinate in centimetres.
+   */
+  function spawnPuffAtNozzle(particleX_cm) {
+    if (!GEO.nozzleXs.length) return;
+    const particleX_px = X2px(particleX_cm);
+    let bestIdx = 0, bestD = Infinity;
+    for (let i = 0; i < GEO.nozzleXs.length; i++) {
+      const d = Math.abs(GEO.nozzleXs[i] - particleX_px);
+      if (d < bestD) { bestD = d; bestIdx = i; }
+    }
+    const x = GEO.nozzleXs[bestIdx];
+    const y = GEO.nozzleTipY;
+    state.puffs.push({ x, y, bornAt: state.t, life: 0.42 });
+  }
  /**
    * Triggers a new particle injection while preserving persistent 
    * structures like pebbles (golden balls), globes, and aggregates.
