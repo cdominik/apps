@@ -793,7 +793,10 @@
   const uP = new URLSearchParams(window.location.search);
   isExpertURL = uP.has('expert');
   isDesignerURL = uP.has('designer');
-
+  // Apply the modern theme class if ?modern is in the URL
+  if (uP.has('modern')) {
+    document.body.classList.add('theme-modern');
+  }
   const expertDoor = document.getElementById('expertDoor');
 
   // 1. PHYSICAL DOOR INTERACTION (Sound & Rattle)

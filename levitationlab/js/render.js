@@ -756,6 +756,7 @@
   // SECTION: RENDER — INJECTOR
   // ============================================================
   /** Draws the particle injector nozzle assembly above the drum. */
+  /** Draws the particle injector nozzle assembly above the drum, supporting both Brass and Modern themes. */
   function drawInjector() {
     const barHeightCm = 9;
     const yNozzleTip = Y2px(CFG.RELEASE_Y);
@@ -770,31 +771,28 @@
     if (yBot < 0) { GEO.nozzleXs = []; return; }
 
     const capW = Math.max(6, pxDist(4));
-
     const beamW = Math.max(8, pxDist(5));
     const beam1X = x0 + capW + barH * 1.5;
     const beam2X = x1 - capW - barH * 1.5 - beamW;
 
+    // Determine current theme
+    const isModern = document.body.classList.contains('theme-modern');
+    const isLight = PAL.name === 'light';
+
     if (yTop > 0) {
-      const isLight = PAL.name === 'light';
       for (const bx of [beam1X, beam2X]) {
+        // --- 1. SUPPORT BEAMS ---
         const bg = ctx.createLinearGradient(bx, 0, bx + beamW, 0);
-        if (isLight) {
-          bg.addColorStop(0.00, '#d6d2c2');
-          bg.addColorStop(0.30, '#e2dece');
-          bg.addColorStop(0.70, '#b4ae9e');
-          bg.addColorStop(1.00, '#6e6858');
+        if (isModern) {
+          bg.addColorStop(0.00, '#cfd4d9'); bg.addColorStop(0.30, '#e8ecef'); bg.addColorStop(0.70, '#adb5bd'); bg.addColorStop(1.00, '#495057');
+        } else if (isLight) {
+          bg.addColorStop(0.00, '#d6d2c2'); bg.addColorStop(0.30, '#e2dece'); bg.addColorStop(0.70, '#b4ae9e'); bg.addColorStop(1.00, '#6e6858');
         } else {
-          bg.addColorStop(0.00, '#6a6a72');
-          bg.addColorStop(0.30, '#8a8a92');
-          bg.addColorStop(0.70, '#4a4a52');
-          bg.addColorStop(1.00, '#1a1a22');
+          bg.addColorStop(0.00, '#6a6a72'); bg.addColorStop(0.30, '#8a8a92'); bg.addColorStop(0.70, '#4a4a52'); bg.addColorStop(1.00, '#1a1a22');
         }
+        ctx.fillStyle = bg; ctx.fillRect(bx, 0, beamW, yTop);
 
-        ctx.fillStyle = bg;
-        ctx.fillRect(bx, 0, beamW, yTop);
-
-        ctx.strokeStyle = isLight ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.3)';
+        ctx.strokeStyle = (isModern || isLight) ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.3)';
         ctx.lineWidth = 1.2;
         ctx.beginPath(); ctx.moveTo(bx + 0.5, 0); ctx.lineTo(bx + 0.5, yTop); ctx.stroke();
         ctx.strokeStyle = 'rgba(0,0,0,0.7)';
@@ -805,18 +803,20 @@
         const flX = bx - (flW - beamW) / 2;
         const flY = yTop - flH;
 
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillStyle = isModern ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.5)';
         ctx.fillRect(flX + 1, flY + 2, flW, flH);
 
+        // --- 2. FLANGE BASE ---
         const fg = ctx.createLinearGradient(0, flY, 0, flY + flH);
-        fg.addColorStop(0.00, '#f0d088');
-        fg.addColorStop(0.40, '#d9b76a');
-        fg.addColorStop(1.00, '#5a4418');
-        ctx.fillStyle = fg;
-        ctx.fillRect(flX, flY, flW, flH);
-        ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(flX, flY, flW, flH);
+        if (isModern) {
+          fg.addColorStop(0.00, '#f8f9fa'); fg.addColorStop(0.40, '#cfd4d9'); fg.addColorStop(1.00, '#6c757d');
+        } else {
+          fg.addColorStop(0.00, '#f0d088'); fg.addColorStop(0.40, '#d9b76a'); fg.addColorStop(1.00, '#5a4418');
+        }
+        ctx.fillStyle = fg; ctx.fillRect(flX, flY, flW, flH);
+        
+        ctx.strokeStyle = isModern ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.6)';
+        ctx.lineWidth = 1; ctx.strokeRect(flX, flY, flW, flH);
 
         const rivetR = Math.max(1.6, beamW * 0.15);
         rivet(flX + flW * 0.2, flY + flH * 0.5, rivetR);
@@ -824,31 +824,33 @@
       }
     }
 
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillStyle = isModern ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.55)';
     ctx.fillRect(x0 + 3, yBot + 1, x1 - x0, 4);
 
-    const gBrass = ctx.createLinearGradient(0, yTop, 0, yBot);
-    gBrass.addColorStop(0.00, '#f0d088');
-    gBrass.addColorStop(0.10, '#e8c77a');
-    gBrass.addColorStop(0.30, '#d9b76a');
-    gBrass.addColorStop(0.65, '#8a6b2e');
-    gBrass.addColorStop(0.90, '#5a4418');
-    gBrass.addColorStop(1.00, '#2a1a06');
-    ctx.fillStyle = gBrass;
-    ctx.fillRect(x0, yTop, x1 - x0, yBot - yTop);
+    // --- 3. MAIN BODY ---
+    const gBody = ctx.createLinearGradient(0, yTop, 0, yBot);
+    if (isModern) {
+      gBody.addColorStop(0.00, '#ffffff'); gBody.addColorStop(0.10, '#f8f9fa'); gBody.addColorStop(0.30, '#e8ecef');
+      gBody.addColorStop(0.65, '#cfd4d9'); gBody.addColorStop(0.90, '#adb5bd'); gBody.addColorStop(1.00, '#495057');
+    } else {
+      gBody.addColorStop(0.00, '#f0d088'); gBody.addColorStop(0.10, '#e8c77a'); gBody.addColorStop(0.30, '#d9b76a');
+      gBody.addColorStop(0.65, '#8a6b2e'); gBody.addColorStop(0.90, '#5a4418'); gBody.addColorStop(1.00, '#2a1a06');
+    }
+    ctx.fillStyle = gBody; ctx.fillRect(x0, yTop, x1 - x0, yBot - yTop);
 
-    ctx.strokeStyle = 'rgba(255,245,200,0.75)';
+    ctx.strokeStyle = isModern ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255,245,200,0.75)';
     ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.moveTo(x0, yTop + 0.6); ctx.lineTo(x1, yTop + 0.6); ctx.stroke();
-    ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+    
+    ctx.strokeStyle = isModern ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.7)';
     ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.moveTo(x0, yBot - 0.6); ctx.lineTo(x1, yBot - 0.6); ctx.stroke();
 
     const capA = ctx.createLinearGradient(x0, 0, x0 + capW, 0);
-    capA.addColorStop(0, 'rgba(0,0,0,0.55)'); capA.addColorStop(1, 'rgba(0,0,0,0)');
+    capA.addColorStop(0, isModern ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.55)'); capA.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = capA; ctx.fillRect(x0, yTop, capW, yBot - yTop);
     const capB = ctx.createLinearGradient(x1 - capW, 0, x1, 0);
-    capB.addColorStop(0, 'rgba(0,0,0,0)'); capB.addColorStop(1, 'rgba(0,0,0,0.55)');
+    capB.addColorStop(0, 'rgba(0,0,0,0)'); capB.addColorStop(1, isModern ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.55)');
     ctx.fillStyle = capB; ctx.fillRect(x1 - capW, yTop, capW, yBot - yTop);
 
     const endBoltR = Math.max(2.2, barH * 0.16);
@@ -857,6 +859,7 @@
     rivet(x1 - capW * 0.5, yTop + barH * 0.25, endBoltR);
     rivet(x1 - capW * 0.5, yTop + barH * 0.75, endBoltR);
 
+    // --- 4. COOLING RIBS ---
     const ribCount = 5;
     const ribAreaX0 = x0 + capW;
     const ribAreaX1 = x1 - capW;
@@ -865,16 +868,18 @@
       const ribW = Math.max(3, pxDist(2));
       const ribX = cx - ribW / 2;
       const rg = ctx.createLinearGradient(ribX, 0, ribX + ribW, 0);
-      rg.addColorStop(0.00, 'rgba(0,0,0,0.45)');
-      rg.addColorStop(0.45, 'rgba(255,235,170,0.30)');
-      rg.addColorStop(1.00, 'rgba(0,0,0,0.45)');
-      ctx.fillStyle = rg;
-      ctx.fillRect(ribX, yTop + 2, ribW, barH - 4);
+      if (isModern) {
+        rg.addColorStop(0.00, 'rgba(0,0,0,0.25)'); rg.addColorStop(0.45, 'rgba(255,255,255,0.3)'); rg.addColorStop(1.00, 'rgba(0,0,0,0.25)');
+      } else {
+        rg.addColorStop(0.00, 'rgba(0,0,0,0.45)'); rg.addColorStop(0.45, 'rgba(255,235,170,0.30)'); rg.addColorStop(1.00, 'rgba(0,0,0,0.45)');
+      }
+      ctx.fillStyle = rg; ctx.fillRect(ribX, yTop + 2, ribW, barH - 4);
       const ribBoltR = Math.max(1.6, barH * 0.10);
       rivet(cx, yTop + barH * 0.18, ribBoltR);
       rivet(cx, yTop + barH * 0.82, ribBoltR);
     }
 
+    // --- 5. NOZZLES ---
     const nozzleCount = 5;
     const nozzleAreaX0 = X2px(CFG.RELEASE_X_MIN + 5);
     const nozzleAreaX1 = X2px(CFG.RELEASE_X_MAX - 5);
@@ -883,47 +888,52 @@
     const collarH = Math.max(2, pxDist(1.0));
     const collarHalfW = nozzleHalfW * 1.15;
     GEO.nozzleXs = [];
+    
     for (let i = 0; i < nozzleCount; i++) {
       const cx = nozzleAreaX0 + (i + 0.5) * (nozzleAreaX1 - nozzleAreaX0) / nozzleCount;
       GEO.nozzleXs.push(cx);
 
+      // Collar
       const colG = ctx.createLinearGradient(0, yBot - collarH, 0, yBot + collarH);
-      colG.addColorStop(0, '#e8c77a');
-      colG.addColorStop(0.5, '#a07a30');
-      colG.addColorStop(1, '#5a4418');
-      ctx.fillStyle = colG;
-      ctx.fillRect(cx - collarHalfW, yBot - collarH * 0.4, collarHalfW * 2, collarH);
-      ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(cx - collarHalfW, yBot - collarH * 0.4, collarHalfW * 2, collarH);
+      if (isModern) {
+        colG.addColorStop(0, '#e8ecef'); colG.addColorStop(0.5, '#adb5bd'); colG.addColorStop(1, '#6c757d');
+      } else {
+        colG.addColorStop(0, '#e8c77a'); colG.addColorStop(0.5, '#a07a30'); colG.addColorStop(1, '#5a4418');
+      }
+      ctx.fillStyle = colG; ctx.fillRect(cx - collarHalfW, yBot - collarH * 0.4, collarHalfW * 2, collarH);
+      
+      ctx.strokeStyle = isModern ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.55)';
+      ctx.lineWidth = 1; ctx.strokeRect(cx - collarHalfW, yBot - collarH * 0.4, collarHalfW * 2, collarH);
 
+      // Tip
       const tipHalfW = nozzleHalfW * 0.55;
       const nGrad = ctx.createLinearGradient(0, yBot, 0, yBot + nozzleH);
-      nGrad.addColorStop(0.00, '#a07a30');
-      nGrad.addColorStop(0.40, '#7a5a22');
-      nGrad.addColorStop(1.00, '#1a1004');
+      if (isModern) {
+        nGrad.addColorStop(0.00, '#6c757d'); nGrad.addColorStop(0.40, '#495057'); nGrad.addColorStop(1.00, '#212529');
+      } else {
+        nGrad.addColorStop(0.00, '#a07a30'); nGrad.addColorStop(0.40, '#7a5a22'); nGrad.addColorStop(1.00, '#1a1004');
+      }
       ctx.fillStyle = nGrad;
       ctx.beginPath();
-      ctx.moveTo(cx - nozzleHalfW, yBot + collarH * 0.6);
-      ctx.lineTo(cx + nozzleHalfW, yBot + collarH * 0.6);
-      ctx.lineTo(cx + tipHalfW, yBot + nozzleH);
-      ctx.lineTo(cx - tipHalfW, yBot + nozzleH);
+      ctx.moveTo(cx - nozzleHalfW, yBot + collarH * 0.6); ctx.lineTo(cx + nozzleHalfW, yBot + collarH * 0.6);
+      ctx.lineTo(cx + tipHalfW, yBot + nozzleH); ctx.lineTo(cx - tipHalfW, yBot + nozzleH);
       ctx.closePath();
       ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
+      
+      ctx.strokeStyle = isModern ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.6)';
+      ctx.lineWidth = 1; ctx.stroke();
 
-      ctx.fillStyle = '#040206';
+      // Interior hole
+      ctx.fillStyle = isModern ? '#0a0a0c' : '#040206';
       ctx.beginPath();
       ctx.ellipse(cx, yBot + nozzleH - 1, tipHalfW * 0.8, Math.max(1, nozzleH * 0.20), 0, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.strokeStyle = 'rgba(255,235,170,0.45)';
+      // Accent Line
+      ctx.strokeStyle = isModern ? 'rgba(140, 224, 240, 0.4)' : 'rgba(255,235,170,0.45)';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(cx - nozzleHalfW + 0.6, yBot + collarH * 0.6);
-      ctx.lineTo(cx - tipHalfW + 0.4, yBot + nozzleH);
+      ctx.moveTo(cx - nozzleHalfW + 0.6, yBot + collarH * 0.6); ctx.lineTo(cx - tipHalfW + 0.4, yBot + nozzleH);
       ctx.stroke();
     }
     GEO.nozzleTipY = yBot + nozzleH - 1;

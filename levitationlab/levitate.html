@@ -787,6 +787,105 @@
     border-left-color: #ffcc55;
     background: rgba(255,204,85,0.05);
   }
+
+
+
+
+  /*===============================*/
+  /* --- MODERN CLINICAL LAB THEME (Activated via ?modern) --- */
+  
+  body.theme-modern, body.theme-modern .manual-box, body.theme-modern .splash-box, body.theme-modern .sheet-content { 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important; 
+  }
+  body.theme-modern .manual-box h2, body.theme-modern .manual-box h3, body.theme-modern .splash-title, body.theme-modern .splash-tagline, body.theme-modern .sheet-title {
+    font-family: inherit !important; text-shadow: none !important; color: #495057 !important; border-color: #cfd4d9 !important;
+  }
+  body.theme-modern .btnind::before, body.theme-modern .btnind::after { display: none !important; }
+
+  body.theme-modern .btnind, body.theme-modern .sel .sel-body, body.theme-modern .disp, body.theme-modern .title-plate, body.theme-modern .wing-logo {
+    background: #e8ecef !important; border: 1px solid #cfd4d9 !important; box-shadow: 0 2px 4px rgba(0,0,0,0.08), inset 0 1px 0 #ffffff !important; border-radius: 6px !important;
+  }
+  body.theme-modern .btnind .cap {
+    background: #f8f9fa !important; box-shadow: inset 0 1px 2px rgba(0,0,0,0.02), 0 1px 3px rgba(0,0,0,0.08) !important; border: 1px solid #d5d9dd !important; border-radius: 4px !important;
+  }
+  body.theme-modern .btnind .cap-label { color: #495057 !important; text-shadow: none !important; letter-spacing: 0.5px !important; font-family: inherit !important; }
+  body.theme-modern .cap-icon { color: #6c757d !important; filter: none !important; }
+
+  body.theme-modern .btnind:hover .cap { background: #ffffff !important; }
+  body.theme-modern .btnind:hover .cap-label { color: #212529 !important; }
+  body.theme-modern .btnind:hover .cap-icon { color: #343a40 !important; }
+  body.theme-modern .btnind:active .cap { transform: translateY(1px) !important; box-shadow: inset 0 2px 4px rgba(0,0,0,0.08) !important; }
+
+  body.theme-modern .btnind.on .cap, body.theme-modern #btnGameMode.on .cap, body.theme-modern #btnChallenge.on .cap {
+    background: #e0f4f8 !important; border-color: #8ce0f0 !important; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05), 0 0 8px rgba(100, 200, 240, 0.4) !important;
+  }
+  body.theme-modern .btnind.on .cap-label, body.theme-modern #btnGameMode.on .cap-label, body.theme-modern #btnChallenge.on .cap-label, body.theme-modern .btnind.on .cap-icon { color: #0c6b80 !important; text-shadow: none !important; }
+
+  body.theme-modern .btnind.warn .cap { background: #fdf0f0 !important; border-color: #ffb0b0 !important; box-shadow: none !important; }
+  body.theme-modern .btnind.warn .cap-label, body.theme-modern .btnind.warn .cap-icon { color: #c03030 !important; text-shadow: none !important; }
+
+  body.theme-modern .sel .win, body.theme-modern .scr {
+    background: #0f1418 !important; box-shadow: inset 0 2px 5px rgba(0,0,0,0.6) !important; color: #33ccff !important; text-shadow: 0 0 5px rgba(51, 204, 255, 0.4) !important; font-family: 'SF Mono', Consolas, 'Courier New', monospace !important; border-radius: 3px !important; border: 1px solid #202b33 !important;
+  }
+  body.theme-modern .scr.warn { color: #ff4d4d !important; text-shadow: 0 0 5px rgba(255,77,77,0.4) !important; }
+  body.theme-modern .scr.gold { color: #40ff90 !important; text-shadow: 0 0 5px rgba(64,255,144,0.4) !important; }
+  body.theme-modern .scr.rot  { color: #d0d8e0 !important; text-shadow: none !important; }
+
+  body.theme-modern .sel-lbl, body.theme-modern .lbl, body.theme-modern #expertBlock .expert-head {
+    color: #f8f9fa !important; text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.8) !important; font-family: inherit !important; font-weight: 700 !important;
+  }
+  body.theme-light.theme-modern .sel-lbl, body.theme-light.theme-modern .lbl, body.theme-light.theme-modern #expertBlock .expert-head {
+    color: #343a40 !important; text-shadow: none !important;
+  }
+  body.theme-modern #expertBlock hr { border-bottom: 1px solid #cfd4d9 !important; }
+
+  body.theme-modern .sel .chev { background: #f8f9fa !important; color: #6c757d !important; border: 1px solid #d5d9dd !important; box-shadow: none !important; }
+  body.theme-modern .sel .chev:hover { background: #ffffff !important; color: #212529 !important; }
+
+  body.theme-modern .btnind.btn-emergency .cap { background: #ff4d4d !important; border-color: #cc0000 !important; }
+  body.theme-modern .btnind.btn-emergency .cap-label { color: #fff !important; }
+  body.theme-modern .btnind.btn-info .cap { background: #3399ff !important; border-color: #0066cc !important; }
+  body.theme-modern .btnind.btn-info .cap-label { color: #fff !important; }
+  body.theme-modern .title-plate .title-text { color: #495057 !important; text-shadow: none !important; font-family: inherit !important; font-weight: 800 !important; }
+
+  /* Fix for OS Emoji Fallback rendering arrows as white */
+  .sel .chev {
+    font-family: "Segoe UI Symbol", "Apple Symbols", Arial, sans-serif !important;
+  }
+  
+  /* Enforce the dark brown color for the brass theme */
+  body:not(.theme-modern) .sel .chev {
+    color: #2a1a06 !important;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  }
+  #expertBlock hr { border-bottom: 1px solid #cfd4d9 !important; }
+
+  /* Chevrons */
+  .sel .chev {
+    background: #f8f9fa !important;
+    color: #6c757d !important;
+    border: 1px solid #d5d9dd !important;
+    box-shadow: none !important;
+  }
+  .sel .chev:hover { background: #ffffff !important; color: #212529 !important; }
+
+  /* Emergency & Info Overrides */
+  .btnind.btn-emergency .cap { background: #ff4d4d !important; border-color: #cc0000 !important; }
+  .btnind.btn-emergency .cap-label { color: #fff !important; }
+  .btnind.btn-info .cap { background: #3399ff !important; border-color: #0066cc !important; }
+  .btnind.btn-info .cap-label { color: #fff !important; }
+
+  /* Title Plate Text */
+  .title-plate .title-text {
+    color: #495057 !important;
+    text-shadow: none !important;
+    font-family: inherit !important;
+    font-weight: 800 !important;
+  }
+  /*===============================*/
+
+
+
 </style>
 </head>
 <body>
