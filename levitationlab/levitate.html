@@ -824,6 +824,18 @@
   body.theme-modern .btnind.warn .cap { background: #fdf0f0 !important; border-color: #ffb0b0 !important; box-shadow: none !important; }
   body.theme-modern .btnind.warn .cap-label, body.theme-modern .btnind.warn .cap-icon { color: #c03030 !important; text-shadow: none !important; }
 
+  /* Cheat State (Orange LED Glow) */
+  body.theme-modern .btnind.cheat .cap {
+    background: #fff4e6 !important; 
+    border-color: #ffc299 !important; 
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.05), 0 0 10px rgba(255, 136, 51, 0.5) !important;
+  }
+  body.theme-modern .btnind.cheat .cap-label, 
+  body.theme-modern .btnind.cheat .cap-icon { 
+    color: #c44d00 !important; 
+    text-shadow: none !important; 
+  }
+
   body.theme-modern .sel .win, body.theme-modern .scr {
     background: #0f1418 !important; box-shadow: inset 0 2px 5px rgba(0,0,0,0.6) !important; color: #33ccff !important; text-shadow: 0 0 5px rgba(51, 204, 255, 0.4) !important; font-family: 'SF Mono', Consolas, 'Courier New', monospace !important; border-radius: 3px !important; border: 1px solid #202b33 !important;
   }
@@ -848,6 +860,13 @@
   body.theme-modern .btnind.btn-info .cap-label { color: #fff !important; }
   body.theme-modern .title-plate .title-text { color: #495057 !important; text-shadow: none !important; font-family: inherit !important; font-weight: 800 !important; }
 
+  /* --- PFEIFFER THEME GAUGE FIX --- */
+  /* Keeps the text on the red horizontal bar white in Light Mode */
+  body.theme-pfeiffer #gauges .lbl {
+    color: #ffffff !important;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.8) !important;
+  }
+  
 </style>
 </head>
 <body>
