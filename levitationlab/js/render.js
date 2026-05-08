@@ -777,6 +777,7 @@
 
     // Determine current theme
     const isModern = document.body.classList.contains('theme-modern');
+    const isPfeiffer = document.body.classList.contains('theme-pfeiffer');
     const isLight = PAL.name === 'light';
 
     if (yTop > 0) {
@@ -832,6 +833,9 @@
     if (isModern) {
       gBody.addColorStop(0.00, '#ffffff'); gBody.addColorStop(0.10, '#f8f9fa'); gBody.addColorStop(0.30, '#e8ecef');
       gBody.addColorStop(0.65, '#cfd4d9'); gBody.addColorStop(0.90, '#adb5bd'); gBody.addColorStop(1.00, '#495057');
+    } else if (isPfeiffer) {
+      gBody.addColorStop(0.00, '#ff9999'); gBody.addColorStop(0.10, '#ff4d4d'); gBody.addColorStop(0.30, '#d5001c');
+      gBody.addColorStop(0.65, '#aa0016'); gBody.addColorStop(0.90, '#800011'); gBody.addColorStop(1.00, '#4d000a');
     } else {
       gBody.addColorStop(0.00, '#f0d088'); gBody.addColorStop(0.10, '#e8c77a'); gBody.addColorStop(0.30, '#d9b76a');
       gBody.addColorStop(0.65, '#8a6b2e'); gBody.addColorStop(0.90, '#5a4418'); gBody.addColorStop(1.00, '#2a1a06');
@@ -980,8 +984,16 @@
     const xTopOuter = GEO.footTopHalfW;
     const xBotInner = GEO.footBotHalfW * 0.55;
     const xBotOuter = GEO.footBotHalfW;
+    
     const sg = ctx.createLinearGradient(0, yTop, 0, yBot);
-    if (PAL.name === 'light') {
+    const isPfeiffer = document.body.classList.contains('theme-pfeiffer');
+
+    if (isPfeiffer) {
+      sg.addColorStop(0.00, '#ff9999');
+      sg.addColorStop(0.25, '#d5001c');
+      sg.addColorStop(0.55, '#800011');
+      sg.addColorStop(1.00, '#4d000a');
+    } else if (PAL.name === 'light') {
       sg.addColorStop(0.00, '#d0ccbc');
       sg.addColorStop(0.25, '#b0ac9c');
       sg.addColorStop(0.55, '#8a8678');
@@ -992,6 +1004,7 @@
       sg.addColorStop(0.55, '#2a2a32');
       sg.addColorStop(1.00, '#1a1a22');
     }
+
     for (const sign of [-1, +1]) {
       ctx.beginPath();
       ctx.moveTo(CX + sign * xTopInner, yTop);
@@ -1018,8 +1031,18 @@
     const x0 = CX - GEO.barHalfW, x1 = CX + GEO.barHalfW;
     const y0 = GEO.barTop, y1 = GEO.barBot;
     if (!isFinite(x0) || !isFinite(x1) || !isFinite(y0) || !isFinite(y1) || y1 <= y0 || x1 <= x0) return;
+    
     const g = ctx.createLinearGradient(0, y0, 0, y1);
-    if (PAL.name === 'light') {
+    const isPfeiffer = document.body.classList.contains('theme-pfeiffer');
+
+    if (isPfeiffer) {
+      g.addColorStop(0.00, '#ff9999');
+      g.addColorStop(0.05, '#ff4d4d');
+      g.addColorStop(0.20, '#d5001c');
+      g.addColorStop(0.55, '#aa0016');
+      g.addColorStop(0.85, '#800011');
+      g.addColorStop(1.00, '#4d000a');
+    } else if (PAL.name === 'light') {
       g.addColorStop(0.00, '#d6d2c2');
       g.addColorStop(0.05, '#e2dece');
       g.addColorStop(0.20, '#b4ae9e');
@@ -1034,6 +1057,7 @@
       g.addColorStop(0.85, '#1a1a22');
       g.addColorStop(1.00, '#0e0e14');
     }
+    
     ctx.fillStyle = g; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
     ctx.strokeStyle = (PAL.name === 'light') ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.22)';
     ctx.lineWidth = 1;
