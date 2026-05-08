@@ -428,15 +428,14 @@
   (function initSplash() {
     if (!TUNING.splash || !TUNING.splash.enabled) return;
 
-    if (TUNING.splash.onceOnly) {
-      try {
-        if (localStorage.getItem('levitation_splash_seen') === '1') return;
-        localStorage.setItem('levitation_splash_seen', '1');
-      } catch (e) { /* localStorage may be blocked; show splash anyway */ }
-    }
+    try {
+      // Only skip if the user explicitly checked the box in a previous session
+      if (localStorage.getItem('levitation_skip_splash') === '1') return;
+    } catch (e) { /* localStorage blocked, proceed to show */ }
 
     const overlay = document.getElementById('splashOverlay');
     const btn = document.getElementById('splashBtn');
+    const skipCheck = document.getElementById('splashSkipCheck');
     if (!overlay || !btn) return;
 
     overlay.hidden = false;
@@ -445,17 +444,30 @@
     const dismiss = () => {
       if (dismissed) return;
       dismissed = true;
+      
+      // Save the user's preference if they checked the box
+      if (skipCheck && skipCheck.checked) {
+        try {
+          localStorage.setItem('levitation_skip_splash', '1');
+        } catch (e) { /* ignore */ }
+      }
+      
       overlay.classList.add('fading');
       setTimeout(() => { overlay.hidden = true; }, 500);
     };
 
-    overlay.addEventListener('click', dismiss);
+    overlay.addEventListener('click', (e) => {
+      // Prevent dismissing if they are just trying to click the checkbox or label
+      if (e.target === skipCheck || e.target.tagName === 'LABEL') return;
+      dismiss();
+    });
     btn.addEventListener('click', (e) => { e.stopPropagation(); dismiss(); });
 
     if (TUNING.splash.autoDismiss > 0) {
       setTimeout(dismiss, TUNING.splash.autoDismiss * 1000);
     }
   })();
+
   // ============================================================
   // END SPLASH SCREEN
   // ============================================================

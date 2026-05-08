@@ -3,6 +3,5 @@
   dominated lines, so it would not be instructive.
 
 - Omega button functionality is not clear.
-- splash screen always, until you click the box
 - move the manual?
 
