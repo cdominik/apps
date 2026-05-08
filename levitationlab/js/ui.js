@@ -113,48 +113,72 @@
    * @param {number} clientX - Horizontal pointer position in window pixels
    * @param {number} clientY - Vertical pointer position in window pixels
    */
+
   function onDown(id, clientX, clientY) {
     const c = getLocalCoords(clientX, clientY);
-    if (!insideDrumOrBand(c.x, c.y)) return;
+    
+    // Strict circular check: distance from center must be within the outer band
+    const r = Math.hypot(c.x, c.y);
+    const outerRadius = CFG.R_DRUM * 1.1; // Adjust multiplier to match visual band thickness
+    
+    if (r > outerRadius) return; 
+
     state.pointers.set(id, { x: c.x, y: c.y, lastT: performance.now() / 1000 });
     state.holding = true;
+    cv.style.cursor = 'grabbing';
   }
-  /**
-   * Handles pointer-move: updates swipe velocity for tracked pointers.
-   *
-   * @param {number} id - Pointer identifier from the PointerEvent
-   * @param {number} clientX - Horizontal pointer position in window pixels
-   * @param {number} clientY - Vertical pointer position in window pixels
-   */
+
   function onMove(id, clientX, clientY) {
     const p = state.pointers.get(id);
-    if (!p) return;
     const c = getLocalCoords(clientX, clientY);
-    const now = performance.now() / 1000;
-    const dx = c.x - p.x, dy = c.y - p.y;
-    const mx = (p.x + c.x) * 0.5, my = (p.y + c.y) * 0.5;
-    const r = Math.hypot(mx, my);
-    if (r > 5) {
-      const tx = -my / r, ty = mx / r;
-      const tang = dx * tx + dy * ty;
-      state.omegaTarget += tang * TUNING.drum.swipeGain / Math.max(0.3, r / CFG.R_DRUM);
-      const OMAX = TUNING.drum.omegaMax;
-      if (state.omegaTarget > OMAX) state.omegaTarget = OMAX;
-      if (state.omegaTarget < -OMAX) state.omegaTarget = -OMAX;
+    
+    const r = Math.hypot(c.x, c.y);
+    const outerRadius = CFG.R_DRUM * 1.1; // Adjust multiplier to match visual band thickness
+    const inCircle = r <= outerRadius;
+
+    if (p) {
+      // Keep 'grabbing' cursor active while dragging, even if mouse drifts outside the circle
+      cv.style.cursor = 'grabbing';
+
+      const now = performance.now() / 1000;
+      const dx = c.x - p.x, dy = c.y - p.y;
+      const mx = (p.x + c.x) * 0.5, my = (p.y + c.y) * 0.5;
+      const rm = Math.hypot(mx, my);
+      if (rm > 5) {
+        const tx = -my / rm, ty = mx / rm;
+        const tang = dx * tx + dy * ty;
+        state.omegaTarget += tang * TUNING.drum.swipeGain / Math.max(0.3, rm / CFG.R_DRUM);
+        const OMAX = TUNING.drum.omegaMax;
+        if (state.omegaTarget > OMAX) state.omegaTarget = OMAX;
+        if (state.omegaTarget < -OMAX) state.omegaTarget = -OMAX;
+      }
+      p.x = c.x; p.y = c.y; p.lastT = now;
+    } else {
+      // Update hover state dynamically based on circular boundary
+      cv.style.cursor = inCircle ? 'grab' : 'default';
     }
-    p.x = c.x; p.y = c.y; p.lastT = now;
   }
-  /**
-   * Handles pointer-up/cancel: finalises the swipe and removes the pointer.
-   *
-   * @param {number} id - Pointer identifier from the PointerEvent
-   */
-  function onUp(id) { state.pointers.delete(id); if (state.pointers.size === 0) state.holding = false; }
+
+  function onUp(id, e) {
+    state.pointers.delete(id);
+    if (state.pointers.size === 0) {
+      state.holding = false;
+      if (e && e.clientX !== undefined) {
+        const c = getLocalCoords(e.clientX, e.clientY);
+        const r = Math.hypot(c.x, c.y);
+        const outerRadius = CFG.R_DRUM * 1.1; // Adjust multiplier to match visual band thickness
+        cv.style.cursor = (r <= outerRadius) ? 'grab' : 'default';
+      } else {
+        cv.style.cursor = 'default';
+      }
+    }
+  }
+
   cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); onDown(e.pointerId, e.clientX, e.clientY); });
-  cv.addEventListener('pointermove', e => { if (state.pointers.has(e.pointerId)) onMove(e.pointerId, e.clientX, e.clientY); });
-  cv.addEventListener('pointerup', e => onUp(e.pointerId));
-  cv.addEventListener('pointercancel', e => onUp(e.pointerId));
-  cv.addEventListener('pointerleave', e => onUp(e.pointerId));
+  cv.addEventListener('pointermove', e => onMove(e.pointerId, e.clientX, e.clientY));
+  cv.addEventListener('pointerup', e => onUp(e.pointerId, e));
+  cv.addEventListener('pointercancel', e => onUp(e.pointerId, e));
+  cv.addEventListener('pointerleave', e => onUp(e.pointerId, e));
   document.addEventListener('gesturestart', e => e.preventDefault());
   document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
 
