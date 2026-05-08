@@ -2075,7 +2075,7 @@ function drawRepresentativeOrbits() {
             fill="url(#gradFatGreen)" 
             stroke="#2a2a32" 
             stroke-width="1.5" 
-            style="filter: drop-shadow(0 2px 3px rgba(0,0,0,0.7)); pointer-events: none;" />
+            style="filter: drop-shadow(0 2px 3px rgba(0,0,0,0.7)); pointer-events: auto; cursor: help;" />
     `;
   }
 

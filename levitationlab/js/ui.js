@@ -190,6 +190,50 @@
    *
    * @param {number} sign - Direction of the nudge: +1 for faster, -1 for slower
    */
+
+  document.getElementById('omegaCtl').addEventListener('pointerdown', (e) => {
+    // Only trigger if they clicked the actual green arrow path
+    if (e.target.tagName.toLowerCase() === 'path') {
+      let hint = document.getElementById('swipeHintToast');
+      
+      // Create the floating hint div if it doesn't exist yet
+      if (!hint) {
+        hint = document.createElement('div');
+        hint.id = 'swipeHintToast';
+        hint.style.position = 'absolute';
+        hint.style.background = 'rgba(8, 8, 12, 0.95)';
+        hint.style.color = '#ffcc55';
+        hint.style.border = '1px solid #5a4418';
+        hint.style.padding = '8px 12px';
+        hint.style.borderRadius = '4px';
+        hint.style.fontFamily = "'Courier New', monospace";
+        hint.style.fontSize = '13px';
+        hint.style.fontWeight = 'bold';
+        hint.style.pointerEvents = 'none'; // Let clicks pass through it
+        hint.style.zIndex = '1000';
+        hint.style.transition = 'opacity 0.2s ease-in-out';
+        hint.style.boxShadow = '0 4px 10px rgba(0,0,0,0.8)';
+        hint.style.whiteSpace = 'nowrap';
+        document.body.appendChild(hint);
+      }
+      
+      hint.textContent = "Swipe the drum to rotate";
+      
+      // Position slightly offset to the bottom right of the cursor/finger
+      hint.style.left = (e.clientX + 15) + 'px';
+      hint.style.top = (e.clientY + 15) + 'px';
+      
+      // Reset opacity and force reflow to restart the fade-in animation
+      hint.style.opacity = '0';
+      void hint.offsetWidth; 
+      hint.style.opacity = '1';
+
+      // Auto-hide after 2 seconds
+      if (hint.hideTimer) clearTimeout(hint.hideTimer);
+      hint.hideTimer = setTimeout(() => { hint.style.opacity = '0'; }, 2000);
+    }
+  });
+
   function bumpOmega(sign) {
     state.omegaTarget += sign * TUNING.drum.omegaStep;
     const OMAX = TUNING.drum.omegaMax;
