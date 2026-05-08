@@ -2021,43 +2021,62 @@ function drawRepresentativeOrbits() {
   function buildOmegaControls() {
     const svg = document.getElementById('omegaCtl');
     if (!svg) return;
-    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-    svg.style.width = W + 'px';
-    svg.style.height = H + 'px';
-    const drumPx = pxDist(CFG.R_DRUM);
-    const armOffset = REGIME === 'portrait' ? 30 : 60;
-    const R = drumPx + armOffset;
-    const thickness = REGIME === 'portrait' ? 14 : 22;
-    const gap = 12 * Math.PI / 180;
-    const span = 45 * Math.PI / 180;
-    const aPlusStart = Math.PI + gap;
-    const aPlusEnd   = Math.PI + gap + span;
-    const aMinusStart = Math.PI - gap - span;
-    const aMinusEnd   = Math.PI - gap;
-    const plusD  = curvedArrowPath(CX, CY, R, aPlusStart, aPlusEnd, thickness, +1);
-    const minusD = curvedArrowPath(CX, CY, R, aMinusEnd, aMinusStart, thickness, +1);
-    const aPM = (aPlusStart + aPlusEnd) / 2;
-    const aMM = (aMinusStart + aMinusEnd) / 2;
-    const pL = { x: CX + R * Math.cos(aPM), y: CY - R * Math.sin(aPM) };
-    const mL = { x: CX + R * Math.cos(aMM), y: CY - R * Math.sin(aMM) };
+    svg.setAttribute('width', W);
+    svg.setAttribute('height', H);
+
+    // Check layout mode to adjust distance from the drum dynamically
+    const isPortrait = document.body.classList.contains('regime-portrait');
+    const rInnerBase = isPortrait ? 1.05 : 1.15;
+    const rOuterBase = isPortrait ? 1.15 : 1.25;
+
+    const r1 = CFG.R_DRUM * SCALE * rInnerBase; 
+    const r2 = CFG.R_DRUM * SCALE * rOuterBase; 
+    const rm = (r1 + r2) / 2;             
+    
+    const flare = 8;        
+    const rIn = r1 - flare;
+    const rOut = r2 + flare;
+    const headA = 0.12;     
+
+    const aMid = Math.PI; 
+    const span = 0.4;     
+
+    const aTop = aMid - span;
+    const aBot = aMid + span;
+    const aTopHead = aTop - headA;
+    const aBotHead = aBot + headA;
+
+    const p1x = CX + r1 * Math.cos(aBot),     p1y = CY + r1 * Math.sin(aBot);     
+    const p2x = CX + r1 * Math.cos(aTop),     p2y = CY + r1 * Math.sin(aTop);     
+    const p3x = CX + rIn * Math.cos(aTop),    p3y = CY + rIn * Math.sin(aTop);    
+    const p4x = CX + rm * Math.cos(aTopHead), p4y = CY + rm * Math.sin(aTopHead); 
+    const p5x = CX + rOut * Math.cos(aTop),   p5y = CY + rOut * Math.sin(aTop);   
+    const p6x = CX + r2 * Math.cos(aTop),     p6y = CY + r2 * Math.sin(aTop);     
+    const p7x = CX + r2 * Math.cos(aBot),     p7y = CY + r2 * Math.sin(aBot);     
+    const p8x = CX + rOut * Math.cos(aBot),   p8y = CY + rOut * Math.sin(aBot);   
+    const p9x = CX + rm * Math.cos(aBotHead), p9y = CY + rm * Math.sin(aBotHead); 
+    const p10x = CX + rIn * Math.cos(aBot),   p10y = CY + rIn * Math.sin(aBot);   
+
+    const pathD = `M ${p1x} ${p1y} ` +
+                  `A ${r1} ${r1} 0 0 0 ${p2x} ${p2y} ` +                                 
+                  `L ${p3x} ${p3y} L ${p4x} ${p4y} L ${p5x} ${p5y} L ${p6x} ${p6y} ` +   
+                  `A ${r2} ${r2} 0 0 1 ${p7x} ${p7y} ` +                                 
+                  `L ${p8x} ${p8y} L ${p9x} ${p9y} L ${p10x} ${p10y} Z`;                 
+
     svg.innerHTML = `
       <defs>
-        <linearGradient id="gradRed" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6a5a"/><stop offset="0.5" stop-color="#d22818"/><stop offset="1" stop-color="#6a0a0a"/></linearGradient>
-        <linearGradient id="gradRedHover" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8876"/><stop offset="0.5" stop-color="#e63a22"/><stop offset="1" stop-color="#801010"/></linearGradient>
-        <linearGradient id="gradGreen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7ef09a"/><stop offset="0.5" stop-color="#22a04a"/><stop offset="1" stop-color="#0a4018"/></linearGradient>
-        <linearGradient id="gradGreenHover" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a0ffb8"/><stop offset="0.5" stop-color="#2cc058"/><stop offset="1" stop-color="#0e5020"/></linearGradient>
+        <linearGradient id="gradFatGreen" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#a0ffb8"/>
+          <stop offset="0.5" stop-color="#2cc058"/>
+          <stop offset="1" stop-color="#0e5020"/>
+        </linearGradient>
       </defs>
-      <g class="btn" id="btnOmegaPlus">
-        <path class="btn-arrow" d="${plusD}"/>
-        <text class="btn-label" x="${pL.x.toFixed(1)}" y="${pL.y.toFixed(1)}" text-anchor="middle" dominant-baseline="middle">+Ω</text>
-      </g>
-      <g class="btn" id="btnOmegaMinus">
-        <path class="btn-arrow" d="${minusD}"/>
-        <text class="btn-label" x="${mL.x.toFixed(1)}" y="${mL.y.toFixed(1)}" text-anchor="middle" dominant-baseline="middle">−Ω</text>
-      </g>
+      <path d="${pathD}" 
+            fill="url(#gradFatGreen)" 
+            stroke="#2a2a32" 
+            stroke-width="1.5" 
+            style="filter: drop-shadow(0 2px 3px rgba(0,0,0,0.7)); pointer-events: none;" />
     `;
-    wirePressHold(document.getElementById('btnOmegaPlus'),  () => bumpOmega(+1));
-    wirePressHold(document.getElementById('btnOmegaMinus'), () => bumpOmega(-1));
   }
 
   window.cv            = cv;
