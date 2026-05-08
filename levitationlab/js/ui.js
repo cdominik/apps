@@ -560,15 +560,43 @@
     TUNING.particle.invincible = active;
   });
 
-  // PROCESSES 2. Aggregate formation OFF (Red light when active)
-  wireProcessButton('btnProcNoAgg', 'warn', (active) => {
-    TUNING.aggregate.minLevitated = active ? 999999 : TUNING_DEFAULT.aggregate.minLevitated;
-  });
+  // PROCESSES 2. Aggregate formation (Green = ON, Red = OFF)
+  const btnProcAgg = document.getElementById('btnProcAgg');
+  if (btnProcAgg) {
+    btnProcAgg.addEventListener('click', function() {
+      const isCurrentlyOn = this.classList.contains('on');
+      if (isCurrentlyOn) {
+        // Turn OFF
+        this.classList.remove('on');
+        this.classList.add('warn');
+        TUNING.aggregate.minLevitated = 999999;
+      } else {
+        // Turn ON
+        this.classList.remove('warn');
+        this.classList.add('on');
+        TUNING.aggregate.minLevitated = TUNING_DEFAULT.aggregate.minLevitated;
+      }
+    });
+  }
 
-  // PROCESSES 3. Pebble formation OFF (Red light when active)
-  wireProcessButton('btnProcNoPeb', 'warn', (active) => {
-    TUNING.egg.nCrit = active ? 999999 : TUNING_DEFAULT.egg.nCrit;
-  });
+  // PROCESSES 3. Pebble formation (Green = ON, Red = OFF)
+  const btnProcPeb = document.getElementById('btnProcPeb');
+  if (btnProcPeb) {
+    btnProcPeb.addEventListener('click', function() {
+      const isCurrentlyOn = this.classList.contains('on');
+      if (isCurrentlyOn) {
+        // Turn OFF
+        this.classList.remove('on');
+        this.classList.add('warn');
+        TUNING.egg.nCrit = 999999;
+      } else {
+        // Turn ON
+        this.classList.remove('warn');
+        this.classList.add('on');
+        TUNING.egg.nCrit = TUNING_DEFAULT.egg.nCrit;
+      }
+    });
+  }
 
   // PROCESSES 4. Pure Velocity Average
   wireProcessButton('btnProcPureV', 'on', (active) => {

@@ -1,5 +1,0 @@
-- sometimes, the viewport does not swith from micro to chart on first
-  attemt.
-- when I swipe, ghost jumps to other particle
-- when the hud is on, it should collect ann data directly, so that
-  switching is instant after one orbit
