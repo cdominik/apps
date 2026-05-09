@@ -724,7 +724,6 @@
   // SECTION: EXPERT PANEL — SYSTEM
   // ============================================================
 
-  // ;; FIXME, wrong locations, system 2 is ghost...
   // SYSTEM 1. Intelligent Omega control 
   const btnSysNoDecay = document.getElementById('btnSysNoDecay');
   if (btnSysNoDecay) {
