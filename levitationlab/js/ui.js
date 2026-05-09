@@ -555,15 +555,9 @@
     this.classList.toggle('on', TUNING.aggregate.flashOrbit);
   });
 
-  // HUD 3. Ghost renderer
-  document.getElementById('btnFlowGhost').addEventListener('click', function() {
-    TUNING.particle.showFlowGhosts = !TUNING.particle.showFlowGhosts;
-    this.classList.toggle('on', TUNING.particle.showFlowGhosts);
-    
-    // If turning off, clear all targets
-    if (!TUNING.particle.showFlowGhosts) {
-      state.particles.forEach(p => p.isDiagnosticTarget = false);
-    }
+  // HUD 3. Solid HUD screen
+    wireProcessButton('btnSysSolidMap', 'on', (active) => {
+    heatmap.opacity = active ? 0.9 : 0.5;
   });
 
   // HUD 4-6. HUD activation and gear shift
@@ -731,7 +725,7 @@
   // ============================================================
 
   // ;; FIXME, wrong locations, system 2 is ghost...
-  // SYSTEM 1. Solid Heatmap 
+  // SYSTEM 1. Intelligent Omega control 
   const btnSysNoDecay = document.getElementById('btnSysNoDecay');
   if (btnSysNoDecay) {
     btnSysNoDecay.addEventListener('click', () => {
@@ -739,11 +733,19 @@
     });
   }
 
-  // SYSTEM 2. Solid Heatmap 
-  wireProcessButton('btnSysSolidMap', 'on', (active) => {
-    heatmap.opacity = active ? 0.9 : 0.5;
+  // SYSTEM 2. Ghost mode 
+  document.getElementById('btnFlowGhost').addEventListener('click', function() {
+    TUNING.particle.showFlowGhosts = !TUNING.particle.showFlowGhosts;
+    this.classList.toggle('on', TUNING.particle.showFlowGhosts);
+    
+    // If turning off, clear all targets
+    if (!TUNING.particle.showFlowGhosts) {
+      state.particles.forEach(p => p.isDiagnosticTarget = false);
+    }
   });
 
+  // SYSTEM 3. STILL UNASSIGNED
+  
   // SYSTEM 4-6. Simulation speed
 
     const speedGears = [0.25, 0.5, 1.0, 2.0, 4.0, 8.0];
