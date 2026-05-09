@@ -200,7 +200,6 @@
         inHighlightSince: null, flashEndsAt: -1, insideOnce: false,
         vt: inj.vt,
         imgIdx: Math.floor(Math.random() * aggregateImages.length),
-        ghostlife: 0 /*FIXME: Is this really necessary*/
       });
       spawnPuffAtNozzle(inj.x);
     }
@@ -772,7 +771,6 @@
       }
     }
 
-    /* FIXME: Is this still working?  */
     if (!state.aggMerging) {
       const lev = eggLevitatedParticles();
       const absOm = Math.abs(state.omega);
