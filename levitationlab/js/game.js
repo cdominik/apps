@@ -188,7 +188,7 @@
    *
    * @param {boolean} on - True to enable Game Mode, false to disable.
    */
-  function enterGameMode(on) {
+  function enterGameMode(on, startLevel) {
     GAME.on = on;
     btnGameMode.classList.toggle('on', on);
     if (on && typeof CHALLENGE !== 'undefined' && CHALLENGE.on) enterChallengeMode(false);
@@ -197,7 +197,9 @@
     if (on) {
       GAME._savedVtFactor   = TUNING.aggregate.vtFactor;
       GAME._savedOmegaDecay = TUNING.drum.omegaDecay;
-      GAME.levelIdx = 0;
+      GAME.levelIdx = (Number.isInteger(startLevel) && startLevel >= 0 && startLevel < GAME.levels.length)
+        ? startLevel
+        : 0;
       enterIdle();
     } else {
       lockSelectors(false);
@@ -519,12 +521,13 @@
     if (CHALLENGE.on && CHALLENGE.phase === 'playing') endChallengeRun(0);
   });
 
-  window.GAME             = GAME;
-  window.CHALLENGE        = CHALLENGE;
-  window.enterGameMode    = enterGameMode;
-  window.enterChallengeMode = enterChallengeMode;
-  window.updateGame       = updateGame;
-  window.updateChallenge  = updateChallenge;
-  window.showSheet        = showSheet;
-  window.lockSelectors    = lockSelectors;
+  window.GAME                = GAME;
+  window.CHALLENGE           = CHALLENGE;
+  window.enterGameMode       = enterGameMode;
+  window.enterChallengeMode  = enterChallengeMode;
+  window.updateGame          = updateGame;
+  window.updateChallenge     = updateChallenge;
+  window.showSheet           = showSheet;
+  window.lockSelectors       = lockSelectors;
+    window.setSettingByValue = setSettingByValue;
 })();

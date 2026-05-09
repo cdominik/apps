@@ -472,8 +472,10 @@
   (function initSplash() {
     if (!TUNING.splash || !TUNING.splash.enabled) return;
 
+    // Skip if a URL flag is dropping us straight into a mode
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.has('game') || sp.has('challenge')) return;
     try {
-      // Only skip if the user explicitly checked the box in a previous session
       if (localStorage.getItem('levitation_skip_splash') === '1') return;
     } catch (e) { /* localStorage blocked, proceed to show */ }
 
@@ -792,6 +794,22 @@
   // ============================================================
   // SECTION: EXPERT DOOR & URL FLAGS
   // ============================================================
+  // URL flags (all optional, all checked here):
+  //   ?expert       Open the expert door (public-facing).
+  //   ?designer     Open the expert door AND unlock Fast Chain (internal only;
+  //                 do not document for users — Fast Chain ruins the discovery arc).
+  //   ?verify       Developer test mode: 3000 particles, vt=30, spread=30%, dt=2,
+  //                 omega decay disabled. For rapid full-system smoke tests.
+  //   ?game[=N]     Drop straight into Game Mode (optionally at level N, 1-indexed),
+  //                 splash suppressed. Out-of-range or non-numeric N falls back to 1.
+  //   ?challenge    Drop straight into Challenge Mode using current settings,
+  //                 splash suppressed.
+  //   ?modern       Apply the clinical lab visual theme.
+  //   ?pfeiffer     Apply the Pfeiffer (red) variant of the modern theme.
+  //
+  // Flags can be combined (e.g. ?expert&game=3, ?modern&challenge).
+  // Splash suppression for ?game and ?challenge happens inside initSplash by
+  // reading the URL directly — see the SPLASH SCREEN section above.
   const expertContainer = document.getElementById('expertContainer');
   const titlePlateLink = document.getElementById('titlePlate');
   const uP = new URLSearchParams(window.location.search);
@@ -841,6 +859,26 @@
     SETTINGS.DT.idx     = SETTINGS.DT.values.indexOf(2);
     applyInitialSettings();
     setOmegaMode(2);
+  }
+
+  // ?game[=N] — drop straight into Game Mode, optionally at level N (1-indexed)
+  if (uP.has('game')) {
+    window.__suppressSplash = true;
+    let startLevel = 0;
+    const raw = uP.get('game');
+    if (raw !== null && raw !== '') {
+      const lvl = parseInt(raw, 10);
+      if (Number.isFinite(lvl) && lvl >= 1 && lvl <= GAME.levels.length) {
+        startLevel = lvl - 1;
+      }
+    }
+    setTimeout(() => { enterGameMode(true, startLevel); }, 0);
+  }
+
+  // ?challenge — drop straight into Challenge Mode using current settings
+  if (uP.has('challenge')) {
+    window.__suppressSplash = true;
+    setTimeout(() => { enterChallengeMode(true); }, 0);
   }
 
   // Visual lockdown for the Designer-only button
