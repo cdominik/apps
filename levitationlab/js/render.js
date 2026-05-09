@@ -521,11 +521,6 @@
     ctx.beginPath(); ctx.arc(CX, CY, rInnerPx, 0, Math.PI * 2); ctx.clip();
 
     for (const agg of state.aggregates) {
-      if (agg.merging || agg.stuck) continue;
-      /* FIXME this is an empty loop now... */
-    }
-
-    for (const agg of state.aggregates) {
       if (agg.merging) continue;
       const ax = X2px(agg.x), ay = Y2px(agg.y);
       const ar = pxDist(agg.r);
