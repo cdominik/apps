@@ -816,24 +816,44 @@
   body.theme-modern .btnind:hover .cap-icon { color: #343a40 !important; }
   body.theme-modern .btnind:active .cap { transform: translateY(1px) !important; box-shadow: inset 0 2px 4px rgba(0,0,0,0.08) !important; }
 
-  body.theme-modern .btnind.on .cap, body.theme-modern #btnGameMode.on .cap, body.theme-modern #btnChallenge.on .cap {
-    background: #e0f4f8 !important; border-color: #8ce0f0 !important; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05), 0 0 8px rgba(100, 200, 240, 0.4) !important;
+  /* High-Contrast ON State (Clinical Teal) */
+  body.theme-modern .btnind.on .cap, 
+  body.theme-modern #btnGameMode.on .cap, 
+  body.theme-modern #btnChallenge.on .cap {
+    background: #0ea5e9 !important; 
+    border-color: #0284c7 !important; 
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.15), 0 1px 2px rgba(14, 165, 233, 0.3) !important;
   }
-  body.theme-modern .btnind.on .cap-label, body.theme-modern #btnGameMode.on .cap-label, body.theme-modern #btnChallenge.on .cap-label, body.theme-modern .btnind.on .cap-icon { color: #0c6b80 !important; text-shadow: none !important; }
+  body.theme-modern .btnind.on .cap-label, 
+  body.theme-modern #btnGameMode.on .cap-label, 
+  body.theme-modern #btnChallenge.on .cap-label, 
+  body.theme-modern .btnind.on .cap-icon { 
+    color: #ffffff !important; 
+    text-shadow: 0 1px 1px rgba(0,0,0,0.2) !important; 
+  }
 
-  body.theme-modern .btnind.warn .cap { background: #fdf0f0 !important; border-color: #ffb0b0 !important; box-shadow: none !important; }
-  body.theme-modern .btnind.warn .cap-label, body.theme-modern .btnind.warn .cap-icon { color: #c03030 !important; text-shadow: none !important; }
+  /* High-Contrast WARN State (Alert Red) */
+  body.theme-modern .btnind.warn .cap { 
+    background: #ef4444 !important; 
+    border-color: #dc2626 !important; 
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.15), 0 1px 2px rgba(239, 68, 68, 0.3) !important; 
+  }
+  body.theme-modern .btnind.warn .cap-label, 
+  body.theme-modern .btnind.warn .cap-icon { 
+    color: #ffffff !important; 
+    text-shadow: 0 1px 1px rgba(0,0,0,0.2) !important; 
+  }
 
-  /* Cheat State (Orange LED Glow) */
+  /* High-Contrast CHEAT State (Diagnostic Orange) */
   body.theme-modern .btnind.cheat .cap {
-    background: #fff4e6 !important; 
-    border-color: #ffc299 !important; 
-    box-shadow: inset 0 1px 2px rgba(0,0,0,0.05), 0 0 10px rgba(255, 136, 51, 0.5) !important;
+    background: #f97316 !important; 
+    border-color: #ea580c !important; 
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.15), 0 1px 2px rgba(249, 115, 22, 0.3) !important;
   }
   body.theme-modern .btnind.cheat .cap-label, 
   body.theme-modern .btnind.cheat .cap-icon { 
-    color: #c44d00 !important; 
-    text-shadow: none !important; 
+    color: #ffffff !important; 
+    text-shadow: 0 1px 1px rgba(0,0,0,0.2) !important; 
   }
 
   body.theme-modern .sel .win, body.theme-modern .scr {
