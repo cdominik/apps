@@ -65,7 +65,7 @@
     AUDIO.motor.gainNoise.gain.setTargetAtTime(targetNoiseGain, t, TAU);
   }
   let lastTinkTime = 0;
-  const TINK_COOLDOWN = 0.5; // 50ms cooldown
+  const TINK_COOLDOWN = 0.5; // 500ms cooldown
   /**
    * Plays a short metallic tink (particle wall collision), with cooldown.
    */
@@ -150,63 +150,6 @@
         currentGap *= acceleration;
     }
   }
-
-//  function soundCrunch() {
-//    if (!AUDIO.ctx) return;
-//    const t = AUDIO.ctx.currentTime;
-//    const numFolds = 35;
-//    const initialGap = 0.08;
-//    const acceleration = 0.92;
-//    let currentOffset = 0;
-//    let currentGap = initialGap;
-//    const totalEstimatedDuration = 1.2;
-//    const bufSize = AUDIO.ctx.sampleRate * totalEstimatedDuration;
-//    const buffer = AUDIO.ctx.createBuffer(1, bufSize, AUDIO.ctx.sampleRate);
-//    const data = buffer.getChannelData(0);
-//    let b0, b1, b2, b3, b4, b5, b6;
-//    b0 = b1 = b2 = b3 = b4 = b5 = b6 = 0.0;
-//    for (let i = 0; i < bufSize; i++) {
-//        const white = Math.random() * 2 - 1;
-//        b0 = 0.99886 * b0 + white * 0.0555179;
-//        b1 = 0.99332 * b1 + white * 0.0750759;
-//        b2 = 0.96900 * b2 + white * 0.1538520;
-//        b3 = 0.86650 * b3 + white * 0.3104856;
-//        b4 = 0.55000 * b4 + white * 0.5329522;
-//        b5 = -0.7616 * b5 - white * 0.0168980;
-//        data[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
-//        data[i] *= 0.11;
-//        b6 = white * 0.115926;
-//    }
-//    const gain = AUDIO.ctx.createGain();
-//    gain.gain.setValueAtTime(0, t);
-//    for (let i = 0; i < numFolds; i++) {
-//        const foldTime = t + currentOffset;
-//        const volume = 0.5 + Math.random() * 0.5;
-//        gain.gain.linearRampToValueAtTime(volume, foldTime + 0.004);
-//        gain.gain.linearRampToValueAtTime(volume * 0.1, foldTime + 0.02);
-//        currentOffset += currentGap;
-//        currentGap *= acceleration;
-//    }
-//    const finalDuration = currentOffset + 0.05;
-//    gain.gain.exponentialRampToValueAtTime(0.001, t + finalDuration);
-//    const noise = AUDIO.ctx.createBufferSource();
-//    noise.buffer = buffer;
-//    const hp = AUDIO.ctx.createBiquadFilter();
-//    hp.type = 'highpass';
-//    hp.frequency.setValueAtTime(1000, t);
-//    hp.frequency.exponentialRampToValueAtTime(400, t + finalDuration);
-//    const bp = AUDIO.ctx.createBiquadFilter();
-//    bp.type = 'bandpass';
-//    bp.Q.value = 0.8;
-//    bp.frequency.setValueAtTime(2200, t);
-//    bp.frequency.exponentialRampToValueAtTime(800, t + finalDuration);
-//    noise.connect(hp);
-//    hp.connect(bp);
-//    bp.connect(gain);
-//    gain.connect(AUDIO.master);
-//    noise.start(t);
-//    noise.stop(t + finalDuration);
-//  }
 
   /**
    * Plays a dense burst of sawtooth noise (golden ball spawn).
