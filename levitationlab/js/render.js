@@ -12,7 +12,6 @@
  * Reads globals:   TUNING, CFG, PAL, PAL_DARK, PAL_LIGHT,
  *                  state, heatmap, aggregateImages, globeMaps,
  *                  eggLevitatedParticles,
- *                  bumpOmega, wirePressHold,
  *                  drawViewport
  */
 (() => {
@@ -2006,47 +2005,8 @@ function drawRepresentativeOrbits() {
 
   // ============================================================
 
-  /**
-   * Returns an SVG path string for a curved arrow arc.
-   *
-   * @param {number} cx - Centre x in pixels.
-   * @param {number} cy - Centre y in pixels.
-   * @param {number} R - Arc radius in pixels.
-   * @param {number} a0 - Start angle in radians.
-   * @param {number} a1 - End angle in radians.
-   * @param {number} thickness - Half-thickness of the arc body in pixels.
-   * @param {number} direction - +1 for arrowhead at a1, -1 for arrowhead at a0.
-   * @returns {string} SVG path data string.
-   */
-  function curvedArrowPath(cx, cy, R, a0, a1, thickness, direction) {
-    const toPt = (ang, r) => [cx + r * Math.cos(ang), cy - r * Math.sin(ang)];
-    const rOut = R + thickness, rIn = R - thickness;
-    const headSpan = Math.min(0.35, Math.abs(a1 - a0) * 0.35);
-    const aHeadTip = (direction > 0) ? a1 : a0;
-    const aHeadBase = (direction > 0) ? (a1 - Math.sign(a1 - a0) * headSpan) : (a0 + Math.sign(a1 - a0) * headSpan);
-    const aBody0 = (direction > 0) ? a0 : a1;
-    const aBody1 = aHeadBase;
-    const sweepOuter = (aBody1 > aBody0) ? 0 : 1;
-    const sweepInner = 1 - sweepOuter;
-    const [pOut0x, pOut0y] = toPt(aBody0, rOut);
-    const [pOut1x, pOut1y] = toPt(aBody1, rOut);
-    const [pIn1x, pIn1y] = toPt(aBody1, rIn);
-    const [pIn0x, pIn0y] = toPt(aBody0, rIn);
-    const headT = thickness * 1.9;
-    const [tipX, tipY] = toPt(aHeadTip, R);
-    const [baseOutX, baseOutY] = toPt(aHeadBase, R + headT);
-    const [baseInX, baseInY] = toPt(aHeadBase, R - headT);
-    let d = `M ${pOut0x.toFixed(2)} ${pOut0y.toFixed(2)} `;
-    d += `A ${rOut} ${rOut} 0 0 ${sweepOuter} ${pOut1x.toFixed(2)} ${pOut1y.toFixed(2)} `;
-    d += `L ${baseOutX.toFixed(2)} ${baseOutY.toFixed(2)} `;
-    d += `L ${tipX.toFixed(2)} ${tipY.toFixed(2)} `;
-    d += `L ${baseInX.toFixed(2)} ${baseInY.toFixed(2)} `;
-    d += `L ${pIn1x.toFixed(2)} ${pIn1y.toFixed(2)} `;
-    d += `A ${rIn} ${rIn} 0 0 ${sweepInner} ${pIn0x.toFixed(2)} ${pIn0y.toFixed(2)} `;
-    d += `Z`;
-    return d;
-  }
-  /** Builds the SVG omega-control arrows and wires their press-hold handlers. */
+
+  /** Builds the SVG omega arrow as hint how to operate. */
   function buildOmegaControls() {
     const svg = document.getElementById('omegaCtl');
     if (!svg) return;

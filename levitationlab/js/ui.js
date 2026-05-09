@@ -7,13 +7,12 @@
  *   Also owns the Expert Analysis Controller (hudMasterOn, heatmap mode).
  *
  * Exposes globals: slowMoArmed (window), resetExpertUI (window),
- *                  bumpOmega, wirePressHold
  * Reads globals:   TUNING, TUNING_DEFAULT, CFG, PAL, state, heatmap,
  *                  SETTINGS, SEL_WIN, applyInitialSettings,
  *                  GAME, CHALLENGE, VIEWPORT,
  *                  initLevel, startRelease, scheduleInjections,
  *                  ensureAudio, soundMillStart, soundSnap, soundTink,
- *                  layout, buildOmegaControls, draw,
+ *                  layout, draw,
  *                  cv, W, H, ctxOv, CX, CY, SCALE, REGIME,
  *                  enterGameMode, enterChallengeMode, lockSelectors,
  *                  updateHUD, updateAnalysisInstrument (internal)
@@ -202,11 +201,6 @@
   // ============================================================
   // SECTION: INPUT — OMEGA CONTROLS
   // ============================================================
-  /**
-   * Nudges omegaTarget by one step in the given direction, clamped to omegaMax.
-   *
-   * @param {number} sign - Direction of the nudge: +1 for faster, -1 for slower
-   */
 
   document.getElementById('omegaCtl').addEventListener('pointerdown', (e) => {
     // Only trigger if they clicked the actual green arrow path
@@ -250,30 +244,6 @@
       hint.hideTimer = setTimeout(() => { hint.style.opacity = '0'; }, 2000);
     }
   });
-
-  function bumpOmega(sign) {
-    state.omegaTarget += sign * TUNING.drum.omegaStep;
-    const OMAX = TUNING.drum.omegaMax;
-    if (state.omegaTarget >  OMAX) state.omegaTarget =  OMAX;
-    if (state.omegaTarget < -OMAX) state.omegaTarget = -OMAX;
-  }
-  /**
-   * Wires a button for immediate click plus auto-repeat on long press.
-   *
-   * @param {HTMLElement} btn - Button element to wire
-   * @param {Function} fn - Callback invoked on each click and during auto-repeat
-   */
-  function wirePressHold(btn, fn) {
-    let timer = null, iv = null;
-    const start = (e) => { e.preventDefault(); fn(); timer = setTimeout(() => { iv = setInterval(fn, 90); }, 350); };
-    const stop = () => { if (timer) { clearTimeout(timer); timer = null; } if (iv) { clearInterval(iv); iv = null; } };
-    btn.addEventListener('pointerdown', start);
-    btn.addEventListener('pointerup', stop);
-    btn.addEventListener('pointerleave', stop);
-    btn.addEventListener('pointercancel', stop);
-  }
-  window.bumpOmega    = bumpOmega;
-  window.wirePressHold = wirePressHold;
 
   // ============================================================
   // SECTION: BUTTON WIRING — MAIN

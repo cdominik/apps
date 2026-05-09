@@ -35,7 +35,6 @@
       slipRate:   0.7,               // fraction — particles slip against the wall at this fraction of drum velocity
       omegaDecay: 1.0 / 30.0,        // rad/s² — exponential decay rate of drum angular velocity
       swipeGain:  0.003,             // rad/s per px — swipe pixel distance to angular velocity conversion
-      omegaStep:  2 * Math.PI / 300, // rad/s — angular velocity added per +Ω / −Ω button press
       omegaMax:   2 * Math.PI * 1.5, // rad/s — maximum drum speed (1.5 rev/s)
     },
     highlight: {
