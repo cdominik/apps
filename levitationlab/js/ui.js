@@ -119,9 +119,10 @@
     
     // Strict circular check: distance from center must be within the outer band
     const r = Math.hypot(c.x, c.y);
-    const outerRadius = CFG.R_DRUM * 1.1; // Adjust multiplier to match visual band thickness
+    const outerRadius = CFG.R_DRUM * 1.1; 
     
     if (r > outerRadius) return; 
+    if (window.omegaMode === 1) return; // LOCKED: ignore click
 
     state.pointers.set(id, { x: c.x, y: c.y, lastT: performance.now() / 1000 });
     state.holding = true;
@@ -133,11 +134,19 @@
     const c = getLocalCoords(clientX, clientY);
     
     const r = Math.hypot(c.x, c.y);
-    const outerRadius = CFG.R_DRUM * 1.1; // Adjust multiplier to match visual band thickness
+    const outerRadius = CFG.R_DRUM * 1.1; 
     const inCircle = r <= outerRadius;
 
     if (p) {
-      // Keep 'grabbing' cursor active while dragging, even if mouse drifts outside the circle
+      if (window.omegaMode === 1) {
+        // Locked mid-drag
+        state.pointers.delete(id);
+        state.holding = state.pointers.size > 0;
+        cv.style.cursor = inCircle ? 'not-allowed' : 'default';
+        return;
+      }
+      
+      // Keep 'grabbing' cursor active while dragging
       cv.style.cursor = 'grabbing';
 
       const now = performance.now() / 1000;
@@ -154,8 +163,12 @@
       }
       p.x = c.x; p.y = c.y; p.lastT = now;
     } else {
-      // Update hover state dynamically based on circular boundary
-      cv.style.cursor = inCircle ? 'grab' : 'default';
+      // Update hover state dynamically based on boundary and lock state
+      if (inCircle) {
+        cv.style.cursor = (window.omegaMode === 1) ? 'not-allowed' : 'grab';
+      } else {
+        cv.style.cursor = 'default';
+      }
     }
   }
 
@@ -166,8 +179,12 @@
       if (e && e.clientX !== undefined) {
         const c = getLocalCoords(e.clientX, e.clientY);
         const r = Math.hypot(c.x, c.y);
-        const outerRadius = CFG.R_DRUM * 1.1; // Adjust multiplier to match visual band thickness
-        cv.style.cursor = (r <= outerRadius) ? 'grab' : 'default';
+        const outerRadius = CFG.R_DRUM * 1.1; 
+        if (r <= outerRadius) {
+          cv.style.cursor = (window.omegaMode === 1) ? 'not-allowed' : 'grab';
+        } else {
+          cv.style.cursor = 'default';
+        }
       } else {
         cv.style.cursor = 'default';
       }
@@ -321,31 +338,36 @@
     state.laserOn = !state.laserOn;
     btnLaser.classList.toggle('on', state.laserOn);
   });
-  const omegaCtlEl = document.getElementById('omegaCtl');
-  omegaCtlEl.classList.add('disabled');
-  let omegaCtlOn = false;
 
+  const omegaCtlEl = document.getElementById('omegaCtl');
+  if (omegaCtlEl) omegaCtlEl.classList.add('disabled');
+  
   const ORIGINAL_OMEGA_DECAY = TUNING.drum.omegaDecay;
-  let cheatNoDecay = false;
+  window.omegaMode = 0; // 0=Off, 1=Locked, 2=Cheat
   let cheatHoldTimer = null;
   let cheatHoldFired = false;
   const CHEAT_HOLD_MS = 2000;
 
-  /**
-   * Activates or deactivates the no-decay cheat and syncs both cheat button visuals.
-   *
-   * @param {boolean} on - True to enable no-decay cheat, false to restore normal decay
-   */
-  function applyCheat(on) {
-    cheatNoDecay = on;
-    TUNING.drum.omegaDecay = on ? 0 : ORIGINAL_OMEGA_DECAY;
+  function setOmegaMode(mode) {
+    window.omegaMode = mode;
+    TUNING.drum.omegaDecay = (mode === 0) ? ORIGINAL_OMEGA_DECAY : 0;
     
-    // Synchronize both buttons to use the orange "cheat" state
-    const btnOmega = document.getElementById('btnOmegaCtl');
-    const btnSys = document.getElementById('btnSysNoDecay');
+    const btnO = document.getElementById('btnOmegaCtl');
+    const btnS = document.getElementById('btnSysNoDecay');
     
-    if (btnOmega) btnOmega.classList.toggle('cheat', on);
-    if (btnSys) btnSys.classList.toggle('cheat', on);
+    if (btnO) {
+      btnO.classList.remove('on', 'cheat');
+      if (mode === 1) btnO.classList.add('on');
+      if (mode === 2) btnO.classList.add('cheat');
+    }
+    if (btnS) {
+      btnS.classList.remove('cheat');
+      // The Sys button only glows if the cheat is active
+      if (mode === 2) btnS.classList.add('cheat');
+    }
+    if (omegaCtlEl) {
+      omegaCtlEl.classList.toggle('disabled', mode === 0);
+    }
   }
 
   btnOmegaCtl.addEventListener('pointerdown', (e) => {
@@ -354,9 +376,10 @@
     cheatHoldTimer = setTimeout(() => {
       cheatHoldFired = true;
       cheatHoldTimer = null;
-      applyCheat(!cheatNoDecay);
+      setOmegaMode(window.omegaMode === 2 ? 0 : 2);
     }, CHEAT_HOLD_MS);
   });
+  
   const cancelCheatHold = () => {
     if (cheatHoldTimer) { clearTimeout(cheatHoldTimer); cheatHoldTimer = null; }
   };
@@ -371,10 +394,10 @@
       e.stopImmediatePropagation();
       return;
     }
-    omegaCtlOn = !omegaCtlOn;
-    btnOmegaCtl.classList.toggle('on', omegaCtlOn);
-    omegaCtlEl.classList.toggle('disabled', !omegaCtlOn);
+    // Toggle 0 and 1
+    setOmegaMode(window.omegaMode === 1 ? 0 : 1);
   });
+
   btnSound.classList.add('on');
   btnSound.addEventListener('click', () => {
     AUDIO.enabled = !AUDIO.enabled;
@@ -706,10 +729,13 @@
   // ============================================================
   // SECTION: EXPERT PANEL — SYSTEM
   // ============================================================
+
+  // ;; FIXME, wrong locations, system 2 is ghost...
+  // SYSTEM 1. Solid Heatmap 
   const btnSysNoDecay = document.getElementById('btnSysNoDecay');
   if (btnSysNoDecay) {
     btnSysNoDecay.addEventListener('click', () => {
-      applyCheat(!cheatNoDecay);
+      setOmegaMode(window.omegaMode === 2 ? 0 : 2);
     });
   }
 
@@ -823,12 +849,10 @@
     });
   }
 
-
   // Unified access: Either ?expert or ?designer automatically opens the door
   if ((isExpertURL || isDesignerURL) && expertContainer) {
     expertContainer.classList.add('open');
-    if (isExpertURL) applyCheat(true);
-    applyCheat(true);
+    setOmegaMode(2);
   }
 
   // ?verify — rapid full-test mode: floods the drum quickly with high spread and no decay
@@ -838,7 +862,7 @@
     SETTINGS.SPREAD.idx = SETTINGS.SPREAD.values.indexOf(0.30);
     SETTINGS.DT.idx     = SETTINGS.DT.values.indexOf(2);
     applyInitialSettings();
-    applyCheat(true);
+    setOmegaMode(2);
   }
 
   // Visual lockdown for the Designer-only button
