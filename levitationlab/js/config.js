@@ -29,7 +29,6 @@
     splash: {
       enabled:     true,  // bool — master switch; set false to skip the splash screen entirely
       autoDismiss: 0,     // s — 0 = wait for tap; >0 = auto-dismiss after this many seconds
-      onceOnly:    true,  // bool — if true, show only on first visit (persisted in localStorage)
     },
     drum: {
       slipRate:   0.7,               // fraction — particles slip against the wall at this fraction of drum velocity

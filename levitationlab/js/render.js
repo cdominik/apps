@@ -8,7 +8,7 @@
  * Exposes globals: cv, ctxOv, W, H, DPR, CX, CY, SCALE, GEO, REGIME,
  *                  layout, draw, drawGlobes, recordTrails,
  *                  X2px, Y2px, pxDist, visualSizeFactor, angleSwept,
- *                  buildOmegaControls
+ *                  buildOmegaHint
  * Reads globals:   TUNING, CFG, PAL, PAL_DARK, PAL_LIGHT,
  *                  state, heatmap, aggregateImages, globeMaps,
  *                  eggLevitatedParticles,
@@ -52,7 +52,7 @@
 
   /**
    * Resizes canvases, recomputes CX/CY/SCALE, applies regime classes, calls
-   * buildOmegaControls; updates all window.* primitives.
+   * buildOmegaHint; updates all window.* primitives.
    */
   function layout() {
     DPR = Math.max(1, window.devicePixelRatio || 1);
@@ -101,7 +101,7 @@
     GEO.leftWingTopX = GEO.wingLeftX + GEO.wingW * 0.5;
     GEO.leftWingTopY = GEO.wingTop;
 
-    buildOmegaControls();
+    buildOmegaHint();
     window.W = W; window.H = H; window.DPR = DPR;
     window.CX = CX; window.CY = CY; window.SCALE = SCALE;
     window.REGIME = REGIME;
@@ -2007,7 +2007,7 @@ function drawRepresentativeOrbits() {
 
 
   /** Builds the SVG omega arrow as hint how to operate. */
-  function buildOmegaControls() {
+  function buildOmegaHint() {
     const svg = document.getElementById('omegaCtl');
     if (!svg) return;
     svg.setAttribute('width', W);
@@ -2087,5 +2087,5 @@ function drawRepresentativeOrbits() {
   window.pxDist        = pxDist;
   window.visualSizeFactor = visualSizeFactor;
   window.angleSwept    = angleSwept;
-  window.buildOmegaControls = buildOmegaControls;
+  window.buildOmegaHint = buildOmegaHint;
 })();

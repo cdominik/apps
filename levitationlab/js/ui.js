@@ -6,7 +6,7 @@
  *   toggles, system controls), and the expert door URL-flag logic.
  *   Also owns the Expert Analysis Controller (hudMasterOn, heatmap mode).
  *
- * Exposes globals: slowMoArmed (window), resetExpertUI (window),
+ * Exposes globals: slowMoArmed (window), resetExpertUI (window)
  * Reads globals:   TUNING, TUNING_DEFAULT, CFG, PAL, state, heatmap,
  *                  SETTINGS, SEL_WIN, applyInitialSettings,
  *                  GAME, CHALLENGE, VIEWPORT,

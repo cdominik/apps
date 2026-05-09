@@ -870,6 +870,193 @@
   body.theme-modern .btnind.btn-info .cap-label { color: #fff !important; }
   body.theme-modern .title-plate .title-text { color: #495057 !important; text-shadow: none !important; font-family: inherit !important; font-weight: 800 !important; }
 
+  /* --- MODERN THEME · OVERLAYS (manual, splash, sheets, dist) --- */
+
+  /* Backdrop: cooler, lighter tint than the brass-night version */
+  body.theme-modern .manual-overlay,
+  body.theme-modern .splash-overlay,
+  body.theme-modern .game-sheet {
+    background: rgba(33, 37, 41, 0.55) !important;
+  }
+
+  /* Box bodies: soft off-white, subtle gray border, soft drop shadow */
+  body.theme-modern .manual-box,
+  body.theme-modern .splash-box,
+  body.theme-modern .sheet-content {
+    background: #f8f9fa !important;
+    border: 1px solid #cfd4d9 !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18) !important;
+    color: #343a40 !important;
+  }
+
+  /* Headers and section dividers — clean, no glow */
+  body.theme-modern .manual-box h2,
+  body.theme-modern .manual-box h3,
+  body.theme-modern .splash-title,
+  body.theme-modern .splash-tagline,
+  body.theme-modern .sheet-title {
+    text-shadow: none !important;
+    border-color: #cfd4d9 !important;
+  }
+  body.theme-modern .manual-box h2,
+  body.theme-modern .splash-title,
+  body.theme-modern .sheet-title {
+    color: #212529 !important;
+    letter-spacing: 1.5px !important;
+  }
+  body.theme-modern .manual-box h3,
+  body.theme-modern .splash-tagline {
+    color: #495057 !important;
+    letter-spacing: 1px !important;
+  }
+
+  /* Body text */
+  body.theme-modern .manual-box p,
+  body.theme-modern .manual-box li,
+  body.theme-modern .splash-body,
+  body.theme-modern .sheet-desc {
+    color: #495057 !important;
+  }
+
+  /* Accent emphasis — clinical teal for <em>, dark gray bold for <strong> */
+  body.theme-modern .manual-box em,
+  body.theme-modern .splash-body em {
+    color: #0284c7 !important;
+  }
+  body.theme-modern .manual-box strong {
+    color: #212529 !important;
+  }
+
+  /* Keyboard hints */
+  body.theme-modern .manual-box kbd {
+    background: #ffffff !important;
+    border: 1px solid #cfd4d9 !important;
+    color: #495057 !important;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06) !important;
+  }
+
+  /* Footer captions */
+  body.theme-modern .manual-footer,
+  body.theme-modern .splash-footer {
+    color: #6c757d !important;
+  }
+
+  /* Splash skip checkbox label */
+  body.theme-modern .splash-overlay label {
+    color: #495057 !important;
+  }
+  body.theme-modern .splash-overlay input[type="checkbox"] {
+    accent-color: #0ea5e9 !important;
+  }
+
+  /* Manual close (×) button — light gray pill instead of brass */
+  body.theme-modern .manual-close {
+    background: #ffffff !important;
+    border: 1px solid #cfd4d9 !important;
+    color: #495057 !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) !important;
+  }
+  body.theme-modern .manual-close:hover {
+    background: #e8ecef !important;
+    color: #212529 !important;
+  }
+  body.theme-modern .manual-close:active {
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.12) !important;
+  }
+
+  /* Splash and sheet primary buttons — clinical teal */
+  body.theme-modern .splash-btn,
+  body.theme-modern .sheet-btn {
+    background: #0ea5e9 !important;
+    border: 1px solid #0284c7 !important;
+    color: #ffffff !important;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.15) !important;
+    box-shadow: 0 1px 2px rgba(14, 165, 233, 0.3) !important;
+    letter-spacing: 1.5px !important;
+    font-family: inherit !important;
+  }
+  body.theme-modern .splash-btn:hover,
+  body.theme-modern .sheet-btn:hover {
+    background: #0284c7 !important;
+    filter: none !important;
+  }
+  body.theme-modern .splash-btn:active,
+  body.theme-modern .sheet-btn:active {
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15) !important;
+    transform: translateY(1px);
+  }
+
+  /* The grayed-out Exit button on the challenge sheet */
+  body.theme-modern #chalExitBtn {
+    background: #6c757d !important;
+    border-color: #495057 !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15) !important;
+  }
+  body.theme-modern #chalExitBtn:hover {
+    background: #495057 !important;
+  }
+
+  /* Challenge name input — clean white field */
+  body.theme-modern .name-input {
+    background: #ffffff !important;
+    border: 1px solid #cfd4d9 !important;
+    color: #212529 !important;
+    font-family: inherit !important;
+  }
+  body.theme-modern .name-input:focus {
+    border-color: #0ea5e9 !important;
+    box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.25) !important;
+  }
+
+  /* Highscore table */
+  body.theme-modern .highscore-table {
+    color: #343a40 !important;
+    font-family: inherit !important;
+  }
+  body.theme-modern .highscore-table th {
+    color: #212529 !important;
+    border-bottom-color: #cfd4d9 !important;
+  }
+  body.theme-modern .highscore-table td {
+    border-bottom-color: rgba(207, 212, 217, 0.5) !important;
+  }
+  body.theme-modern .highscore-table tr:nth-child(even) td {
+    background: rgba(0, 0, 0, 0.02) !important;
+  }
+  body.theme-modern .highscore-table .score-col {
+    color: #0284c7 !important;
+  }
+  body.theme-modern #chalClearBtn {
+    color: #dc2626 !important;
+  }
+
+  /* Distribution overlay — paper-style inputs and labels */
+  body.theme-modern .dist-label {
+    color: #212529 !important;
+  }
+  body.theme-modern .dist-section {
+    background: rgba(0, 0, 0, 0.03) !important;
+  }
+  body.theme-modern .dist-section:has(input[type="radio"]:checked) {
+    border-left-color: #0ea5e9 !important;
+    background: rgba(14, 165, 233, 0.06) !important;
+  }
+  body.theme-modern .dist-input {
+    background: #ffffff !important;
+    border: 1px solid #cfd4d9 !important;
+    color: #212529 !important;
+    text-shadow: none !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) inset !important;
+    font-family: 'SF Mono', Consolas, 'Courier New', monospace !important;
+  }
+  body.theme-modern .dist-input:focus {
+    border-color: #0ea5e9 !important;
+    box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.25) !important;
+  }
+  body.theme-modern .dist-form input[type="radio"] {
+    accent-color: #0ea5e9 !important;
+  }
+
   /* --- PFEIFFER THEME GAUGE FIX --- */
   /* Keeps the text on the red horizontal bar white in Light Mode */
   body.theme-pfeiffer #gauges .lbl {
@@ -1186,7 +1373,7 @@
       <div id="manualExpertSection" hidden>
         <h2 style="margin-top: 24px;">Expert Panel</h2>
         <p>
-          The expert panel sits behind a locked brass door at the bottom of the
+          The expert panel sits behind a locked door at the bottom of the
           left wing. Its controls expose the underlying physics and analytical
           tooling, and are grouped into three sections: <strong>HUD</strong>
           (visualisation overlays), <strong>Processes</strong> (toggles for the

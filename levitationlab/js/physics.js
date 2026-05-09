@@ -502,9 +502,10 @@
     // 2. Start merge ONLY IF below the limit of 7
     if (!state.globeMerging && state.goldenBalls.length >= TUNING.globe.nCrit && state.globes.length < TUNING.globe.limit) {
       const chosen = state.goldenBalls.slice(0, TUNING.globe.nCrit);
-      const avgX = (chosen[0].x + chosen[1].x) / 2;
-      const avgY = (chosen[0].y + chosen[1].y) / 2;
-
+      let avgX = 0, avgY = 0;
+      for (const b of chosen) { avgX += b.x; avgY += b.y; }
+      avgX /= chosen.length;
+      avgY /= chosen.length;
       for (const b of chosen) {
         b.merging = true;
         b.mergeStart = { x: b.x, y: b.y };

@@ -38,18 +38,9 @@
 
       if (applySlowMo) {
         // 1. Slow down the global physics heartbeat by 5x
-        dt /= 5; 
-        
-        // 2. Ensure animation durations stay at standard lab-spec[cite: 2]
-        // Standard durations naturally take 5x longer because the clock (dt) is 5x slower
-        TUNING.egg.mergeDur = TUNING_DEFAULT.egg.mergeDur;
-        TUNING.aggregate.mergeDur = TUNING_DEFAULT.aggregate.mergeDur;
-        TUNING.globe.mergeDur = TUNING_DEFAULT.globe.mergeDur;
-      } else {
-        // Restore standard speeds[cite: 2]
-        TUNING.egg.mergeDur = TUNING_DEFAULT.egg.mergeDur;
-        TUNING.aggregate.mergeDur = TUNING_DEFAULT.aggregate.mergeDur;
-        TUNING.globe.mergeDur = TUNING_DEFAULT.globe.mergeDur;
+        // Merge durations stay at their defaults — because dt is 5x slower,
+        // a default-duration merge naturally takes 5x longer wall-clock time.
+       dt /= 5;
       }
 
       if (dt > CFG.MAX_DT) dt = CFG.MAX_DT;
