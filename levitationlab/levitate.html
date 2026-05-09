@@ -310,15 +310,38 @@
     text-shadow: 0 1px 0 #000, 0 0 6px rgba(170,224,255,0.6);
   }
 
+  /* Mode Button Styling - Brass frame, Amber inner cap */
+  .btnind.btn-mode .cap {
+    background: radial-gradient(ellipse at 50% 30%, #ffe0a8 0%, #d99540 40%, #8a5018 85%, #3a1f06 100%);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.4), inset 0 -1px 0 rgba(0,0,0,0.4), inset 0 0 8px rgba(255,170,80,0.25);
+  }
+  .btnind.btn-mode:hover .cap {
+    background: radial-gradient(ellipse at 50% 30%, #fff0c0 0%, #e8a858 40%, #9a5a20 85%, #4a2808 100%);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.4), inset 0 0 10px rgba(255,180,90,0.4);
+  }
+  .btnind.btn-mode .cap-label {
+    color: #3a1f06;
+    text-shadow: 0 1px 0 rgba(255,235,170,0.5);
+  }
+  .btnind.btn-mode:hover .cap-label {
+    color: #1a0f02;
+    text-shadow: 0 1px 0 rgba(255,245,200,0.7);
+  }
   body.regime-compact #btnChallenge .cap-label {
     font-size: 10px;
     letter-spacing: 0px;
   }
 
+  /* In portrait, "Challenge" does not fit — show "Score" instead */
   body.regime-portrait #btnChallenge .cap-label {
-    font-size: 8.5px;
-    letter-spacing: -0.2px;
+    font-size: 0; /* hide the original "Challenge" text */
   }
+  body.regime-portrait #btnChallenge .cap-label::after {
+    content: "Score";
+    font-size: 11px;
+    letter-spacing: 1px;
+  }
+
   .highscore-table { width: 100%; margin: 16px 0; border-collapse: collapse; color: #d8c18a; font-family: 'Courier New', monospace; font-size: 14px; }
   .highscore-table th { border-bottom: 1px solid #5a4418; padding: 4px; text-align: left; color: #ffcc55; }
   .highscore-table td { padding: 4px; border-bottom: 1px solid rgba(90, 68, 24, 0.3); }
@@ -868,6 +891,11 @@
   body.theme-modern .btnind.btn-emergency .cap-label { color: #fff !important; }
   body.theme-modern .btnind.btn-info .cap { background: #3399ff !important; border-color: #0066cc !important; }
   body.theme-modern .btnind.btn-info .cap-label { color: #fff !important; }
+
+  body.theme-modern .btnind.btn-mode .cap { background: #f59e0b !important; border-color: #b45309 !important; }
+  body.theme-modern .btnind.btn-mode .cap-label { color: #ffffff !important; text-shadow: 0 1px 1px rgba(0,0,0,0.2) !important; }
+  body.theme-modern .btnind.btn-mode:hover .cap { background: #d97706 !important; }
+
   body.theme-modern .title-plate .title-text { color: #495057 !important; text-shadow: none !important; font-family: inherit !important; font-weight: 800 !important; }
 
   /* --- MODERN THEME · OVERLAYS (manual, splash, sheets, dist) --- */
@@ -1261,8 +1289,8 @@
     <button class="btnind" id="btnTheme" title="Lighting of the laboratory (dark / light)"><span class="cap"><span class="cap-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24" width="22" height="22"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17 L15 17"/><path d="M9.5 19 L14.5 19"/><path d="M10.5 21 L13.5 21"/><path d="M8.5 15.5 C 7 14 6.2 12.2 6.2 10.3 C 6.2 7 8.8 4.3 12 4.3 C 15.2 4.3 17.8 7 17.8 10.3 C 17.8 12.2 17 14 15.5 15.5 Z"/><path d="M10 15.5 C 10 13 11 11 12 9 C 13 11 14 13 14 15.5"/></g></svg>
     </span></span></button>
-    <button class="btnind" id="btnGameMode" title="Start 7-level game at level 1 - the game will lead you to the more interesting corners of the simulation"><span class="cap"><span class="cap-label">Game</span></span></button>
-    <button class="btnind" id="btnChallenge" title="Start challenge with scoreboard, using current settings"><span class="cap"><span class="cap-label">Challenge</span></span></button>
+    <button class="btnind btn-mode" id="btnGameMode" title="Start 7-level game at level 1 - the game will lead you to the more interesting corners of the simulation"><span class="cap"><span class="cap-label">Game</span></span></button>
+    <button class="btnind btn-mode" id="btnChallenge" title="Start challenge with scoreboard, using current settings"><span class="cap"><span class="cap-label">Challenge</span></span></button>
     <button class="btnind btn-info" id="btnManual" title="Compact manual of the simulation"><span class="cap"><span class="cap-label">Info</span></span></button>
     <button class="btnind btn-emergency" id="btnReset" title="Reset - returns the trum to a state ready for a new injection"><span class="cap"><span class="cap-label">Reset</span></span></button>
   </div>
