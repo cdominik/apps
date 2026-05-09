@@ -432,7 +432,14 @@
   const btnManual = document.getElementById('btnManual');
   const manualOverlay = document.getElementById('manualOverlay');
   const manualClose = document.getElementById('manualClose');
-  function openManual() { manualOverlay.hidden = false; }
+  function openManual() {
+    const expertSection = document.getElementById('manualExpertSection');
+    const expertContainer = document.getElementById('expertContainer');
+    if (expertSection && expertContainer) {
+      expertSection.hidden = !expertContainer.classList.contains('open');
+    }
+    manualOverlay.hidden = false;
+  }
   function closeManual() { manualOverlay.hidden = true; }
   btnManual.addEventListener('click', openManual);
   manualClose.addEventListener('click', closeManual);

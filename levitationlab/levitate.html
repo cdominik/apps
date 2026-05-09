@@ -1127,6 +1127,8 @@
     </div>
   </div>
   
+  <!-- INFO OVERLAY -->
+
   <div class="manual-overlay" id="manualOverlay" hidden>
     <div class="manual-box">
       <button class="manual-close" id="manualClose" aria-label="Close manual">×</button>
@@ -1138,23 +1140,28 @@
         drags particles into orbits. The goal is to <em>levitate</em> as many particles
         as possible in the highlighted region on the right of the drum.
       </p>
+
       <h3>How to play</h3>
       <ul>
         <li><strong>Set up</strong> the run with the left wing:
-          number of particles (1–1000), settling velocity
+          number of particles (1–10000), settling velocity
           <em>v<sub>t</sub></em>, optional spread of <em>v<sub>t</sub></em> across particles,
           and the time interval over which particles are injected.
           Particles with larger <em>v<sub>t</sub></em> appear visibly larger.</li>
         <li><strong>Inject</strong> particles with the right-wing button.
           You can start rotating the drum <em>before or after</em> injection.</li>
         <li><strong>Rotate the drum</strong> by swiping across it. To slow down,
-          swipe in the opposite direction.
-        </li>
+          swipe in the opposite direction. The green arrows flanking the drum nudge
+          the rotation speed up or down in fixed steps. The <strong>Ω lock</strong>
+          button on the right wing freezes the current rotation rate (no decay,
+          no acceleration).</li>
         <li>Particles that hit the wall become <span style="color:#ff6060">red</span>
           (<strong>LOST</strong>). Particles floating are <span style="color:#ffcc55">yellow</span>.
           A particle that stays in the highlighted region for at least one full rotation
           period turns <span style="color:#60ff90">green</span> and counts as
           <strong>LEVITATED</strong>.</li>
+        <li><strong>Reset</strong> returns the drum to a clean state, ready for a
+          new injection.</li>
       </ul>
 
       <h3>Optional instruments</h3>
@@ -1186,10 +1193,89 @@
           for 3 full orbits, then enter your name on the local leaderboard.</li>
       </ul>
 
+      <div id="manualExpertSection" hidden>
+        <h2 style="margin-top: 24px;">Expert Panel</h2>
+        <p>
+          The expert panel sits behind a locked brass door at the bottom of the
+          left wing. Its controls expose the underlying physics and analytical
+          tooling, and are grouped into three sections: <strong>HUD</strong>
+          (visualisation overlays), <strong>Processes</strong> (toggles for the
+          physics of growth), and <strong>System</strong> (simulation-wide
+          settings).
+        </p>
+
+        <h3>HUD — visualisation overlays</h3>
+        <ul>
+          <li><strong>Orbit centre projection</strong> — overlays the range of
+            orbit centres implied by the current particle <em>v<sub>t</sub></em>
+            distribution and drum rotation, so you can see at a glance where
+            particles <em>should</em> be circling.</li>
+          <li><strong>Flash orbit of new aggregates</strong> — when an aggregate
+            forms, briefly draws its orbit ring along with the mean-<em>v<sub>t</sub></em>
+            orbit of the levitated population it emerged from. Useful for
+            seeing the small Stokes-number bump aggregates inherit.</li>
+          <li><strong>Backdrop</strong> — slides an opaque sheet behind all
+            active analytical overlays for extra contrast against the drum
+            interior.</li>
+          <li><strong>Analysis projections</strong> — the central HUD button
+            powers on a heatmap engine that accumulates over full drum
+            revolutions. The flanking ◀ ▶ arrows cycle through five modes:
+            resultant <em>vector field</em>, representative <em>orbits</em>,
+            particle <em>density</em>, velocity <em>variance</em>, and a
+            <em>collision proxy</em> (density × variance). A colour bar and
+            caption appear while the HUD is on.</li>
+        </ul>
+
+        <h3>Processes — toggle the physics of growth</h3>
+        <ul>
+          <li><strong>Nanocoating</strong> — coats the drum so particles never
+            stick to the wall. Lets you study orbits without attrition.</li>
+          <li><strong>Aggregate formation</strong> — green when on, red when
+            off. Disabling halts the levitated → aggregate transition.</li>
+          <li><strong>Pebble formation</strong> — green when on, red when off.
+            Disabling halts the aggregate → pebble transition.</li>
+          <li><strong>Pure average <em>v<sub>t</sub></em></strong> — when on,
+            aggregates inherit the unweighted mean <em>v<sub>t</sub></em> of
+            their constituent monomers, with no Stokes-number bump.</li>
+          <li><strong>Slow-motion during merging</strong> — when armed, the
+            simulation runs at one-fifth speed during aggregate, pebble, and
+            globe merges, so you can actually watch them happen.</li>
+          <li><strong>Fast chain</strong> — accelerated synthesis (lower
+            thresholds for aggregates, pebbles, and globes). Requires seven
+            clicks to enable, available only in designer mode, because
+            activating it ruins the discovery arc of the regular game.</li>
+        </ul>
+
+        <h3>System — simulation-wide settings</h3>
+        <ul>
+          <li><strong>Disable Ω decay</strong> — turns off rotational drag on
+            the drum entirely. Equivalent to a 2-second hold on the right-wing
+            Ω button (a non-expert shortcut to the same cheat).</li>
+          <li><strong>Ghost mode</strong> — click any particle to highlight it
+            and overlay three predicted future paths: its actual orbit
+            (white), the gas-only path (cyan dashed), and the vacuum-only
+            path (purple dashed).</li>
+          <li><strong>Injection profile</strong> — opens a panel to configure
+            the particle <em>v<sub>t</sub></em> distribution: the standard
+            Gaussian (driven by the wing slider), a bi-monodisperse mixture
+            with two configurable groups, or a power-law distribution between
+            <em>v<sub>min</sub></em> and <em>v<sub>max</sub></em> with index
+            <em>q</em>. New profiles apply on the next injection event.</li>
+          <li><strong>Simulation speed</strong> — a six-position gearbox
+            (¼× / ½× / 1× / 2× / 4× / 8×). The middle button shows the
+            current gear and snaps back to 1× when pressed.</li>
+        </ul>
+
+        <p style="font-size: 11px; color: #888; margin-top: 12px;">
+          The expert door can be opened by triple-tapping the title plate, or
+          by appending <kbd>?expert</kbd> to the URL. Adding <kbd>?designer</kbd>
+          additionally unlocks the Fast Chain button.
+        </p>
+      </div>
+
       <p class="manual-footer">Press <kbd>Esc</kbd> or × to close.</p>
     </div>
   </div>
-
 
   <!-- DISTRIBUTION OVERLAY -->
   <div class="manual-overlay" id="distOverlay" hidden>
