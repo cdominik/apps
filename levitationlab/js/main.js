@@ -24,35 +24,35 @@
   /**
    * Runs one animation frame: advances physics sub-steps, renders, ticks HUD
    * and game logic, then schedules itself for the next frame.
+   * Updated with a 10-second viewing delay upon reaching the globe limit.
    */
   function loop() {
     try {
       const now = performance.now() / 1000;
-        let dt = now - lastT
+      let dt = now - lastT;
       lastT = now;
 
       // --- STABILIZED 5X SLOW MOTION LOGIC ---
-      // Check if ANY merge is happening
       const isMerging = !!(state.eggMerging || state.aggMerging || state.globeMerging);
       const applySlowMo = (typeof slowMoArmed !== 'undefined' && slowMoArmed && isMerging);
 
       if (applySlowMo) {
-        // 1. Slow down the global physics heartbeat by 5x
-        // Merge durations stay at their defaults — because dt is 5x slower,
-        // a default-duration merge naturally takes 5x longer wall-clock time.
-       dt /= 5;
+        dt /= 5;
       }
 
       if (dt > CFG.MAX_DT) dt = CFG.MAX_DT;
+      
       // Warp speed
       dt *= state.simSpeed;
       const sub = Math.max(1, Math.ceil(dt / 0.01));
       const h = dt / sub;
       
       for (let i = 0; i < sub; i++) updateDrum(h);
-      if (state.running) { for (let i = 0; i < sub; i++) step(h); }
-      for (let i = 0; i < sub; i++) updateEgg(h);
-      for (let i = 0; i < sub; i++) updateAggregates(h);
+      if (state.running) { 
+        for (let i = 0; i < sub; i++) step(h); 
+        for (let i = 0; i < sub; i++) updateEgg(h);
+        for (let i = 0; i < sub; i++) updateAggregates(h);
+      }
       
       updateMotorSound();
       recordTrails();
@@ -66,26 +66,34 @@
       updateChallenge();
 
       // --- UNIVERSAL SUCCESS CHECK ---
+      // Delay the "End of Game" overlay to allow viewing the final system
       if (state.globes.length >= TUNING.globe.limit && gameSheet.hidden) {
+          // Stop physics updates so planets hover in place
           state.running = false; 
-          setTimeout(() => {
-              showSheet(
-                  "LIMIT OF SIMULATION SPACE REACHED", 
-                  "Many planets, and you are still playing? Time to go do something else!", 
-                  "Reset Lab", 
-                  () => { 
-                      gameSheet.hidden = true;
-                      btnReset.click(); 
-                  }
-              );
-          }, 1000);
+
+          // Trigger sequence only once
+          if (!state._endingSequenceTriggered) {
+              state._endingSequenceTriggered = true;
+
+              setTimeout(() => {
+                  showSheet(
+                      "LIMIT OF SIMULATION SPACE REACHED", 
+                      "Many planets, and you are still playing? Time to go do something else!", 
+                      "Reset Lab", 
+                      () => { 
+                          gameSheet.hidden = true;
+                          state._endingSequenceTriggered = false; 
+                          // Using the Reset button logic to clean the lab
+                          document.getElementById('btnReset').click(); 
+                      }
+                  );
+              }, 10000); // 10 second delay
+          }
       }
     } catch (e) {
       console.error('[loop]', e);
     }
     requestAnimationFrame(loop);
   }
-
-  // Kick off the animation loop
-  requestAnimationFrame(loop);
-})();
+  loop();
+  })();

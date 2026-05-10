@@ -279,6 +279,11 @@
     }
     ctxOv.clearRect(0, 0, W, H);
     
+    // 1a. OMEGA UNLOCK LOGIC
+    if (window.omegaMode === 1) {
+      setOmegaMode(0);
+    }
+
     // 2. Clear basic simulation state
     initLevel(); 
 

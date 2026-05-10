@@ -472,15 +472,20 @@
   function updateGlobe(dt) {
     const R_GLOBE = TUNING.globe.radius;
     const MIN_DIST = R_GLOBE * 2.2;
-
-    // 1. Physics for existing globes (Attraction + Repulsion)
+  
+    // 1. Physics for existing globes (Normalized Attraction + Repulsion)
     for (let i = 0; i < state.globes.length; i++) {
       const g = state.globes[i];
+      
+      // Attraction toward the hover point
       const ax = (0 - g.x) * 0.01;
       const ay = (TUNING.globe.hoverY - g.y) * 0.01;
-      g.vx = (g.vx + ax) * 0.85;
-      g.vy = (g.vy + ay) * 0.85;
-
+      
+      // Forces are applied linearly with time
+      g.vx += ax * dt * 60; 
+      g.vy += ay * dt * 60;
+  
+      // Repulsion from other globes
       for (let j = 0; j < state.globes.length; j++) {
         if (i === j) continue;
         const other = state.globes[j];
@@ -488,17 +493,27 @@
         const dy = g.y - other.y;
         const dist = Math.hypot(dx, dy);
         const distSq = dx * dx + dy * dy + 10;
+        
         let force = TUNING.globe.repulsion / distSq;
         if (dist < MIN_DIST) force += (MIN_DIST - dist) * 50;
+        
         const angle = Math.atan2(dy, dx);
         g.vx += Math.cos(angle) * force * dt;
         g.vy += Math.sin(angle) * force * dt;
       }
+  
+      // --- TIME-CORRECTED DAMPING ---
+      // Standard damping (0.85 per frame at 60fps) is converted to an 
+      // exponential decay to remain consistent across different dt values.
+      const damping = Math.exp(-9.74 * dt); 
+      g.vx *= damping;
+      g.vy *= damping;
+  
       g.x += g.vx;
       g.y += g.vy;
       g.spin += TUNING.globe.rotationSpeed * dt;
     }
-
+  
     // 2. Start merge ONLY IF below the limit of 7
     if (!state.globeMerging && state.goldenBalls.length >= TUNING.globe.nCrit && state.globes.length < TUNING.globe.limit) {
       const chosen = state.goldenBalls.slice(0, TUNING.globe.nCrit);
@@ -510,7 +525,7 @@
         b.merging = true;
         b.mergeStart = { x: b.x, y: b.y };
       }
-
+  
       state.globeMerging = {
         pebbles: chosen,
         startedAt: state.t,
@@ -518,7 +533,7 @@
         target: { x: avgX, y: avgY }
       };
     }
-
+  
     // 3. Handle merge completion
     if (state.globeMerging) {
       const m = state.globeMerging;
@@ -528,7 +543,7 @@
         b.x = b.mergeStart.x + (m.target.x - b.mergeStart.x) * ease;
         b.y = b.mergeStart.y + (m.target.y - b.mergeStart.y) * ease;
       }
-
+  
       if (u >= 1) {
         state.goldenBalls = state.goldenBalls.filter(b => !m.pebbles.includes(b));
         state.globes.push({
@@ -757,6 +772,7 @@
   // ============================================================
   /**
    * Manages aggregate orbit physics, wall collisions, and merge sequencing.
+   * Includes Lidar sweep detection for visibility logic.
    *
    * @param {number} dt - Elapsed time in seconds since the last frame.
    */
@@ -771,12 +787,12 @@
         state.aggCount++;
       }
     }
-
+  
     if (!state.aggMerging) {
       const lev = eggLevitatedParticles();
       const absOm = Math.abs(state.omega);
       const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
-
+  
       if (lev.length >= TUNING.aggregate.minLevitated && isFinite(T) && CFG.VT_SPREAD >= TUNING.aggregate.minSpread) {
         state.aggHoldRevs += dt / T;
         const target = state.aggCount === 0 ? TUNING.aggregate.initialHoldRevs : TUNING.aggregate.subseqHoldRevs;
@@ -796,63 +812,82 @@
         state.aggHoldRevs = 0;
       }
     }
-
+  
     const HX = TUNING.highlight.cx;
     const HY = TUNING.highlight.cy;
     const HR2 = TUNING.highlight.radius * TUNING.highlight.radius;
-
+  
     for (const agg of state.aggregates) {
       if (agg.merging) continue;
-      if (agg.stuck) continue;
-
-      agg.vx = -state.omega * agg.y;
-      agg.vy = state.omega * agg.x - agg.vt;
-      agg.x += agg.vx * dt;
-      agg.y += agg.vy * dt;
-      agg.rot += agg.rotSpeed * dt;
-
-      const r2 = agg.x * agg.x + agg.y * agg.y;
-      const Rwall = CFG.R_DRUM - agg.r;
-
-      if (r2 >= Rwall * Rwall) {
-        agg.alive = false;
-        const baseAngle = Math.atan2(agg.y, agg.x);
-        const pRwall = CFG.R_DRUM - TUNING.particle.collisionR;
-        state.aggCount--;
-
-        for (let i = 0; i < 10; i++) {
-          const spread = (Math.random() - 0.5) * (agg.r / CFG.R_DRUM) * 2.5;
-          const pAngle = baseAngle + spread;
-          state.particles.push({
-            x: pRwall * Math.cos(pAngle),
-            y: pRwall * Math.sin(pAngle),
-            vx: 0, vy: 0,
-            vt: agg.vt,
-            stuck: true,
-            stuckAngle: pAngle,
-            stuckAt: state.t,
-            alive: true,
-            inHighlightSince: null,
-            flashEndsAt: -1,
-            insideOnce: true,
-            imgIdx: Math.floor(Math.random() * aggregateImages.length)
-          });
-          state.lostCount++;
-        }
-        soundTink();
-        soundTink();
-        soundTink();
+      if (agg.stuck) {
+        // Stuck aggregates update their position based on drum rotation
+        agg.stuckAngle += state.omega * dt;
+        agg.x = (CFG.R_DRUM - agg.r) * Math.cos(agg.stuckAngle);
+        agg.y = (CFG.R_DRUM - agg.r) * Math.sin(agg.stuckAngle);
       } else {
-        const dxh = agg.x - HX, dyh = agg.y - HY;
-        if (dxh * dxh + dyh * dyh <= HR2) {
-          if (agg.inHighlightSince === null) agg.inHighlightSince = state.t;
+        // 1. LIDAR SWEEP DETECTION
+        if (state.laserOn) {
+          const pa = Math.atan2(agg.y, agg.x);
+          // Detect if the laser swept over the aggregate this frame
+          if (angleSwept(state.laserAngle - LASER_OMEGA * dt, state.laserAngle, pa)) {
+            const flashDur = 0.40 * TUNING.lidar.flashDurMul;
+            agg.flashEndsAt = state.t + flashDur;
+          }
+        }
+  
+        // 2. ORBITAL PHYSICS
+        agg.vx = -state.omega * agg.y;
+        agg.vy = state.omega * agg.x - agg.vt;
+        agg.x += agg.vx * dt;
+        agg.y += agg.vy * dt;
+        agg.rot += agg.rotSpeed * dt;
+  
+        const r2 = agg.x * agg.x + agg.y * agg.y;
+        const Rwall = CFG.R_DRUM - agg.r;
+  
+        // 3. WALL COLLISION (Fragmentation into particles)
+        if (r2 >= Rwall * Rwall) {
+          agg.alive = false;
+          const baseAngle = Math.atan2(agg.y, agg.x);
+          const pRwall = CFG.R_DRUM - TUNING.particle.collisionR;
+          state.aggCount--;
+  
+          for (let i = 0; i < 10; i++) {
+            const spread = (Math.random() - 0.5) * (agg.r / CFG.R_DRUM) * 2.5;
+            const pAngle = baseAngle + spread;
+            state.particles.push({
+              x: pRwall * Math.cos(pAngle),
+              y: pRwall * Math.sin(pAngle),
+              vx: 0, vy: 0,
+              vt: agg.vt,
+              stuck: true,
+              stuckAngle: pAngle,
+              stuckAt: state.t,
+              alive: true,
+              inHighlightSince: null,
+              flashEndsAt: -1,
+              insideOnce: true,
+              imgIdx: Math.floor(Math.random() * aggregateImages.length)
+            });
+            state.lostCount++;
+          }
+          soundTink();
+          soundTink();
+          soundTink();
         } else {
-          agg.inHighlightSince = null;
+          // 4. HIGHLIGHT ZONE TRACKING
+          const dxh = agg.x - HX, dyh = agg.y - HY;
+          if (dxh * dxh + dyh * dyh <= HR2) {
+            if (agg.inHighlightSince === null) agg.inHighlightSince = state.t;
+          } else {
+            agg.inHighlightSince = null;
+          }
         }
       }
+      // Final cleanup for particles that fall out of bounds
       if (agg.y < -CFG.R_DRUM * 1.5) agg.alive = false;
     }
-
+  
     if (state.aggregates.length > 0) {
       state.aggregates = state.aggregates.filter(a => a.alive);
     }

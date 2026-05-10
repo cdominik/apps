@@ -498,6 +498,7 @@
 
   /**
    * Draws all live aggregates with optional orbit flash ring.
+   * Respects Lidar visibility logic: hidden unless hit by the laser sweep.
    */
   function drawAggregates() {
     if (state.aggMerging) {
@@ -514,19 +515,45 @@
         ctx.beginPath(); ctx.moveTo(X2px(sx), Y2px(sy)); ctx.lineTo(X2px(cx), Y2px(cy)); ctx.stroke();
       }
     }
-
+  
     const rInnerPx = pxDist(CFG.R_DRUM) + 2;
     ctx.save();
     ctx.beginPath(); ctx.arc(CX, CY, rInnerPx, 0, Math.PI * 2); ctx.clip();
-
+  
     for (const agg of state.aggregates) {
       if (agg.merging) continue;
+  
+      // --- LIDAR VISIBILITY LOGIC ---
+      const lidar = state.laserOn;
+      const FLASH_DUR = 0.40 * (lidar ? TUNING.lidar.flashDurMul : 1);
+      let flash = 0;
+  
+      // Calculate current brightness based on time since the laser hit (from physics.js)
+      if (state.t < agg.flashEndsAt) {
+        flash = (agg.flashEndsAt - state.t) / FLASH_DUR;
+        if (flash > 1) flash = 1; if (flash < 0) flash = 0;
+      }
+  
+      if (lidar) {
+        // Hide if not hit by laser and not stuck to the wall
+        if (!agg.stuck && flash <= 0) continue; 
+        // Dim stuck aggregates for a low-opacity "background radar" look
+        if (agg.stuck) ctx.globalAlpha = TUNING.lidar.stuckAlpha;
+      }
+  
       const ax = X2px(agg.x), ay = Y2px(agg.y);
       const ar = pxDist(agg.r);
+      
       ctx.save();
       ctx.translate(ax, ay);
       ctx.rotate(-agg.rot);
-
+  
+      // Apply flash brightening if in Lidar mode
+      if (lidar && flash > 0) {
+        ctx.shadowBlur = 15 * flash;
+        ctx.shadowColor = 'rgba(60, 255, 120, 0.8)';
+      }
+  
       const img = aggregateImages[agg.imgIdx !== undefined ? agg.imgIdx : 0];
       if (img && img.complete && img.naturalHeight !== 0) {
         const drawH = ar * 2;
@@ -536,7 +563,11 @@
         ctx.fillStyle = '#6a6a72';
         ctx.beginPath(); ctx.arc(0, 0, ar, 0, Math.PI * 2); ctx.fill();
       }
+      
       ctx.restore();
+  
+      // Reset global alpha in case it was modified for stuck aggregates
+      if (lidar) ctx.globalAlpha = 1.0;
     }
     ctx.restore();
   }
