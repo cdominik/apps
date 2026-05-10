@@ -442,12 +442,10 @@
   }
 
   /**
-   * Ends a challenge run and shows the name-entry sheet so the player can
-   * submit their score to the leaderboard.
-   *
-   * @param {number} score - Number of particles secured for three full orbits.
+   * Ends a challenge run with weighted scoring and dynamic reporting.
+   * * @param {number} secured - Number of particles secured for three full orbits.
    */
-  function endChallengeRun(score) {
+  function endChallengeRun(secured) {
     CHALLENGE.phase = 'scoring';
     lockSelectors(false);
     state.running = false;
@@ -455,9 +453,31 @@
     state.omega = 0;
     state.omegaTarget = 0;
 
+    // 1. CALCULATE WEIGHTED SCORE
+    const particleScore = secured;
+    const aggregateScore = state.aggCount * 10;
+    const pebbleScore = state.eggBallCount * 100;
+    const planetScore = state.globes.length * 1000;
+    const totalScore = particleScore + aggregateScore + pebbleScore + planetScore;
+
+    // 2. CONSTRUCT DYNAMIC REPORT STRING
+    let reportParts = [`${secured} particles`];
+    
+    if (state.aggCount > 0) {
+        reportParts.push(`${state.aggCount} aggregates`);
+    }
+    if (state.eggBallCount > 0) {
+        reportParts.push(`${state.eggBallCount} pebbles`);
+    }
+    if (state.globes.length > 0) {
+        reportParts.push(`${state.globes.length} planets`);
+    }
+
+    // 3. UPDATE THE UI
     chalTitle.textContent = "Challenge Complete!";
-    chalDesc.textContent = "Enter your name for the leaderboard.";
-    chalFinalScore.textContent = score;
+    chalDesc.textContent = "Final Composition: " + reportParts.join(", ");
+    chalFinalScore.textContent = totalScore;
+    
     chalStartBtn.hidden = true;
     chalBoardArea.hidden = true;
     chalInputArea.hidden = false;
@@ -465,7 +485,6 @@
     challengeSheet.hidden = false;
     setTimeout(() => chalNameInput.focus(), 100);
   }
-
   chalSubmitBtn.addEventListener('click', () => {
     const name = chalNameInput.value.trim() || 'Anonymous';
     const score = parseInt(chalFinalScore.textContent, 10) || 0;
