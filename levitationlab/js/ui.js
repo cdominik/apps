@@ -254,6 +254,9 @@
   const btnOmegaCtl = document.getElementById('btnOmegaCtl');
   const btnSound = document.getElementById('btnSound');
   const btnTrails = document.getElementById('btnTrails');
+  const gaugeAgg    = document.getElementById('gaugeAgg');
+  const gaugePebble = document.getElementById('gaugePebble');
+  const gameSheet   = document.getElementById('gameSheet');
 
   btnStart.addEventListener('click', () => {
     startRelease();

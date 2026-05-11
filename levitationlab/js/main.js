@@ -16,6 +16,7 @@
  */
 (() => {
   'use strict';
+  const gameSheet = document.getElementById('gameSheet');
 
   // ============================================================
   // SECTION: MAIN LOOP
