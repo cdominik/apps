@@ -1060,14 +1060,7 @@
     const g = ctx.createLinearGradient(0, y0, 0, y1);
     const isPfeiffer = document.body.classList.contains('theme-pfeiffer');
 
-    if (isPfeiffer) {
-      g.addColorStop(0.00, '#ff9999');
-      g.addColorStop(0.05, '#ff4d4d');
-      g.addColorStop(0.20, '#d5001c');
-      g.addColorStop(0.55, '#aa0016');
-      g.addColorStop(0.85, '#800011');
-      g.addColorStop(1.00, '#4d000a');
-    } else if (PAL.name === 'light') {
+    if (PAL.name === 'light') {
       g.addColorStop(0.00, '#d6d2c2');
       g.addColorStop(0.05, '#e2dece');
       g.addColorStop(0.20, '#b4ae9e');
