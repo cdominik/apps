@@ -123,6 +123,11 @@
     if (el) el.textContent = label;
   }
 
+  function setChallengeBtnLabel(label) {
+    const el = btnChallenge.querySelector('.cap-label');
+    if (el) el.textContent = label;
+  }
+
   const elTitlePlate = document.getElementById('titlePlate');
   const btnGameMode  = document.getElementById('btnGameMode');
   const gameSheet    = document.getElementById('gameSheet');
@@ -539,6 +544,7 @@
       showChallengeIntro();
     } else {
       CHALLENGE.phase = 'idle';
+      setChallengeBtnLabel('Challenge');
       challengeSheet.hidden = true;
       lockSelectors(false);
       hideVideoElement();
@@ -580,6 +586,33 @@
     challengeSheet.hidden = true;
     startChallengeRun();
   });
+  chalNameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') chalSubmitBtn.click();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || challengeSheet.hidden) return;
+    if (!chalStartBtn.hidden)        { chalStartBtn.click();  return; }
+    if (!chalBoardArea.hidden)       { chalNextBtn.click();   return; }
+  });
+
+  /**
+   * Counts particles that have completed 3 full orbits in the highlight zone.
+   * Used both by updateChallenge() and the Challenge Menu early-exit path.
+   *
+   * @returns {number} Number of secured particles.
+   */
+  function countSecured() {
+    const absOm = Math.abs(state.omega);
+    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+    let secured = 0;
+    for (const p of state.particles) {
+      if (!p.alive || p.stuck) continue;
+      if (isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= 3 * T) {
+        secured++;
+      }
+    }
+    return secured;
+  }
 
   /**
    * Begins a challenge run: locks selectors, releases particles, records the
@@ -587,6 +620,7 @@
    */
   function startChallengeRun() {
     CHALLENGE.phase = 'playing';
+    setChallengeBtnLabel('Challenge Menu');
     lockSelectors(true);
     startRelease();
 
@@ -612,6 +646,7 @@
    */
   function endChallengeRun(secured) {
     CHALLENGE.phase = 'scoring';
+    setChallengeBtnLabel('Challenge');
     lockSelectors(false);
     state.running = false;
     btnStart.classList.remove('on');
@@ -657,8 +692,27 @@
   });
 
   chalNextBtn.addEventListener('click', () => { showChallengeIntro(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !challengeSheet.hidden && !chalBoardArea.hidden) {
+      chalNextBtn.click();
+    }
+  });
 
-  btnChallenge.addEventListener('click', () => enterChallengeMode(!CHALLENGE.on));
+  btnChallenge.addEventListener('click', () => {
+    if (CHALLENGE.on && CHALLENGE.phase === 'playing') {
+      const secured = countSecured();
+      showSheet(
+        'Challenge Menu',
+        `${secured} particle${secured !== 1 ? 's' : ''} secured so far.`,
+        'End Run',
+        () => { endChallengeRun(secured); },
+        'Exit Challenge',
+        () => { enterChallengeMode(false); }
+      );
+    } else {
+      enterChallengeMode(!CHALLENGE.on);
+    }
+  });
 
   /**
    * Called every frame; checks end conditions for the active challenge run
@@ -672,21 +726,15 @@
     const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
 
     let floating = 0;
-    let secured = 0;
-
     for (const p of state.particles) {
-      if (!p.alive) continue;
-      if (p.stuck) continue;
+      if (!p.alive || p.stuck) continue;
       floating++;
-      if (isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= 3 * T) {
-        secured++;
-      }
     }
+    const secured = countSecured();
 
     const allInjected = state.toInject.length === 0;
     const timeSinceStart = state.t - CHALLENGE.startTime;
     const TIME_LIMIT = CHALLENGE_CFG.TIME_LIMIT + CFG.DT_INJECT;
-
 
     if (allInjected) {
       if (floating === 0 || (floating > 0 && floating === secured) || timeSinceStart > TIME_LIMIT) {
