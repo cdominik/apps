@@ -105,7 +105,7 @@
       {
         name: 'More Energetic Encounters',
         params: { NP: 300, VT: 30, SPREAD: 0.30, DT: 3, trails: true, laser: false },
-        goal: { minPebbles: 1, timeoutRevs: 60 },
+        goal: { minPebbles: 1, timeoutRevs: 100 },
         failText: 'Nothing grew large enough in time. Fill the drum and keep it spinning.',
         describe: function() {
           return 'A still wider spread means faster relative velocities at each collision. ' +
@@ -120,17 +120,6 @@
   }
   function setGameBtnLabel(label) {
     const el = btnGameMode.querySelector('.cap-label');
-    if (el) el.textContent = label;
-  }
-  function setChallengeBtnLabel(label) {
-    const el = btnChallenge.querySelector('.cap-label');
-    if (!el) return;
-    el.textContent = (label === 'Challenge' && window.REGIME === 'portrait') ? 'Score' : label;
-  }
-
-
-  function setChallengeBtnLabel(label) {
-    const el = btnChallenge.querySelector('.cap-label');
     if (el) el.textContent = label;
   }
 
@@ -353,10 +342,11 @@
         showSheet(
           'The Lab is Yours',
           'You have seen particles levitate, cluster, and grow. ' +
-          'But the drum has more to show. ' +
+          'This is how far the real lab experiment can reach. ' + 
+          'But the game has more to show. ' +
           'What happens when pebbles keep accumulating? ' +
           'The lab is yours now — no targets, no timer. ' +
-          'Just keep the drum spinning.',
+          'Just keep the drum spinning, keep the velocity spread high.',
           'Enter the Lab',
           () => {
             applyLevelParams(currentLevel()); // sets NP=300, SPREAD=0.30 etc.
@@ -414,7 +404,7 @@
         const revolutions = isFinite(T) ? (state.t - GAME.structureWaitSince) / T : 0;
         const timeoutRevs = lv.goal.timeoutRevs !== undefined ? lv.goal.timeoutRevs : 40;
         const wallElapsed = state.t - GAME.structureWaitSince;
-        const wallTimeout = 120; // s — absolute ceiling in case drum is barely spinning
+        const wallTimeout = timeoutRevs * 3; // s — scales with rev target; assumes ≥1 rev per 3s
 
         if (revolutions >= timeoutRevs || wallElapsed >= wallTimeout) {
           endGameRun('lost');
@@ -496,6 +486,11 @@
   };
 
   const btnChallenge   = document.getElementById('btnChallenge');
+  function setChallengeBtnLabel(label) {
+    const el = btnChallenge.querySelector('.cap-label');
+    if (!el) return;
+    el.textContent = (label === 'Challenge' && window.REGIME === 'portrait') ? 'Score' : label;
+  }
   const challengeSheet = document.getElementById('challengeSheet');
   const chalTitle      = document.getElementById('chalTitle');
   const chalDesc       = document.getElementById('chalDesc');
