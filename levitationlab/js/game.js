@@ -177,7 +177,7 @@
     if (window.omegaMode !== 2) {
       TUNING.drum.omegaDecay = (level.params.omegaDecay != null)
         ? level.params.omegaDecay
-        : (GAME._savedOmegaDecay != null ? GAME._savedOmegaDecay : 1.0 / 30.0);
+        : GAME._savedOmegaDecay;
     }
 
     TUNING.aggregate.vtFactor = (level.params.vtFactor != null)
@@ -282,9 +282,11 @@
       gameSheet.hidden = true;
       if (GAME._savedVtFactor != null) {
         TUNING.aggregate.vtFactor = GAME._savedVtFactor;
+        GAME._savedVtFactor = null;
       }
       if (GAME._savedOmegaDecay != null) {
-        GAME._savedOmegaDecay = TUNING.drum.omegaDecay;
+        TUNING.drum.omegaDecay = GAME._savedOmegaDecay;
+        GAME._savedOmegaDecay = null;
       }
       initLevel();
     }
@@ -334,6 +336,7 @@
 
     state.omega = 0;
     state.omegaTarget = 0;
+    gameSheet.hidden = true;
 
     if (outcome === 'won') {
       const isLastLevel = GAME.levelIdx === GAME.levels.length - 1;
@@ -478,11 +481,30 @@
   // ============================================================
   // SECTION: CHALLENGE MODE
   // ============================================================
+
+  /**
+   * Loads highscores from localStorage, tolerating missing/blocked storage
+   * and corrupted JSON. Returns an empty array on any failure.
+   *
+   * @returns {Array} Array of highscore entries, or [] if unavailable.
+   */
+  function loadHighscores() {
+    try {
+      const raw = localStorage.getItem('levitation_highscores');
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.warn('[game] Could not load highscores:', e);
+      return [];
+    }
+  }
+
   const CHALLENGE = {
     on: false,
     phase: 'idle',
     startTime: 0,
-    scores: JSON.parse(localStorage.getItem('levitation_highscores') || '[]')
+    scores: loadHighscores()
   };
 
   const btnChallenge   = document.getElementById('btnChallenge');
@@ -505,10 +527,15 @@
 
   /**
    * Persists CHALLENGE.scores to localStorage under the key
-   * 'levitation_highscores'.
+   * 'levitation_highscores'. Silently ignores storage failures
+   * (blocked storage, quota exceeded).
    */
   function saveHighscores() {
-    localStorage.setItem('levitation_highscores', JSON.stringify(CHALLENGE.scores));
+    try {
+      localStorage.setItem('levitation_highscores', JSON.stringify(CHALLENGE.scores));
+    } catch (e) {
+      console.warn('[game] Could not save highscores:', e);
+    }
   }
 
   /**
@@ -592,8 +619,13 @@
     startChallengeRun();
   });
   chalNameInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') chalSubmitBtn.click();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      chalSubmitBtn.click();
+    }
   });
+
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' || challengeSheet.hidden) return;
     if (!chalStartBtn.hidden)        { chalStartBtn.click();  return; }
@@ -651,6 +683,7 @@
    */
   function endChallengeRun(secured) {
     CHALLENGE.phase = 'scoring';
+    gameSheet.hidden = true
     setChallengeBtnLabel('Challenge');
     lockSelectors(false);
     state.running = false;
@@ -697,11 +730,6 @@
   });
 
   chalNextBtn.addEventListener('click', () => { showChallengeIntro(); });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !challengeSheet.hidden && !chalBoardArea.hidden) {
-      chalNextBtn.click();
-    }
-  });
 
   btnChallenge.addEventListener('click', () => {
     if (CHALLENGE.on && CHALLENGE.phase === 'playing') {
