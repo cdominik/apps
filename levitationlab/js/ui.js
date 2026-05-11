@@ -731,7 +731,7 @@
   
   // SYSTEM 4-6. Simulation speed
 
-    const speedGears = [0.25, 0.5, 1.0, 2.0, 4.0, 8.0];
+    const speedGears   = [0.25, 0.5, 1.0, 2.0, 4.0];
     let currentGearIdx = 2; // Default to 1.0x
   
     /**

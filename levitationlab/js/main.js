@@ -44,9 +44,12 @@
       
       // Warp speed
       dt *= state.simSpeed;
-      const sub = Math.max(1, Math.ceil(dt / 0.01));
+      // DT_SUBSTEP derived from omegaMax, which is a game-speed parameter,
+      // not the physical lab rate — see config.js TUNING.drum.omegaMax.
+      const DT_SUBSTEP = (2 * Math.PI / TUNING.drum.omegaMax) / 100;
+      const sub = Math.max(1, Math.ceil(dt / DT_SUBSTEP));
       const h = dt / sub;
-      
+
       for (let i = 0; i < sub; i++) updateDrum(h);
       if (state.running) { 
         for (let i = 0; i < sub; i++) step(h); 

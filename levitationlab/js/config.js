@@ -32,9 +32,13 @@
     },
     drum: {
       slipRate:   0.7,               // fraction — particles slip against the wall at this fraction of drum velocity
-      omegaDecay: 1.0 / 30.0,        // rad/s² — exponential decay rate of drum angular velocity
-      swipeGain:  0.003,             // rad/s per px — swipe pixel distance to angular velocity conversion
-      omegaMax:   2 * Math.PI * 1.5, // rad/s — maximum drum speed (1.5 rev/s)
+      omegaDecay: 1.0 / 30.0,      // rad/s² — exponential decay rate of drum angular velocity
+      swipeGain:  0.003,           // rad/s per px — swipe pixel distance to angular velocity conversion
+      omegaMax: 2 * Math.PI * 1.5, // rad/s — game design ceiling (1.5 rev/s);
+                                   // real experiment runs at ~1 RPM (0.105 rad/s).
+                                   // Higher rate makes levitation feedback immediate
+                                   // for a player; also sets orbit integration
+                                   // timestep via DT_SUBSTEP in main.js.
     },
     highlight: {
       cx:     50, // drum-units — x-centre of the levitation highlight zone
@@ -121,7 +125,7 @@
     VT_SPREAD: 0.10,                   // fraction — random ±spread applied to each particle's terminal velocity
     RELEASE_Y: 110, RELEASE_X_MIN: 0, RELEASE_X_MAX: 100, // drum-units — y position and x range where released particles appear
     BRAKE_DAMP: 1.2,                   // coefficient — extra velocity damping applied while the drum is braking
-    MAX_DT: 0.033,                     // s — maximum allowed physics timestep (caps simulation at ~30 fps)
+    MAX_DT: 0.033,  // s — caps real dt before simSpeed scaling; keep > DT_SUBSTEP
   };
 
   const LASER_OMEGA = 2 * Math.PI / 1.2;  // rad/s — laser sweep angular velocity: one full revolution in 1.2 s
