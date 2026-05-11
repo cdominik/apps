@@ -122,6 +122,12 @@
     const el = btnGameMode.querySelector('.cap-label');
     if (el) el.textContent = label;
   }
+  function setChallengeBtnLabel(label) {
+    const el = btnChallenge.querySelector('.cap-label');
+    if (!el) return;
+    el.textContent = (label === 'Challenge' && window.REGIME === 'portrait') ? 'Score' : label;
+  }
+
 
   function setChallengeBtnLabel(label) {
     const el = btnChallenge.querySelector('.cap-label');
@@ -762,4 +768,5 @@
   window.lockSelectors       = lockSelectors;
   window.setSettingByValue   = setSettingByValue;
   window.showChallengeIntro  = showChallengeIntro;
+  window.setChallengeBtnLabel = setChallengeBtnLabel;
 })();

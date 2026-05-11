@@ -105,6 +105,8 @@
     window.W = W; window.H = H; window.DPR = DPR;
     window.CX = CX; window.CY = CY; window.SCALE = SCALE;
     window.REGIME = REGIME;
+    // Refresh challenge button label in case regime changed
+    if (window.setChallengeBtnLabel) window.setChallengeBtnLabel('Challenge');
   }
 
   /**
