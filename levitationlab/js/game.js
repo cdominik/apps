@@ -234,6 +234,10 @@
   sheetBtn.addEventListener('click', () => {
     if (sheetAction) sheetAction();
   });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || gameSheet.hidden) return;
+    sheetBtn.click();
+  });
 
   /**
    * Transitions GAME to idle phase: unlocks selectors, applies the current
