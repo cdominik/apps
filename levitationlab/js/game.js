@@ -531,6 +531,11 @@
 
     if (on) {
       CHALLENGE.phase = 'idle';
+      // Apply challenge defaults from CFG, then let URL params override
+      setSettingByValue('NP',     CHALLENGE_CFG.N_P);
+      setSettingByValue('VT',     CHALLENGE_CFG.V_T);
+      setSettingByValue('SPREAD', CHALLENGE_CFG.VT_SPREAD);
+      setSettingByValue('DT',     CHALLENGE_CFG.DT_INJECT);
       showChallengeIntro();
     } else {
       CHALLENGE.phase = 'idle';
@@ -680,7 +685,8 @@
 
     const allInjected = state.toInject.length === 0;
     const timeSinceStart = state.t - CHALLENGE.startTime;
-    const TIME_LIMIT = 60 + CFG.DT_INJECT;
+    const TIME_LIMIT = CHALLENGE_CFG.TIME_LIMIT + CFG.DT_INJECT;
+
 
     if (allInjected) {
       if (floating === 0 || (floating > 0 && floating === secured) || timeSinceStart > TIME_LIMIT) {
@@ -703,4 +709,5 @@
   window.showSheet           = showSheet;
   window.lockSelectors       = lockSelectors;
   window.setSettingByValue   = setSettingByValue;
+  window.showChallengeIntro  = showChallengeIntro;
 })();

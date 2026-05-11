@@ -128,6 +128,16 @@
     MAX_DT: 0.033,  // s — caps real dt before simSpeed scaling; keep > DT_SUBSTEP
   };
 
+  // Default parameters for Challenge Mode (?challenge URL flag).
+  // URL parameters (np, vt, spread, dt) override these selectively.
+  const CHALLENGE_CFG = {
+    N_P:        300,  // count — particles injected per challenge run
+    V_T:        30,   // cm/s — terminal velocity
+    VT_SPREAD:  0.30, // fraction — spread of terminal velocities
+    DT_INJECT:  3,    // s — injection window
+    TIME_LIMIT: 60,   // s — hard ceiling after all particles injected
+  };
+
   const LASER_OMEGA = 2 * Math.PI / 1.2;  // rad/s — laser sweep angular velocity: one full revolution in 1.2 s
 
   // ============================================================
@@ -186,11 +196,12 @@
     highlightFill:  '#16161e',
   };
 
-  window.TUNING        = TUNING;
+  window.TUNING         = TUNING;
   window.TUNING_DEFAULT = TUNING_DEFAULT;
-  window.CFG           = CFG;
-  window.LASER_OMEGA   = LASER_OMEGA;
-  window.PAL_DARK      = PAL_DARK;
-  window.PAL_LIGHT     = PAL_LIGHT;
-  window.PAL           = PAL_DARK;
+  window.CFG            = CFG;
+  window.LASER_OMEGA    = LASER_OMEGA;
+  window.PAL_DARK       = PAL_DARK;
+  window.PAL_LIGHT      = PAL_LIGHT;
+  window.PAL            = PAL_DARK;
+  window.CHALLENGE_CFG  = CHALLENGE_CFG;
 })();

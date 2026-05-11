@@ -880,11 +880,21 @@
     setTimeout(() => { enterGameMode(true, startLevel); }, 0);
   }
 
-  // ?challenge — drop straight into Challenge Mode using current settings
+  // ?challenge — drop straight into Challenge Mode using challenge defaults.
+  // Optional URL overrides: np, vt, spread, dt (applied after defaults).
   if (uP.has('challenge')) {
     window.__suppressSplash = true;
-    setTimeout(() => { enterChallengeMode(true); }, 0);
+    setTimeout(() => {
+      enterChallengeMode(true);
+      // Selective URL overrides on top of CHALLENGE_CFG defaults
+      if (uP.has('np'))     setSettingByValue('NP',     parseInt(uP.get('np'), 10));
+      if (uP.has('vt'))     setSettingByValue('VT',     parseFloat(uP.get('vt')));
+      if (uP.has('spread')) setSettingByValue('SPREAD', parseFloat(uP.get('spread')));
+      if (uP.has('dt'))     setSettingByValue('DT',     parseFloat(uP.get('dt')));
+      showChallengeIntro(); // refresh sheet with final parameter values
+    }, 0);
   }
+
 
   // Visual lockdown for the Designer-only button
   const btnFast = document.getElementById('btnProcFast');
