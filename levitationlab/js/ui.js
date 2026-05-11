@@ -433,9 +433,12 @@
 
   btnDistMenu.addEventListener('click', () => { distOverlay.hidden = false; });
   distClose.addEventListener('click', () => { distOverlay.hidden = true; });
-    
-    // Close on clicking the backdrop
-    distForm.addEventListener('change', () => {
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !distOverlay.hidden) distOverlay.hidden = true;
+  });  
+  
+  // Close on clicking the backdrop
+  distForm.addEventListener('change', () => {
     const formData = new FormData(distForm);
     state.distMode = formData.get('distMode');
   
@@ -513,6 +516,9 @@
       dismiss();
     });
     btn.addEventListener('click', (e) => { e.stopPropagation(); dismiss(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !overlay.hidden) dismiss();
+    });
 
     if (TUNING.splash.autoDismiss > 0) {
       setTimeout(dismiss, TUNING.splash.autoDismiss * 1000);
