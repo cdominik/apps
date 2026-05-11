@@ -575,10 +575,10 @@
   /**
    * Wires an expert process toggle button with on/off callback.
    *
-   * @param {string} id - DOM element id of the button to wire
-   * @param {string} activeClass - CSS class toggled to indicate the active state
-   * @param {Function} onToggle - Callback invoked with the new active boolean on each toggle
-   * @param {number} [requiredClicks=1] - Number of clicks required to activate (guards against accidental use)
+   * @param {string}   id             - DOM element id of the button to wire
+   * @param {string}   colorClass     - CSS class toggled to indicate the active state
+   * @param {Function} onActivate     - Callback invoked with the new active boolean on each toggle
+   * @param {number}   [requiredClicks=1] - Number of clicks required to activate (guards against accidental use)
    */
   function wireProcessButton(id, colorClass, onActivate, requiredClicks = 1) {
     const btn = document.getElementById(id);

@@ -158,7 +158,7 @@
     if (!AUDIO.ctx) return;
     const t = AUDIO.ctx.currentTime;
 
-    // Increased to 100 iterations for that extreme "crushing" effect
+    // Increased to 500 iterations for that extreme "crushing" effect
     for (let i = 0; i < 500; i++) {
       const timeOffset = Math.random() * 0.8;
       const osc = AUDIO.ctx.createOscillator();

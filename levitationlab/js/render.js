@@ -699,47 +699,7 @@
   /**
    * Fills the background with the side-wall colour and optional grid.
    */
-  function drawLabBackground() {
-//    if (REGIME !== 'portrait') drawFloor();
-  }
 
-  /**
-   * Draws the gauge bar across the bottom of the lab.
-   */
-  function drawFloor() {
-    const floorH = (REGIME === 'wide') ? 22 : 14;
-    const floorTop = H - floorH;
-    const isLight = (PAL.name === 'light');
-    const g = ctx.createLinearGradient(0, floorTop, 0, H);
-    if (isLight) {
-      g.addColorStop(0.00, '#a8a496');
-      g.addColorStop(0.35, '#928e80');
-      g.addColorStop(0.85, '#6e6a5c');
-      g.addColorStop(1.00, '#54503f');
-    } else {
-      g.addColorStop(0.00, '#26262e');
-      g.addColorStop(0.35, '#1a1a22');
-      g.addColorStop(0.85, '#101018');
-      g.addColorStop(1.00, '#06060a');
-    }
-    ctx.fillStyle = g;
-    ctx.fillRect(0, floorTop, W, floorH);
-    ctx.strokeStyle = isLight ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.10)';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(0, floorTop + 0.5); ctx.lineTo(W, floorTop + 0.5); ctx.stroke();
-    ctx.save();
-    ctx.globalAlpha = isLight ? 0.10 : 0.18;
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 1;
-    for (let yy = floorTop + 4; yy < H - 2; yy += 4) {
-      ctx.beginPath(); ctx.moveTo(8, yy); ctx.lineTo(W - 8, yy); ctx.stroke();
-    }
-    ctx.restore();
-    const rivetSpacing = (REGIME === 'wide') ? 80 : 60;
-    for (let x = 30; x < W - 20; x += rivetSpacing) {
-      rivet(x, floorTop + Math.max(5, floorH * 0.45), Math.max(2, floorH * 0.18));
-    }
-  }
 
   /**
    * Draws one side wing panel with gradient and border.
@@ -1858,7 +1818,6 @@ function drawRepresentativeOrbits() {
   /** Master draw function: clears the canvas and calls all draw functions in order. */
   function draw() {
     ctx.clearRect(0, 0, W, H);
-    drawLabBackground();
     if (REGIME !== 'portrait') {
       drawWing(GEO.wingLeftX, GEO.wingTop, GEO.wingW, GEO.wingBot - GEO.wingTop);
       drawWing(GEO.wingRightX, GEO.wingTop, GEO.wingW, GEO.wingBot - GEO.wingTop);
