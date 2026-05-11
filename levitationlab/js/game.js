@@ -122,6 +122,12 @@
     const el = btnGameMode.querySelector('.cap-label');
     if (el) el.textContent = label;
   }
+  function setChallengeBtnLabel(label) {
+    const el = btnChallenge.querySelector('.cap-label');
+    if (!el) return;
+    el.textContent = (label === 'Challenge' && window.REGIME === 'portrait') ? 'Score' : label;
+  }
+
 
   const elTitlePlate = document.getElementById('titlePlate');
   const btnGameMode  = document.getElementById('btnGameMode');
@@ -534,6 +540,7 @@
       showChallengeIntro();
     } else {
       CHALLENGE.phase = 'idle';
+      setChallengeBtnLabel('Challenge');
       challengeSheet.hidden = true;
       lockSelectors(false);
       hideVideoElement();
@@ -582,6 +589,7 @@
    */
   function startChallengeRun() {
     CHALLENGE.phase = 'playing';
+    setChallengeBtnLabel('Challenge Menu');
     lockSelectors(true);
     startRelease();
 
@@ -607,6 +615,7 @@
    */
   function endChallengeRun(secured) {
     CHALLENGE.phase = 'scoring';
+    setChallengeBtnLabel('Challenge');
     lockSelectors(false);
     state.running = false;
     btnStart.classList.remove('on');
@@ -703,4 +712,5 @@
   window.showSheet           = showSheet;
   window.lockSelectors       = lockSelectors;
   window.setSettingByValue   = setSettingByValue;
+  window.setChallengeBtnLabel = setChallengeBtnLabel;
 })();
