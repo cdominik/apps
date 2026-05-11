@@ -31,6 +31,7 @@
     goalHoldSince: null,
     structureWaitSince: null,  // sim time when all particles injected, for timeout
 
+    wonTimeout: null,
     levels: [
       {
         name: 'First Contact',
@@ -114,13 +115,27 @@
     ],
   };
 
+  function cancelWonTimeout() {
+    if (GAME.wonTimeout) { clearTimeout(GAME.wonTimeout); GAME.wonTimeout = null; }
+  }
+  function setGameBtnLabel(label) {
+    const el = btnGameMode.querySelector('.cap-label');
+    if (el) el.textContent = label;
+  }
+
   const elTitlePlate = document.getElementById('titlePlate');
   const btnGameMode  = document.getElementById('btnGameMode');
   const gameSheet    = document.getElementById('gameSheet');
   const sheetTitle   = document.getElementById('sheetTitle');
   const sheetDesc    = document.getElementById('sheetDesc');
   const sheetBtn     = document.getElementById('sheetBtn');
+  const sheetBtn2    = document.getElementById('sheetBtn2');
   let sheetAction    = null;
+  let sheetAction2   = null;
+
+  sheetBtn2.addEventListener('click', () => {
+    if (sheetAction2) sheetAction2();
+  });
 
   /**
    * Sets a SETTINGS selector to a specific value, inserting it into the
@@ -159,9 +174,11 @@
     state.laserOn = !!level.params.laser;
     btnLaser.classList.toggle('on', state.laserOn);
 
-    TUNING.drum.omegaDecay = (level.params.omegaDecay != null)
-      ? level.params.omegaDecay
-      : (GAME._savedOmegaDecay != null ? GAME._savedOmegaDecay : 1.0 / 30.0);
+    if (window.omegaMode !== 2) {
+      TUNING.drum.omegaDecay = (level.params.omegaDecay != null)
+        ? level.params.omegaDecay
+        : (GAME._savedOmegaDecay != null ? GAME._savedOmegaDecay : 1.0 / 30.0);
+    }
 
     TUNING.aggregate.vtFactor = (level.params.vtFactor != null)
       ? level.params.vtFactor
@@ -192,12 +209,21 @@
    * @param {string}   btnText  - Label for the sheet's action button.
    * @param {Function} actionFn - Callback invoked when the action button is clicked.
    */
-  function showSheet(title, desc, btnText, actionFn) {
+  function showSheet(title, desc, btnText, actionFn, btn2Text, action2Fn) {
     sheetTitle.textContent = title;
     sheetDesc.textContent = desc;
     sheetBtn.textContent = btnText;
     sheetAction = actionFn;
     gameSheet.hidden = false;
+
+    if (btn2Text && action2Fn) {
+      sheetBtn2.textContent = btn2Text;
+      sheetAction2 = action2Fn;
+      sheetBtn2.hidden = false;
+    } else {
+      sheetBtn2.hidden = true;
+      sheetAction2 = null;
+    }
   }
 
   sheetBtn.addEventListener('click', () => {
@@ -209,7 +235,9 @@
    * level's parameters, and shows the level-start sheet.
    */
   function enterIdle() {
+    cancelWonTimeout();
     GAME.phase = 'idle';
+    setGameBtnLabel('Game');
     GAME.goalHoldSince = null;
     GAME.structureWaitSince = null;
     lockSelectors(false);
@@ -241,6 +269,8 @@
         : 0;
       enterIdle();
     } else {
+      cancelWonTimeout();
+      setGameBtnLabel('Game');
       lockSelectors(false);
       GAME.phase = 'idle';
       GAME.goalHoldSince = null;
@@ -261,9 +291,12 @@
    * mill start sound.
    */
   function startGameRun() {
+    cancelWonTimeout();
     GAME.phase = 'playing';
+    setGameBtnLabel('Game');
     GAME.goalHoldSince = null;
     GAME.structureWaitSince = null;
+    setGameBtnLabel('Game Menu');
     lockSelectors(true);
     startRelease();
 
@@ -287,6 +320,7 @@
    * @param {string} outcome - 'won', 'lost', or 'aborted'.
    */
   function endGameRun(outcome) {
+    cancelWonTimeout();
     GAME.phase = outcome;
     GAME.goalHoldSince = null;
     GAME.structureWaitSince = null;
@@ -338,17 +372,15 @@
 
     // --- WIN: pebble goal ---
     if (lv.goal.minPebbles !== undefined) {
-      if (state.eggBallCount >= lv.goal.minPebbles) {
-        endGameRun('won');
-        return;
+      if (state.eggBallCount >= lv.goal.minPebbles && !GAME.wonTimeout) {
+        GAME.wonTimeout = setTimeout(() => { GAME.wonTimeout = null; endGameRun('won'); }, 5000);
       }
     }
 
     // --- WIN: aggregate goal ---
     if (lv.goal.minAggregates !== undefined) {
-      if (state.aggCount >= lv.goal.minAggregates) {
-        endGameRun('won');
-        return;
+      if (state.aggCount >= lv.goal.minAggregates && !GAME.wonTimeout) {
+        GAME.wonTimeout = setTimeout(() => { GAME.wonTimeout = null; endGameRun('won'); }, 5000);
       }
     }
 
@@ -422,7 +454,20 @@
     }
   }
 
-  btnGameMode.addEventListener('click', () => enterGameMode(!GAME.on));
+  btnGameMode.addEventListener('click', () => {
+    if (GAME.on && GAME.phase === 'playing') {
+      showSheet(
+        'Game Menu',
+        `Level ${GAME.levelIdx + 1}: ${currentLevel().name}`,
+        'Restart Level',
+        () => { gameSheet.hidden = true; enterIdle(); },
+        'Exit Game',
+        () => { enterGameMode(false); }
+      );
+    } else {
+      enterGameMode(!GAME.on);
+    }
+  });
   btnGameMode.classList.remove('disabled');
 
   // ============================================================
