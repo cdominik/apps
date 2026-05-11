@@ -1,7 +1,7 @@
 /**
  * @file game.js
  * @description
- *   Game Mode (7 progressive levels with win/fail sheets) and Challenge Mode
+ *   Game Mode (8 progressive levels with win/fail sheets) and Challenge Mode
  *   (timed levitation run with a persistent leaderboard). Also fires the
  *   initial layout() and initLevel() calls that start the simulation.
  *
@@ -29,12 +29,14 @@
     levelIdx: 0,
     phase: 'idle',
     goalHoldSince: null,
+    structureWaitSince: null,  // sim time when all particles injected, for timeout
 
     levels: [
       {
         name: 'First Contact',
         params: { NP: 3, VT: 20, SPREAD: 0, DT: 1, trails: false, laser: false },
         goal: { minLevitated: 1, holdSeconds: 3 },
+        failText: 'The particle hit the wall. Spin the drum more carefully.',
         describe: function() {
           return 'A few particles fall through the gas. Spin the drum and see what happens.';
         }
@@ -43,14 +45,17 @@
         name: 'Finding the Sweet Spot',
         params: { NP: 3, VT: 30, SPREAD: 0, DT: 1, trails: true, laser: false },
         goal: { minLevitated: 2, holdSeconds: 5 },
+        failText: 'Not enough particles stayed levitated. Try adjusting the drum speed.',
         describe: function() {
-          return 'Heavier particles settle faster. Find the drum speed that keeps ' + this.goal.minLevitated + ' of them orbiting for ' + this.goal.holdSeconds + ' seconds.';
+          return 'Heavier particles settle faster. Find the drum speed that keeps ' +
+                 this.goal.minLevitated + ' of them orbiting for ' + this.goal.holdSeconds + ' seconds.';
         }
       },
       {
         name: 'Reading the Orbits',
         params: { NP: 5, VT: 50, SPREAD: 0, DT: 1, trails: true, laser: false },
         goal: { minLevitated: 2, holdSeconds: 5 },
+        failText: 'These heavier particles need a different drum speed than before. Watch the trails.',
         describe: function() {
           return 'Much heavier particles this time. Watch how the trails change. ' +
                  'The drum speed that worked before may not work now.';
@@ -60,6 +65,7 @@
         name: 'A Spread of Sizes',
         params: { NP: 15, VT: 30, SPREAD: 0.15, DT: 2, trails: true, laser: false },
         goal: { minLevitated: 4, holdSeconds: 5 },
+        failText: 'With a spread of sizes, no single drum speed suits everyone. Find the best compromise.',
         describe: function() {
           return 'Real dust is never uniform. This batch has a spread of settling speeds. ' +
                  'Levitate ' + this.goal.minLevitated + ' particles — not all of them will cooperate.';
@@ -69,6 +75,7 @@
         name: 'Flying Blind',
         params: { NP: 20, VT: 30, SPREAD: 0.15, DT: 2, trails: false, laser: true },
         goal: { minLevitated: 6, holdSeconds: 8 },
+        failText: 'Hard to see what is happening, isn\'t it? Let the laser sweeps guide you.',
         describe: function() {
           return 'The lab lights are off. A laser sweeps the drum once per revolution. ' +
                  'Navigate by the flashes.';
@@ -78,24 +85,27 @@
         name: 'Crowded Skies',
         params: { NP: 50, VT: 30, SPREAD: 0.15, DT: 3, trails: false, laser: false },
         goal: { minLevitated: 10, holdSeconds: 10 },
+        failText: 'Too many particles were lost. Keep the drum spinning steadily.',
         describe: function() {
-          return 'More particles, same spread. Hold ' + this.goal.minLevitated + 
+          return 'More particles, same spread. Hold ' + this.goal.minLevitated +
                  ' levitated for ' + this.goal.holdSeconds + ' seconds. Watch what happens when they collide.';
         }
       },
       {
         name: 'Encouraging Collisions',
-        params: { NP: 50, VT: 30, SPREAD: 0.20, DT: 2, trails: true, laser: false },
-        goal: { minAggregates: 1 },
+        params: { NP: 100, VT: 30, SPREAD: 0.20, DT: 3, trails: false, laser: false },
+        goal: { minAggregates: 1, timeoutRevs: 40 },
+        failText: 'Nothing formed in time. Keep more particles levitated — collisions need a crowd.',
         describe: function() {
           return 'A wider spread of settling speeds means particles orbit at different radii ' +
-                 'and cross each other\'s paths more often. Keep more than 30 them levitated and wait.';
+                 'and cross each other\'s paths more often. Keep them levitated and wait.';
         }
       },
       {
         name: 'More Energetic Encounters',
-        params: { NP: 1000, VT: 30, SPREAD: 0.30, DT: 5, trails: true, laser: false },
-        goal: { minPebbles: 1 },
+        params: { NP: 300, VT: 30, SPREAD: 0.30, DT: 3, trails: true, laser: false },
+        goal: { minPebbles: 1, timeoutRevs: 60 },
+        failText: 'Nothing grew large enough in time. Fill the drum and keep it spinning.',
         describe: function() {
           return 'A still wider spread means faster relative velocities at each collision. ' +
                  'Fill the drum, spin it up, and see what the increased energy does.';
@@ -201,6 +211,7 @@
   function enterIdle() {
     GAME.phase = 'idle';
     GAME.goalHoldSince = null;
+    GAME.structureWaitSince = null;
     lockSelectors(false);
     const lv = currentLevel();
     applyLevelParams(lv);
@@ -233,12 +244,13 @@
       lockSelectors(false);
       GAME.phase = 'idle';
       GAME.goalHoldSince = null;
+      GAME.structureWaitSince = null;
       gameSheet.hidden = true;
       if (GAME._savedVtFactor != null) {
         TUNING.aggregate.vtFactor = GAME._savedVtFactor;
       }
       if (GAME._savedOmegaDecay != null) {
-          GAME._savedOmegaDecay = TUNING.drum.omegaDecay;
+        GAME._savedOmegaDecay = TUNING.drum.omegaDecay;
       }
       initLevel();
     }
@@ -251,6 +263,7 @@
   function startGameRun() {
     GAME.phase = 'playing';
     GAME.goalHoldSince = null;
+    GAME.structureWaitSince = null;
     lockSelectors(true);
     startRelease();
 
@@ -276,6 +289,7 @@
   function endGameRun(outcome) {
     GAME.phase = outcome;
     GAME.goalHoldSince = null;
+    GAME.structureWaitSince = null;
     lockSelectors(false);
     state.running = false;
     btnStart.classList.remove('on');
@@ -307,11 +321,13 @@
         });
       }
     } else if (outcome === 'lost') {
-      showSheet('Failed', 'Not enough particles levitated.', 'Retry', () => {
+      const failText = currentLevel().failText || 'Not enough particles levitated.';
+      showSheet('Failed', failText, 'Retry', () => {
         enterIdle();
       });
     }
   }
+
   /**
    * Called every frame; checks win/fail conditions for the active game level
    * and calls endGameRun() when a condition is met.
@@ -319,32 +335,76 @@
   function updateGame() {
     if (!GAME.on || GAME.phase !== 'playing') return;
     const lv = currentLevel();
-  
+
+    // --- WIN: pebble goal ---
     if (lv.goal.minPebbles !== undefined) {
       if (state.eggBallCount >= lv.goal.minPebbles) {
         endGameRun('won');
         return;
       }
     }
-  
+
+    // --- WIN: aggregate goal ---
     if (lv.goal.minAggregates !== undefined) {
       if (state.aggCount >= lv.goal.minAggregates) {
         endGameRun('won');
         return;
       }
     }
-  
+
+    // --- TIMEOUT: structure-forming levels ---
+    if (lv.goal.minAggregates !== undefined || lv.goal.minPebbles !== undefined) {
+      const allInjected = state.toInject.length === 0;
+
+      // Start the timeout clock once all particles are in
+      if (allInjected && GAME.structureWaitSince === null) {
+        GAME.structureWaitSince = state.t;
+      }
+
+      if (GAME.structureWaitSince !== null) {
+        const absOm = Math.abs(state.omega);
+        const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+        const revolutions = isFinite(T) ? (state.t - GAME.structureWaitSince) / T : 0;
+        const timeoutRevs = lv.goal.timeoutRevs !== undefined ? lv.goal.timeoutRevs : 40;
+        const wallElapsed = state.t - GAME.structureWaitSince;
+        const wallTimeout = 120; // s — absolute ceiling in case drum is barely spinning
+
+        if (revolutions >= timeoutRevs || wallElapsed >= wallTimeout) {
+          endGameRun('lost');
+          return;
+        }
+      }
+
+      // Also fail immediately if all particles are gone and nothing formed
+      const absOm = Math.abs(state.omega);
+      const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+      let floating = 0;
+      for (const p of state.particles) {
+        if (!p.alive || p.stuck) continue;
+        floating++;
+      }
+      if (state.toInject.length === 0 && floating === 0 &&
+          state.aggCount === 0 && state.eggBallCount === 0) {
+        endGameRun('lost');
+        return;
+      }
+
+      // Don't fall through to levitation logic for structure levels
+      return;
+    }
+
+    // --- WIN/FAIL: levitation goal ---
     const absOm = Math.abs(state.omega);
     const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
     let lev = 0, floating = 0;
-  
+
     for (const p of state.particles) {
       if (!p.alive) continue;
       if (p.stuck) continue;
       floating++;
       if (isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T) lev++;
     }
-  
+
     if (lv.goal.minLevitated !== undefined && lv.goal.minLevitated > 0) {
       if (lev >= lv.goal.minLevitated) {
         if (GAME.goalHoldSince === null) GAME.goalHoldSince = state.t;
@@ -355,7 +415,7 @@
       } else {
         GAME.goalHoldSince = null;
         const allInjected = state.toInject.length === 0;
-        if (allInjected && floating < lv.goal.minLevitated && lv.goal.minAggregates === undefined && lv.goal.minPebbles === undefined) {
+        if (allInjected && floating < lv.goal.minLevitated) {
           endGameRun('lost');
         }
       }
@@ -497,7 +557,8 @@
 
   /**
    * Ends a challenge run with weighted scoring and dynamic reporting.
-   * * @param {number} secured - Number of particles secured for three full orbits.
+   *
+   * @param {number} secured - Number of particles secured for three full orbits.
    */
   function endChallengeRun(secured) {
     CHALLENGE.phase = 'scoring';
@@ -516,22 +577,15 @@
 
     // 2. CONSTRUCT DYNAMIC REPORT STRING
     let reportParts = [`${secured} particles`];
-    
-    if (state.aggCount > 0) {
-        reportParts.push(`${state.aggCount} aggregates`);
-    }
-    if (state.eggBallCount > 0) {
-        reportParts.push(`${state.eggBallCount} pebbles`);
-    }
-    if (state.globes.length > 0) {
-        reportParts.push(`${state.globes.length} planets`);
-    }
+    if (state.aggCount > 0)    reportParts.push(`${state.aggCount} aggregates`);
+    if (state.eggBallCount > 0) reportParts.push(`${state.eggBallCount} pebbles`);
+    if (state.globes.length > 0) reportParts.push(`${state.globes.length} planets`);
 
     // 3. UPDATE THE UI
     chalTitle.textContent = "Challenge Complete!";
     chalDesc.textContent = "Final Composition: " + reportParts.join(", ");
     chalFinalScore.textContent = totalScore;
-    
+
     chalStartBtn.hidden = true;
     chalBoardArea.hidden = true;
     chalInputArea.hidden = false;
@@ -539,6 +593,7 @@
     challengeSheet.hidden = false;
     setTimeout(() => chalNameInput.focus(), 100);
   }
+
   chalSubmitBtn.addEventListener('click', () => {
     const name = chalNameInput.value.trim() || 'Anonymous';
     const score = parseInt(chalFinalScore.textContent, 10) || 0;
@@ -602,5 +657,5 @@
   window.updateChallenge     = updateChallenge;
   window.showSheet           = showSheet;
   window.lockSelectors       = lockSelectors;
-    window.setSettingByValue = setSettingByValue;
+  window.setSettingByValue   = setSettingByValue;
 })();
