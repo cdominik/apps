@@ -388,15 +388,15 @@
 
       // D. Spherical Shading (Overlay to give 3D depth)
       const shade = ctx.createRadialGradient(cx - rpx*0.3, cy - rpx*0.3, 0, cx, cy, rpx);
-      shade.addColorStop(0, 'rgba(255, 255, 255, 0.2)'); // Top-left highlight[cite: 3]
-      shade.addColorStop(0.5, 'rgba(0, 0, 0, 0)');      // Midtones[cite: 3]
-      shade.addColorStop(1, 'rgba(0, 0, 0, 0.6)');      // Shadowed edge[cite: 3]
+      shade.addColorStop(0, 'rgba(255, 255, 255, 0.2)'); // Top-left highlight
+      shade.addColorStop(0.5, 'rgba(0, 0, 0, 0)');      // Midtones
+      shade.addColorStop(1, 'rgba(0, 0, 0, 0.6)');      // Shadowed edge
       ctx.fillStyle = shade;
       ctx.fillRect(cx - rpx, cy - rpx, rpx * 2, rpx * 2);
 
-      ctx.restore(); // Exit clipping[cite: 3]
+      ctx.restore(); // Exit clipping
 
-      // E. Specular Shine (Glossy surface spot)[cite: 3]
+      // E. Specular Shine (Glossy surface spot)
       const shine = ctx.createRadialGradient(cx - rpx*0.4, cy - rpx*0.4, 0, cx - rpx*0.4, cy - rpx*0.4, rpx * 0.7);
       shine.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
       shine.addColorStop(1, 'rgba(255, 255, 255, 0)');
@@ -404,14 +404,14 @@
       ctx.beginPath(); ctx.arc(cx - rpx*0.4, cy - rpx*0.4, rpx * 0.7, 0, Math.PI * 2); ctx.fill();
     }
     
-    // 2. Draw the merging pebbles during the "soft motion" phase[cite: 3]
+    // 2. Draw the merging pebbles during the "soft motion" phase
     if (state.globeMerging) {
       const m = state.globeMerging;
       const u = Math.min(1, (state.t - m.startedAt) / m.dur);
       
-      // Drawing the pebbles as they drift toward the meeting point[cite: 3]
+      // Drawing the pebbles as they drift toward the meeting point
       for (const b of m.pebbles) {
-        // Re-use the existing golden ball renderer while they are in motion[cite: 3]
+        // Re-use the existing golden ball renderer while they are in motion
         drawOneGoldenBall(b);
       }
     }
@@ -1340,7 +1340,7 @@
         const vxg = -omega * ay;
         const vyg = omega * ax;
         ax += vxg * dt_sim;
-        ay += (vyg - p.vt) * dt_sim; // Real physics includes vt[cite: 1]
+        ay += (vyg - p.vt) * dt_sim; // Real physics includes vt
         ctx.lineTo(X2px(ax), Y2px(ay));
         if (ax*ax + ay*ay > 10000) break; 
       }

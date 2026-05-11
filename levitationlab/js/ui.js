@@ -663,7 +663,7 @@
 
   // PROCESSES 4. Pure Velocity Average
   wireProcessButton('btnProcPureV', 'on', (active) => {
-    // Revert vtFactor to 1.0 (pure average) or back to default multiplier[cite: 2]
+    // Revert vtFactor to 1.0 (pure average) or back to default multiplier
     TUNING.aggregate.vtFactor = active ? 1.0 : TUNING_DEFAULT.aggregate.vtFactor;
   });
 
@@ -697,7 +697,7 @@
       // Planet synthesis acceleration
       TUNING.globe.nCrit = 2;            
     } else {
-      // Restore all from backup[cite: 2]
+      // Restore all from backup
       TUNING.aggregate.mergeCount = TUNING_DEFAULT.aggregate.mergeCount;
       TUNING.aggregate.initialHoldRevs = TUNING_DEFAULT.aggregate.initialHoldRevs;
       TUNING.aggregate.subseqHoldRevs = TUNING_DEFAULT.aggregate.subseqHoldRevs;
