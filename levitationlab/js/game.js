@@ -32,48 +32,76 @@
 
     levels: [
       {
-        name: 'First levitation',
+        name: 'First Contact',
         params: { NP: 3, VT: 20, SPREAD: 0, DT: 1, trails: false, laser: false },
         goal: { minLevitated: 1, holdSeconds: 3 },
-        describe: function() { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + 's'; }
+        describe: function() {
+          return 'A few particles fall through the gas. Spin the drum and see what happens.';
+        }
       },
       {
-        name: 'The Feedback Loop',
+        name: 'Finding the Sweet Spot',
         params: { NP: 3, VT: 30, SPREAD: 0, DT: 1, trails: true, laser: false },
         goal: { minLevitated: 2, holdSeconds: 5 },
-        describe: function() { return 'Levitate ' + this.goal.minLevitated + ' for ' + this.goal.holdSeconds + 's'; }
+        describe: function() {
+          return 'Heavier particles settle faster. Find the drum speed that keeps ' + this.goal.minLevitated + ' of them orbiting for ' + this.goal.holdSeconds + ' seconds.';
+        }
       },
       {
-        name: 'High-Mass Handling',
-        params: { NP: 3, VT: 50, SPREAD: 0, DT: 1, trails: true, laser: false },
+        name: 'Reading the Orbits',
+        params: { NP: 5, VT: 50, SPREAD: 0, DT: 1, trails: true, laser: false },
         goal: { minLevitated: 2, holdSeconds: 5 },
-        describe: function() { return 'Handle faster particles (v_t=50) for ' + this.goal.holdSeconds + 's'; }
+        describe: function() {
+          return 'Much heavier particles this time. Watch how the trails change. ' +
+                 'The drum speed that worked before may not work now.';
+        }
       },
       {
-        name: 'A Mixed Batch',
-        params: { NP: 10, VT: 30, SPREAD: 0.05, DT: 2, trails: false, laser: false },
+        name: 'A Spread of Sizes',
+        params: { NP: 15, VT: 30, SPREAD: 0.15, DT: 2, trails: true, laser: false },
         goal: { minLevitated: 4, holdSeconds: 5 },
-        describe: function() { return 'Handle a 5% speed spread and levitate ' + this.goal.minLevitated + ' particles.'; }
+        describe: function() {
+          return 'Real dust is never uniform. This batch has a spread of settling speeds. ' +
+                 'Levitate ' + this.goal.minLevitated + ' particles — not all of them will cooperate.';
+        }
       },
       {
-        name: 'Lidar Navigation',
-        params: { NP: 30, VT: 30, SPREAD: 0.10, DT: 2, trails: false, laser: true },
+        name: 'Flying Blind',
+        params: { NP: 20, VT: 30, SPREAD: 0.15, DT: 2, trails: false, laser: true },
+        goal: { minLevitated: 6, holdSeconds: 8 },
+        describe: function() {
+          return 'The lab lights are off. A laser sweeps the drum once per revolution. ' +
+                 'Navigate by the flashes.';
+        }
+      },
+      {
+        name: 'Crowded Skies',
+        params: { NP: 50, VT: 30, SPREAD: 0.15, DT: 3, trails: false, laser: false },
         goal: { minLevitated: 10, holdSeconds: 10 },
-        describe: function() { return 'Navigate in the dark using the laser scan.'; }
+        describe: function() {
+          return 'More particles, same spread. Hold ' + this.goal.minLevitated + 
+                 ' levitated for ' + this.goal.holdSeconds + ' seconds. Watch what happens when they collide.';
+        }
       },
       {
-        name: 'Aggregate Synthesis',
-        params: { NP: 50, VT: 30, SPREAD: 0.20, DT: 3, trails: true, laser: false },
-        goal: { minLevitated: 1, holdSeconds: 0, minAggregates: 1 },
-        describe: function() { return 'Increase collisions to form your first aggregate.'; }
+        name: 'Encouraging Collisions',
+        params: { NP: 50, VT: 30, SPREAD: 0.20, DT: 2, trails: true, laser: false },
+        goal: { minAggregates: 1 },
+        describe: function() {
+          return 'A wider spread of settling speeds means particles orbit at different radii ' +
+                 'and cross each other\'s paths more often. Keep more than 30 them levitated and wait.';
+        }
       },
       {
-        name: 'Pebble Synthesis',
-        params: { NP: 300, VT: 30, SPREAD: 0.30, DT: 5, trails: true, laser: false },
-        goal: { minLevitated: 0, holdSeconds: 0, minPebbles: 1 },
-        describe: function() { return 'Form a Pebble by merging multiple aggregates.'; }
+        name: 'More Energetic Encounters',
+        params: { NP: 1000, VT: 30, SPREAD: 0.30, DT: 5, trails: true, laser: false },
+        goal: { minPebbles: 1 },
+        describe: function() {
+          return 'A still wider spread means faster relative velocities at each collision. ' +
+                 'Fill the drum, spin it up, and see what the increased energy does.';
+        }
       }
-    ]
+    ],
   };
 
   const elTitlePlate = document.getElementById('titlePlate');
@@ -256,17 +284,34 @@
     state.omegaTarget = 0;
 
     if (outcome === 'won') {
-      showSheet('Level Complete', currentLevel().name + ' cleared.', 'Next Level', () => {
-        GAME.levelIdx = (GAME.levelIdx + 1) % GAME.levels.length;
-        enterIdle();
-      });
+      const isLastLevel = GAME.levelIdx === GAME.levels.length - 1;
+
+      if (isLastLevel) {
+        showSheet(
+          'The Lab is Yours',
+          'You have seen particles levitate, cluster, and grow. ' +
+          'But the drum has more to show. ' +
+          'What happens when pebbles keep accumulating? ' +
+          'The lab is yours now — no targets, no timer. ' +
+          'Just keep the drum spinning.',
+          'Enter the Lab',
+          () => {
+            applyLevelParams(currentLevel()); // sets NP=300, SPREAD=0.30 etc.
+            enterGameMode(false);             // exits game mode, unlocks selectors
+          }
+        );
+      } else {
+        showSheet('Level Complete', currentLevel().name + ' cleared.', 'Next Level', () => {
+          GAME.levelIdx = (GAME.levelIdx + 1) % GAME.levels.length;
+          enterIdle();
+        });
+      }
     } else if (outcome === 'lost') {
       showSheet('Failed', 'Not enough particles levitated.', 'Retry', () => {
         enterIdle();
       });
     }
   }
-
   /**
    * Called every frame; checks win/fail conditions for the active game level
    * and calls endGameRun() when a condition is met.
@@ -274,36 +319,45 @@
   function updateGame() {
     if (!GAME.on || GAME.phase !== 'playing') return;
     const lv = currentLevel();
-
+  
     if (lv.goal.minPebbles !== undefined) {
       if (state.eggBallCount >= lv.goal.minPebbles) {
         endGameRun('won');
         return;
       }
     }
-
+  
+    if (lv.goal.minAggregates !== undefined) {
+      if (state.aggCount >= lv.goal.minAggregates) {
+        endGameRun('won');
+        return;
+      }
+    }
+  
     const absOm = Math.abs(state.omega);
     const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
     let lev = 0, floating = 0;
-
+  
     for (const p of state.particles) {
       if (!p.alive) continue;
       if (p.stuck) continue;
       floating++;
       if (isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T) lev++;
     }
-
-    if (lev >= lv.goal.minLevitated) {
-      if (GAME.goalHoldSince === null) GAME.goalHoldSince = state.t;
-      if (state.t - GAME.goalHoldSince >= lv.goal.holdSeconds) {
-        endGameRun('won');
-        return;
-      }
-    } else {
-      GAME.goalHoldSince = null;
-      const allInjected = state.toInject.length === 0;
-      if (allInjected && floating < lv.goal.minLevitated && lv.goal.minPebbles === undefined) {
-        endGameRun('lost');
+  
+    if (lv.goal.minLevitated !== undefined && lv.goal.minLevitated > 0) {
+      if (lev >= lv.goal.minLevitated) {
+        if (GAME.goalHoldSince === null) GAME.goalHoldSince = state.t;
+        if (state.t - GAME.goalHoldSince >= lv.goal.holdSeconds) {
+          endGameRun('won');
+          return;
+        }
+      } else {
+        GAME.goalHoldSince = null;
+        const allInjected = state.toInject.length === 0;
+        if (allInjected && floating < lv.goal.minLevitated && lv.goal.minAggregates === undefined && lv.goal.minPebbles === undefined) {
+          endGameRun('lost');
+        }
       }
     }
   }
