@@ -1110,16 +1110,21 @@
     const dt  = Math.min(now - (s._lastT || now), 0.05);
     s._lastT  = now;
     s.wallT  += dt;
+    
+    const refOmega = s.orbits.length > 1
+      ? s.orbits[1].omega
+      : _ssOmega(TUNING.solar.baseRadii[1]);
     for (let i = 0; i < state.globes.length; i++) {
       const orb = s.orbits[i];
       // Inner two: tidally locked — spin matches orbital rate
       if (i < 2 && orb) {
-        state.globes[i].spin -= orb.omega * dt;
+        state.globes[i].spin += orb.omega * dt;
       } else {
-        // Outer planets: prograde, faster than orbit
-        state.globes[i].spin += TUNING.globe.rotationSpeed * dt;
+        // Outer planets: prograde at 3× planet-2's orbital rate
+        state.globes[i].spin += refOmega * 3 * dt;
       }
     }
+
     const elapsed = s.wallT - s.phaseStart;
     const SS = TUNING.solar;
   

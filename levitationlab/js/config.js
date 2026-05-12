@@ -146,7 +146,7 @@
     },
     // --- Solar system ---
     solar: {
-      inclCos:   0.5,                    // cos(60°) orbital tilt
+      inclCos:   0.3,                    // cos(60°) orbital tilt
       baseRadii: [11,17,24,31,37,42,50], // orbital radii per globe (drum-units)
       omegaBase: 3.006,                  // 2π/8 · 6^0.75 — Keplerian speed base
       showDur:   1.0,                    // s — new globe held at full size

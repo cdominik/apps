@@ -364,8 +364,8 @@
     const tex = globeMaps[g.mapIdx];
     if (tex && tex.complete) {
       const tw = rpx*4, th = rpx*2, shift = (g.spin / (2 * Math.PI) * tw) % tw;
-      ctx.drawImage(tex, cx - rpx - shift,      cy - rpx, tw, th);
-      ctx.drawImage(tex, cx - rpx - shift + tw, cy - rpx, tw, th);
+      ctx.drawImage(tex, cx - rpx + shift,      cy - rpx, tw, th);
+      ctx.drawImage(tex, cx - rpx + shift - tw, cy - rpx, tw, th);
     } else {
       ctx.fillStyle = '#1e4a6d'; ctx.fill();
     }
@@ -503,13 +503,9 @@
         const tw = rpx * 4; 
         const th = rpx * 2;
         
-        // Horizontal shift based on g.spin for rotation effect
-        let shift = (g.spin / (2 * Math.PI) * tw) % tw;
-        if (shift < 0) shift += tw; // Ensure shift is always positive for the wrap
-
-        // Draw texture twice side-by-side
-        ctx.drawImage(texture, cx - rpx - shift, cy - rpx, tw, th);
-        ctx.drawImage(texture, cx - rpx - shift + tw, cy - rpx, tw, th);
+        const shift = (g.spin / (2 * Math.PI) * tw) % tw;
+        ctx.drawImage(texture, cx - rpx + shift,      cy - rpx, tw, th);
+        ctx.drawImage(texture, cx - rpx + shift - tw, cy - rpx, tw, th);
       } else {
         // Fallback color if image is missing
         ctx.fillStyle = '#1e4a6d';
