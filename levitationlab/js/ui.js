@@ -559,12 +559,24 @@
     this.classList.toggle('on', TUNING.aggregate.flashOrbit);
   });
 
-  // HUD 3. Solid HUD screen
+  // HUD 3. UNASSIGNED
+
+  // HUD 4. Ghost mode 
+  document.getElementById('btnFlowGhost').addEventListener('click', function() {
+    TUNING.particle.showFlowGhosts = !TUNING.particle.showFlowGhosts;
+    this.classList.toggle('on', TUNING.particle.showFlowGhosts);
+    // If turning off, clear all targets
+    if (!TUNING.particle.showFlowGhosts) {
+      state.particles.forEach(p => p.isDiagnosticTarget = false);
+    }
+  });
+
+  // HUD 6. Solid HUD screen
     wireProcessButton('btnSysSolidMap', 'on', (active) => {
     heatmap.opacity = active ? 0.9 : 0.5;
   });
 
-  // HUD 4-6. HUD activation and gear shift
+  // HUD 7-9. HUD activation and gear shift
   document.getElementById('btnHudMaster').addEventListener('click', () => {
     window.hudMasterOn = !window.hudMasterOn;
     updateAnalysisInstrument(window.hudMasterOn); // true = fresh activation, triggers buffer reset
@@ -607,7 +619,7 @@
 
       const isCurrentlyActive = this.classList.contains(colorClass || 'on');
 
-      // NEW LOGIC: If button is ON, bypass the 7-click requirement to turn it OFF
+      // If button is ON, bypass the 7-click requirement to turn it OFF
       if (requiredClicks > 1 && !isCurrentlyActive) {
         clickCount++;
         if (clickTimer) clearTimeout(clickTimer);
@@ -691,47 +703,9 @@
   });
 
 
-  // PROCESSES 5. Dynamic Slow Motion (Armed state)
-  let slowMoArmed = false; window.slowMoArmed = false;
-  wireProcessButton('btnProcSlowMo', 'on', (active) => {
-    slowMoArmed = active; window.slowMoArmed = active;
-    // Ensure we restore physics if turned off mid-merge
-    if (!active) {
-      CFG.MAX_DT = 0.033;
-      TUNING.egg.mergeDur = TUNING_DEFAULT.egg.mergeDur;
-      TUNING.aggregate.mergeDur = TUNING_DEFAULT.aggregate.mergeDur;
-      TUNING.globe.mergeDur = TUNING_DEFAULT.globe.mergeDur;
-    }
-  });
+  // PROCESSES 5. UNASSIGNED
 
-  // PROCESSES 6. Fast Chain (Accelerated Synthesis)
-  wireProcessButton('btnProcFast', 'on', (active) => {
-    if (active) {
-      // Aggregate synthesis acceleration
-      TUNING.aggregate.mergeCount = 2;   
-      TUNING.aggregate.initialHoldRevs = 0; 
-      TUNING.aggregate.subseqHoldRevs = 0;
-
-      // Pebble synthesis (egg system) acceleration
-      TUNING.egg.nCrit = 2;              // Only 2 aggregates for a pebble
-      TUNING.egg.holdTarget = 2;         // First pebble forms after 2 rotations
-      TUNING.egg.holdSubseq = 1;         // Subsequent pebbles form every 1 rotation
-
-      // Planet synthesis acceleration
-      TUNING.globe.nCrit = 2;            
-    } else {
-      // Restore all from backup
-      TUNING.aggregate.mergeCount = TUNING_DEFAULT.aggregate.mergeCount;
-      TUNING.aggregate.initialHoldRevs = TUNING_DEFAULT.aggregate.initialHoldRevs;
-      TUNING.aggregate.subseqHoldRevs = TUNING_DEFAULT.aggregate.subseqHoldRevs;
-
-      TUNING.egg.nCrit = TUNING_DEFAULT.egg.nCrit;
-      TUNING.egg.holdTarget = TUNING_DEFAULT.egg.holdTarget; 
-      TUNING.egg.holdSubseq = TUNING_DEFAULT.egg.holdSubseq; 
-
-      TUNING.globe.nCrit = TUNING_DEFAULT.globe.nCrit;
-    }
-  },7);
+  // PROCESSES 6. UNASSIGNED
    
   // ============================================================
   // SECTION: EXPERT PANEL — SYSTEM
@@ -745,16 +719,7 @@
     });
   }
 
-  // SYSTEM 2. Ghost mode 
-  document.getElementById('btnFlowGhost').addEventListener('click', function() {
-    TUNING.particle.showFlowGhosts = !TUNING.particle.showFlowGhosts;
-    this.classList.toggle('on', TUNING.particle.showFlowGhosts);
-    
-    // If turning off, clear all targets
-    if (!TUNING.particle.showFlowGhosts) {
-      state.particles.forEach(p => p.isDiagnosticTarget = false);
-    }
-  });
+  // SYSTEM 2. STILL UNASSIGNED
 
   // SYSTEM 3. STILL UNASSIGNED
   
@@ -799,6 +764,51 @@
       updateSpeedUI();
     });
 
+  // SYSTEM 7-9. Other Speed adjustments
+  
+  // SYSTEM 7. Unassinged
+
+  // SYSTEM 8. Dynamic Slow Motion (Armed state)
+  let slowMoArmed = false; window.slowMoArmed = false;
+  wireProcessButton('btnProcSlowMo', 'on', (active) => {
+    slowMoArmed = active; window.slowMoArmed = active;
+    // Ensure we restore physics if turned off mid-merge
+    if (!active) {
+      CFG.MAX_DT = 0.033;
+      TUNING.egg.mergeDur = TUNING_DEFAULT.egg.mergeDur;
+      TUNING.aggregate.mergeDur = TUNING_DEFAULT.aggregate.mergeDur;
+      TUNING.globe.mergeDur = TUNING_DEFAULT.globe.mergeDur;
+    }
+  });
+
+  // STSTEM 9. Fast Chain (Accelerated Synthesis)
+  wireProcessButton('btnProcFast', 'on', (active) => {
+    if (active) {
+      // Aggregate synthesis acceleration
+      TUNING.aggregate.mergeCount = 2;   
+      TUNING.aggregate.initialHoldRevs = 0; 
+      TUNING.aggregate.subseqHoldRevs = 0;
+
+      // Pebble synthesis (egg system) acceleration
+      TUNING.egg.nCrit = 2;              // Only 2 aggregates for a pebble
+      TUNING.egg.holdTarget = 2;         // First pebble forms after 2 rotations
+      TUNING.egg.holdSubseq = 1;         // Subsequent pebbles form every 1 rotation
+
+      // Planet synthesis acceleration
+      TUNING.globe.nCrit = 2;            
+    } else {
+      // Restore all from backup
+      TUNING.aggregate.mergeCount = TUNING_DEFAULT.aggregate.mergeCount;
+      TUNING.aggregate.initialHoldRevs = TUNING_DEFAULT.aggregate.initialHoldRevs;
+      TUNING.aggregate.subseqHoldRevs = TUNING_DEFAULT.aggregate.subseqHoldRevs;
+
+      TUNING.egg.nCrit = TUNING_DEFAULT.egg.nCrit;
+      TUNING.egg.holdTarget = TUNING_DEFAULT.egg.holdTarget; 
+      TUNING.egg.holdSubseq = TUNING_DEFAULT.egg.holdSubseq; 
+
+      TUNING.globe.nCrit = TUNING_DEFAULT.globe.nCrit;
+    }
+  },7);
 
   cv.addEventListener('mousedown', function(e) {
     if (!TUNING.particle.showFlowGhosts) return;

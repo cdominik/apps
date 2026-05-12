@@ -2090,7 +2090,7 @@ function drawRepresentativeOrbits() {
 
       let caption = "";
       if (state.showVectors) {
-          caption = "resultant vector field";
+          caption = "vector field";
       } else if (heatmap.mode === 'orbits') {
           caption = "selected orbits";
       } else if (heatmap.mode === 'dispersion') {
