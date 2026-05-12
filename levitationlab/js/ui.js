@@ -637,7 +637,35 @@
     TUNING.particle.invincible = active;
   });
 
-  // PROCESSES 2. Aggregate formation (Green = ON, Red = OFF)
+  // PROCESSES 2. Broom — sweep non-levitated particles
+  const btnProcPeb = document.getElementById('btnProcPeb');
+  if (btnProcPeb) {
+    btnProcPeb.addEventListener('click', function() {
+      const btn = this;
+      const absOm = Math.abs(state.omega);
+      const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+
+      // Remove non-levitated particles
+      state.particles = state.particles.filter(p => {
+        if (!p.alive) return false;
+        if (p.stuck) return false;
+        if (!isFinite(T)) return true;
+        return p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
+      });
+
+      // Flash twice then return to passive
+      btn.classList.add('flash');
+      setTimeout(() => {
+        btn.classList.remove('flash');
+        setTimeout(() => {
+          btn.classList.add('flash');
+          setTimeout(() => btn.classList.remove('flash'), 150);
+        }, 200);
+      }, 150);
+    });
+  }
+
+  // PROCESSES 3. Aggregate formation (Green = ON, Red = OFF)
   const btnProcAgg = document.getElementById('btnProcAgg');
   if (btnProcAgg) {
     btnProcAgg.addEventListener('click', function() {
@@ -652,25 +680,6 @@
         this.classList.remove('warn');
         this.classList.add('on');
         TUNING.aggregate.minLevitated = TUNING_DEFAULT.aggregate.minLevitated;
-      }
-    });
-  }
-
-  // PROCESSES 3. Pebble formation (Green = ON, Red = OFF)
-  const btnProcPeb = document.getElementById('btnProcPeb');
-  if (btnProcPeb) {
-    btnProcPeb.addEventListener('click', function() {
-      const isCurrentlyOn = this.classList.contains('on');
-      if (isCurrentlyOn) {
-        // Turn OFF
-        this.classList.remove('on');
-        this.classList.add('warn');
-        TUNING.egg.nCrit = 999999;
-      } else {
-        // Turn ON
-        this.classList.remove('warn');
-        this.classList.add('on');
-        TUNING.egg.nCrit = TUNING_DEFAULT.egg.nCrit;
       }
     });
   }
