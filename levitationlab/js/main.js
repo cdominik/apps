@@ -65,6 +65,7 @@
       updateViewport(dt);
       draw();
       updateGlobe(dt); 
+      updateSolar();
       drawGlobes();    
       updateHUD();
       updateGame();
@@ -72,7 +73,8 @@
 
       // --- UNIVERSAL SUCCESS CHECK ---
       // Delay the "End of Game" overlay to allow viewing the final system
-      if (state.globes.length >= TUNING.globe.limit && gameSheet.hidden) {
+      if (state.globes.length >= TUNING.globe.limit && gameSheet.hidden && state.solar.phase === 'none') {
+
           // Stop physics updates so planets hover in place
           state.running = false; 
 

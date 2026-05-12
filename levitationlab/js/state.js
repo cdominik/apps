@@ -49,6 +49,20 @@
       },
       power: { vtMin: 5, vtMax: 50, index: -3.5 }
     },
+    solar: {
+      phase:       'none', // none|showing|transitioning|orbiting|spindown|final_move|final_view
+      wallT:       0,      // real wall-time accumulator (independent of simSpeed)
+      _lastT:      0,      // last performance.now() sample
+      phaseStart:  0,      // wallT when current phase started
+      orbits:      [],     // per-globe: {r, theta, omega, startX, startY, inOrbit}
+      pendingIdx:  -1,     // index of globe currently being shown full-size
+      centerX:     0,      // system centre x (drum-units)
+      centerY:     -50,    // system centre y; rises to 0 in final_move
+      scale:       1.0,    // current system scale
+      startScale:  1.0,    // scale at start of current transition
+      targetScale: 1.0,    // scale target for current transition
+      sunAlpha:    0,      // sun/orbit-ring opacity (0–1)
+    },
   };
 
   const heatmap = {

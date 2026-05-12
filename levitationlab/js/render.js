@@ -348,7 +348,136 @@
   /**
    * Draws all hovering globes (texture, shading, shine) and merging pebbles.
    */
+
+  /**
+   * Draws a globe body at an arbitrary canvas position and pixel radius.
+   * Extracted from drawGlobes so drawSolarSystem can reuse it.
+   */
+  function _drawGlobeBody(g, cx, cy, rpx) {
+    ctx.save();
+    const halo = ctx.createRadialGradient(cx, cy, rpx*0.9, cx, cy, rpx*1.3);
+    halo.addColorStop(0, 'rgba(100,200,255,0.3)');
+    halo.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath(); ctx.arc(cx, cy, rpx*1.3, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, rpx, 0, Math.PI*2); ctx.clip();
+    const tex = globeMaps[g.mapIdx];
+    if (tex && tex.complete) {
+      const tw = rpx*4, th = rpx*2, shift = (g.spin / (2 * Math.PI) * tw) % tw;
+      ctx.drawImage(tex, cx - rpx - shift,      cy - rpx, tw, th);
+      ctx.drawImage(tex, cx - rpx - shift + tw, cy - rpx, tw, th);
+    } else {
+      ctx.fillStyle = '#1e4a6d'; ctx.fill();
+    }
+    const shade = ctx.createRadialGradient(cx - rpx*0.3, cy - rpx*0.3, 0, cx, cy, rpx);
+    shade.addColorStop(0,   'rgba(255,255,255,0.2)');
+    shade.addColorStop(0.5, 'rgba(0,0,0,0)');
+    shade.addColorStop(1,   'rgba(0,0,0,0.6)');
+    ctx.fillStyle = shade;
+    ctx.fillRect(cx - rpx, cy - rpx, rpx*2, rpx*2);
+    ctx.restore();
+    const shine = ctx.createRadialGradient(cx - rpx*0.4, cy - rpx*0.4, 0, cx - rpx*0.4, cy - rpx*0.4, rpx*0.7);
+    shine.addColorStop(0, 'rgba(255,255,255,0.4)');
+    shine.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = shine;
+    ctx.beginPath(); ctx.arc(cx - rpx*0.4, cy - rpx*0.4, rpx*0.7, 0, Math.PI*2); ctx.fill();
+  }
+  
+  /** Draws the central star with glow at canvas position (cx, cy). */
+  function _drawSolarSun(cx, cy, alpha) {
+    const sizeMults = TUNING.solar.sizeMults;
+    const rpx  = pxDist(TUNING.solar.sunR);
+    const glow = ctx.createRadialGradient(cx, cy, rpx*0.5, cx, cy, rpx*4);
+    glow.addColorStop(0,   `rgba(255,240,120,${alpha*0.7})`);
+    glow.addColorStop(0.4, `rgba(255,200,50,${alpha*0.3})`);
+    glow.addColorStop(1,   'rgba(255,150,20,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(cx, cy, rpx*4, 0, Math.PI*2); ctx.fill();
+    const body = ctx.createRadialGradient(cx - rpx*0.3, cy - rpx*0.3, 0, cx, cy, rpx);
+    body.addColorStop(0,   `rgba(255,255,220,${alpha})`);
+    body.addColorStop(0.5, `rgba(255,220,80,${alpha})`);
+    body.addColorStop(1,   `rgba(255,160,20,${alpha*0.8})`);
+    ctx.fillStyle = body;
+    ctx.beginPath(); ctx.arc(cx, cy, rpx, 0, Math.PI*2); ctx.fill();
+  }
+  
+  /**
+   * Draws the full solar-system view: orbit ellipses, sun, and all planets
+   * sorted back-to-front with inclination perspective scaling.
+   */
+  function drawSolarSystem() {
+    const s   = state.solar;
+    const SS  = TUNING.solar;
+    const cx  = X2px(s.centerX);
+    const cy  = Y2px(s.centerY);
+    const elapsed = s.wallT - s.phaseStart;
+    const sizeMults = TUNING.solar.sizeMults;   // ← ADD THIS LINE
+  
+    // Orbit ellipses (semi-minor = semi-major * cos(60°) = * 0.5)
+    ctx.save();
+    for (const orb of s.orbits) {
+      const rx = pxDist(orb.r * s.scale);
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx, rx * SS.inclCos, 0, 0, Math.PI*2);
+      ctx.strokeStyle = `rgba(180,210,255,${s.sunAlpha * 0.35})`;
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+    }
+    ctx.restore();
+  
+    // Build render list with depth-based perspective
+    const list = [];
+    for (let i = 0; i < state.globes.length; i++) {
+      const g   = state.globes[i];
+      const orb = s.orbits[i]; // may be undefined for globe 0 during first showing
+      let baseR;
+      if (i === s.pendingIdx && s.phase === 'showing') {
+        baseR = TUNING.globe.radius; // full size while on display
+      } else if (orb && !orb.inOrbit && s.phase === 'transitioning') {
+        const u = Math.min(1, elapsed / SS.transDur);
+        baseR = TUNING.globe.radius + (SS.orbitSize - TUNING.globe.radius) * u*u*(3-2*u);
+      } else if (orb && orb.inOrbit) {
+        baseR = SS.orbitSize;
+      } else {
+        baseR = TUNING.globe.radius; // not yet tracked, keep full size
+      }
+      baseR *= (sizeMults[i] ?? 1);
+      // Perspective: depth = sin(theta), positive = closer to observer
+      const depth = orb ? -Math.sin(orb.theta) : 0;
+      list.push({ g, rpx: pxDist(baseR * (1 + SS.persp * depth)), depth });
+    }
+    list.sort((a, b) => a.depth - b.depth); // back-to-front
+  
+    // Draw back-half planets, then sun at depth 0, then front-half planets
+    // Separate the pending (full-size) globe so it always draws on top
+    const pending = s.phase === 'showing'
+      ? list.find(item => item.g === state.globes[s.pendingIdx])
+      : null;
+    const rest = pending ? list.filter(item => item !== pending) : list;
+  
+    let sunDrawn = false;
+    for (const item of rest) {
+      if (!sunDrawn && item.depth >= 0) {
+        if (s.sunAlpha > 0.01) _drawSolarSun(cx, cy, s.sunAlpha);
+        sunDrawn = true;
+      }
+      _drawGlobeBody(item.g, X2px(item.g.x), Y2px(item.g.y), item.rpx);
+    }
+    if (!sunDrawn && s.sunAlpha > 0.01) _drawSolarSun(cx, cy, s.sunAlpha);
+  
+    // Pending globe always on top
+    if (pending) {
+      _drawGlobeBody(pending.g, X2px(pending.g.x), Y2px(pending.g.y), pending.rpx);
+    }
+  
+    // Pebbles currently merging into a new globe
+    if (state.globeMerging) {
+      for (const b of state.globeMerging.pebbles) drawOneGoldenBall(b);
+    }
+  }
+
   function drawGlobes() {
+    if (state.solar.phase !== 'none') { drawSolarSystem(); return; }
     // 1. Draw existing planets
     for (const g of state.globes) {
       const cx = X2px(g.x), cy = Y2px(g.y);
@@ -375,7 +504,8 @@
         const th = rpx * 2;
         
         // Horizontal shift based on g.spin for rotation effect
-        const shift = (g.spin * 50) % tw; 
+        let shift = (g.spin / (2 * Math.PI) * tw) % tw;
+        if (shift < 0) shift += tw; // Ensure shift is always positive for the wrap
 
         // Draw texture twice side-by-side
         ctx.drawImage(texture, cx - rpx - shift, cy - rpx, tw, th);

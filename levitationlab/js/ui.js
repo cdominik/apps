@@ -292,6 +292,14 @@
 
     // 3. THE PLANETARY HUNK: Reset your Solar System
     state.globes = [];         // Removes the planets from the screen
+
+    // Reset solar system
+    const sol = state.solar;
+    sol.phase = 'none'; sol.wallT = 0; sol._lastT = 0; sol.phaseStart = 0;
+    sol.orbits = []; sol.pendingIdx = -1;
+    sol.centerX = 0; sol.centerY = -50;
+    sol.scale = 1.0; sol.startScale = 1.0; sol.targetScale = 1.0;
+    sol.sunAlpha = 0;
     state.globeMerging = null; // Stops any pebbles currently flying to merge
     state.eggBallCount = 0;    // Resets the pebble "fuel" counter
     state.running = false;     // Freezes simulation until you hit "Inject" again

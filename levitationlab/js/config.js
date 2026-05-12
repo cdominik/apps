@@ -144,6 +144,19 @@
       headAlpha:  0.85, // 0-1  — opacity at the newest (head) point of each trail
       tailAlpha:  0.0,  // 0-1  — opacity at the oldest (tail) point of each trail
     },
+    // --- Solar system ---
+    solar: {
+      inclCos:   0.5,                    // cos(60°) orbital tilt
+      baseRadii: [11,17,24,31,37,42,50], // orbital radii per globe (drum-units)
+      omegaBase: 3.006,                  // 2π/8 · 6^0.75 — Keplerian speed base
+      showDur:   1.0,                    // s — new globe held at full size
+      transDur:  3.0,                    // s — orbit transition animation
+      orbitSize: 3.0,                    // visual radius when in orbit (drum-units)
+      sizeMults: [1.0, 1.0, 1.0, 1.5, 0.8, 0.8, 0.8], // vary planet sizes
+      maxR:      80.0,                   // max safe orbit radius from system centre
+      persp:     0.10,                   // perspective size variation (±fraction)
+      sunR:      3.5,                    // sun visual radius (drum-units)
+    },
   };
 
   // Permanent backup of initial tuning values for restoration after overrides.

@@ -21,6 +21,10 @@
   // Pre-computed grid size; mirrors heatmap.resolution² from state.js.
   const gridSize = heatmap.resolution * heatmap.resolution;
 
+  function _ssOmega(r)    { return TUNING.solar.omegaBase / Math.pow(r, 0.75); }
+  function _ssFitScale(n) {
+    return TUNING.solar.maxR / (TUNING.solar.baseRadii[n-1] + TUNING.solar.orbitSize);
+  }
 
   // ============================================================
   // SECTION: LEVEL INIT
@@ -535,38 +539,42 @@
     const R_GLOBE  = TUNING.globe.radius;
     const MIN_DIST = R_GLOBE * 2.2;
 
-    for (let i = 0; i < state.globes.length; i++) {
-      const g = state.globes[i];
-
-      // Attraction toward hover point.
-      g.vx += (0                    - g.x) * 0.01 * dt * 60;
-      g.vy += (TUNING.globe.hoverY  - g.y) * 0.01 * dt * 60;
-
-      // Repulsion from other globes.
-      for (let j = 0; j < state.globes.length; j++) {
-        if (i === j) continue;
-        const other  = state.globes[j];
-        const dx     = g.x - other.x;
-        const dy     = g.y - other.y;
-        const dist   = Math.hypot(dx, dy);
-        const distSq = dx * dx + dy * dy + 10; // +10 prevents divide-by-zero
-
-        let force = TUNING.globe.repulsion / distSq;
-        if (dist < MIN_DIST) force += (MIN_DIST - dist) * 50; // hard-contact push
-
-        const angle = Math.atan2(dy, dx);
-        g.vx += Math.cos(angle) * force * dt;
-        g.vy += Math.sin(angle) * force * dt;
+    if (state.solar.phase === 'none') {
+      for (let i = 0; i < state.globes.length; i++) {
+        const g = state.globes[i];
+  
+        // Attraction toward hover point.
+        g.vx += (0                    - g.x) * 0.01 * dt * 60;
+        g.vy += (TUNING.globe.hoverY  - g.y) * 0.01 * dt * 60;
+  
+        // Repulsion from other globes.
+        for (let j = 0; j < state.globes.length; j++) {
+          if (i === j) continue;
+          const other  = state.globes[j];
+          const dx     = g.x - other.x;
+          const dy     = g.y - other.y;
+          const dist   = Math.hypot(dx, dy);
+          const distSq = dx * dx + dy * dy + 10; // +10 prevents divide-by-zero
+  
+          let force = TUNING.globe.repulsion / distSq;
+          if (dist < MIN_DIST) force += (MIN_DIST - dist) * 50; // hard-contact push
+  
+          const angle = Math.atan2(dy, dx);
+          g.vx += Math.cos(angle) * force * dt;
+          g.vy += Math.sin(angle) * force * dt;
+        }
+  
+        // Time-corrected exponential damping (equivalent to 0.85/frame at 60 fps).
+        const damping = Math.exp(-9.74 * dt);
+        g.vx *= damping;
+        g.vy *= damping;
+  
+        g.x   += g.vx;
+        g.y   += g.vy;
+        if (state.solar.phase === 'none') {
+          g.spin += TUNING.globe.rotationSpeed * dt;
+        }
       }
-
-      // Time-corrected exponential damping (equivalent to 0.85/frame at 60 fps).
-      const damping = Math.exp(-9.74 * dt);
-      g.vx *= damping;
-      g.vy *= damping;
-
-      g.x   += g.vx;
-      g.y   += g.vy;
-      g.spin += TUNING.globe.rotationSpeed * dt;
     }
 
     // Start a merge if we have enough pebbles and room for another globe.
@@ -611,6 +619,11 @@
         });
         state.eggBallCount = Math.max(0, state.eggBallCount - m.pebbles.length);
         state.globeMerging = null;
+        // Trigger solar system when 2nd+ globe is created
+        const newIdx = state.globes.length - 1;
+        if (newIdx >= 1 && (state.solar.phase === 'none' || state.solar.phase === 'orbiting')) {
+          _ssEnterShowing(newIdx);
+        }
       }
     }
   }
@@ -1046,6 +1059,166 @@
     soundSnap();
   }
 
+  /**
+   * Enters the 'showing' phase: the new globe appears full-size at the system centre.
+   */
+  function _ssEnterShowing(newIdx) {
+    const s     = state.solar;
+    s.phase     = 'showing';
+    s.phaseStart = s.wallT;
+    s.pendingIdx = newIdx;
+    const g = state.globes[newIdx];
+    if (g) { g.x = s.centerX; g.y = s.centerY; g.vx = 0; g.vy = 0; }
+  }
+  
+  /**
+   * Enters the 'transitioning' phase: globes animate smoothly to their orbital positions.
+   */
+  function _ssEnterTransitioning() {
+    const s  = state.solar;
+    const n  = state.globes.length;
+    const SS = TUNING.solar;
+    s.phase      = 'transitioning';
+    s.phaseStart  = s.wallT;
+    s.startScale  = s.scale;
+    s.targetScale = _ssFitScale(n);
+  
+    // Register any globe not yet tracked
+    for (let i = s.orbits.length; i < n; i++) {
+      const g = state.globes[i];
+      s.orbits.push({
+        r:       SS.baseRadii[i],
+        theta:   (i / Math.max(n, 2)) * 2 * Math.PI,
+        omega:   _ssOmega(SS.baseRadii[i]),
+        startX:  g.x,
+        startY:  g.y,
+        inOrbit: false,
+      });
+    }
+  }
+  
+  /**
+   * Drives the solar system state machine on real wall time (unaffected by simSpeed).
+   * Called from main.js after updateGlobe().
+   */
+  function updateSolar() {
+    const s = state.solar;
+    if (s.phase === 'none') return;
+  
+    // Real-time delta
+    const now = performance.now() / 1000;
+    const dt  = Math.min(now - (s._lastT || now), 0.05);
+    s._lastT  = now;
+    s.wallT  += dt;
+    for (let i = 0; i < state.globes.length; i++) {
+      const orb = s.orbits[i];
+      // Inner two: tidally locked — spin matches orbital rate
+      if (i < 2 && orb) {
+        state.globes[i].spin -= orb.omega * dt;
+      } else {
+        // Outer planets: prograde, faster than orbit
+        state.globes[i].spin += TUNING.globe.rotationSpeed * dt;
+      }
+    }
+    const elapsed = s.wallT - s.phaseStart;
+    const SS = TUNING.solar;
+  
+    // Kill velocity on all globes — positions are driven here, not by updateGlobe
+    for (const g of state.globes) { g.vx = 0; g.vy = 0; }
+  
+    // Advance thetas for all in-orbit globes
+    for (const orb of s.orbits) {
+      if (orb.inOrbit) orb.theta += orb.omega * dt;
+    }
+  
+    // ── PHASE MACHINE ──────────────────────────────────────────────────────────
+  
+    if (s.phase === 'showing') {
+      // Pin the pending globe to the system centre
+      const g = state.globes[s.pendingIdx];
+      if (g) { g.x = s.centerX; g.y = s.centerY; }
+      if (elapsed >= SS.showDur) _ssEnterTransitioning();
+  
+    } else if (s.phase === 'transitioning') {
+      const u    = Math.min(1, elapsed / SS.transDur);
+      const ease = u * u * (3 - 2 * u);
+  
+      // Interpolate system scale
+      s.scale = s.startScale + (s.targetScale - s.startScale) * ease;
+  
+      // Grow sun alpha toward target
+      const tgtAlpha = Math.min(0.85, state.globes.length * 0.14);
+      s.sunAlpha += (tgtAlpha - s.sunAlpha) * Math.min(1, dt * 2);
+  
+      // Animate any globe not yet in orbit toward its orbital position
+      for (let i = 0; i < s.orbits.length; i++) {
+        const orb = s.orbits[i];
+        if (orb.inOrbit) continue;
+        orb.theta += orb.omega * dt; // orbit angle advances during transition
+        const tx = s.centerX + orb.r * s.scale * Math.cos(orb.theta);
+        const ty = s.centerY + orb.r * s.scale * Math.sin(orb.theta) * SS.inclCos;
+        const g  = state.globes[i];
+        g.x = orb.startX + (tx - orb.startX) * ease;
+        g.y = orb.startY + (ty - orb.startY) * ease;
+      }
+  
+      if (u >= 1) {
+        s.scale = s.targetScale;
+        for (const orb of s.orbits) orb.inOrbit = true;
+        s.pendingIdx = -1;
+        const isLast = state.globes.length >= TUNING.globe.limit;
+        s.phase      = isLast ? 'spindown' : 'orbiting';
+        s.phaseStart  = s.wallT;
+        if (isLast) state.omegaTarget = 0; // spin drum down
+      }
+  
+    } else if (s.phase === 'orbiting') {
+      // thetas already advanced above — nothing extra needed
+  
+    } else if (s.phase === 'spindown') {
+      const stopped = Math.abs(state.omega) < 0.05;
+      const empty   = state.particles.length === 0 && state.toInject.length === 0;
+      if (stopped && empty && elapsed > 1) {
+        state.running = false;
+        s.phase       = 'final_move';
+        s.phaseStart  = s.wallT;
+      }
+  
+    } else if (s.phase === 'final_move') {
+      const u    = Math.min(1, elapsed / 5.0);
+      const ease = u * u * (3 - 2 * u);
+      s.centerY  = -50 + 50 * ease; // rise from hoverY to drum axis
+      if (u >= 1) {
+        s.centerY    = 0;
+        s.phase      = 'final_view';
+        s.phaseStart = s.wallT;
+      }
+  
+    } else if (s.phase === 'final_view') {
+      if (elapsed >= 30 && document.getElementById('gameSheet').hidden) {
+        if (window.showSheet) {
+          window.showSheet(
+            'LIMIT OF SIMULATION SPACE REACHED',
+            'Many planets, and you are still playing? Time to go do something else!',
+            'Reset Lab',
+            () => {
+              document.getElementById('gameSheet').hidden = true;
+              state._endingSequenceTriggered = false;
+              document.getElementById('btnReset').click();
+            }
+          );
+        }
+      }
+    }
+  
+    // ── SET GLOBE POSITIONS FROM ORBIT STATE ──────────────────────────────────
+    for (let i = 0; i < s.orbits.length; i++) {
+      const orb = s.orbits[i];
+      if (!orb.inOrbit) continue;
+      state.globes[i].x = s.centerX + orb.r * s.scale * Math.cos(orb.theta);
+      state.globes[i].y = s.centerY + orb.r * s.scale * Math.sin(orb.theta) * SS.inclCos;
+    }
+  }
 
   // ============================================================
   // EXPORTS
@@ -1062,4 +1235,5 @@
   window.updateGlobe           = updateGlobe;
   window.spawnGoldenBall       = spawnGoldenBall;
   window.updateAggregates      = updateAggregates;
+  window.updateSolar = updateSolar;
 })();
