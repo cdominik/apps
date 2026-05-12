@@ -299,8 +299,10 @@
     sol.orbits = []; sol.pendingIdx = -1;
     sol.centerX = 0; sol.centerY = -50;
     sol.scale = 1.0; sol.startScale = 1.0; sol.targetScale = 1.0;
-    sol.sunAlpha = 0;
-    state.globeMerging = null; // Stops any pebbles currently flying to merge
+    sol.sunAlpha       = 0;
+    sol.probes         = [];
+    sol.probesLaunched = false;
+    state.globeMerging = null;
     state.eggBallCount = 0;    // Resets the pebble "fuel" counter
     state.running = false;     // Freezes simulation until you hit "Inject" again
     

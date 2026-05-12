@@ -388,15 +388,15 @@
     const sizeMults = TUNING.solar.sizeMults;
     const rpx  = pxDist(TUNING.solar.sunR);
     const glow = ctx.createRadialGradient(cx, cy, rpx*0.5, cx, cy, rpx*4);
-    glow.addColorStop(0,   `rgba(255,240,120,${alpha*0.7})`);
-    glow.addColorStop(0.4, `rgba(255,200,50,${alpha*0.3})`);
-    glow.addColorStop(1,   'rgba(255,150,20,0)');
+    glow.addColorStop(0,   `rgba(255,60,20,${alpha*0.7})`);
+    glow.addColorStop(0.4, `rgba(200,30,10,${alpha*0.3})`);
+    glow.addColorStop(1,   'rgba(160,20,5,0)');
     ctx.fillStyle = glow;
     ctx.beginPath(); ctx.arc(cx, cy, rpx*4, 0, Math.PI*2); ctx.fill();
     const body = ctx.createRadialGradient(cx - rpx*0.3, cy - rpx*0.3, 0, cx, cy, rpx);
-    body.addColorStop(0,   `rgba(255,255,220,${alpha})`);
-    body.addColorStop(0.5, `rgba(255,220,80,${alpha})`);
-    body.addColorStop(1,   `rgba(255,160,20,${alpha*0.8})`);
+    body.addColorStop(0,   `rgba(255,200,160,${alpha})`);
+    body.addColorStop(0.5, `rgba(255,100,40,${alpha})`);
+    body.addColorStop(1,   `rgba(200,40,10,${alpha*0.8})`);
     ctx.fillStyle = body;
     ctx.beginPath(); ctx.arc(cx, cy, rpx, 0, Math.PI*2); ctx.fill();
   }
@@ -474,7 +474,44 @@
     if (state.globeMerging) {
       for (const b of state.globeMerging.pebbles) drawOneGoldenBall(b);
     }
+
+    // ── VOYAGER PROBES ──────────────────────────────────────────────────────
+    const probes = state.solar.probes;
+    if (probes && probes.length) {
+      for (const probe of probes) {
+        if (probe.delay > 0) continue;
+        if (probe.trail.length > 1) {
+          ctx.save();
+          ctx.lineWidth = 1.8;
+          for (let i = 1; i < probe.trail.length; i++) {
+            const alpha = (i / probe.trail.length) * 0.9;
+            ctx.strokeStyle = `rgba(180, 230, 255, ${alpha.toFixed(3)})`;
+            ctx.beginPath();
+            ctx.moveTo(X2px(probe.trail[i-1].x), Y2px(probe.trail[i-1].y));
+            ctx.lineTo(X2px(probe.trail[i].x),   Y2px(probe.trail[i].y));
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+        const px = X2px(probe.x), py = Y2px(probe.y);
+        ctx.save();
+        ctx.shadowColor = 'rgba(160, 220, 255, 1.0)';
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(px, py, 4.0, 0, Math.PI * 2);
+        ctx.fill();
+        // inner bright core
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#c8eeff';
+        ctx.beginPath();
+        ctx.arc(px, py, 2.0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
   }
+
 
   function drawGlobes() {
     if (state.solar.phase !== 'none') { drawSolarSystem(); return; }
@@ -1952,7 +1989,7 @@ function drawRepresentativeOrbits() {
     drawBackplate();
     drawTrails();
     drawDrumInterior();
-    drawAxis();
+    if (state.solar.phase !== 'final_move' && state.solar.phase !== 'final_view') drawAxis();
     drawParticles();
     drawAggregates();
     drawMergeStreaks();

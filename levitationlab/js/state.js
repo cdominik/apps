@@ -62,6 +62,8 @@
       startScale:  1.0,    // scale at start of current transition
       targetScale: 1.0,    // scale target for current transition
       sunAlpha:    0,      // sun/orbit-ring opacity (0–1)
+      probes:        [],
+      probesLaunched: false,
     },
   };
 

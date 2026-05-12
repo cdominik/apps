@@ -1101,6 +1101,44 @@
    * Drives the solar system state machine on real wall time (unaffected by simSpeed).
    * Called from main.js after updateGlobe().
    */
+  function _probeUpdate(probe, dt) {
+    probe.trail.push({ x: probe.x, y: probe.y });
+    if (probe.trail.length > 120) probe.trail.shift();
+  
+    if (probe.escaping) {
+      probe.escapeFrac += dt / 5.0;
+      if (probe.escapeFrac >= 1) { probe.escapeFrac = 1; probe.done = true; }
+      const e = probe.escapeFrac * probe.escapeFrac * (3 - 2 * probe.escapeFrac);
+      probe.x = probe.escapeStartX + (probe.escapeEndX - probe.escapeStartX) * e;
+      probe.y = probe.escapeStartY + (probe.escapeEndY - probe.escapeStartY) * e;
+      return;
+    }
+  
+    if (probe.legIdx >= state.globes.length) return;
+    const tg  = state.globes[probe.legIdx];  // track planet's CURRENT position
+    const dx  = tg.x - probe.x;
+    const dy  = tg.y - probe.y;
+    const dist = Math.hypot(dx, dy);
+    const speed = 28.0; // drum-units per second
+  
+    if (dist < speed * dt * 4.5) {
+      probe.x = tg.x;
+      probe.y = tg.y;
+      probe.legIdx++;
+      if (probe.legIdx >= state.globes.length) {
+        probe.escaping     = true;
+        probe.escapeFrac   = 0;
+        probe.escapeStartX = probe.x;
+        probe.escapeStartY = probe.y;
+        probe.escapeEndX   = probe.x * 0.05;
+        probe.escapeEndY   = probe.escapeDir * CFG.R_DRUM * 0.88;
+      }
+    } else {
+      probe.x += (dx / dist) * speed * dt;
+      probe.y += (dy / dist) * speed * dt;
+    }
+  }
+
   function updateSolar() {
     const s = state.solar;
     if (s.phase === 'none') return;
@@ -1200,18 +1238,53 @@
       }
   
     } else if (s.phase === 'final_view') {
-      if (elapsed >= 30 && document.getElementById('gameSheet').hidden) {
-        if (window.showSheet) {
-          window.showSheet(
-            'LIMIT OF SIMULATION SPACE REACHED',
-            'Many planets, and you are still playing? Time to go do something else!',
-            'Reset Lab',
-            () => {
-              document.getElementById('gameSheet').hidden = true;
-              state._endingSequenceTriggered = false;
-              document.getElementById('btnReset').click();
-            }
-          );
+      // Launch probes after a short settling delay
+      if (!s.probesLaunched && elapsed >= 3.0 && state.globes.length >= 2) {
+        s.probesLaunched = true;
+        const g0 = state.globes[0];
+        const mkProbe = (dir, delay) => ({
+          x: g0.x, y: g0.y, trail: [],
+          legIdx: 1,
+          escapeDir: dir, escaping: false, escapeFrac: 0,
+          escapeStartX: 0, escapeStartY: 0,
+          escapeEndX: 0, escapeEndY: 0,
+          delay, done: false,
+        });
+        s.probes = [
+          mkProbe(+1, 0.0),
+          mkProbe(-1, 2.4),
+        ];
+      }
+    
+      if (s.probesLaunched) {
+        for (const probe of s.probes) {
+          if (probe.done) continue;
+          if (probe.delay > 0) {
+            probe.delay -= dt;
+            const g0 = state.globes[0];
+            if (g0) { probe.x = g0.x; probe.y = g0.y; }
+            continue;
+          }
+          _probeUpdate(probe, dt);
+        }
+        // Show end sheet when both probes are halfway through their escape
+        const bothHalf = s.probes.length === 2 &&
+          s.probes.every(p => p.escaping && p.escapeFrac >= 0.5);
+        if (bothHalf && document.getElementById('gameSheet').hidden) {
+          if (window.showSheet) {
+            document.getElementById('gameSheet').classList.add('no-backdrop');
+            window.showSheet(
+              'LIMIT OF SIMULATION SPACE REACHED',
+              'Many planets, and you are still playing? Time to go do something else!',
+              'Reset Lab',
+              () => {
+                document.getElementById('gameSheet').classList.remove('no-backdrop');
+                document.getElementById('gameSheet').hidden = true;
+                state._endingSequenceTriggered = false;
+                document.getElementById('btnReset').click();
+              }
+            );
+          }
         }
       }
     }
