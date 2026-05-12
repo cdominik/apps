@@ -1298,6 +1298,56 @@
     }
   }
 
+  /**
+   * Computes the drum angular velocity that centres the full range of
+   * orbit centres for the current v_t distribution inside the levitation zone.
+   *
+   * Physics: orbit centre x_c = v_t / omega.
+   * Centring condition: (vtLow + vtHigh) / (2 * omega) = highlight.cx
+   *   => omega = (vtLow + vtHigh) / (2 * highlight.cx)
+   *
+   * This guarantees both endpoints land within [0, cx+radius] = [0, 100]
+   * for any valid distribution without additional clamping.
+   *
+   * @returns {number} Target angular velocity in rad/s, clamped to drum limits.
+   */
+  function computeAutoOmega() {
+    const HCX   = TUNING.highlight.cx;          // 50 — levitation zone centre
+    const floor = TUNING.particle.settleFloor;  // minimum meaningful v_t
+    const dist  = state.distMode;
+    const p     = state.distParams;
+  
+    let vtLow, vtHigh;
+  
+    if (dist === 'bi') {
+      // Each group spans vt * (1 ± spread); take the full envelope
+      const lo1 = Math.max(floor, p.bi.vt1 * (1 - Math.abs(p.bi.s1)));
+      const hi1 = p.bi.vt1 * (1 + Math.abs(p.bi.s1));
+      const lo2 = Math.max(floor, p.bi.vt2 * (1 - Math.abs(p.bi.s2)));
+      const hi2 = p.bi.vt2 * (1 + Math.abs(p.bi.s2));
+      vtLow  = Math.min(lo1, lo2);
+      vtHigh = Math.max(hi1, hi2);
+  
+    } else if (dist === 'power') {
+      vtLow  = Math.max(floor, p.power.vtMin);
+      vtHigh = Math.max(vtLow + 0.1, p.power.vtMax);
+  
+    } else {
+      // Default Gaussian: ±1σ representative range
+      const spread = CFG.VT_SPREAD;
+      vtLow  = Math.max(floor, CFG.V_T * (1 - spread));
+      vtHigh = CFG.V_T * (1 + spread);
+    }
+  
+    // Safety: guarantee a non-degenerate interval
+    vtHigh = Math.max(vtHigh, vtLow + 0.1);
+  
+    // Centre the orbit-centre range on the levitation zone
+    const omega = (vtLow + vtHigh) / (2.0 * HCX);
+  
+    return Math.min(Math.max(omega, 0.02), TUNING.drum.omegaMax);
+  }
+
   // ============================================================
   // EXPORTS
   // ============================================================
@@ -1313,5 +1363,6 @@
   window.updateGlobe           = updateGlobe;
   window.spawnGoldenBall       = spawnGoldenBall;
   window.updateAggregates      = updateAggregates;
-  window.updateSolar = updateSolar;
+  window.updateSolar           = updateSolar;
+  window.computeAutoOmega      = computeAutoOmega;
 })();

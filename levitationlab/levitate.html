@@ -171,7 +171,28 @@
             </span>
           </span>
         </button>
-        <button class="btnind btnsq disabled" id="btnSys7" title="..."><span class="cap"><span class="cap-icon">?</span></span></button>
+
+
+        <button class="btnind btnsq" id="btnSysAutoOmega"
+          title="Auto-rotate — continuously sets drum speed so orbit centres span the levitation zone for the current v_t distribution">
+          <span class="cap">
+            <span class="cap-icon">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <!-- Circular arrow: "auto" -->
+                <path d="M 20 12 A 8 8 0 1 1 14.5 4.8"
+                      fill="none" stroke="currentColor" stroke-width="1.6"
+                      stroke-linecap="round"/>
+                <!-- Arrowhead at tip -->
+                <polyline points="13,2 14.5,5 18,4"
+                          fill="none" stroke="currentColor" stroke-width="1.6"
+                          stroke-linecap="round" stroke-linejoin="round"/>
+                <!-- Target dot: the levitation zone centre -->
+                <circle cx="12" cy="12" r="2.2" fill="currentColor"/>
+              </svg>
+            </span>
+          </span>
+        </button>
+
         <button class="btnind btnsq" id="btnDistMenu" title="Injection distribution settings - monodisperse, bidisperse, or powerlaw">
           <span class="cap">
             <span class="cap-icon">

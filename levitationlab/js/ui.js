@@ -719,7 +719,19 @@
     });
   }
 
-  // SYSTEM 2. STILL UNASSIGNED
+  // SYSTEM 2. Auto-omega — set drum speed to centre orbit range in levitation zone
+  window.autoOmegaOn = false;
+  const btnSysAutoOmega = document.getElementById('btnSysAutoOmega');
+  if (btnSysAutoOmega) {
+    btnSysAutoOmega.addEventListener('click', () => {
+      window.autoOmegaOn = !window.autoOmegaOn;
+      btnSysAutoOmega.classList.toggle('on', window.autoOmegaOn);
+      if (window.autoOmegaOn) {
+        // Apply immediately, don't wait for next frame
+        state.omegaTarget = computeAutoOmega();
+      }
+    });
+  }
 
   // SYSTEM 3. STILL UNASSIGNED
   

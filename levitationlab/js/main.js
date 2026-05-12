@@ -59,6 +59,10 @@
         for (let i = 0; i < sub; i++) updateAggregates(h);
       }
       
+      // Auto-omega: track the current distribution every frame
+      if (window.autoOmegaOn) {
+        state.omegaTarget = computeAutoOmega();
+      }
       updateMotorSound();
       recordTrails();
       pollAggregateCounter();
