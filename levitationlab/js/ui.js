@@ -778,7 +778,11 @@
 
   // SYSTEM 7-9. Other Speed adjustments
   
-  // SYSTEM 7. Unassinged
+  // SYSTEM 7. Stroboscopic rendering — paint once per drum revolution
+  wireProcessButton('btnSysStrobe', 'on', (active) => {
+    window.strobeOn = active;
+    _lastStrobeRev = Math.floor(Math.abs(state.drumAngle) / (2 * Math.PI));
+  });
 
   // SYSTEM 8. Dynamic Slow Motion (Armed state)
   let slowMoArmed = false; window.slowMoArmed = false;

@@ -23,6 +23,27 @@
   // ============================================================
   let lastT = performance.now() / 1000;
   let endingTimeout = null;
+
+  // Strobe state — tracks last completed revolution index
+  window.strobeOn = false;
+  let _lastStrobeRev = 0;
+  let _strobeShouldDraw = true;
+  
+  /**
+   * Returns true once per drum revolution, used to gate stroboscopic rendering.
+   * Falls through to true when drum is nearly stopped so screen never freezes.
+   */
+  function _strobeGate() {
+    if (!window.strobeOn) return true;
+    if (Math.abs(state.omega) < 0.08) return true; // drum nearly stopped — render freely
+    const rev = Math.floor(Math.abs(state.drumAngle) / (2 * Math.PI));
+    if (rev !== _lastStrobeRev) {
+      _lastStrobeRev = rev;
+      return true;
+    }
+    return false;
+  }
+
   /**
    * Runs one animation frame: advances physics sub-steps, renders, ticks HUD
    * and game logic, then schedules itself for the next frame.
@@ -67,10 +88,11 @@
       recordTrails();
       pollAggregateCounter();
       updateViewport(dt);
-      draw();
+      _strobeShouldDraw = _strobeGate();
+      if (_strobeShouldDraw) draw();
       updateGlobe(dt); 
       updateSolar();
-      drawGlobes();    
+      if (_strobeShouldDraw) drawGlobes();
       updateHUD();
       updateGame();
       updateChallenge();

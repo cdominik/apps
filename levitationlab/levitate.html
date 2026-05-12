@@ -221,7 +221,29 @@
         </button> 
 
         <!-- Row 3 — other speed controls -->
-        <button class="btnind btnsq disabled" id="btnSys8" title="..."><span class="cap"><span class="cap-icon">?</span></span></button>
+
+        <button class="btnind btnsq" id="btnSysStrobe"
+          title="Stroboscopic mode — canvas redraws only once per drum revolution. Levitated particles appear frozen; drifting ones reveal their motion between flashes.">
+          <span class="cap">
+            <span class="cap-icon">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <!-- Bold cardinal rays — the bright flashes -->
+                <line x1="12" y1="3"  x2="12" y2="7"  stroke="currentColor" stroke-width="2"   stroke-linecap="round"/>
+                <line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="2"   stroke-linecap="round"/>
+                <line x1="3"  y1="12" x2="7"  y2="12" stroke="currentColor" stroke-width="2"   stroke-linecap="round"/>
+                <line x1="17" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2"   stroke-linecap="round"/>
+                <!-- Faint diagonal rays — the dark intervals -->
+                <line x1="5.6"  y1="5.6"  x2="7.8"  y2="7.8"  stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.35"/>
+                <line x1="16.2" y1="16.2" x2="18.4" y2="18.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.35"/>
+                <line x1="18.4" y1="5.6"  x2="16.2" y2="7.8"  stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.35"/>
+                <line x1="7.8"  y1="16.2" x2="5.6"  y2="18.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.35"/>
+                <!-- Central dot -->
+                <circle cx="12" cy="12" r="2.2" fill="currentColor"/>
+              </svg>
+            </span>
+          </span>
+        </button>
+
         <button class="btnind btnsq" id="btnProcSlowMo" title="Slow-motion during merging - watch aggregates and pebbles form"><span class="cap"><span class="cap-icon">🐌</span></span></button>
         <button class="btnind btnsq" id="btnProcFast"   title="This button is only for testing by the true game developer, because activating it ruins discovery and joy in the game"><span class="cap"><span class="cap-icon">⏩</span></span></button>
         <hr>
