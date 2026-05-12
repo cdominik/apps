@@ -330,7 +330,7 @@
         }
 
         // Remove particles that escaped the drum entirely.
-        if (p.y < -CFG.R_DRUM * 1.5) p.alive = false;
+        if (p.y < -CFG.R_DRUM * 1.5) { state.lostCount++; p.alive = false; }
         if (p.insideOnce && !p.stuck &&
             r2 > (CFG.R_DRUM * 1.05) * (CFG.R_DRUM * 1.05) &&
             !TUNING.particle.invincible) {
@@ -488,7 +488,7 @@
       if (u >= 1) {
         for (const p of m.particles) p.alive = false;
         spawnGoldenBall(m.target.x, m.target.y);
-        state.aggCount   -= TUNING.egg.nCrit;
+        state.aggCount = Math.max(0, state.aggCount - TUNING.egg.nCrit);
         state.eggMerging  = null;
         state.eggBallCount++;
       }
@@ -609,6 +609,7 @@
           bornAt: state.t,
           mapIdx: state.globes.length,
         });
+        state.eggBallCount = Math.max(0, state.eggBallCount - m.pebbles.length);
         state.globeMerging = null;
       }
     }
@@ -930,7 +931,7 @@
           agg.alive = false;
           const baseAngle = Math.atan2(agg.y, agg.x);
           const pRwall    = CFG.R_DRUM - TUNING.particle.collisionR;
-          state.aggCount--;
+          state.aggCount = Math.max(0, state.aggCount - 1);
 
           for (let i = 0; i < 10; i++) {
             const spread = (Math.random() - 0.5) * (agg.r / CFG.R_DRUM) * 2.5;

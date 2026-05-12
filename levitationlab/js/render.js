@@ -697,11 +697,6 @@
   // SECTION: RENDER — BACKGROUND & STRUCTURE
   // ============================================================
   /**
-   * Fills the background with the side-wall colour and optional grid.
-   */
-
-
-  /**
    * Draws one side wing panel with gradient and border.
    *
    * @param {number} x - Left edge of the wing in pixels.

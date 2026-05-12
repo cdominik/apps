@@ -5,7 +5,7 @@
  *   slow-motion logic, rendering, HUD updates, and game/challenge tick.
  *   Kicks off the loop with the initial requestAnimationFrame call.
  *
- * Exposes globals: (none)
+ * Exposes globals: cancelEndingSequence
  * Reads globals:   CFG, TUNING, TUNING_DEFAULT, state,
  *                  slowMoArmed, updateDrum, step, updateEgg,
  *                  updateAggregates, updateGlobe, updateMotorSound,
@@ -22,6 +22,7 @@
   // SECTION: MAIN LOOP
   // ============================================================
   let lastT = performance.now() / 1000;
+  let endingTimeout = null;
   /**
    * Runs one animation frame: advances physics sub-steps, renders, ticks HUD
    * and game logic, then schedules itself for the next frame.
@@ -79,19 +80,19 @@
           if (!state._endingSequenceTriggered) {
               state._endingSequenceTriggered = true;
 
-              setTimeout(() => {
-                  showSheet(
-                      "LIMIT OF SIMULATION SPACE REACHED", 
-                      "Many planets, and you are still playing? Time to go do something else!", 
-                      "Reset Lab", 
-                      () => { 
-                          gameSheet.hidden = true;
-                          state._endingSequenceTriggered = false; 
-                          // Using the Reset button logic to clean the lab
-                          document.getElementById('btnReset').click(); 
-                      }
-                  );
-              }, 10000); // 10 second delay
+              endingTimeout = setTimeout(() => {
+                endingTimeout = null;
+                showSheet(
+                    "LIMIT OF SIMULATION SPACE REACHED",
+                    "Many planets, and you are still playing? Time to go do something else!",
+                    "Reset Lab",
+                    () => {
+                        gameSheet.hidden = true;
+                        state._endingSequenceTriggered = false;
+                        document.getElementById('btnReset').click();
+                    }
+                );
+            }, 10000);
           }
       }
     } catch (e) {
@@ -100,4 +101,8 @@
     requestAnimationFrame(loop);
   }
   loop();
-  })();
+  window.cancelEndingSequence = () => {
+    if (endingTimeout) { clearTimeout(endingTimeout); endingTimeout = null; }
+    state._endingSequenceTriggered = false;
+  };
+})();

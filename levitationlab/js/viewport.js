@@ -483,8 +483,7 @@ function updateViewport(dt) {
         targetG.fillRect(x, y, w, h);
       }
     } else if (asset.type === 'video') {
-      targetG.fillStyle = '#000';
-      targetG.fillRect(x, y, w, h);
+      // No fill — video element sits above canvas and fades out via opacity
     } else if (asset.type === 'render') {
       const fn = VIEWPORT_RENDERERS[asset.name] || VIEWPORT_RENDERERS['__fallback__'];
       VP_OFFSCREEN.width = Math.max(2, Math.round(w));
@@ -661,6 +660,7 @@ function updateViewport(dt) {
       }
       if (videoAsset) {
         showVideoElement(videoAsset.src, videoAsset.loop !== false, screenGeomForVideo, videoAlpha);
+        vpVideoEl.style.opacity = String(videoAlpha);
       } else {
         hideVideoElement();
       }

@@ -103,6 +103,8 @@
         gaugePebble.style.display = 'flex';
         soundGoldenChime();
       }
+    }
+    if (gaugePebble.style.display !== 'none') {
       elPebbleCount.textContent = state.eggBallCount;
     }
   }

@@ -297,6 +297,7 @@
     state.running = false;     // Freezes simulation until you hit "Inject" again
     
     // 4. Mode and UI cleanup
+    if (window.cancelEndingSequence) window.cancelEndingSequence();
     if (GAME.on) enterGameMode(false); 
     if (CHALLENGE.on) enterChallengeMode(false);
     
