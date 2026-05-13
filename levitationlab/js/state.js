@@ -28,6 +28,7 @@
     globes: [],
     globeMerging: null,
     aggregates: [],
+    aggGrowMerging: null,
     aggHoldRevs: 0,
     aggCount: 0,
     aggMerging: null,

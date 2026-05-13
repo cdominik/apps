@@ -703,26 +703,42 @@
   }
 
   // PROCESSES 5. UNASSIGNED
+
+  // PROCESSES 6. Formation mode — three states: pebble / grow / off
+  let growthMode = 0; // 0=pebble, 1=grow, 2=off
+  window.aggGrowthOn = false;
   
-  // PROCESSES 6. Pebble formation (Green = ON, Red = OFF)
-  const btnProcEgg = document.getElementById('btnProcEgg');
-  if (btnProcEgg) {
-    btnProcEgg.addEventListener('click', function() {
-      const isCurrentlyOn = this.classList.contains('on');
-      if (isCurrentlyOn) {
-        this.classList.remove('on');
-        this.classList.add('warn');
-        TUNING.egg.nCrit = 999999;
-      } else {
-        this.classList.remove('warn');
-        this.classList.add('on');
-        TUNING.egg.nCrit = TUNING_DEFAULT.egg.nCrit;
-      }
+  function applyGrowthMode(mode) {
+    growthMode = mode;
+    const btn = document.getElementById('btnProcGrowth');
+    if (!btn) return;
+  
+    btn.classList.remove('on', 'cheat', 'warn');
+    window.aggGrowthOn = false;
+  
+    if (mode === 0) {
+      // PEBBLE — normal formation
+      btn.classList.add('on');
+      TUNING.egg.nCrit = TUNING_DEFAULT.egg.nCrit;
+    } else if (mode === 1) {
+      // GROW — aggregate-aggregate collisions, pebble at count=100
+      btn.classList.add('cheat');
+      TUNING.egg.nCrit = 999999;
+      window.aggGrowthOn = true;
+    } else {
+      // OFF — no formation of any kind
+      btn.classList.add('warn');
+      TUNING.egg.nCrit = 999999;
+    }
+  }
+  
+  const btnProcGrowth = document.getElementById('btnProcGrowth');
+  if (btnProcGrowth) {
+    btnProcGrowth.addEventListener('click', () => {
+      applyGrowthMode((growthMode + 1) % 3);
     });
   }
-
-  // PROCESSES 6. UNASSIGNED
-   
+  
   // ============================================================
   // SECTION: EXPERT PANEL — SYSTEM
   // ============================================================

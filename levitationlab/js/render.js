@@ -688,6 +688,33 @@
     ctx.save();
     ctx.beginPath(); ctx.arc(CX, CY, rInnerPx, 0, Math.PI * 2); ctx.clip();
   
+    // Draw the smaller aggregate animating toward the larger during a growth merge.
+    if (state.aggGrowMerging) {
+      const m = state.aggGrowMerging;
+      const u = Math.min(1, (state.t - m.startedAt) / m.dur);
+      const s = m.smaller;
+      const ax = X2px(s.x), ay = Y2px(s.y);
+      const ar = Math.max(0, pxDist(s.r) * (1 - u));
+      if (ar > 0.5) {
+        const imgIdx = typeof aggImageIndex === 'function'
+          ? aggImageIndex(s.count) : 0;
+        const img = aggregateImages[imgIdx];
+        ctx.save();
+        ctx.translate(ax, ay);
+        ctx.rotate(-s.rot);
+        ctx.globalAlpha = 1 - u;
+        if (img && img.complete && img.naturalHeight !== 0) {
+          const drawH = ar * 2;
+          const drawW = drawH * (img.naturalWidth / img.naturalHeight);
+          ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+        } else {
+          ctx.fillStyle = '#6a6a72';
+          ctx.beginPath(); ctx.arc(0, 0, ar, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+      }
+    }
+
     for (const agg of state.aggregates) {
       if (agg.merging) continue;
   

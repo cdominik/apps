@@ -64,6 +64,7 @@
     state.goldenBalls  = [];
 
     state.aggregates  = [];
+    state.aggGrowMerging = null;
     state.aggHoldRevs = 0;
     state.aggCount    = 0;
     state.aggMerging  = null;
@@ -880,6 +881,42 @@
    *
    * @param {number} dt - Elapsed time in seconds since the last frame.
    */
+
+  /**
+   * Scans all live aggregate pairs for physical contact and initiates
+   * a growth merge when two overlap. Processes one pair per call —
+   * subsequent collisions are deferred until the animation completes.
+   * Only runs when window.aggGrowthOn is true.
+   */
+  function resolveAggAggCollisions() {
+    if (state.aggGrowMerging) return;
+    const live = state.aggregates.filter(
+      a => a.alive && !a.stuck && !a.merging
+    );
+    for (let i = 0; i < live.length; i++) {
+      for (let j = i + 1; j < live.length; j++) {
+        const a = live[i], b = live[j];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < a.r + b.r) {
+          // Smaller merges into larger
+          const smaller = a.count <= b.count ? a : b;
+          const larger  = a.count <= b.count ? b : a;
+          smaller.merging   = true;
+          smaller.mergeStart = { x: smaller.x, y: smaller.y };
+          state.aggGrowMerging = {
+            smaller,
+            larger,
+            startedAt: state.t,
+            dur: TUNING.aggregate.mergeDur,
+          };
+          return;
+        }
+      }
+    }
+  }
+
+
   function updateAggregates(dt) {
     // Advance an in-progress aggregate merge animation.
     if (state.aggMerging) {
@@ -891,6 +928,51 @@
         state.aggMerging = null;
         state.aggCount++;
       }
+    }
+
+    // Advance an in-progress aggregate-growth merge animation.
+    if (state.aggGrowMerging) {
+      const m = state.aggGrowMerging;
+      const u    = Math.min(1, (state.t - m.startedAt) / m.dur);
+      const ease = u * u * (3 - 2 * u);
+    
+      // Smaller tracks larger's current position
+      m.smaller.x = m.smaller.mergeStart.x + (m.larger.x - m.smaller.mergeStart.x) * ease;
+      m.smaller.y = m.smaller.mergeStart.y + (m.larger.y - m.smaller.mergeStart.y) * ease;
+    
+      if (u >= 1) {
+        const newCount = m.smaller.count + m.larger.count;
+        const newVt    = (m.smaller.count * m.smaller.vt +
+                          m.larger.count  * m.larger.vt) / newCount;
+        const sF       = visualSizeFactor(newVt);
+        const newR     = TUNING.particle.collisionR *
+                         sF *
+                         TUNING.aggregate.sizeMult *
+                         Math.sqrt(newCount / 10);
+    
+        m.smaller.alive   = false;
+        m.larger.count    = newCount;
+        m.larger.vt       = newVt;
+        m.larger.r        = newR;
+        m.larger.merging  = false;
+        m.larger.orbitFlashEndsAt = state.t + 2.0;
+        state.aggCount    = Math.max(0, state.aggCount - 1);
+        state.aggGrowMerging = null;
+        soundSnap();
+    
+        // Pebble transition at count >= 100
+        if (newCount >= 100) {
+          m.larger.alive = false;
+          spawnGoldenBall(m.larger.x, m.larger.y);
+          state.aggCount    = Math.max(0, state.aggCount - 1);
+          state.eggBallCount++;
+        }
+      }
+    }
+    
+    // Check for aggregate-aggregate collisions when growth mode is active.
+    if (window.aggGrowthOn && !state.aggMerging) {
+      resolveAggAggCollisions();
     }
 
     // Check whether enough particles are levitated to start a new aggregate merge.
