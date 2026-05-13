@@ -80,6 +80,9 @@
       mergeDur:        0.6,   // s          — duration of the aggregate merge animation
       minSpread:       0.20,  // fraction   — minimum vt spread required to trigger aggregate formation
       vtFactor:        1.2,   // multiplier — Vt threshold multiplier during aggregate levitation check
+      brownian:        2.0,   // cm/s — random velocity kick applied each frame
+      restoreK:        0.5,   // 1/s  — spring constant toward natural orbit centre
+
       flashOrbit:      false, // bool       — if true, flash the orbit ring when an aggregate forms
       growFlashDur:    2.5,   // time       - seconds the new orbit ring stays visible after merge
 

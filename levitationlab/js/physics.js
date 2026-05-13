@@ -918,6 +918,17 @@
     }
   }
 
+  /**
+   * Returns the required hold revolutions between aggregate formations,
+   * scaled down for large particle counts to maintain visual interest.
+   */
+  function aggSubseqHoldRevs() {
+    const n = CFG.N_P;
+    if      (n >= 10000) return TUNING.aggregate.subseqHoldRevs / 10;
+    else if (n >= 3000)  return TUNING.aggregate.subseqHoldRevs / 3;
+    else if (n >= 1000)  return TUNING.aggregate.subseqHoldRevs / 2;
+    else                 return TUNING.aggregate.subseqHoldRevs;
+  }
 
   function updateAggregates(dt) {
     // Advance an in-progress aggregate merge animation.
@@ -989,7 +1000,7 @@
         state.aggHoldRevs += dt / T;
         const target = state.aggCount === 0
           ? TUNING.aggregate.initialHoldRevs
-          : TUNING.aggregate.subseqHoldRevs;
+          : aggSubseqHoldRevs();
         if (state.aggHoldRevs >= target) {
           const pool = state.particles.filter(
             p => p.alive && !p.stuck && !p.merging && p.inHighlightSince !== null
@@ -1028,6 +1039,24 @@
         // Orbital kinematics: co-rotate with drum, settle at vt.
         agg.vx = -state.omega * agg.y;
         agg.vy =  state.omega * agg.x - agg.vt;
+
+        // Turbulent perturbation — models gas velocity fluctuations.
+        // Only applied when aggregate growth mode is active.
+
+        if (window.aggGrowthOn && Math.abs(state.omega) > 1e-3) {
+          const turb    = TUNING.aggregate.brownian;
+          const kR      = TUNING.aggregate.restoreK;
+          const xc      = agg.vt / state.omega;
+        
+          // Random Brownian kick
+          agg.vx += turb * randn();
+          agg.vy += turb * randn();
+        
+          // Restoring force toward natural orbit centre (xc, 0)
+          agg.vx += kR * (xc - agg.x) * dt;
+          agg.vy += kR * (0  - agg.y) * dt;
+        }
+
         agg.x += agg.vx * dt;
         agg.y += agg.vy * dt;
         agg.rot += agg.rotSpeed * dt;
