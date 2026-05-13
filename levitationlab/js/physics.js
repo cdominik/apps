@@ -909,6 +909,8 @@
             larger,
             startedAt: state.t,
             dur: TUNING.aggregate.mergeDur,
+            vtSmaller: smaller.vt,
+            vtLarger:  larger.vt,
           };
           return;
         }
@@ -955,7 +957,7 @@
         m.larger.vt       = newVt;
         m.larger.r        = newR;
         m.larger.merging  = false;
-        m.larger.orbitFlashEndsAt = state.t + 2.0;
+        m.larger.orbitFlashEndsAt = state.t + TUNING.aggregate.growFlashDur;
         state.aggCount    = Math.max(0, state.aggCount - 1);
         state.aggGrowMerging = null;
         soundAggMerge(m.larger.count);

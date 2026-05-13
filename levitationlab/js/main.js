@@ -56,7 +56,7 @@
       lastT = now;
 
       // --- STABILIZED 5X SLOW MOTION LOGIC ---
-      const isMerging = !!(state.eggMerging || state.aggMerging || state.globeMerging);
+      const isMerging = !!(state.eggMerging || state.aggMerging || state.globeMerging || state.aggGrowMerging);
       const applySlowMo = (typeof slowMoArmed !== 'undefined' && slowMoArmed && isMerging);
 
       if (applySlowMo) {

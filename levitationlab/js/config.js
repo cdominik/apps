@@ -74,13 +74,15 @@
     aggregate: {
       minLevitated:    30,    // count      — minimum levitated particles to allow aggregate formation
       mergeCount:      10,    // count      — particles consumed per aggregate merge event
-      initialHoldRevs: 3,    // rev        — revolutions levitated before the first aggregate
-      subseqHoldRevs:  1,    // rev        — revolutions required for each subsequent aggregate
-      sizeMult:        10,   // multiplier — visual radius of aggregate relative to one particle
-      mergeDur:        0.6,  // s          — duration of the aggregate merge animation
-      minSpread:       0.20, // fraction   — minimum vt spread required to trigger aggregate formation
-      vtFactor:        1.2,  // multiplier — Vt threshold multiplier during aggregate levitation check
-      flashOrbit:      false, // bool      — if true, flash the orbit ring when an aggregate forms
+      initialHoldRevs: 3,     // rev        — revolutions levitated before the first aggregate
+      subseqHoldRevs:  1,     // rev        — revolutions required for each subsequent aggregate
+      sizeMult:        10,    // multiplier — visual radius of aggregate relative to one particle
+      mergeDur:        0.6,   // s          — duration of the aggregate merge animation
+      minSpread:       0.20,  // fraction   — minimum vt spread required to trigger aggregate formation
+      vtFactor:        1.2,   // multiplier — Vt threshold multiplier during aggregate levitation check
+      flashOrbit:      false, // bool       — if true, flash the orbit ring when an aggregate forms
+      growFlashDur:    2.5,   // time       - seconds the new orbit ring stays visible after merge
+
     },
 
     // --- Pebble (golden ball) formation ---

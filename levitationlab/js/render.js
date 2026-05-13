@@ -1905,6 +1905,79 @@ function drawRepresentativeOrbits() {
         }
       }
     }
+
+    // Growth merge orbit flash — two fading parents, one brightening child
+    if (state.aggGrowMerging) {
+      const m    = state.aggGrowMerging;
+      const absOm = Math.abs(state.omega);
+      if (absOm > 1e-3) {
+        const u    = Math.min(1, (state.t - m.startedAt) / m.dur);
+        const ease = u * u * (3 - 2 * u);
+    
+        // Parent orbit centres
+        const xcSmall = m.vtSmaller / state.omega;
+        const xcLarge = m.vtLarger  / state.omega;
+    
+        // Radii from current aggregate positions
+        const rSmall = Math.hypot(m.smaller.x - xcSmall, m.smaller.y);
+        const rLarge = Math.hypot(m.larger.x  - xcLarge, m.larger.y);
+    
+        const py0 = Y2px(0);
+    
+        // Draw parent orbits — orange, fading out as merge progresses
+        const parentAlpha = (1 - ease) * 0.85;
+        if (parentAlpha > 0.01) {
+          for (const [xc, r] of [[xcSmall, rSmall], [xcLarge, rLarge]]) {
+            ctxOv.beginPath();
+            ctxOv.arc(X2px(xc), py0, pxDist(r), 0, Math.PI * 2);
+            ctxOv.strokeStyle = `rgba(255, 140, 40, ${parentAlpha.toFixed(3)})`;
+            ctxOv.lineWidth = 1.5;
+            ctxOv.stroke();
+    
+            // Orbit centre dot
+            ctxOv.beginPath();
+            ctxOv.arc(X2px(xc), py0, 3, 0, Math.PI * 2);
+            ctxOv.fillStyle = `rgba(255, 140, 40, ${parentAlpha.toFixed(3)})`;
+            ctxOv.fill();
+          }
+    
+          // Connecting line between parent centres — shows the gap closing
+          ctxOv.beginPath();
+          ctxOv.moveTo(X2px(xcSmall), py0);
+          ctxOv.lineTo(X2px(xcLarge), py0);
+          ctxOv.strokeStyle = `rgba(255, 140, 40, ${(parentAlpha * 0.5).toFixed(3)})`;
+          ctxOv.lineWidth = 1;
+          ctxOv.setLineDash([3, 3]);
+          ctxOv.stroke();
+          ctxOv.setLineDash([]);
+        }
+    
+        // Draw new merged orbit — cyan, brightening as merge completes
+        const newVt  = (m.smaller.count * m.vtSmaller +
+                        m.larger.count  * m.vtLarger) /
+                       (m.smaller.count + m.larger.count);
+        const xcNew  = newVt / state.omega;
+        const rNew   = Math.hypot(m.larger.x - xcNew, m.larger.y);
+        const newAlpha = ease * 0.85;
+    
+        if (newAlpha > 0.01) {
+          ctxOv.beginPath();
+          ctxOv.arc(X2px(xcNew), py0, pxDist(rNew), 0, Math.PI * 2);
+          ctxOv.strokeStyle = `rgba(200, 255, 220, ${newAlpha.toFixed(3)})`;
+          ctxOv.lineWidth = 1.5;
+          ctxOv.stroke();
+    
+          ctxOv.beginPath();
+          ctxOv.arc(X2px(xcNew), py0, 3, 0, Math.PI * 2);
+          ctxOv.fillStyle = `rgba(200, 255, 220, ${newAlpha.toFixed(3)})`;
+          ctxOv.fill();
+        }
+      }
+    }
+
+
+
+
     ctxOv.restore();
   }
 
