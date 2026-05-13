@@ -677,7 +677,13 @@
     });
   }
 
-  // PROCESSES 3. Aggregate formation (Green = ON, Red = OFF)
+  // PROCESSES 3. Pure Velocity Average
+  wireProcessButton('btnProcPureV', 'on', (active) => {
+    // Revert vtFactor to 1.0 (pure average) or back to default multiplier
+    TUNING.aggregate.vtFactor = active ? 1.0 : TUNING_DEFAULT.aggregate.vtFactor;
+  });
+
+  // PROCESSES 4. Aggregate formation (Green = ON, Red = OFF)
   const btnProcAgg = document.getElementById('btnProcAgg');
   if (btnProcAgg) {
     btnProcAgg.addEventListener('click', function() {
@@ -696,14 +702,24 @@
     });
   }
 
-  // PROCESSES 4. Pure Velocity Average
-  wireProcessButton('btnProcPureV', 'on', (active) => {
-    // Revert vtFactor to 1.0 (pure average) or back to default multiplier
-    TUNING.aggregate.vtFactor = active ? 1.0 : TUNING_DEFAULT.aggregate.vtFactor;
-  });
-
-
   // PROCESSES 5. UNASSIGNED
+  
+  // PROCESSES 6. Pebble formation (Green = ON, Red = OFF)
+  const btnProcEgg = document.getElementById('btnProcEgg');
+  if (btnProcEgg) {
+    btnProcEgg.addEventListener('click', function() {
+      const isCurrentlyOn = this.classList.contains('on');
+      if (isCurrentlyOn) {
+        this.classList.remove('on');
+        this.classList.add('warn');
+        TUNING.egg.nCrit = 999999;
+      } else {
+        this.classList.remove('warn');
+        this.classList.add('on');
+        TUNING.egg.nCrit = TUNING_DEFAULT.egg.nCrit;
+      }
+    });
+  }
 
   // PROCESSES 6. UNASSIGNED
    
