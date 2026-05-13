@@ -73,18 +73,20 @@
       const sub = Math.max(1, Math.ceil(dt / DT_SUBSTEP));
       const h = dt / sub;
 
-      for (let i = 0; i < sub; i++) updateDrum(h);
-      if (state.running) { 
+      if (!state.paused) {
+        for (let i = 0; i < sub; i++) updateDrum(h);
+      }
+      if (state.running && !state.paused) { 
         for (let i = 0; i < sub; i++) step(h); 
         for (let i = 0; i < sub; i++) updateEgg(h);
         for (let i = 0; i < sub; i++) updateAggregates(h);
       }
+      if (!state.paused) updateMotorSound();
       
       // Auto-omega: track the current distribution every frame
       if (window.autoOmegaOn) {
         state.omegaTarget = computeAutoOmega();
       }
-      updateMotorSound();
       recordTrails();
       pollAggregateCounter();
       updateViewport(dt);

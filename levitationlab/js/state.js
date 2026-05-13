@@ -14,7 +14,7 @@
   // SECTION: STATE
   // ============================================================
   const state = {
-    running: false, particles: [], toInject: [],
+    running: false, paused: false, particles: [], toInject: [],
     t: 0, omega: 0, omegaTarget: 0, drumAngle: 0,
     laserAngle: 0, laserOn: false,
     trailsOn: false,

@@ -439,6 +439,23 @@
     if (e.key === 'Escape' && !manualOverlay.hidden) closeManual();
   });
 
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== ' ') return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    e.preventDefault();
+    state.paused = !state.paused;
+    
+    if (AUDIO.ctx && AUDIO.motor.started) {
+      const t = AUDIO.ctx.currentTime;
+      if (state.paused) {
+        AUDIO.motor.gainOsc.gain.cancelScheduledValues(t);
+        AUDIO.motor.gainOsc.gain.setValueAtTime(0, t);
+        AUDIO.motor.gainNoise.gain.cancelScheduledValues(t);
+        AUDIO.motor.gainNoise.gain.setValueAtTime(0, t);
+      }
+    }
+  });
+  
   // SECTION: DISTRIBUTION OVERLAY LOGIC
   const btnDistMenu = document.getElementById('btnDistMenu');
   const distOverlay = document.getElementById('distOverlay');
