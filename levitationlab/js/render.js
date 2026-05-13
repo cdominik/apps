@@ -2077,6 +2077,112 @@ function drawRepresentativeOrbits() {
     ctxOv.restore();
   }
 
+/**
+ * Draws an aggregate size distribution histogram on the left side of the drum.
+ * 11 bins: monomer counts 10-100 (step 10) plus pebbles.
+ * Y-axis scales dynamically with a minimum of 10.
+ */
+function drawAggSizeHist() {
+  if (!window.aggHistOn) return;
+
+  // --- COMPUTE HISTOGRAM ---
+  const bins = new Array(11).fill(0);
+  for (const agg of state.aggregates) {
+    if (!agg.alive || agg.merging) continue;
+    const tier = Math.min(9, Math.max(0, Math.floor(((agg.count || 10) - 1) / 10)));
+    bins[tier]++;
+  }
+  bins[10] = state.eggBallCount;
+
+  const maxCount = 10; // fixed scale — bars cap at 10, labels show true count
+
+  // --- LAYOUT (drum-units) ---
+  const X0 = -88, X1 = -18;   // left and right edges
+  const Y0 = -28, Y1 = 28;    // half height: was -55/55
+  const totalW = X1 - X0;
+  const totalH = Y1 - Y0;
+  const slotW  = totalW / 11;
+  const barW   = slotW * 0.70;
+  const padX   = slotW * 0.15;
+  const labelH = 8; // drum-units reserved below bars for x-axis labels
+
+  // --- BARS ---
+  ctxOv.save();
+  ctxOv.beginPath();
+  ctxOv.arc(CX, CY, pxDist(CFG.R_DRUM), 0, Math.PI * 2);
+  ctxOv.clip();
+
+  const barAreaH = totalH - labelH;
+
+  for (let i = 0; i < 11; i++) {
+    const isPebble = (i === 10);
+    const frac     = Math.min(1, bins[i] / maxCount);
+    const barH     = frac * barAreaH;
+    const bx       = X0 + i * slotW + padX;
+    const by       = Y0 + labelH;
+
+    // Bar colour — gray-brown graduating to gold, bright gold for pebbles
+    let col;
+    if (isPebble) {
+      col = 'rgba(255, 204, 85, 0.90)';
+    } else {
+      const t = i / 9;
+      const r = Math.round(90  + t * 140);
+      const g = Math.round(90  + t * 80);
+      const b = Math.round(80  + t * 20);
+      col = `rgba(${r},${g},${b},0.88)`;
+    }
+
+    if (bins[i] > 0) {
+      ctxOv.fillStyle = col;
+      ctxOv.fillRect(
+        X2px(bx),
+        Y2px(by + barH),
+        pxDist(barW),
+        pxDist(barH)
+      );
+
+      // Always show count label above bar
+      const fontSize = Math.max(7, Math.min(11, pxDist(4.5)));
+      ctxOv.fillStyle = isPebble ? '#ffee99' : '#d0d0c0';
+      ctxOv.font = `bold ${fontSize}px monospace`;
+      ctxOv.textAlign = 'center';
+      ctxOv.fillText(
+        String(bins[i]),
+        X2px(bx + barW / 2),
+        Y2px(by + barH) - 2
+      );
+    }
+
+    // X-axis label
+    const fontSize = Math.max(7, Math.min(10, pxDist(4)));
+    ctxOv.fillStyle = isPebble ? '#ffcc55' : 'rgba(180,180,160,0.85)';
+    ctxOv.font = `${fontSize}px monospace`;
+    ctxOv.textAlign = 'center';
+    ctxOv.fillText(
+      isPebble ? 'P' : String((i + 1) * 10),
+      X2px(bx + barW / 2),
+      Y2px(Y0) + fontSize + 1
+    );
+  }
+
+  // --- BASELINE ---
+  ctxOv.strokeStyle = 'rgba(180,180,160,0.5)';
+  ctxOv.lineWidth = 1;
+  ctxOv.beginPath();
+  ctxOv.moveTo(X2px(X0), Y2px(Y0 + labelH));
+  ctxOv.lineTo(X2px(X1), Y2px(Y0 + labelH));
+  ctxOv.stroke();
+
+  // --- TITLE ---
+  const yFontSize = Math.max(7, Math.min(10, pxDist(4)));
+  ctxOv.fillStyle = 'rgba(180,180,160,0.7)';
+  ctxOv.font = `${yFontSize}px monospace`;
+  ctxOv.textAlign = 'center';
+  ctxOv.fillText('size dist.', X2px((X0 + X1) / 2), Y2px(Y1) + yFontSize);
+
+  ctxOv.restore();
+}
   // ============================================================
   // SECTION: RENDER — MASTER DRAW
   // ============================================================
@@ -2227,6 +2333,7 @@ function drawRepresentativeOrbits() {
     drawRepresentativeOrbits();
     drawAggregateOrbits();
     drawVtProjection();
+    drawAggSizeHist();
   }
   /**
    * Linearly interpolates between two integer channel values.

@@ -576,7 +576,13 @@
     this.classList.toggle('on', TUNING.aggregate.flashOrbit);
   });
 
-  // HUD 3. UNASSIGNED
+  // HUD 3. Aggregate size distribution histogram
+  window.aggHistOn = false;
+  document.getElementById('btnAggHist').addEventListener('click', function() {
+    window.aggHistOn = !window.aggHistOn;
+    this.classList.toggle('on', window.aggHistOn);
+    if (!window.aggHistOn) ctxOv.clearRect(0, 0, W, H);
+  });
 
   // HUD 4. Ghost mode 
   document.getElementById('btnFlowGhost').addEventListener('click', function() {
