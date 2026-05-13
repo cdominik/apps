@@ -2184,185 +2184,181 @@ function drawRepresentativeOrbits() {
     ctxOv.restore();
   }
 
-  /**
+    /**
    * Draws the v_t distribution of levitated particles (KDE, green) and
    * live aggregates (histogram bins, amber) in the upper-left drum area.
    */
-  /**
- * Draws the v_t distribution of levitated particles (KDE, green) and
- * live aggregates (histogram bins, amber) in the upper-left drum area.
- */
-function drawVtDistribution() {
-  if (!window.vtDistOn) return;
+  function drawVtDistribution() {
+    if (!window.vtDistOn) return;
 
-  const absOm = Math.abs(state.omega);
-  const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+    const absOm = Math.abs(state.omega);
+    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
 
-  // --- COLLECT DATA ---
-  const levVts = [];
-  for (const p of state.particles) {
-    if (!p.alive || p.stuck || p.merging) continue;
-    if (isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T)
-      levVts.push(p.vt);
-  }
-  const aggVts = [];
-  for (const agg of state.aggregates) {
-    if (!agg.alive || agg.merging) continue;
-    aggVts.push(agg.vt);
-  }
+    // --- COLLECT DATA ---
+    const levVts = [];
+    for (const p of state.particles) {
+      if (!p.alive || p.stuck || p.merging) continue;
+      if (isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T)
+        levVts.push(p.vt);
+    }
+    const aggVts = [];
+    for (const agg of state.aggregates) {
+      if (!agg.alive || agg.merging) continue;
+      aggVts.push(agg.vt);
+    }
 
-  // --- LAYOUT (drum-units) — must be before early return so empty frame can use them ---
-  const X0 = -70, X1 = -10;
-  const Y0 = 38,  Y1 = 68;
-  const totalW = X1 - X0;
-  const totalH = Y1 - Y0;
-  const labelH = 7;
-  const plotH  = totalH - labelH;
-  const baseY  = Y0 + labelH;
-
-  // --- EMPTY FRAME — axis and title even when no data ---
-  if (levVts.length === 0 && aggVts.length === 0) {
-    const fs = Math.max(7, Math.min(9, pxDist(3.5)));
+    // --- LAYOUT (drum-units) — must be before early return so empty frame can use them ---
+    const X0 = -70, X1 = -10;
+    const Y0 = 38,  Y1 = 68;
+    const totalW = X1 - X0;
+    const totalH = Y1 - Y0;
+    const labelH = 7;
+    const plotH  = totalH - labelH;
+    const baseY  = Y0 + labelH;
+    
+    // --- EMPTY FRAME — axis and title even when no data ---
+    if (levVts.length === 0 && aggVts.length === 0) {
+      const fs = Math.max(7, Math.min(9, pxDist(3.5)));
+      ctxOv.save();
+      ctxOv.beginPath();
+      ctxOv.arc(CX, CY, pxDist(CFG.R_DRUM), 0, Math.PI * 2);
+      ctxOv.clip();
+      
+      ctxOv.strokeStyle = 'rgba(180,180,160,0.4)';
+      ctxOv.lineWidth = 1;
+      ctxOv.beginPath();
+      ctxOv.moveTo(X2px(X0), Y2px(baseY));
+      ctxOv.lineTo(X2px(X1), Y2px(baseY));
+      ctxOv.stroke();
+      
+      ctxOv.fillStyle = 'rgba(180,180,160,0.7)';
+      ctxOv.font = `${fs}px monospace`;
+      ctxOv.textAlign = 'center';
+      ctxOv.fillText('v_t dist.', X2px((X0 + X1) / 2), Y2px(Y1) - fs);
+      
+      ctxOv.restore();
+      return;
+    }
+    
+    // --- X-AXIS RANGE from current injection profile ---
+    const dist = state.distMode;
+    const dp   = state.distParams;
+    let xMin, xMax;
+    if (dist === 'bi') {
+      xMin = Math.min(dp.bi.vt1, dp.bi.vt2) * 0.7;
+      xMax = Math.max(dp.bi.vt1, dp.bi.vt2) * 1.3;
+    } else if (dist === 'power') {
+      xMin = dp.power.vtMin * 0.8;
+      xMax = dp.power.vtMax * 1.2;
+    } else {
+      const sp = CFG.VT_SPREAD;
+      xMin = Math.max(0.5, CFG.V_T * (1 - sp * 2.5));
+      xMax = CFG.V_T * (1 + sp * 2.5);
+    }
+    // Expand to contain actual data
+    if (levVts.length) { xMin = Math.min(xMin, Math.min(...levVts) * 0.9); xMax = Math.max(xMax, Math.max(...levVts) * 1.1); }
+    if (aggVts.length) { xMin = Math.min(xMin, Math.min(...aggVts) * 0.9); xMax = Math.max(xMax, Math.max(...aggVts) * 1.1); }
+    if (xMax <= xMin) return;
+    
+    const vtToX = vt => X0 + ((vt - xMin) / (xMax - xMin)) * totalW;
+    
     ctxOv.save();
     ctxOv.beginPath();
     ctxOv.arc(CX, CY, pxDist(CFG.R_DRUM), 0, Math.PI * 2);
     ctxOv.clip();
-
+    
+    // --- KDE FOR LEVITATED PARTICLES ---
+    if (levVts.length > 0) {
+      const n    = levVts.length;
+      const mean = levVts.reduce((a, b) => a + b, 0) / n;
+      const sig  = Math.sqrt(Math.max(0.1, levVts.reduce((s, v) => s + (v - mean) ** 2, 0) / n));
+      const bw   = 1.06 * sig * Math.pow(n, -0.2);
+      
+      const nGrid = 60;
+      const ky = new Array(nGrid);
+      let kMax = 0;
+      for (let i = 0; i < nGrid; i++) {
+        const vt = xMin + (i / (nGrid - 1)) * (xMax - xMin);
+        let sum = 0;
+        for (const v of levVts) { const z = (vt - v) / bw; sum += Math.exp(-0.5 * z * z); }
+        ky[i] = sum / (n * bw * Math.sqrt(2 * Math.PI));
+        if (ky[i] > kMax) kMax = ky[i];
+      }
+      
+      if (kMax > 0) {
+        // Filled area
+        ctxOv.beginPath();
+        ctxOv.moveTo(X2px(X0), Y2px(baseY));
+        for (let i = 0; i < nGrid; i++) {
+          const x = X0 + (i / (nGrid - 1)) * totalW;
+          ctxOv.lineTo(X2px(x), Y2px(baseY + plotH * (ky[i] / kMax)));
+        }
+        ctxOv.lineTo(X2px(X1), Y2px(baseY));
+        ctxOv.closePath();
+        ctxOv.fillStyle = 'rgba(64,255,112,0.15)';
+        ctxOv.fill();
+        
+        // Stroke
+        ctxOv.beginPath();
+        for (let i = 0; i < nGrid; i++) {
+          const x = X0 + (i / (nGrid - 1)) * totalW;
+          const y = baseY + plotH * (ky[i] / kMax);
+          i === 0 ? ctxOv.moveTo(X2px(x), Y2px(y)) : ctxOv.lineTo(X2px(x), Y2px(y));
+        }
+        ctxOv.strokeStyle = 'rgba(64,255,112,0.85)';
+        ctxOv.lineWidth = 1.5;
+        ctxOv.stroke();
+      }
+    }
+    
+    // --- HISTOGRAM BINS FOR AGGREGATES ---
+    if (aggVts.length > 0) {
+      const nBins = 8;
+      const bins  = new Array(nBins).fill(0);
+      const binW  = (xMax - xMin) / nBins;
+      for (const vt of aggVts) {
+        const bi = Math.min(nBins - 1, Math.max(0, Math.floor((vt - xMin) / binW)));
+        bins[bi]++;
+      }
+      const binMax = Math.max(1, ...bins);
+      const bSlotW = totalW / nBins;
+      const bBarW  = bSlotW * 0.65;
+      const bPadX  = bSlotW * 0.175;
+      
+      for (let i = 0; i < nBins; i++) {
+        if (bins[i] === 0) continue;
+        const bx = X0 + i * bSlotW + bPadX;
+        const bh = plotH * (bins[i] / binMax);
+        ctxOv.fillStyle = 'rgba(230,160,50,0.70)';
+        ctxOv.fillRect(X2px(bx), Y2px(baseY + bh), pxDist(bBarW), pxDist(bh));
+      }
+    }
+    
+    // --- BASELINE ---
     ctxOv.strokeStyle = 'rgba(180,180,160,0.4)';
     ctxOv.lineWidth = 1;
     ctxOv.beginPath();
     ctxOv.moveTo(X2px(X0), Y2px(baseY));
     ctxOv.lineTo(X2px(X1), Y2px(baseY));
     ctxOv.stroke();
-
+    
+    // --- X-AXIS LABELS (min, mid, max) ---
+    const fs = Math.max(7, Math.min(9, pxDist(3.5)));
+    ctxOv.fillStyle = 'rgba(180,180,160,0.8)';
+    ctxOv.font = `${fs}px monospace`;
+    ctxOv.textAlign = 'center';
+    for (const vt of [xMin, (xMin + xMax) / 2, xMax]) {
+      ctxOv.fillText(Math.round(vt), X2px(vtToX(vt)), Y2px(Y0) + fs * 0.5 + 1);
+    }
+    
+    // --- TITLE ---
     ctxOv.fillStyle = 'rgba(180,180,160,0.7)';
     ctxOv.font = `${fs}px monospace`;
     ctxOv.textAlign = 'center';
     ctxOv.fillText('v_t dist.', X2px((X0 + X1) / 2), Y2px(Y1) - fs);
-
+    
     ctxOv.restore();
-    return;
   }
-
-  // --- X-AXIS RANGE from current injection profile ---
-  const dist = state.distMode;
-  const dp   = state.distParams;
-  let xMin, xMax;
-  if (dist === 'bi') {
-    xMin = Math.min(dp.bi.vt1, dp.bi.vt2) * 0.7;
-    xMax = Math.max(dp.bi.vt1, dp.bi.vt2) * 1.3;
-  } else if (dist === 'power') {
-    xMin = dp.power.vtMin * 0.8;
-    xMax = dp.power.vtMax * 1.2;
-  } else {
-    const sp = CFG.VT_SPREAD;
-    xMin = Math.max(0.5, CFG.V_T * (1 - sp * 2.5));
-    xMax = CFG.V_T * (1 + sp * 2.5);
-  }
-  // Expand to contain actual data
-  if (levVts.length) { xMin = Math.min(xMin, Math.min(...levVts) * 0.9); xMax = Math.max(xMax, Math.max(...levVts) * 1.1); }
-  if (aggVts.length) { xMin = Math.min(xMin, Math.min(...aggVts) * 0.9); xMax = Math.max(xMax, Math.max(...aggVts) * 1.1); }
-  if (xMax <= xMin) return;
-
-  const vtToX = vt => X0 + ((vt - xMin) / (xMax - xMin)) * totalW;
-
-  ctxOv.save();
-  ctxOv.beginPath();
-  ctxOv.arc(CX, CY, pxDist(CFG.R_DRUM), 0, Math.PI * 2);
-  ctxOv.clip();
-
-  // --- KDE FOR LEVITATED PARTICLES ---
-  if (levVts.length > 0) {
-    const n    = levVts.length;
-    const mean = levVts.reduce((a, b) => a + b, 0) / n;
-    const sig  = Math.sqrt(Math.max(0.1, levVts.reduce((s, v) => s + (v - mean) ** 2, 0) / n));
-    const bw   = 1.06 * sig * Math.pow(n, -0.2);
-
-    const nGrid = 60;
-    const ky = new Array(nGrid);
-    let kMax = 0;
-    for (let i = 0; i < nGrid; i++) {
-      const vt = xMin + (i / (nGrid - 1)) * (xMax - xMin);
-      let sum = 0;
-      for (const v of levVts) { const z = (vt - v) / bw; sum += Math.exp(-0.5 * z * z); }
-      ky[i] = sum / (n * bw * Math.sqrt(2 * Math.PI));
-      if (ky[i] > kMax) kMax = ky[i];
-    }
-
-    if (kMax > 0) {
-      // Filled area
-      ctxOv.beginPath();
-      ctxOv.moveTo(X2px(X0), Y2px(baseY));
-      for (let i = 0; i < nGrid; i++) {
-        const x = X0 + (i / (nGrid - 1)) * totalW;
-        ctxOv.lineTo(X2px(x), Y2px(baseY + plotH * (ky[i] / kMax)));
-      }
-      ctxOv.lineTo(X2px(X1), Y2px(baseY));
-      ctxOv.closePath();
-      ctxOv.fillStyle = 'rgba(64,255,112,0.15)';
-      ctxOv.fill();
-
-      // Stroke
-      ctxOv.beginPath();
-      for (let i = 0; i < nGrid; i++) {
-        const x = X0 + (i / (nGrid - 1)) * totalW;
-        const y = baseY + plotH * (ky[i] / kMax);
-        i === 0 ? ctxOv.moveTo(X2px(x), Y2px(y)) : ctxOv.lineTo(X2px(x), Y2px(y));
-      }
-      ctxOv.strokeStyle = 'rgba(64,255,112,0.85)';
-      ctxOv.lineWidth = 1.5;
-      ctxOv.stroke();
-    }
-  }
-
-  // --- HISTOGRAM BINS FOR AGGREGATES ---
-  if (aggVts.length > 0) {
-    const nBins = 8;
-    const bins  = new Array(nBins).fill(0);
-    const binW  = (xMax - xMin) / nBins;
-    for (const vt of aggVts) {
-      const bi = Math.min(nBins - 1, Math.max(0, Math.floor((vt - xMin) / binW)));
-      bins[bi]++;
-    }
-    const binMax = Math.max(1, ...bins);
-    const bSlotW = totalW / nBins;
-    const bBarW  = bSlotW * 0.65;
-    const bPadX  = bSlotW * 0.175;
-
-    for (let i = 0; i < nBins; i++) {
-      if (bins[i] === 0) continue;
-      const bx = X0 + i * bSlotW + bPadX;
-      const bh = plotH * (bins[i] / binMax);
-      ctxOv.fillStyle = 'rgba(230,160,50,0.70)';
-      ctxOv.fillRect(X2px(bx), Y2px(baseY + bh), pxDist(bBarW), pxDist(bh));
-    }
-  }
-
-  // --- BASELINE ---
-  ctxOv.strokeStyle = 'rgba(180,180,160,0.4)';
-  ctxOv.lineWidth = 1;
-  ctxOv.beginPath();
-  ctxOv.moveTo(X2px(X0), Y2px(baseY));
-  ctxOv.lineTo(X2px(X1), Y2px(baseY));
-  ctxOv.stroke();
-
-  // --- X-AXIS LABELS (min, mid, max) ---
-  const fs = Math.max(7, Math.min(9, pxDist(3.5)));
-  ctxOv.fillStyle = 'rgba(180,180,160,0.8)';
-  ctxOv.font = `${fs}px monospace`;
-  ctxOv.textAlign = 'center';
-  for (const vt of [xMin, (xMin + xMax) / 2, xMax]) {
-    ctxOv.fillText(Math.round(vt), X2px(vtToX(vt)), Y2px(Y0) + fs * 0.5 + 1);
-  }
-
-  // --- TITLE ---
-  ctxOv.fillStyle = 'rgba(180,180,160,0.7)';
-  ctxOv.font = `${fs}px monospace`;
-  ctxOv.textAlign = 'center';
-  ctxOv.fillText('v_t dist.', X2px((X0 + X1) / 2), Y2px(Y1) - fs);
-
-  ctxOv.restore();
-}
 
   // ============================================================
   // SECTION: RENDER — MASTER DRAW
