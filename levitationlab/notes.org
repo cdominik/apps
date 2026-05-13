@@ -1,7 +1,23 @@
 - For the ghost particles, we use a reduced gravity of 100
   cm/s^2. Otherwise, there would be no curvature in the gravity
-  dominated lines, so it would not be instructive.
+  dominated lines, so it would not be instructive. Need to document
+  this. Maybe reduce it even more?
 
-- Omega button functionality is not clear.
-- move the manual?
+- Claude proposes to show the random walk of the aggregates.  Is that
+  another HUD? Or on it's own button? Ned to find out.
 
+- Ghostmode should go into the HUD sequence to free up a spot for
+  this.  Unless we make the aggregate random walk also part of the HUD
+  sequence?
+  
+  When we switch to Ghostmode, is should attatch itself to a random particle,
+  preferably a levitated one. We then activate the mouse to switch.
+
+- reset should also reset auto-omega, it is weired if the drum keeps
+  rotating. 
+
+
+thud make go away
+
+* 
+* 
