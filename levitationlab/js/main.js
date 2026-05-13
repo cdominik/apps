@@ -26,7 +26,7 @@
 
   // Strobe state — tracks last completed revolution index
   window.strobeOn = false;
-  let _lastStrobeRev = 0;
+  window._lastStrobeRev = 0;
   let _strobeShouldDraw = true;
   
   /**
@@ -38,7 +38,7 @@
     if (Math.abs(state.omega) < 0.08) return true; // drum nearly stopped — render freely
     const rev = Math.floor(Math.abs(state.drumAngle) / (2 * Math.PI));
     if (rev !== _lastStrobeRev) {
-      _lastStrobeRev = rev;
+      window._lastStrobeRev = rev;
       return true;
     }
     return false;
