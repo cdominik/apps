@@ -576,12 +576,12 @@
     this.classList.toggle('on', TUNING.aggregate.flashOrbit);
   });
 
-  // HUD 3. Aggregate size distribution histogram
-  window.aggHistOn = false;
-  document.getElementById('btnAggHist').addEventListener('click', function() {
-    window.aggHistOn = !window.aggHistOn;
-    this.classList.toggle('on', window.aggHistOn);
-    if (!window.aggHistOn) ctxOv.clearRect(0, 0, W, H);
+  // HUD 3. v_t distribution — KDE of levitated particles + aggregate histogram
+  window.vtDistOn = false;
+  document.getElementById('btnVtDist').addEventListener('click', function() {
+    window.vtDistOn = !window.vtDistOn;
+    this.classList.toggle('on', window.vtDistOn);
+    if (!window.vtDistOn) ctxOv.clearRect(0, 0, W, H);
   });
 
   // HUD 4. Ghost mode 
@@ -592,6 +592,14 @@
     if (!TUNING.particle.showFlowGhosts) {
       state.particles.forEach(p => p.isDiagnosticTarget = false);
     }
+  });
+
+  // HUD 5. Aggregate size distribution histogram
+  window.aggHistOn = false;
+  document.getElementById('btnAggHist').addEventListener('click', function() {
+    window.aggHistOn = !window.aggHistOn;
+    this.classList.toggle('on', window.aggHistOn);
+    if (!window.aggHistOn) ctxOv.clearRect(0, 0, W, H);
   });
 
   // HUD 6. Solid HUD screen
