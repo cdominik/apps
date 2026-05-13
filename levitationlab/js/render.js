@@ -1469,7 +1469,8 @@
   function drawOneParticle(p) {
     const x = X2px(p.x), y = Y2px(p.y);
     const sizeFac = visualSizeFactor(p.vt);
-    const rpx = Math.max(2, pxDist(TUNING.particle.collisionR) * 2 * sizeFac);
+    const minR = CFG.N_P >= 1000 ? 0.5 : (CFG.N_P >= 300 ? 1.0 : 2.0);
+    const rpx = Math.max(minR, pxDist(TUNING.particle.collisionR) * 2 * sizeFac);
 
     if (p.isDiagnosticTarget && TUNING.particle.showFlowGhosts) {
       const omega = state.omega;
