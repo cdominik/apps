@@ -280,6 +280,10 @@
       heatmap.accV2.fill(0);
       heatmap.ready = false;
     }
+    if (window.autoOmegaOn) {
+      window.autoOmegaOn = false;
+      if (btnSysAutoOmega) btnSysAutoOmega.classList.remove('on');
+    }
     ctxOv.clearRect(0, 0, W, H);
     
     // 1a. OMEGA UNLOCK LOGIC
