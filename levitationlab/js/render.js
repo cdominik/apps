@@ -2184,7 +2184,7 @@ function drawRepresentativeOrbits() {
     ctxOv.restore();
   }
 
-    /**
+  /**
    * Draws the v_t distribution of levitated particles (KDE, green) and
    * live aggregates (histogram bins, amber) in the upper-left drum area.
    */
@@ -2195,11 +2195,13 @@ function drawRepresentativeOrbits() {
     const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
 
     // --- COLLECT DATA ---
-    const levVts = [];
+    const levVts   = [];
+    const floatVts = [];
     for (const p of state.particles) {
-      if (!p.alive || p.stuck || p.merging) continue;
-      if (isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T)
-        levVts.push(p.vt);
+      if (!p.alive || p.stuck || p.merging || !p.insideOnce) continue;
+      const nowLev = isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
+      if (nowLev) levVts.push(p.vt);
+      else        floatVts.push(p.vt);
     }
     const aggVts = [];
     for (const agg of state.aggregates) {
@@ -2207,7 +2209,7 @@ function drawRepresentativeOrbits() {
       aggVts.push(agg.vt);
     }
 
-    // --- LAYOUT (drum-units) — must be before early return so empty frame can use them ---
+    // --- LAYOUT (drum-units) ---
     const X0 = -70, X1 = -10;
     const Y0 = 38,  Y1 = 68;
     const totalW = X1 - X0;
@@ -2215,31 +2217,31 @@ function drawRepresentativeOrbits() {
     const labelH = 7;
     const plotH  = totalH - labelH;
     const baseY  = Y0 + labelH;
-    
-    // --- EMPTY FRAME — axis and title even when no data ---
-    if (levVts.length === 0 && aggVts.length === 0) {
+
+    // --- EMPTY FRAME ---
+    if (levVts.length === 0 && floatVts.length === 0 && aggVts.length === 0) {
       const fs = Math.max(7, Math.min(9, pxDist(3.5)));
       ctxOv.save();
       ctxOv.beginPath();
       ctxOv.arc(CX, CY, pxDist(CFG.R_DRUM), 0, Math.PI * 2);
       ctxOv.clip();
-      
+
       ctxOv.strokeStyle = 'rgba(180,180,160,0.4)';
       ctxOv.lineWidth = 1;
       ctxOv.beginPath();
       ctxOv.moveTo(X2px(X0), Y2px(baseY));
       ctxOv.lineTo(X2px(X1), Y2px(baseY));
       ctxOv.stroke();
-      
+
       ctxOv.fillStyle = 'rgba(180,180,160,0.7)';
       ctxOv.font = `${fs}px monospace`;
       ctxOv.textAlign = 'center';
       ctxOv.fillText('v_t dist.', X2px((X0 + X1) / 2), Y2px(Y1) - fs);
-      
+
       ctxOv.restore();
       return;
     }
-    
+
     // --- X-AXIS RANGE from current injection profile ---
     const dist = state.distMode;
     const dp   = state.distParams;
@@ -2256,24 +2258,67 @@ function drawRepresentativeOrbits() {
       xMax = CFG.V_T * (1 + sp * 2.5);
     }
     // Expand to contain actual data
-    if (levVts.length) { xMin = Math.min(xMin, Math.min(...levVts) * 0.9); xMax = Math.max(xMax, Math.max(...levVts) * 1.1); }
-    if (aggVts.length) { xMin = Math.min(xMin, Math.min(...aggVts) * 0.9); xMax = Math.max(xMax, Math.max(...aggVts) * 1.1); }
+    if (levVts.length)   { xMin = Math.min(xMin, Math.min(...levVts)   * 0.9); xMax = Math.max(xMax, Math.max(...levVts)   * 1.1); }
+    if (floatVts.length) { xMin = Math.min(xMin, Math.min(...floatVts) * 0.9); xMax = Math.max(xMax, Math.max(...floatVts) * 1.1); }
+    if (aggVts.length)   { xMin = Math.min(xMin, Math.min(...aggVts)   * 0.9); xMax = Math.max(xMax, Math.max(...aggVts)   * 1.1); }
     if (xMax <= xMin) return;
-    
+
     const vtToX = vt => X0 + ((vt - xMin) / (xMax - xMin)) * totalW;
-    
+
     ctxOv.save();
     ctxOv.beginPath();
     ctxOv.arc(CX, CY, pxDist(CFG.R_DRUM), 0, Math.PI * 2);
     ctxOv.clip();
-    
-    // --- KDE FOR LEVITATED PARTICLES ---
+
+    // --- KDE FOR FLOATING PARTICLES (yellow, drawn first) ---
+    if (floatVts.length > 0) {
+      const n    = floatVts.length;
+      const mean = floatVts.reduce((a, b) => a + b, 0) / n;
+      const sig  = Math.sqrt(Math.max(0.1, floatVts.reduce((s, v) => s + (v - mean) ** 2, 0) / n));
+      const bw   = 1.06 * sig * Math.pow(n, -0.2);
+
+      const nGrid = 60;
+      const ky = new Array(nGrid);
+      let kMax = 0;
+      for (let i = 0; i < nGrid; i++) {
+        const vt = xMin + (i / (nGrid - 1)) * (xMax - xMin);
+        let sum = 0;
+        for (const v of floatVts) { const z = (vt - v) / bw; sum += Math.exp(-0.5 * z * z); }
+        ky[i] = sum / (n * bw * Math.sqrt(2 * Math.PI));
+        if (ky[i] > kMax) kMax = ky[i];
+      }
+
+      if (kMax > 0) {
+        ctxOv.beginPath();
+        ctxOv.moveTo(X2px(X0), Y2px(baseY));
+        for (let i = 0; i < nGrid; i++) {
+          const x = X0 + (i / (nGrid - 1)) * totalW;
+          ctxOv.lineTo(X2px(x), Y2px(baseY + plotH * (ky[i] / kMax)));
+        }
+        ctxOv.lineTo(X2px(X1), Y2px(baseY));
+        ctxOv.closePath();
+        ctxOv.fillStyle = 'rgba(255,238,51,0.10)';
+        ctxOv.fill();
+
+        ctxOv.beginPath();
+        for (let i = 0; i < nGrid; i++) {
+          const x = X0 + (i / (nGrid - 1)) * totalW;
+          const y = baseY + plotH * (ky[i] / kMax);
+          i === 0 ? ctxOv.moveTo(X2px(x), Y2px(y)) : ctxOv.lineTo(X2px(x), Y2px(y));
+        }
+        ctxOv.strokeStyle = 'rgba(255,238,51,0.75)';
+        ctxOv.lineWidth = 1.5;
+        ctxOv.stroke();
+      }
+    }
+
+    // --- KDE FOR LEVITATED PARTICLES (green, drawn on top) ---
     if (levVts.length > 0) {
       const n    = levVts.length;
       const mean = levVts.reduce((a, b) => a + b, 0) / n;
       const sig  = Math.sqrt(Math.max(0.1, levVts.reduce((s, v) => s + (v - mean) ** 2, 0) / n));
       const bw   = 1.06 * sig * Math.pow(n, -0.2);
-      
+
       const nGrid = 60;
       const ky = new Array(nGrid);
       let kMax = 0;
@@ -2284,9 +2329,8 @@ function drawRepresentativeOrbits() {
         ky[i] = sum / (n * bw * Math.sqrt(2 * Math.PI));
         if (ky[i] > kMax) kMax = ky[i];
       }
-      
+
       if (kMax > 0) {
-        // Filled area
         ctxOv.beginPath();
         ctxOv.moveTo(X2px(X0), Y2px(baseY));
         for (let i = 0; i < nGrid; i++) {
@@ -2297,8 +2341,7 @@ function drawRepresentativeOrbits() {
         ctxOv.closePath();
         ctxOv.fillStyle = 'rgba(64,255,112,0.15)';
         ctxOv.fill();
-        
-        // Stroke
+
         ctxOv.beginPath();
         for (let i = 0; i < nGrid; i++) {
           const x = X0 + (i / (nGrid - 1)) * totalW;
@@ -2310,8 +2353,8 @@ function drawRepresentativeOrbits() {
         ctxOv.stroke();
       }
     }
-    
-    // --- HISTOGRAM BINS FOR AGGREGATES ---
+
+    // --- HISTOGRAM BINS FOR AGGREGATES (amber) ---
     if (aggVts.length > 0) {
       const nBins = 8;
       const bins  = new Array(nBins).fill(0);
@@ -2324,7 +2367,7 @@ function drawRepresentativeOrbits() {
       const bSlotW = totalW / nBins;
       const bBarW  = bSlotW * 0.65;
       const bPadX  = bSlotW * 0.175;
-      
+
       for (let i = 0; i < nBins; i++) {
         if (bins[i] === 0) continue;
         const bx = X0 + i * bSlotW + bPadX;
@@ -2333,7 +2376,7 @@ function drawRepresentativeOrbits() {
         ctxOv.fillRect(X2px(bx), Y2px(baseY + bh), pxDist(bBarW), pxDist(bh));
       }
     }
-    
+
     // --- BASELINE ---
     ctxOv.strokeStyle = 'rgba(180,180,160,0.4)';
     ctxOv.lineWidth = 1;
@@ -2341,7 +2384,7 @@ function drawRepresentativeOrbits() {
     ctxOv.moveTo(X2px(X0), Y2px(baseY));
     ctxOv.lineTo(X2px(X1), Y2px(baseY));
     ctxOv.stroke();
-    
+
     // --- X-AXIS LABELS (min, mid, max) ---
     const fs = Math.max(7, Math.min(9, pxDist(3.5)));
     ctxOv.fillStyle = 'rgba(180,180,160,0.8)';
@@ -2350,13 +2393,13 @@ function drawRepresentativeOrbits() {
     for (const vt of [xMin, (xMin + xMax) / 2, xMax]) {
       ctxOv.fillText(Math.round(vt), X2px(vtToX(vt)), Y2px(Y0) + fs * 0.5 + 1);
     }
-    
+
     // --- TITLE ---
     ctxOv.fillStyle = 'rgba(180,180,160,0.7)';
     ctxOv.font = `${fs}px monospace`;
     ctxOv.textAlign = 'center';
     ctxOv.fillText('v_t dist.', X2px((X0 + X1) / 2), Y2px(Y1) - fs);
-    
+
     ctxOv.restore();
   }
 
