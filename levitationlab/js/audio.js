@@ -531,10 +531,21 @@
   /**
    * Initialises and/or resumes the AudioContext if suspended.
    */
+
   function ensureAudio() {
     if (!AUDIO.ctx) initAudio();
     if (AUDIO.ctx && AUDIO.ctx.state === 'suspended') AUDIO.ctx.resume();
   }
+
+  document.addEventListener('visibilitychange', () => {
+    if (!AUDIO.ctx) return;
+    const t = AUDIO.ctx.currentTime;
+    AUDIO.master.gain.setTargetAtTime(
+      document.hidden ? 0.0 : (AUDIO.enabled ? TUNING.audio.masterGain : 0.0),
+      t, 0.05
+    );
+  });
+
   window.addEventListener('pointerdown', ensureAudio);
   window.addEventListener('keydown', ensureAudio);
 
