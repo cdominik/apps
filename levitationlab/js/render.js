@@ -318,7 +318,10 @@
       ctx.rotate(-agg.rot);
       ctx.globalAlpha = scale;
 
-      const img = aggregateImages[agg.imgIdx !== undefined ? agg.imgIdx : 0];
+      const imgIdx = (typeof aggImageIndex === 'function' && agg.count)
+          ? aggImageIndex(agg.count)
+          : (agg.imgIdx !== undefined ? agg.imgIdx : 0);
+      const img = aggregateImages[imgIdx];
       if (img && img.complete && img.naturalHeight !== 0) {
         const drawH = ar * 2;
         const drawW = drawH * (img.naturalWidth / img.naturalHeight);
@@ -719,7 +722,10 @@
         ctx.shadowColor = 'rgba(60, 255, 120, 0.8)';
       }
   
-      const img = aggregateImages[agg.imgIdx !== undefined ? agg.imgIdx : 0];
+      const imgIdx = (typeof aggImageIndex === 'function' && agg.count)
+          ? aggImageIndex(agg.count)
+          : (agg.imgIdx !== undefined ? agg.imgIdx : 0);
+      const img = aggregateImages[imgIdx];
       if (img && img.complete && img.naturalHeight !== 0) {
         const drawH = ar * 2;
         const drawW = drawH * (img.naturalWidth / img.naturalHeight);

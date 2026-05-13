@@ -99,11 +99,12 @@
   // ============================================================
   // SECTION: ASSET LOADING
   // ============================================================
+// Replace the current aggregate image loop:
   const aggregateImages = [];
-  for (let i = 0; i < 5; i++) {
-    const img = new Image();
-    img.src = `assets/aggregates/agg${i}.png`;
-    aggregateImages.push(img);
+  for (let i = 1; i <= 10; i++) {
+      const img = new Image();
+      img.src = `assets/aggregates/agg${i * 10}.png`;
+      aggregateImages.push(img);
   }
   // Initialize 7 maps
   const globeMaps = [];

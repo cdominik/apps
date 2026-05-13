@@ -26,6 +26,18 @@
     return TUNING.solar.maxR / (TUNING.solar.baseRadii[n-1] + TUNING.solar.orbitSize);
   }
 
+  /**
+   * Returns the aggregateImages array index for a given monomer count.
+   * Clamps to available tiers (10–100 in steps of 10).
+   *
+   * @param {number} count - Number of monomers in the aggregate.
+   * @returns {number} Index into aggregateImages (0–9).
+   */
+  function aggImageIndex(count) {
+      const tier = Math.min(10, Math.max(1, Math.ceil(count / 10)));
+      return tier - 1;
+  }
+
   // ============================================================
   // SECTION: LEVEL INIT
   // ============================================================
@@ -1039,14 +1051,13 @@
     const baseR    = TUNING.particle.collisionR * sizeFac * TUNING.aggregate.sizeMult;
     const speedMag = Math.abs(state.omega) * (1 + Math.random() * 2);
     const dir      = Math.random() < 0.5 ? 1 : -1;
-    const imgIdx   = presetImgIdx !== undefined
-      ? presetImgIdx
-      : Math.floor(Math.random() * aggregateImages.length);
+    const imgIdx = aggImageIndex(10);
 
     state.aggregates.push({
       x, y, vt,
       vx: 0, vy: 0,
       r:        baseR,
+      count:    10,
       rot:      Math.random() * Math.PI * 2,
       rotSpeed: speedMag * dir,
       stuck:    false,
@@ -1359,6 +1370,7 @@
   window.updateDrum            = updateDrum;
   window.step                  = step;
   window.eggLevitatedParticles = eggLevitatedParticles;
+  window.aggImageIndex         = aggImageIndex;
   window.updateEgg             = updateEgg;
   window.updateGlobe           = updateGlobe;
   window.spawnGoldenBall       = spawnGoldenBall;
