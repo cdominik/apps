@@ -2175,6 +2175,7 @@ function drawRepresentativeOrbits() {
   ctxOv.stroke();
 
   // --- TITLE ---
+  const yFontSize = Math.max(7, Math.min(10, pxDist(4)));
   ctxOv.fillStyle = 'rgba(180,180,160,0.7)';
   ctxOv.font = `${yFontSize}px monospace`;
   ctxOv.textAlign = 'center';

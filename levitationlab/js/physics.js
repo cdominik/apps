@@ -1065,29 +1065,44 @@
         const Rwall = CFG.R_DRUM - agg.r;
 
         if (r2 >= Rwall * Rwall) {
-          // Wall collision: fragment aggregate back into stuck particles.
-          agg.alive = false;
-          const baseAngle = Math.atan2(agg.y, agg.x);
-          const pRwall    = CFG.R_DRUM - TUNING.particle.collisionR;
-          state.aggCount = Math.max(0, state.aggCount - 1);
-
-          for (let i = 0; i < 10; i++) {
-            const spread = (Math.random() - 0.5) * (agg.r / CFG.R_DRUM) * 2.5;
-            const pAngle = baseAngle + spread;
-            state.particles.push({
-              x: pRwall * Math.cos(pAngle),
-              y: pRwall * Math.sin(pAngle),
-              vx: 0, vy: 0,
-              vt: agg.vt,
-              stuck: true, stuckAngle: pAngle, stuckAt: state.t,
-              alive: true, inHighlightSince: null,
-              flashEndsAt: -1, insideOnce: true,
-              imgIdx: Math.floor(Math.random() * aggregateImages.length),
-            });
-            state.lostCount++;
+          if (TUNING.particle.invincible) {
+            // Nanocoating active — reflect aggregate back inside
+            const r    = Math.sqrt(r2);
+            const nx   = agg.x / r, ny = agg.y / r;
+            // Clamp position to just inside the wall
+            agg.x = nx * Rwall * 0.999;
+            agg.y = ny * Rwall * 0.999;
+            // Reflect the radial velocity component
+            const vn   = agg.vx * nx + agg.vy * ny;
+            agg.vx -= 2 * vn * nx;
+            agg.vy -= 2 * vn * ny;
+            // Damp slightly so it doesn't rattle forever
+            agg.vx *= 0.6;
+            agg.vy *= 0.6;
+          } else {
+            // Normal wall collision: fragment back into stuck particles
+            agg.alive = false;
+            const baseAngle = Math.atan2(agg.y, agg.x);
+            const pRwall    = CFG.R_DRUM - TUNING.particle.collisionR;
+            state.aggCount = Math.max(0, state.aggCount - 1);
+            
+            for (let i = 0; i < 10; i++) {
+              const spread = (Math.random() - 0.5) * (agg.r / CFG.R_DRUM) * 2.5;
+              const pAngle = baseAngle + spread;
+              state.particles.push({
+                x: pRwall * Math.cos(pAngle),
+                y: pRwall * Math.sin(pAngle),
+                vx: 0, vy: 0,
+                vt: agg.vt,
+                stuck: true, stuckAngle: pAngle, stuckAt: state.t,
+                alive: true, inHighlightSince: null,
+                flashEndsAt: -1, insideOnce: true,
+                imgIdx: Math.floor(Math.random() * aggregateImages.length),
+              });
+              state.lostCount++;
+            }
+            soundTink(); soundTink(); soundTink();
           }
-          soundTink(); soundTink(); soundTink();
-
         } else {
           // Track highlight zone membership.
           const dxh = agg.x - HX, dyh = agg.y - HY;
