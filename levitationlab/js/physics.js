@@ -958,7 +958,7 @@
         m.larger.orbitFlashEndsAt = state.t + 2.0;
         state.aggCount    = Math.max(0, state.aggCount - 1);
         state.aggGrowMerging = null;
-        soundSnap();
+        soundAggMerge(m.larger.count);
     
         // Pebble transition at count >= 100
         if (newCount >= 100) {

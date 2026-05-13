@@ -123,6 +123,7 @@
       millGrind:  0.85,  // 0-1 — grind noise component
       millThud:   0.20,  // 0-1 — thud impact component
       millBody:   0.035, // 0-1 — body resonance component
+      aggMerge:   0.4,   // 0-1 - aggregate merge sound
     },
 
     // --- Lidar (laser scan) mode ---

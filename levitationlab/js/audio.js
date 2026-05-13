@@ -152,6 +152,58 @@
   }
 
   /**
+   * Plays a soft pitched merge sound for aggregate-aggregate growth collisions.
+   * Pitch descends as aggregate size increases, reflecting growing mass.
+   *
+   * @param {number} count - Monomer count of the resulting merged aggregate.
+   */
+  function soundAggMerge(count) {
+    if (!AUDIO.ctx) return;
+    const t = AUDIO.ctx.currentTime;
+  
+    const pitchFrac = 1 - Math.min(1, (count - 20) / 80);
+    const freq = 220 + pitchFrac * 380; // 600 Hz at count=20, 220 Hz at count=100
+    const amp  = TUNING.audio.aggMerge * (0.18 + (1 - pitchFrac) * 0.12) / 0.18;
+  
+    // Body: soft sine thud
+    const body = AUDIO.ctx.createOscillator();
+    const bodyGain = AUDIO.ctx.createGain();
+    body.type = 'sine';
+    body.frequency.setValueAtTime(freq, t);
+    body.frequency.exponentialRampToValueAtTime(freq * 0.5, t + 0.36);
+    bodyGain.gain.setValueAtTime(0, t);
+    bodyGain.gain.linearRampToValueAtTime(amp, t + 0.030);
+    bodyGain.gain.exponentialRampToValueAtTime(0.001, t + 0.56);
+    body.connect(bodyGain);
+    bodyGain.connect(AUDIO.master);
+    body.start(t); body.stop(t + 0.64);
+  
+    // Texture: short filtered noise burst
+    const noiseLen = Math.floor(AUDIO.ctx.sampleRate * 0.24);
+    const noiseBuf = AUDIO.ctx.createBuffer(1, noiseLen, AUDIO.ctx.sampleRate);
+    const data = noiseBuf.getChannelData(0);
+    for (let i = 0; i < noiseLen; i++) data[i] = Math.random() * 2 - 1;
+  
+    const noise = AUDIO.ctx.createBufferSource();
+    noise.buffer = noiseBuf;
+  
+    const noiseFilter = AUDIO.ctx.createBiquadFilter();
+    noiseFilter.type = 'bandpass';
+    noiseFilter.frequency.value = 200 + pitchFrac * 300;
+    noiseFilter.Q.value = 1.2;
+  
+    const noiseGain = AUDIO.ctx.createGain();
+    noiseGain.gain.setValueAtTime(0, t);
+    noiseGain.gain.linearRampToValueAtTime(amp * 0.4, t + 0.02);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.20);
+  
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(AUDIO.master);
+    noise.start(t); noise.stop(t + 0.28);
+  }
+
+  /**
    * Plays a dense burst of sawtooth noise (golden ball spawn).
    */
   function soundCrunch() {
@@ -492,6 +544,7 @@
   window.ensureAudio    = ensureAudio;
   window.soundTink      = soundTink;
   window.soundSnap      = soundSnap;
+  window.soundAggMerge = soundAggMerge;
   window.soundCrunch    = soundCrunch;
   window.soundChime     = soundChime;
   window.soundMillStart = soundMillStart;
