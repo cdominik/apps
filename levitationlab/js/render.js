@@ -2498,7 +2498,7 @@ function drawRepresentativeOrbits() {
         const xj = xcj + Rj * Math.cos(phi_j + bestTheta);
         const yj =       Rj * Math.sin(phi_j + bestTheta);
 
-        pairs.push({ ai, aj, xi, yi, xj, yj, dist: Math.sqrt(bestD2) });
+        pairs.push({ ai, aj, xi, yi, xj, yj, dist: Math.sqrt(bestD2), bestTheta, xci, xcj, Ri, Rj, phi_i, phi_j });
       }
     }
 
@@ -2510,13 +2510,15 @@ function drawRepresentativeOrbits() {
   function drawAggregateEncounters() {
     if (!window.encountersOn) return;
 
-    // Gate updates to ~5 Hz
+    // Gate cache updates to ~5 Hz
     _encFrameCount++;
     if (_encFrameCount % 12 === 0) _updateEncounterCache();
-    // Also update on first call after activation
     if (_encCache.length === 0 && state.aggregates.length >= 2) _updateEncounterCache();
 
     if (_encCache.length === 0) return;
+
+    const NEAR_THRESHOLD = 0.15; // rad — within this of bestTheta counts as "at closest approach"
+    const FLASH_DUR      = 0.35; // s
 
     const rInnerPx = pxDist(CFG.R_DRUM);
     ctxOv.save();
@@ -2524,13 +2526,34 @@ function drawRepresentativeOrbits() {
     ctxOv.arc(CX, CY, rInnerPx, 0, Math.PI * 2);
     ctxOv.clip();
 
-    for (let k = 0; k < _encCache.length; k++) {
-      const { ai, aj, xi, yi, xj, yj, dist } = _encCache[k];
+    const omega = state.omega;
 
-      // Colour: green if overlapping (collision), amber if close, dim white otherwise
+    for (let k = 0; k < _encCache.length; k++) {
+      const enc = _encCache[k];
+      const { ai, aj, xi, yi, xj, yj, dist, bestTheta, xci, xcj, Ri, Rj, phi_i, phi_j } = enc;
+
+      // --- CLOSEST APPROACH DETECTION (every frame, using live positions) ---
+      const curPhiI = Math.atan2(ai.y, ai.x - xci);
+      const dTheta  = ((curPhiI - phi_i) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+      const advance = dTheta; // how far ai has moved since cache was built
+      const distToApproach = Math.abs(((bestTheta - phi_i - advance + Math.PI) % (2 * Math.PI)) - Math.PI);
+
+      if (distToApproach < NEAR_THRESHOLD) {
+        enc.flashEndsAt = state.t + FLASH_DUR;
+      }
+
+      const flash = enc.flashEndsAt ? Math.max(0, (enc.flashEndsAt - state.t) / FLASH_DUR) : 0;
+
+      // --- COLOUR ---
       const sumR = ai.r + aj.r;
       let lineColor, circleColor;
-      if (dist < sumR) {
+      if (flash > 0) {
+        // Flashing white regardless of distance
+        const a1 = (0.6 + 0.4 * flash).toFixed(2);
+        const a2 = (0.3 + 0.4 * flash).toFixed(2);
+        lineColor   = `rgba(255,255,255,${a1})`;
+        circleColor = `rgba(255,255,255,${a2})`;
+      } else if (dist < sumR) {
         lineColor   = 'rgba(64,255,112,0.85)';
         circleColor = 'rgba(64,255,112,0.55)';
       } else if (dist < sumR * 2.5) {
@@ -2546,35 +2569,35 @@ function drawRepresentativeOrbits() {
       const pri = pxDist(ai.r);
       const prj = pxDist(aj.r);
 
-      // Connecting line
+      // --- CONNECTING LINE ---
       ctxOv.strokeStyle = lineColor;
-      ctxOv.lineWidth = 1.0;
-      ctxOv.setLineDash([3, 2]);
+      ctxOv.lineWidth = flash > 0 ? 1.8 : 1.0;
+      ctxOv.setLineDash(flash > 0 ? [] : [3, 2]);
       ctxOv.beginPath();
       ctxOv.moveTo(pxi, pyi);
       ctxOv.lineTo(pxj, pyj);
       ctxOv.stroke();
       ctxOv.setLineDash([]);
 
-      // Closest-approach circles (filled lightly + stroked)
+      // --- CLOSEST-APPROACH CIRCLES ---
       for (const [cx2, cy2, r2] of [[pxi, pyi, pri], [pxj, pyj, prj]]) {
         ctxOv.fillStyle = circleColor;
         ctxOv.beginPath();
         ctxOv.arc(cx2, cy2, r2, 0, Math.PI * 2);
         ctxOv.fill();
         ctxOv.strokeStyle = lineColor;
-        ctxOv.lineWidth = 1.2;
+        ctxOv.lineWidth = flash > 0 ? 2.0 : 1.2;
         ctxOv.beginPath();
         ctxOv.arc(cx2, cy2, r2, 0, Math.PI * 2);
         ctxOv.stroke();
       }
 
-      // Distance label at midpoint (only for top 3)
+      // --- DISTANCE LABEL (top 3 only) ---
       if (k < 3) {
         const mx = (pxi + pxj) * 0.5;
         const my = (pyi + pyj) * 0.5;
         const fs = Math.max(7, Math.min(9, pxDist(3.5)));
-        ctxOv.font = `${fs}px monospace`;
+        ctxOv.font = `${flash > 0 ? 'bold ' : ''}${fs}px monospace`;
         ctxOv.textAlign = 'center';
         ctxOv.fillStyle = lineColor;
         ctxOv.fillText(dist.toFixed(1), mx, my - 3);
