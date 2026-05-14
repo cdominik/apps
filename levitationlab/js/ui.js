@@ -614,20 +614,20 @@
     this.classList.toggle('on', TUNING.aggregate.flashOrbit);
   });
 
-  // HUD 3. v_t distribution — KDE of levitated particles + aggregate histogram
-  window.vtDistOn = false;
-  document.getElementById('btnVtDist').addEventListener('click', function() {
-    window.vtDistOn = !window.vtDistOn;
-    this.classList.toggle('on', window.vtDistOn);
-    if (!window.vtDistOn) ctxOv.clearRect(0, 0, W, H);
-  });
-
-  // HUD 4. Aggregate encounter projections
+  // HUD 3. Aggregate encounter projections
   window.encountersOn = false;
   document.getElementById('btnAggEncounters').addEventListener('click', function() {
     window.encountersOn = !window.encountersOn;
     this.classList.toggle('on', window.encountersOn);
     if (!window.encountersOn) { window.resetEncounterCache(); ctxOv.clearRect(0, 0, W, H); }
+  });
+
+  // HUD 4. v_t distribution — KDE of levitated particles + aggregate histogram
+  window.vtDistOn = false;
+  document.getElementById('btnVtDist').addEventListener('click', function() {
+    window.vtDistOn = !window.vtDistOn;
+    this.classList.toggle('on', window.vtDistOn);
+    if (!window.vtDistOn) ctxOv.clearRect(0, 0, W, H);
   });
 
   // HUD 5. Aggregate size distribution histogram
@@ -638,10 +638,120 @@
     if (!window.aggHistOn) ctxOv.clearRect(0, 0, W, H);
   });
 
-  // HUD 6. Solid HUD screen
-    wireProcessButton('btnSysSolidMap', 'on', (active) => {
-    heatmap.opacity = active ? 0.9 : 0.5;
-  });
+  // HUD 6. Solid screen with dimmer
+
+ (function wireSolidMap() {
+    const btn = document.getElementById('btnSysSolidMap');
+    if (!btn) return;
+
+    const LONG_PRESS_MS = 400;
+
+    let savedOpacity = 0.9;
+    let backdropOn   = false;
+    let pressTimer   = null;
+    let didLongPress = false;
+    let sliderEl     = null;
+
+    let _outsideListener = null;
+
+    // --- SLIDER POPUP ---
+    function showSlider() {
+      didLongPress = true;
+      if (sliderEl) return;
+
+      const r = btn.getBoundingClientRect();
+
+      sliderEl = document.createElement('div');
+      sliderEl.style.cssText = `
+        position: fixed;
+        left: ${r.left - 10}px;
+        top: ${r.top - 60}px;
+        background: rgba(8,8,12,0.95);
+        border: 1px solid #5a4418;
+        border-radius: 6px;
+        padding: 10px 14px;
+        z-index: 500;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.8);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        font-family: 'Courier New', monospace;
+        font-size: 10px;
+        color: #d8c18a;
+        white-space: nowrap;
+      `;
+
+      const label = document.createElement('div');
+      label.textContent = 'backdrop opacity';
+      sliderEl.appendChild(label);
+
+      const input = document.createElement('input');
+      input.type = 'range';
+      input.min  = '0.0';
+      input.max  = '1.0';
+      input.step = '0.01';
+      input.value = String(savedOpacity);
+      input.style.cssText = `
+        width: 120px;
+        accent-color: #d9b76a;
+        cursor: pointer;
+      `;
+
+      input.addEventListener('input', () => {
+        const v = parseFloat(input.value);
+        savedOpacity    = v;
+        heatmap.opacity = backdropOn ? v : 0.0;
+        valLabel.textContent = Math.round(v * 100) + '%';
+      });
+
+      const valLabel = document.createElement('div');
+      valLabel.textContent = Math.round(savedOpacity * 100) + '%';
+      valLabel.style.color = '#ffcc55';
+
+      sliderEl.appendChild(input);
+      sliderEl.appendChild(valLabel);
+      document.body.appendChild(sliderEl);
+
+      // Dismiss only when clicking outside the slider
+      setTimeout(() => {
+        _outsideListener = (e) => {
+          if (sliderEl && !sliderEl.contains(e.target)) dismissSlider();
+        };
+        document.addEventListener('pointerdown', _outsideListener, { capture: true });
+      }, 50);
+    }
+
+    function dismissSlider() {
+      if (sliderEl) { sliderEl.remove(); sliderEl = null; }
+      if (_outsideListener) {
+        document.removeEventListener('pointerdown', _outsideListener, { capture: true });
+        _outsideListener = null;
+      }
+    }
+
+    btn.addEventListener('pointerdown', () => {
+      didLongPress = false;
+      pressTimer = setTimeout(showSlider, LONG_PRESS_MS);
+    });
+
+    const cancelPress = () => {
+      if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+    };
+
+    btn.addEventListener('pointerup', () => {
+      cancelPress();
+      if (!didLongPress) {
+        // Short press: toggle on/off
+        backdropOn = !backdropOn;
+        btn.classList.toggle('on', backdropOn);
+        heatmap.opacity = backdropOn ? savedOpacity : 0.0;
+      }
+    });
+
+    btn.addEventListener('pointerleave',  cancelPress);
+    btn.addEventListener('pointercancel', cancelPress);
+  })();
 
   // HUD 7-9. HUD activation and gear shift
   document.getElementById('btnHudMaster').addEventListener('click', () => {

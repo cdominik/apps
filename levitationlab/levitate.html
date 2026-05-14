@@ -86,6 +86,22 @@
           </span>
         </button>
 
+        <button class="btnind btnsq" id="btnAggEncounters" title="Aggregate encounter projections — shows closest approach positions for aggregate pairs during the next orbit">
+          <span class="cap"><span class="cap-icon">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <circle cx="5" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="1.4"/>
+                <circle cx="19" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="1.4"/>
+                <line x1="8.5" y1="12" x2="14.5" y2="12" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2,1.5"/>
+                <circle cx="12" cy="12" r="1.2" fill="currentColor"/>
+                <line x1="12" y1="9.5" x2="12" y2="10.5" stroke="currentColor" stroke-width="1.2"/>
+                <line x1="12" y1="13.5" x2="12" y2="14.5" stroke="currentColor" stroke-width="1.2"/>
+                <line x1="10" y1="12" x2="11" y2="12" stroke="currentColor" stroke-width="1.2"/>
+                <line x1="13" y1="12" x2="14" y2="12" stroke="currentColor" stroke-width="1.2"/>
+              </svg>
+          </span></span>
+        </button>
+
+        <!-- Row 2 — more HUD displays -->
         <button class="btnind btnsq" id="btnVtDist"
                 title="v_t distribution — KDE of levitated particles (green) and histogram of aggregate terminal velocities (amber)">
           <span class="cap"><span class="cap-icon">
@@ -100,22 +116,6 @@
                 <!-- Two aggregate bins -->
                 <rect x="8.5"  y="13" width="2.5" height="6" fill="currentColor" opacity="0.45"/>
                 <rect x="13"   y="11" width="2.5" height="8" fill="currentColor" opacity="0.65"/>
-              </svg>
-          </span></span>
-        </button>
-
-        <!-- Row 2 — more HUD displays -->
-        <button class="btnind btnsq" id="btnAggEncounters" title="Aggregate encounter projections — shows closest approach positions for aggregate pairs during the next orbit">
-          <span class="cap"><span class="cap-icon">
-              <svg viewBox="0 0 24 24" width="20" height="20">
-                <circle cx="5" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="1.4"/>
-                <circle cx="19" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="1.4"/>
-                <line x1="8.5" y1="12" x2="14.5" y2="12" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2,1.5"/>
-                <circle cx="12" cy="12" r="1.2" fill="currentColor"/>
-                <line x1="12" y1="9.5" x2="12" y2="10.5" stroke="currentColor" stroke-width="1.2"/>
-                <line x1="12" y1="13.5" x2="12" y2="14.5" stroke="currentColor" stroke-width="1.2"/>
-                <line x1="10" y1="12" x2="11" y2="12" stroke="currentColor" stroke-width="1.2"/>
-                <line x1="13" y1="12" x2="14" y2="12" stroke="currentColor" stroke-width="1.2"/>
               </svg>
           </span></span>
         </button>
@@ -476,33 +476,45 @@
             orbit centres implied by the current particle <em>v<sub>t</sub></em>
             distribution and drum rotation. Shows where particles
             <em>should</em> be circling given the current settings. Updates
-            live as you change <em>v<sub>t</sub></em>, spread, or drum speed,
-            and works correctly for all three injection profiles.</li>
+            live as you change <em>v<sub>t</sub></em>, spread, drum speed,
+            or injection size distribution profile.</li>
           <li><strong>Flash orbit of new aggregates</strong> — when an
             aggregate forms from particles, briefly draws its orbit ring
             alongside the mean-<em>v<sub>t</sub></em> orbit of the levitated
             population. Useful for seeing the small Stokes-number bump
             aggregates inherit from their <em>v<sub>t</sub></em> factor.</li>
+          <li><strong>Aggregate encounter projections</strong> — for every pair
+            of live aggregates, computes the closest approach
+            position during the next orbit and draws the two aggregates at
+            those positions with their collisional cross-sections. Brownian
+            perturbations cause the projections to shift until a collision
+            occurs.</li>
+          <li><strong>v<sub>t</sub> distribution</strong> — draws two
+            kernel-density curves inside the drum: a yellow curve for all
+            floating particles currently inside the drum (not yet levitated),
+            and a green curve for levitated particles. An amber histogram
+            shows the terminal velocities of live aggregates. All three are
+            normalised independently.</li>
           <li><strong>Aggregate size distribution</strong> — draws a live
             histogram inside the left half of the drum showing the current
             population of aggregates by monomer count (bins 10–100 in steps
             of 10) plus a gold bar for pebbles.</li>
-          <li><strong>Ghost mode</strong> — click any particle to highlight it
-            and overlay three predicted future paths: its actual orbit
-            (white solid), the gas-only co-rotation path (cyan dashed), and
-            the vacuum free-fall path (purple dashed). Useful for building
-            intuition about why orbit radii depend on
-            <em>v<sub>t</sub></em>.</li> 
           <li><strong>Backdrop</strong> — slides an opaque sheet behind all
             active analytical overlays for extra contrast against the drum
-            interior.</li>
+            interior. Short press toggles it on and off; long press opens a
+            slider to set the opacity continuously from 0 to 100%.</li>
           <li><strong>Analysis projections</strong> — the central HUD button
             powers on a heatmap engine that accumulates data over full drum
-            revolutions. The flanking ◀ ▶ arrows cycle through five modes:
-            <em>vector field</em>, representative <em>orbits</em>,
-            particle <em>density</em>, velocity <em>variance</em>, and a
-            <em>collision proxy</em> (density × variance). A colour bar and
-            caption appear while the HUD is active.</li>
+            revolutions. The flanking ◀ ▶ arrows cycle through six modes:
+            <em>vector field</em>, <em>ghost paths</em>, representative
+            <em>orbits</em>, particle <em>density</em>, velocity
+            <em>variance</em>, and a <em>collision proxy</em>
+            (density × variance). In ghost paths mode a particle is
+            automatically selected and three predicted future paths are shown:
+            the actual orbit (white solid), the gas-only co-rotation path
+            (cyan dashed), and the vacuum free-fall path (purple dashed).
+            Click any particle to select it instead. A colour bar and caption
+            appear while the HUD is active.</li>
         </ul>
 
         <h3>Processes — toggle the physics of growth</h3>
@@ -534,8 +546,9 @@
                 mass-weighted <em>v<sub>t</sub></em>. An aggregate reaching
                 100 monomers automatically becomes a pebble. Pebble formation
                 via the standard seven-aggregate path is disabled in this mode.
-                The orbit flash HUD shows the two parent orbits fading out in
-                orange and the new merged orbit brightening in cyan.</li>
+                The orbit flash HUD (if active) shows the two parent
+                orbits fading out in orange and the new merged orbit
+                brightening in cyan.</li>
               <li><em>Red (Off)</em> — all growth beyond aggregate formation
                 is disabled. Aggregates accumulate indefinitely.</li>
             </ul>

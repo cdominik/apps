@@ -1585,7 +1585,7 @@
   
   function drawAnalyticalBackdrop() {
     // Triggers if opacity is 0.9 (or 1.0)
-    if (heatmap.opacity < 0.8) return; 
+    if (heatmap.opacity < 0.01) return; 
     ctx.save();
     
     // Set the exact opacity and color
@@ -1844,7 +1844,7 @@ function drawRepresentativeOrbits() {
     }
 
     // Growth merge orbit flash — two fading parents, one brightening child
-    if (state.aggGrowMerging) {
+    if (state.aggGrowMerging && TUNING.aggregate.flashOrbit) {
       const m    = state.aggGrowMerging;
       const absOm = Math.abs(state.omega);
       if (absOm > 1e-3) {
