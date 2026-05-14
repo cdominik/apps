@@ -94,13 +94,15 @@
         const ls = window.launchState;
 
         if (ls === 'waiting') {
-          // As soon as injection is scheduled, compute optimal spin-up sim time
-          if (state.toInject.length > 0 && window.launchT0 === null) {
+          const hasParticles = state.particles.length > 0 || state.toInject.length > 0;
+          if (hasParticles && state.toInject.length === 0) {
+            // Particles already in drum, skip countdown and track
+            window.launchState = 'tracking';
+          } else if (state.toInject.length > 0 && window.launchT0 === null) {
             window.launchTWait = window._computeOptimalWait();
             window.launchT0    = state.t;
             window.launchState = 'countdown';
           }
-
         } else if (ls === 'countdown') {
           // Wait until simulation time reaches the optimal arrival time
           if (state.t >= window.launchTWait) {

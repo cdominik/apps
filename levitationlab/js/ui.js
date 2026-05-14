@@ -916,7 +916,8 @@
     window.launchState   = 'waiting';
     window.launchT0      = null;
     window.launchSpinT0  = null;
-    state.omegaTarget    = 0;
+    const isEmpty = state.particles.length === 0 && state.toInject.length === 0;
+    if (isEmpty) state.omegaTarget = 0;
   }
 
   function _computeOptimalWait() {
