@@ -174,7 +174,7 @@
     state.laserOn = !!level.params.laser;
     btnLaser.classList.toggle('on', state.laserOn);
 
-    if (window.omegaMode !== 2) {
+    if (!window.omegaDecayOff) {
       TUNING.drum.omegaDecay = (level.params.omegaDecay != null)
         ? level.params.omegaDecay
         : GAME._savedOmegaDecay;
@@ -304,8 +304,9 @@
     GAME.structureWaitSince = null;
     setGameBtnLabel('Game Menu');
     lockSelectors(true);
-    startRelease();
-
+    if (window.setOmegaDecay) { setOmegaDecay(false); }
+    document.getElementById('btnOmegaCtl').classList.add('disabled');    startRelease();
+    
     state.omega = 0;
     state.omegaTarget = 0;
 
@@ -331,6 +332,7 @@
     GAME.goalHoldSince = null;
     GAME.structureWaitSince = null;
     lockSelectors(false);
+    document.getElementById('btnOmegaCtl').classList.remove('disabled');
     state.running = false;
     btnStart.classList.remove('on');
 
@@ -568,6 +570,7 @@
 
     if (on) {
       CHALLENGE.phase = 'idle';
+      gameSheet.hidden = true;
       // Apply challenge defaults from CFG, then let URL params override
       setSettingByValue('NP',     CHALLENGE_CFG.N_P);
       setSettingByValue('VT',     CHALLENGE_CFG.V_T);
@@ -576,6 +579,7 @@
       showChallengeIntro();
     } else {
       CHALLENGE.phase = 'idle';
+      gameSheet.hidden = true;
       setChallengeBtnLabel('Challenge');
       challengeSheet.hidden = true;
       lockSelectors(false);
@@ -659,8 +663,9 @@
     CHALLENGE.phase = 'playing';
     setChallengeBtnLabel('Challenge Menu');
     lockSelectors(true);
+    if (window.setOmegaDecay) setOmegaDecay(false);
+    document.getElementById('btnOmegaCtl').classList.add('disabled');
     startRelease();
-
     state.omega = 0;
     state.omegaTarget = 0;
     CHALLENGE.startTime = state.t;
@@ -683,9 +688,10 @@
    */
   function endChallengeRun(secured) {
     CHALLENGE.phase = 'scoring';
-    gameSheet.hidden = true
+    gameSheet.hidden = true;
     setChallengeBtnLabel('Challenge');
     lockSelectors(false);
+    document.getElementById('btnOmegaCtl').classList.remove('disabled');
     state.running = false;
     btnStart.classList.remove('on');
     state.omega = 0;
@@ -732,7 +738,7 @@
   chalNextBtn.addEventListener('click', () => { showChallengeIntro(); });
 
   btnChallenge.addEventListener('click', () => {
-    if (CHALLENGE.on && CHALLENGE.phase === 'playing') {
+    if (CHALLENGE.on && (CHALLENGE.phase === 'playing' || CHALLENGE.phase === 'scoring')) {
       const secured = countSecured();
       showSheet(
         'Challenge Menu',

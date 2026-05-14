@@ -320,9 +320,7 @@
     ctxOv.clearRect(0, 0, W, H);
     
     // 1a. OMEGA UNLOCK LOGIC
-    if (window.omegaMode === 1) {
-      setOmegaMode(0);
-    }
+    if (window.omegaDecayOff) setOmegaDecay(false);
 
     // 2. Clear basic simulation state
     initLevel(); 
@@ -366,62 +364,19 @@
   });
 
   const omegaCtlEl = document.getElementById('omegaCtl');
-  if (omegaCtlEl) omegaCtlEl.classList.add('disabled');
-  
   const ORIGINAL_OMEGA_DECAY = TUNING.drum.omegaDecay;
-  window.omegaMode = 0; // 0=Off, 1=Locked, 2=Cheat
-  let cheatHoldTimer = null;
-  let cheatHoldFired = false;
-  const CHEAT_HOLD_MS = 2000;
+  window.omegaDecayOff = false;
 
-  function setOmegaMode(mode) {
-    window.omegaMode = mode;
-    TUNING.drum.omegaDecay = (mode === 0) ? ORIGINAL_OMEGA_DECAY : 0;
-    
-    const btnO = document.getElementById('btnOmegaCtl');
-    const btnS = document.getElementById('btnSysNoDecay');
-    
-    if (btnO) {
-      btnO.classList.remove('on', 'cheat');
-      if (mode === 1) btnO.classList.add('on');
-      if (mode === 2) btnO.classList.add('cheat');
-    }
-    if (btnS) {
-      btnS.classList.remove('cheat');
-      // The Sys button only glows if the cheat is active
-      if (mode === 2) btnS.classList.add('cheat');
-    }
-    if (omegaCtlEl) {
-      omegaCtlEl.classList.toggle('disabled', mode === 0);
-    }
+  function setOmegaDecay(off) {
+    window.omegaDecayOff = off;
+    TUNING.drum.omegaDecay = off ? 0 : ORIGINAL_OMEGA_DECAY;
+    btnOmegaCtl.classList.toggle('on', off);
+    if (omegaCtlEl) omegaCtlEl.classList.toggle('disabled', !off);
   }
 
-  btnOmegaCtl.addEventListener('pointerdown', (e) => {
-    cheatHoldFired = false;
-    if (cheatHoldTimer) { clearTimeout(cheatHoldTimer); cheatHoldTimer = null; }
-    cheatHoldTimer = setTimeout(() => {
-      cheatHoldFired = true;
-      cheatHoldTimer = null;
-      setOmegaMode(window.omegaMode === 2 ? 0 : 2);
-    }, CHEAT_HOLD_MS);
-  });
-  
-  const cancelCheatHold = () => {
-    if (cheatHoldTimer) { clearTimeout(cheatHoldTimer); cheatHoldTimer = null; }
-  };
-  btnOmegaCtl.addEventListener('pointerup', cancelCheatHold);
-  btnOmegaCtl.addEventListener('pointerleave', cancelCheatHold);
-  btnOmegaCtl.addEventListener('pointercancel', cancelCheatHold);
-
-  btnOmegaCtl.addEventListener('click', (e) => {
-    if (cheatHoldFired) {
-      cheatHoldFired = false;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      return;
-    }
-    // Toggle 0 and 1
-    setOmegaMode(window.omegaMode === 1 ? 0 : 1);
+  btnOmegaCtl.addEventListener('click', () => {
+    if (btnOmegaCtl.classList.contains('disabled') && !window.omegaDecayOff) return;
+    setOmegaDecay(!window.omegaDecayOff);
   });
 
   btnSound.classList.add('on');
@@ -922,13 +877,7 @@
   // SECTION: EXPERT PANEL — SYSTEM
   // ============================================================
 
-  // SYSTEM 1. Intelligent Omega control 
-  const btnSysNoDecay = document.getElementById('btnSysNoDecay');
-  if (btnSysNoDecay) {
-    btnSysNoDecay.addEventListener('click', () => {
-      setOmegaMode(window.omegaMode === 2 ? 0 : 2);
-    });
-  }
+  // SYSTEM 1. UNASSIGNED
 
   // SYSTEM 2. Auto-omega — set drum speed to centre orbit range in levitation zone
   window.autoOmegaOn = false;
@@ -1127,7 +1076,7 @@
   // Unified access: Either ?expert or ?designer automatically opens the door
   if (isExpertURL && expertContainer) {
     expertContainer.classList.add('open');
-    setOmegaMode(2);
+    setOmegaDecay(true);
   }
 
   // ?verify — rapid full-test mode: floods the drum quickly with high spread and no decay
@@ -1137,7 +1086,7 @@
     SETTINGS.SPREAD.idx = SETTINGS.SPREAD.values.indexOf(0.30);
     SETTINGS.DT.idx     = SETTINGS.DT.values.indexOf(2);
     applyInitialSettings();
-    setOmegaMode(2);
+    setOmegaDecay(true);
   }
 
   // ?game[=N] — drop straight into Game Mode, optionally at level N (1-indexed)
@@ -1204,5 +1153,6 @@
   window._ghostClear        = _ghostClear;
   window._ghostEnsureTarget = _ghostEnsureTarget;
   window._zoomRestore       = _zoomRestore;
+  window.setOmegaDecay = setOmegaDecay;
 })();
 

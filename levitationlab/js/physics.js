@@ -1356,6 +1356,7 @@
           window.autoOmegaOn = false;
           const btnAuto = document.getElementById('btnSysAutoOmega');
           if (btnAuto) btnAuto.classList.remove('on');
+          if (window.setOmegaDecay) window.setOmegaDecay(false);
         }
       }
   
