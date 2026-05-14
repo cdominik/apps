@@ -1351,16 +1351,25 @@
         const isLast = state.globes.length >= TUNING.globe.limit;
         s.phase      = isLast ? 'spindown' : 'orbiting';
         s.phaseStart  = s.wallT;
-        if (isLast) state.omegaTarget = 0; // spin drum down
+        if (isLast) {
+          state.omegaTarget = 0;
+          window.autoOmegaOn = false;
+          const btnAuto = document.getElementById('btnSysAutoOmega');
+          if (btnAuto) btnAuto.classList.remove('on');
+        }
       }
   
     } else if (s.phase === 'orbiting') {
       // thetas already advanced above — nothing extra needed
   
     } else if (s.phase === 'spindown') {
+      // Decay omega on real wall time, independent of state.running
+      state.omega *= Math.exp(-TUNING.drum.omegaDecay * dt);
+      state.omegaTarget = 0;
       const stopped = Math.abs(state.omega) < 0.05;
       const empty   = state.particles.length === 0 && state.toInject.length === 0;
       if (stopped && empty && elapsed > 1) {
+        state.omega   = 0;
         state.running = false;
         s.phase       = 'final_move';
         s.phaseStart  = s.wallT;
@@ -1407,23 +1416,25 @@
           _probeUpdate(probe, dt);
         }
         // Show end sheet when both probes are halfway through their escape
-        const bothHalf = s.probes.length === 2 &&
-          s.probes.every(p => p.escaping && p.escapeFrac >= 0.5);
-        if (bothHalf && document.getElementById('gameSheet').hidden) {
-          if (window.showSheet) {
-            document.getElementById('gameSheet').classList.add('no-backdrop');
-            window.showSheet(
-              'LIMIT OF SIMULATION SPACE REACHED',
-              'Many planets, and you are still playing? Time to go do something else!',
-              'Reset Lab',
-              () => {
-                document.getElementById('gameSheet').classList.remove('no-backdrop');
-                document.getElementById('gameSheet').hidden = true;
-                state._endingSequenceTriggered = false;
-                document.getElementById('btnReset').click();
-              }
-            );
-          }
+        const bothDone = s.probes.length === 2 && s.probes.every(p => p.done);
+        if (bothDone && !s._sheetTimer && document.getElementById('gameSheet').hidden) {
+          s._sheetTimer = setTimeout(() => {
+            s._sheetTimer = null;
+            if (window.showSheet) {
+              document.getElementById('gameSheet').classList.add('no-backdrop');
+              window.showSheet(
+                'LIMIT OF SIMULATION SPACE REACHED',
+                'Many planets, and you are still playing? Time to go do something else!',
+                'Reset Lab',
+                () => {
+                  document.getElementById('gameSheet').classList.remove('no-backdrop');
+                  document.getElementById('gameSheet').hidden = true;
+                  state._endingSequenceTriggered = false;
+                  document.getElementById('btnReset').click();
+                }
+              );
+            }
+          }, 2000);
         }
       }
     }

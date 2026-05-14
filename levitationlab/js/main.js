@@ -102,30 +102,7 @@
 
       // --- UNIVERSAL SUCCESS CHECK ---
       // Delay the "End of Game" overlay to allow viewing the final system
-      if (state.globes.length >= TUNING.globe.limit && gameSheet.hidden && state.solar.phase === 'none') {
-
-          // Stop physics updates so planets hover in place
-          state.running = false; 
-
-          // Trigger sequence only once
-          if (!state._endingSequenceTriggered) {
-              state._endingSequenceTriggered = true;
-
-              endingTimeout = setTimeout(() => {
-                endingTimeout = null;
-                showSheet(
-                    "LIMIT OF SIMULATION SPACE REACHED",
-                    "Many planets, and you are still playing? Time to go do something else!",
-                    "Reset Lab",
-                    () => {
-                        gameSheet.hidden = true;
-                        state._endingSequenceTriggered = false;
-                        document.getElementById('btnReset').click();
-                    }
-                );
-            }, 10000);
-          }
-      }
+      
     } catch (e) {
       console.error('[loop]', e);
     }

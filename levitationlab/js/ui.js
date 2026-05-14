@@ -23,7 +23,6 @@
   // SECTION: FEATURE FLAGS
   // ============================================================
   let isExpertURL = false;
-  let isDesignerURL = false;
 
   // ============================================================
   // SECTION: EXPERT ANALYSIS CONTROLLER
@@ -657,6 +656,11 @@
     // --- SLIDER POPUP ---
     function showSlider() {
       didLongPress = true;
+      if (!backdropOn) {
+        backdropOn = true;
+        btn.classList.add('on');
+        heatmap.opacity = savedOpacity;
+      }
       if (sliderEl) return;
 
       const r = btn.getBoundingClientRect();
@@ -991,38 +995,61 @@
     window._lastStrobeRev = Math.floor(Math.abs(state.drumAngle) / (2 * Math.PI));
   });
 
-  // SYSTEM 8. Dynamic Slow Motion (Armed state) + Fast Chain on 7-click
+// SYSTEM 8. Slow Motion (short press) + Fast Chain (long press)
   let slowMoArmed = false; window.slowMoArmed = false;
-  wireProcessButton('btnProcSlowMo', 'on', (active) => {
-    slowMoArmed = active; window.slowMoArmed = active;
-    if (!active) {
+  let fastChainActive = false;
+  let slowMoPressTimer = null;
+  let slowMoLongFired = false;
+
+  const btnSlowMo = document.getElementById('btnProcSlowMo');
+
+  btnSlowMo.addEventListener('pointerdown', () => {
+    slowMoLongFired = false;
+    slowMoPressTimer = setTimeout(() => {
+      slowMoLongFired = true;
+      fastChainActive = !fastChainActive;
+      btnSlowMo.classList.toggle('cheat', fastChainActive);
+      if (fastChainActive) {
+        TUNING.aggregate.mergeCount      = 2;
+        TUNING.aggregate.initialHoldRevs = 0;
+        TUNING.aggregate.subseqHoldRevs  = 0;
+        TUNING.egg.nCrit                 = 2;
+        TUNING.egg.holdTarget            = 1;
+        TUNING.egg.holdSubseq            = 1;
+        TUNING.globe.nCrit               = 2;
+      } else {
+        TUNING.aggregate.mergeCount      = TUNING_DEFAULT.aggregate.mergeCount;
+        TUNING.aggregate.initialHoldRevs = TUNING_DEFAULT.aggregate.initialHoldRevs;
+        TUNING.aggregate.subseqHoldRevs  = TUNING_DEFAULT.aggregate.subseqHoldRevs;
+        TUNING.egg.nCrit                 = TUNING_DEFAULT.egg.nCrit;
+        TUNING.egg.holdTarget            = TUNING_DEFAULT.egg.holdTarget;
+        TUNING.egg.holdSubseq            = TUNING_DEFAULT.egg.holdSubseq;
+        TUNING.globe.nCrit               = TUNING_DEFAULT.globe.nCrit;
+      }
+    }, 2000);
+  });
+
+  const cancelSlowMoPress = () => {
+    if (slowMoPressTimer) { clearTimeout(slowMoPressTimer); slowMoPressTimer = null; }
+  };
+
+  btnSlowMo.addEventListener('pointerup', () => {
+    cancelSlowMoPress();
+    if (slowMoLongFired) { slowMoLongFired = false; return; }
+    // Short press: toggle slow-mo
+    slowMoArmed = !slowMoArmed;
+    window.slowMoArmed = slowMoArmed;
+    btnSlowMo.classList.toggle('on', slowMoArmed);
+    if (!slowMoArmed) {
       CFG.MAX_DT = 0.033;
-      TUNING.egg.mergeDur = TUNING_DEFAULT.egg.mergeDur;
+      TUNING.egg.mergeDur       = TUNING_DEFAULT.egg.mergeDur;
       TUNING.aggregate.mergeDur = TUNING_DEFAULT.aggregate.mergeDur;
-      TUNING.globe.mergeDur = TUNING_DEFAULT.globe.mergeDur;
+      TUNING.globe.mergeDur     = TUNING_DEFAULT.globe.mergeDur;
     }
   });
 
-  // Fast Chain — moved to slowmo button, 7-click designer cheat
-  wireProcessButton('btnProcSlowMo', 'cheat', (active) => {
-    if (active) {
-      TUNING.aggregate.mergeCount       = 2;
-      TUNING.aggregate.initialHoldRevs  = 0;
-      TUNING.aggregate.subseqHoldRevs   = 0;
-      TUNING.egg.nCrit                  = 2;
-      TUNING.egg.holdTarget             = 2;
-      TUNING.egg.holdSubseq             = 1;
-      TUNING.globe.nCrit                = 2;
-    } else {
-      TUNING.aggregate.mergeCount       = TUNING_DEFAULT.aggregate.mergeCount;
-      TUNING.aggregate.initialHoldRevs  = TUNING_DEFAULT.aggregate.initialHoldRevs;
-      TUNING.aggregate.subseqHoldRevs   = TUNING_DEFAULT.aggregate.subseqHoldRevs;
-      TUNING.egg.nCrit                  = TUNING_DEFAULT.egg.nCrit;
-      TUNING.egg.holdTarget             = TUNING_DEFAULT.egg.holdTarget;
-      TUNING.egg.holdSubseq             = TUNING_DEFAULT.egg.holdSubseq;
-      TUNING.globe.nCrit                = TUNING_DEFAULT.globe.nCrit;
-    }
-  }, 7);
+  btnSlowMo.addEventListener('pointerleave',  cancelSlowMoPress);
+  btnSlowMo.addEventListener('pointercancel', cancelSlowMoPress);
 
   // SYSTEM 9. Zoom mode — levitation zone fills drum area
   window.zoomOn = false;
@@ -1067,7 +1094,6 @@
   const titlePlateLink = document.getElementById('titlePlate');
   const uP = new URLSearchParams(window.location.search);
   isExpertURL = uP.has('expert');
-  isDesignerURL = uP.has('designer');
   // Apply themes based on URL
   if (uP.has('pfeiffer')) {
     document.body.classList.add('theme-modern', 'theme-pfeiffer');
@@ -1099,7 +1125,7 @@
   }
 
   // Unified access: Either ?expert or ?designer automatically opens the door
-  if ((isExpertURL || isDesignerURL) && expertContainer) {
+  if (isExpertURL && expertContainer) {
     expertContainer.classList.add('open');
     setOmegaMode(2);
   }
