@@ -791,8 +791,6 @@
     let clickTimer = null;
 
     btn.addEventListener('click', function() {
-      // DESIGNER LOCKDOWN: Check for ?designer parameter before allowing interaction
-      if (id === 'btnProcFast' && !isDesignerURL) return;
 
       const isCurrentlyActive = this.classList.contains(colorClass || 'on');
 
@@ -993,11 +991,10 @@
     window._lastStrobeRev = Math.floor(Math.abs(state.drumAngle) / (2 * Math.PI));
   });
 
-  // SYSTEM 8. Dynamic Slow Motion (Armed state)
+  // SYSTEM 8. Dynamic Slow Motion (Armed state) + Fast Chain on 7-click
   let slowMoArmed = false; window.slowMoArmed = false;
   wireProcessButton('btnProcSlowMo', 'on', (active) => {
     slowMoArmed = active; window.slowMoArmed = active;
-    // Ensure we restore physics if turned off mid-merge
     if (!active) {
       CFG.MAX_DT = 0.033;
       TUNING.egg.mergeDur = TUNING_DEFAULT.egg.mergeDur;
@@ -1006,34 +1003,32 @@
     }
   });
 
-  // STSTEM 9. Fast Chain (Accelerated Synthesis)
-  wireProcessButton('btnProcFast', 'on', (active) => {
+  // Fast Chain — moved to slowmo button, 7-click designer cheat
+  wireProcessButton('btnProcSlowMo', 'cheat', (active) => {
     if (active) {
-      // Aggregate synthesis acceleration
-      TUNING.aggregate.mergeCount = 2;   
-      TUNING.aggregate.initialHoldRevs = 0; 
-      TUNING.aggregate.subseqHoldRevs = 0;
-
-      // Pebble synthesis (egg system) acceleration
-      TUNING.egg.nCrit = 2;              // Only 2 aggregates for a pebble
-      TUNING.egg.holdTarget = 2;         // First pebble forms after 2 rotations
-      TUNING.egg.holdSubseq = 1;         // Subsequent pebbles form every 1 rotation
-
-      // Planet synthesis acceleration
-      TUNING.globe.nCrit = 2;            
+      TUNING.aggregate.mergeCount       = 2;
+      TUNING.aggregate.initialHoldRevs  = 0;
+      TUNING.aggregate.subseqHoldRevs   = 0;
+      TUNING.egg.nCrit                  = 2;
+      TUNING.egg.holdTarget             = 2;
+      TUNING.egg.holdSubseq             = 1;
+      TUNING.globe.nCrit                = 2;
     } else {
-      // Restore all from backup
-      TUNING.aggregate.mergeCount = TUNING_DEFAULT.aggregate.mergeCount;
-      TUNING.aggregate.initialHoldRevs = TUNING_DEFAULT.aggregate.initialHoldRevs;
-      TUNING.aggregate.subseqHoldRevs = TUNING_DEFAULT.aggregate.subseqHoldRevs;
-
-      TUNING.egg.nCrit = TUNING_DEFAULT.egg.nCrit;
-      TUNING.egg.holdTarget = TUNING_DEFAULT.egg.holdTarget; 
-      TUNING.egg.holdSubseq = TUNING_DEFAULT.egg.holdSubseq; 
-
-      TUNING.globe.nCrit = TUNING_DEFAULT.globe.nCrit;
+      TUNING.aggregate.mergeCount       = TUNING_DEFAULT.aggregate.mergeCount;
+      TUNING.aggregate.initialHoldRevs  = TUNING_DEFAULT.aggregate.initialHoldRevs;
+      TUNING.aggregate.subseqHoldRevs   = TUNING_DEFAULT.aggregate.subseqHoldRevs;
+      TUNING.egg.nCrit                  = TUNING_DEFAULT.egg.nCrit;
+      TUNING.egg.holdTarget             = TUNING_DEFAULT.egg.holdTarget;
+      TUNING.egg.holdSubseq             = TUNING_DEFAULT.egg.holdSubseq;
+      TUNING.globe.nCrit                = TUNING_DEFAULT.globe.nCrit;
     }
-  },7);
+  }, 7);
+
+  // SYSTEM 9. Zoom mode — levitation zone fills drum area
+  window.zoomOn = false;
+  wireProcessButton('btnProcFast', 'on', (active) => {
+    window.zoomOn = active;
+  });
 
   cv.addEventListener('mousedown', function(e) {
     if (!window.ghostModeOn) return;
@@ -1148,14 +1143,6 @@
     }, 0);
   }
 
-
-  // Visual lockdown for the Designer-only button
-  const btnFast = document.getElementById('btnProcFast');
-  if (btnFast && !isDesignerURL) {
-    btnFast.classList.add('disabled');
-    btnFast.title = "Access restricted to lab designers.";
-  }
-
   let tapCount = 0;
   let tapTimer = null;
 
@@ -1190,5 +1177,6 @@
   }
   window._ghostClear        = _ghostClear;
   window._ghostEnsureTarget = _ghostEnsureTarget;
+  window._zoomRestore       = _zoomRestore;
 })();
 

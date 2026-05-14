@@ -25,6 +25,11 @@
   const ctxOv = cvOv.getContext('2d');
   let W = 800, H = 600, DPR = 1;
   let CX = 400, CY = 300, SCALE = 2;
+  let _baseCX = 400, _baseCY = 300, _baseSCALE = 2;
+  let _zoomCX = 400, _zoomCY = 300, _zoomSCALE = 2;
+  let _zoomT = 0; // 0=normal, 1=fully zoomed
+  let _zoomDir = 0; // +1 zooming in, -1 zooming out, 0 idle
+  const ZOOM_DUR = 0.5; // seconds for transition
 
   const GEO = {
     barTop: 0, barBot: 0, barHalfW: 0,
@@ -54,6 +59,26 @@
    * Resizes canvases, recomputes CX/CY/SCALE, applies regime classes, calls
    * buildOmegaHint; updates all window.* primitives.
    */
+  /**
+   * Computes the zoomed CX/CY/SCALE so the levitation zone fills the drum area.
+   */
+  function _computeZoomTarget() {
+    const bandW  = REGIME === 'wide' ? 32 : (REGIME === 'compact' ? 18 : 14);
+    const rPx    = CFG.R_DRUM * _baseSCALE + bandW;
+    const zScale = rPx / TUNING.highlight.radius;
+    const zCX    = _baseCX - TUNING.highlight.cx * zScale;
+    const zCY    = _baseCY + TUNING.highlight.cy * zScale;
+    return { zCX, zCY, zScale };
+  }
+  /**
+   * Restores CX/CY/SCALE to base values immediately (called on zoom off).
+   */
+  function _zoomRestore() {
+    _zoomT   = 0;
+    _zoomDir = 0;
+    CX = _baseCX; CY = _baseCY; SCALE = _baseSCALE;
+    window.CX = CX; window.CY = CY; window.SCALE = SCALE;
+  }
   function layout() {
     DPR = Math.max(1, window.devicePixelRatio || 1);
     W = Math.max(200, window.innerWidth);
@@ -102,9 +127,13 @@
     GEO.leftWingTopY = GEO.wingTop;
 
     buildOmegaHint();
+    _baseCX = CX; _baseCY = CY; _baseSCALE = SCALE;
+    const _zt = _computeZoomTarget();
+    _zoomCX = _zt.zCX; _zoomCY = _zt.zCY; _zoomSCALE = _zt.zScale;
     window.W = W; window.H = H; window.DPR = DPR;
     window.CX = CX; window.CY = CY; window.SCALE = SCALE;
     window.REGIME = REGIME;
+
     // Refresh challenge button label in case regime changed
     if (window.setChallengeBtnLabel) window.setChallengeBtnLabel('Challenge');
   }
@@ -2612,62 +2641,96 @@ function drawRepresentativeOrbits() {
   // ============================================================
   /** Master draw function: clears the canvas and calls all draw functions in order. */
   function draw() {
-    ctx.clearRect(0, 0, W, H);
-    if (REGIME !== 'portrait') {
-      drawWing(GEO.wingLeftX, GEO.wingTop, GEO.wingW, GEO.wingBot - GEO.wingTop);
-      drawWing(GEO.wingRightX, GEO.wingTop, GEO.wingW, GEO.wingBot - GEO.wingTop);
+
+    // --- ZOOM TRANSITION ---
+    if (window.zoomOn && _zoomT < 1) {
+      _zoomDir = 1;
+    } else if (!window.zoomOn && _zoomT > 0) {
+      _zoomDir = -1;
     } else {
-      drawWing(GEO.wingLeftX, GEO.wingTop, GEO.wingW, (GEO.wingBot - GEO.wingTop));
+      _zoomDir = 0;
     }
-    if (REGIME !== 'portrait') drawInjector();
-    drawPuffs();
-    drawSteelBand();
-    if (REGIME !== 'portrait') drawOmegaBar();
+    if (_zoomDir !== 0) {
+      _zoomT = Math.max(0, Math.min(1, _zoomT + _zoomDir * (1 / (ZOOM_DUR * 60))));
+      const ease = _zoomT * _zoomT * (3 - 2 * _zoomT);
+      const { zCX, zCY, zScale } = _computeZoomTarget();
+      CX    = _baseCX    + (_zoomCX    - _baseCX)    * ease;
+      CY    = _baseCY    + (_zoomCY    - _baseCY)    * ease;
+      SCALE = _baseSCALE + (_zoomSCALE - _baseSCALE) * ease;
+      window.CX = CX; window.CY = CY; window.SCALE = SCALE;
+      _zoomCX = zCX; _zoomCY = zCY; _zoomSCALE = zScale;
+    } else if (window.zoomOn) {
+      const { zCX, zCY, zScale } = _computeZoomTarget();
+      CX = zCX; CY = zCY; SCALE = zScale;
+      window.CX = CX; window.CY = CY; window.SCALE = SCALE;
+    }
+    const inZoom = window.zoomOn || _zoomT > 0;
+
+    // --- CLEAR ---
+    ctx.clearRect(0, 0, W, H);
+
+    // --- STRUCTURAL CHROME (suppressed in zoom) ---
+    if (!inZoom) {
+      if (REGIME !== 'portrait') {
+        drawWing(GEO.wingLeftX, GEO.wingTop, GEO.wingW, GEO.wingBot - GEO.wingTop);
+        drawWing(GEO.wingRightX, GEO.wingTop, GEO.wingW, GEO.wingBot - GEO.wingTop);
+      } else {
+        drawWing(GEO.wingLeftX, GEO.wingTop, GEO.wingW, (GEO.wingBot - GEO.wingTop));
+      }
+      if (REGIME !== 'portrait') drawInjector();
+      drawPuffs();
+      drawSteelBand();
+      if (REGIME !== 'portrait') drawOmegaBar();
+    }
+
+    // --- DRUM INTERIOR ---
     drawBackplate();
     drawTrails();
     drawDrumInterior();
-    if (state.solar.phase !== 'final_move' && state.solar.phase !== 'final_view') drawAxis();
+    if (!inZoom && state.solar.phase !== 'final_move' && state.solar.phase !== 'final_view') drawAxis();
     drawParticles();
     drawAggregates();
     drawMergeStreaks();
     drawGoldenBalls();
     drawGlobes();
-    
-    // --- ANALYTICS BACKDROP (Main Canvas) ---
-    // Drawn before glare so the glass reflection still works
+
+    // --- ANALYTICS BACKDROP ---
     drawAnalyticalBackdrop();
 
-    drawGlare();
-    drawBoltRing();
+    // --- GLARE & BOLT RING (suppressed in zoom) ---
+    if (!inZoom) {
+      drawGlare();
+      drawBoltRing();
+    }
 
     // MUST execute before overlay tools, because it clears ctxOv!
     drawViewport();
-    
+
     // --- EXPERT HUD OVERLAY (Heatmap & Captions) ---
     if (heatmap.enabled || state.showVectors) {
       if (heatmap.enabled && heatmap.ready && !state.showVectors && (heatmap.maxSigma > 0 || heatmap.maxDensity > 0 || heatmap.maxProduct > 0)) {
         const res = heatmap.resolution;
         const cellW = pxDist(200 / res);
         const cellH = pxDist(200 / res);
-        const startX = X2px(-100); 
-        const startY = Y2px(100); 
+        const startX = X2px(-100);
+        const startY = Y2px(100);
 
         ctxOv.save();
         ctxOv.beginPath();
         ctxOv.arc(CX, CY, pxDist(CFG.R_DRUM), 0, Math.PI * 2);
         ctxOv.clip();
         ctxOv.globalAlpha = heatmap.opacity;
-        
+
         for (let gy = 0; gy < res; gy++) {
           for (let gx = 0; gx < res; gx++) {
             const idx = gy * res + gx;
             let u = 0;
-            if (heatmap.mode === 'dispersion') u = heatmap.maxSigma > 0 ? heatmap.data[idx] / heatmap.maxSigma : 0;
-            else if (heatmap.mode === 'density') u = heatmap.maxDensity > 0 ? heatmap.densData[idx] / heatmap.maxDensity : 0;
-            else if (heatmap.mode === 'product') u = heatmap.maxProduct > 0 ? heatmap.prodData[idx] / heatmap.maxProduct : 0;
+            if      (heatmap.mode === 'dispersion') u = heatmap.maxSigma   > 0 ? heatmap.data[idx]     / heatmap.maxSigma   : 0;
+            else if (heatmap.mode === 'density')    u = heatmap.maxDensity > 0 ? heatmap.densData[idx] / heatmap.maxDensity : 0;
+            else if (heatmap.mode === 'product')    u = heatmap.maxProduct > 0 ? heatmap.prodData[idx] / heatmap.maxProduct : 0;
 
             if (u <= 0) continue;
-            const r = Math.floor(0 + 255 * u);
+            const r = Math.floor(0  + 255 * u);
             const g = Math.floor(16 + 239 * u);
             const b = Math.floor(64 + 191 * u);
             ctxOv.fillStyle = `rgb(${r},${g},${b})`;
@@ -2680,9 +2743,9 @@ function drawRepresentativeOrbits() {
         const rOuter = pxDist(CFG.R_DRUM) + (REGIME === 'wide' ? 32 : (REGIME === 'compact' ? 18 : 14));
         const barW = 15;
         const barH = pxDist(60);
-        const bx = CX + rOuter + 10; 
+        const bx = CX + rOuter + 10;
         const by = CY - barH / 2;
-        
+
         const grad = ctxOv.createLinearGradient(0, by + barH, 0, by);
         grad.addColorStop(0, 'rgb(0,16,64)');
         grad.addColorStop(1, 'rgb(255,255,255)');
@@ -2697,13 +2760,13 @@ function drawRepresentativeOrbits() {
         ctxOv.fillStyle = (PAL.name === 'light') ? '#000000' : '#ffffff';
         ctxOv.font = 'bold 11px monospace';
         ctxOv.textAlign = 'center';
-        
-        let topL = "", unitL = "";
-        if (heatmap.mode === 'dispersion') { topL = heatmap.maxSigma.toFixed(1); unitL = "cm/s (σ)"; }
-        else if (heatmap.mode === 'density') { topL = heatmap.maxDensity.toFixed(1); unitL = "parts/cell (ρ)"; }
-        else if (heatmap.mode === 'product') { topL = heatmap.maxProduct.toFixed(1); unitL = "collisions"; }
 
-        ctxOv.fillText(topL, bx + barW/2, by - 8);
+        let topL = "", unitL = "";
+        if      (heatmap.mode === 'dispersion') { topL = heatmap.maxSigma.toFixed(1);   unitL = "cm/s (σ)"; }
+        else if (heatmap.mode === 'density')    { topL = heatmap.maxDensity.toFixed(1); unitL = "parts/cell (ρ)"; }
+        else if (heatmap.mode === 'product')    { topL = heatmap.maxProduct.toFixed(1); unitL = "collisions"; }
+
+        ctxOv.fillText(topL,  bx + barW/2, by - 8);
         ctxOv.fillText("0.0", bx + barW/2, by + barH + 14);
         ctxOv.font = '8px monospace';
         ctxOv.fillText(unitL, bx + barW/2, by - 20);
@@ -2715,46 +2778,46 @@ function drawRepresentativeOrbits() {
       ctxOv.globalAlpha = heatmap.opacity;
       const hudColor = (PAL.name === 'light') ? '#000000' : '#ffffff';
       ctxOv.fillStyle = hudColor;
-      
+
       if (PAL.name !== 'light') {
         ctxOv.shadowColor = 'rgba(255, 255, 255, 0.4)';
         ctxOv.shadowBlur = 4;
       }
-      
-      ctxOv.font = 'bold 20px "Courier New", monospace'; 
+
+      ctxOv.font = 'bold 20px "Courier New", monospace';
       ctxOv.textAlign = 'center';
       ctxOv.textBaseline = 'top';
 
       let caption = "";
       if (state.showVectors) {
-          caption = "vector field";
+        caption = "vector field";
       } else if (heatmap.mode === 'orbits') {
-          caption = "selected orbits";
+        caption = "selected orbits";
       } else if (heatmap.mode === 'dispersion') {
-          caption = "velocity variance σ_v";
+        caption = "velocity variance σ_v";
       } else if (heatmap.mode === 'density') {
-          caption = "particle density n_p";
+        caption = "particle density n_p";
       } else if (heatmap.mode === 'product') {
-          caption = "coll. proxy n_p · σ_v";
+        caption = "coll. proxy n_p · σ_v";
       } else if (window.ghostModeOn) {
-          caption = "ghost paths";
+        caption = "ghost paths";
       }
 
-      const rInnerCaption = pxDist(CFG.R_DRUM); 
+      const rInnerCaption = pxDist(CFG.R_DRUM);
       const bandWidthCaption = (REGIME === 'wide' ? 32 : (REGIME === 'compact' ? 18 : 14));
-      const textY = CY + rInnerCaption + bandWidthCaption + 25; 
+      const textY = CY + rInnerCaption + bandWidthCaption + 25;
 
       ctxOv.fillText(caption, CX, textY);
 
       if (heatmap.enabled && !heatmap.ready && !state.showVectors) {
         ctxOv.font = 'italic 13px "Courier New", monospace';
-        ctxOv.globalAlpha = heatmap.opacity * 0.7; 
+        ctxOv.globalAlpha = heatmap.opacity * 0.7;
         ctxOv.fillText("(accumulating orbital data...)", CX, textY + 28);
       }
       ctxOv.restore();
     }
 
-    // --- OVERLAY LINE-ART (Drawn ON TOP of Heatmap) ---
+    // --- OVERLAY LINE-ART ---
     drawVectorField();
     drawRepresentativeOrbits();
     drawAggregateOrbits();
@@ -2763,7 +2826,10 @@ function drawRepresentativeOrbits() {
     drawVtDistribution();
     drawGhostOverlay();
     drawAggregateEncounters();
+
   }
+  
+  
 
   /**
    * Linearly interpolates between two integer channel values.
@@ -2876,4 +2942,5 @@ function drawRepresentativeOrbits() {
   window.angleSwept    = angleSwept;
   window.buildOmegaHint = buildOmegaHint;
   window.resetEncounterCache = () => { _encCache = []; _encFrameCount = 0; };
+  window._zoomRestore  = _zoomRestore;
 })();
