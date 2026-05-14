@@ -937,7 +937,7 @@
       const u = (state.t - m.startedAt) / m.dur;
       if (u >= 1) {
         for (const p of m.particles) p.alive = false;
-        spawnAggregate(m.target.x, m.target.y, m.meanVt, m.sizeFac, m.targetImgIdx);
+        spawnAggregate(m.target.x, m.target.y, m.meanVt * m.vtFactor, m.sizeFac, m.targetImgIdx);
         state.aggMerging = null;
         state.aggCount++;
       }
@@ -965,7 +965,7 @@
     
         m.smaller.alive   = false;
         m.larger.count    = newCount;
-        m.larger.vt       = newVt;
+        m.larger.vt       = newVt * (window.stokesKickOn ? TUNING.aggregate.vtGrowFactor : 1.0);
         m.larger.r        = newR;
         m.larger.merging  = false;
         m.larger.orbitFlashEndsAt = state.t + TUNING.aggregate.growFlashDur;
@@ -1158,7 +1158,8 @@
       target:       { x: cx / chosen.length, y: cy / chosen.length },
       // vtFactor gives the aggregate a slightly higher Stokes number than
       // the pure mean, modelling the increased inertia of the merged body.
-      meanVt:       sumVt / chosen.length * TUNING.aggregate.vtFactor,
+      meanVt:       sumVt / chosen.length,
+      vtFactor:     window.stokesKickOn ? TUNING.aggregate.vtFactor : 1.0,
       sizeFac:      sumSizeFac / chosen.length,
       startedAt:    state.t,
       dur:          TUNING.aggregate.mergeDur,

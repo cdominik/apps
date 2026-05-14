@@ -80,6 +80,7 @@
       mergeDur:        0.6,   // s          — duration of the aggregate merge animation
       minSpread:       0.20,  // fraction   — minimum vt spread required to trigger aggregate formation
       vtFactor:        1.2,   // multiplier — Vt threshold multiplier during aggregate levitation check
+      vtGrowFactor:    1.05,  // multiplier — Vt kick per growth merge step
       brownian:        2.0,   // cm/s — random velocity kick applied each frame
       restoreK:        0.5,   // 1/s  — spring constant toward natural orbit centre
 

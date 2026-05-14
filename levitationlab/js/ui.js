@@ -812,10 +812,10 @@
     });
   }
 
-  // PROCESSES 3. Pure Velocity Average
+  // PROCESSES 3. Stokes kick
+  window.stonesKickOn = false;
   wireProcessButton('btnProcPureV', 'on', (active) => {
-    // Revert vtFactor to 1.0 (pure average) or back to default multiplier
-    TUNING.aggregate.vtFactor = active ? 1.0 : TUNING_DEFAULT.aggregate.vtFactor;
+    window.stokesKickOn = active;
   });
 
   // PROCESSES 4. Aggregate formation (Green = ON, Red = OFF)
