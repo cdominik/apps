@@ -105,19 +105,13 @@
           // Wait until simulation time reaches the optimal arrival time
           if (state.t >= window.launchTWait) {
             window.launchOmegaTgt = computeAutoOmega();
-            window.launchSpinDur  = 0.01;
-            window.launchSpinT0   = _wallNow;
             window.launchState    = 'spinup';
           }
 
         } else if (ls === 'spinup') {
-          // Ramp omega smoothly to target over one orbital period
-          const u = Math.min(1, (_wallNow - window.launchSpinT0) / window.launchSpinDur);
-          const ease = u * u * (3 - 2 * u);
-          state.omegaTarget = window.launchOmegaTgt * ease;
-          if (u >= 1) {
-            window.launchState = 'tracking';
-          }
+          // Set target immediately — drum slipRate provides natural smooth ramp
+          state.omegaTarget  = window.launchOmegaTgt;
+          window.launchState = 'tracking';
 
         } else if (ls === 'tracking') {
           // Live tracking — same as mode 1
