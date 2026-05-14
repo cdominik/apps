@@ -70,9 +70,10 @@
    * Plays a short metallic tink (particle wall collision), with cooldown.
    */
   function soundTink() {
-    if (!AUDIO.ctx) return;
+     if (!AUDIO.ctx) return;
+    if (CFG.N_P > 30) return;
     const now = AUDIO.ctx.currentTime;
-    if (now - lastTinkTime < TINK_COOLDOWN) return; // Skip if too soon
+    if (now - lastTinkTime < TINK_COOLDOWN) return;
     lastTinkTime = now;
     const t = now;
     const lp = AUDIO.ctx.createBiquadFilter();

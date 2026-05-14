@@ -28,7 +28,7 @@
   // ============================================================
   // SECTION: EXPERT ANALYSIS CONTROLLER
   // ============================================================
-  const ANALYSIS_MODES = ['vectors', 'ghost' 'orbits', 'density', 'dispersion', 'product'];
+  const ANALYSIS_MODES = ['vectors', 'ghost', 'orbits', 'density', 'dispersion', 'product'];
   let currentAnalysisIdx = 0;
   window.hudMasterOn = false;
 
