@@ -66,8 +66,16 @@
       probes:        [],
       probesLaunched: false,
     },
+    tray: {
+      phase:            'idle',  // 'idle' | 'armed' | 'inserting' | 'inserted'
+      slotAngle:        0,       // drum-local angle of the gold slot marker (0 = 3 o'clock)
+      triggerAtAngle:   0,       // cumulative drumAngle at which insertion fires
+      insertStartAngle: 0,       // drumAngle recorded when insertion began
+      savedOmega:       0,       // drum omega captured at insertion start
+      progress:         0,       // 0–1 tray insertion progress
+    },
   };
-
+  
   const heatmap = {
     enabled: false,
     mode: 'dispersion', // Default mode

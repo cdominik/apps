@@ -75,6 +75,7 @@
 
       if (!state.paused) {
         for (let i = 0; i < sub; i++) updateDrum(h);
+        updateTray();   // advance armed → inserting → inserted each frame
       }
       if (state.running && !state.paused) { 
         for (let i = 0; i < sub; i++) step(h); 

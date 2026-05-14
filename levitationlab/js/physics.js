@@ -72,6 +72,9 @@
     // Notify the Expert Analysis Controller so HUD overlays reset cleanly.
     if (window.resetExpertUI) window.resetExpertUI();
 
+    state.tray.phase    = 'idle';
+    state.tray.progress = 0;
+
     updateHUD();
   }
 
@@ -178,6 +181,9 @@
     state.t         = 0;
     state.lostCount = 0;
 
+    state.tray.phase    = 'idle';
+    state.tray.progress = 0;
+
     // Re-sync persistent objects to the new timeline origin.
     state.goldenBalls.forEach(b  => { b.bornAt = 0; });
     state.aggregates.forEach(agg => {
@@ -267,6 +273,15 @@
 
     for (const p of state.particles) {
       if (!p.alive) continue;
+      if (p.onTray) {
+        // Rotate exactly with the drum so the particle stays fixed in the drum frame
+        const dA = omega * dt;
+        const c = Math.cos(dA), s = Math.sin(dA);
+        const nx = p.x * c - p.y * s, ny = p.x * s + p.y * c;
+        p.x = nx; p.y = ny;
+        p.vx = -omega * p.y; p.vy = omega * p.x;
+        continue;
+      }
 
       // Decay ghost-path overlays (diagnostic mode).
       if (p.ghostPathGas || p.ghostPathVac) {
@@ -344,6 +359,27 @@
           p.prevR2 = p.x * p.x + p.y * p.y;
         } else {
           p.prevR2 = r2;
+        }
+
+        // Collect particles within tray thickness of the live rotating tray line
+        if ((state.tray.phase === 'inserting' || state.tray.phase === 'inserted')
+            && !p.onTray && p.insideOnce) {
+          const sCA = state.tray.slotAngle - state.drumAngle;
+          const tp  = state.tray.progress;
+          // Tray endpoints in drum (lab) coords — match drawTray() geometry exactly
+          const tOX = CFG.R_DRUM * Math.cos(sCA);
+          const tOY = -CFG.R_DRUM * Math.sin(sCA);
+          const tIX = (1 - tp) * tOX;
+          const tIY = tp * TUNING.tray.yPos + (1 - tp) * tOY;
+          // Project particle onto tray segment; catch if within thickness
+          const tdx = tIX - tOX, tdy = tIY - tOY;
+          const lenSq = tdx * tdx + tdy * tdy;
+          const t = lenSq < 1e-9 ? 0
+            : Math.max(0, Math.min(1, ((p.x - tOX) * tdx + (p.y - tOY) * tdy) / lenSq));
+          const cx = tOX + t * tdx, cy = tOY + t * tdy;
+          if (Math.hypot(p.x - cx, p.y - cy) < TUNING.tray.thickness) {
+            p.x = cx; p.y = cy; p.vx = 0; p.vy = 0; p.onTray = true;
+          }
         }
 
         // Remove particles that escaped the drum entirely.
@@ -1021,6 +1057,14 @@
 
     for (const agg of state.aggregates) {
       if (agg.merging) continue;
+      if (agg.onTray) {
+        const dA = state.omega * dt;
+        const c = Math.cos(dA), s = Math.sin(dA);
+        const nx = agg.x * c - agg.y * s, ny = agg.x * s + agg.y * c;
+        agg.x = nx; agg.y = ny;
+        agg.vx = -state.omega * agg.y; agg.vy = state.omega * agg.x;
+        continue;
+      }
 
       if (agg.stuck) {
         // Stuck aggregates ride the drum wall.
@@ -1061,6 +1105,24 @@
         agg.y += agg.vy * dt;
         agg.rot += agg.rotSpeed * dt;
 
+        // Collect aggregates within catch distance of the live rotating tray line
+        if ((state.tray.phase === 'inserting' || state.tray.phase === 'inserted')
+            && !agg.onTray) {
+          const sCA = state.tray.slotAngle - state.drumAngle;
+          const tp  = state.tray.progress;
+          const tOX = CFG.R_DRUM * Math.cos(sCA);
+          const tOY = -CFG.R_DRUM * Math.sin(sCA);
+          const tIX = (1 - tp) * tOX;
+          const tIY = tp * TUNING.tray.yPos + (1 - tp) * tOY;
+          const tdx = tIX - tOX, tdy = tIY - tOY;
+          const lenSq = tdx * tdx + tdy * tdy;
+          const t = lenSq < 1e-9 ? 0
+            : Math.max(0, Math.min(1, ((agg.x - tOX) * tdx + (agg.y - tOY) * tdy) / lenSq));
+          const cx = tOX + t * tdx, cy = tOY + t * tdy;
+          if (Math.hypot(agg.x - cx, agg.y - cy) < TUNING.tray.thickness * 2) {
+            agg.x = cx; agg.y = cy; agg.vx = 0; agg.vy = 0; agg.onTray = true;
+          }
+        }
         const r2    = agg.x * agg.x + agg.y * agg.y;
         const Rwall = CFG.R_DRUM - agg.r;
 
@@ -1500,6 +1562,63 @@
   }
 
   // ============================================================
+  // SECTION: PHYSICS — COLLECTION TRAY
+  // ============================================================
+
+  /**
+   * Drives the collection-tray state machine. Call once per frame AFTER
+   * the updateDrum sub-loop.
+   *
+   * Timing
+   *   armed     → waits for the gold slot marker to cross 12 o'clock
+   *   inserting → tray slides in over 270° of drum rotation
+   *               omega maintained at full speed for the first decelStart
+   *               fraction, then a smooth cubic ramp-down to zero in the
+   *               final (1 – decelStart) fraction only
+   *   inserted  → drum stopped, particles/aggregates settle onto tray
+   */
+  function updateTray() {
+    const tray = state.tray;
+    if (tray.phase === 'idle' || tray.phase === 'inserted') return;
+
+    /* ── ARMED: wait for slot to cross 12 o'clock ─────────────────────── */
+    if (tray.phase === 'armed') {
+      if (Math.abs(state.omega) < 0.1) return;
+      const past = state.omega >= 0
+        ? state.drumAngle >= tray.triggerAtAngle
+        : state.drumAngle <= tray.triggerAtAngle;
+      if (past) {
+        tray.phase            = 'inserting';
+        tray.insertStartAngle = state.drumAngle;
+        tray.savedOmega       = state.omega;
+        tray.progress         = 0;
+      }
+      return;
+    }
+
+    /* ── INSERTING ───────────────────────────────────────────────────── */
+    const swept   = Math.abs(state.drumAngle - tray.insertStartAngle);
+    tray.progress = Math.min(1, swept / TUNING.tray.totalAngle);
+
+    const ds = TUNING.tray.decelStart;            // 0.82 by default
+    if (tray.progress < ds) {
+      // Hold full speed — counteract whatever omegaDecay just removed
+      state.omegaTarget = tray.savedOmega;
+    } else {
+      // Brake only in the final fraction: smooth cubic 0 → 1
+      const u    = (tray.progress - ds) / (1 - ds);
+      const ease = u * u * (3 - 2 * u);           // smoothstep
+      state.omegaTarget = tray.savedOmega * (1 - ease);
+    }
+
+    if (tray.progress >= 1) {
+      tray.phase        = 'inserted';
+      state.omegaTarget = 0;
+      state.omega       = 0;
+    }
+  }
+
+  // ============================================================
   // EXPORTS
   // ============================================================
 
@@ -1517,4 +1636,5 @@
   window.updateAggregates      = updateAggregates;
   window.updateSolar           = updateSolar;
   window.computeAutoOmega      = computeAutoOmega;
+  window.updateTray            = updateTray;
 })();
