@@ -1471,70 +1471,6 @@
     const sizeFac = visualSizeFactor(p.vt);
     const minR = CFG.N_P >= 1000 ? 0.5 : (CFG.N_P >= 300 ? 1.0 : 2.0);
     const rpx = Math.max(minR, pxDist(TUNING.particle.collisionR) * 2 * sizeFac);
-
-    if (p.isDiagnosticTarget && TUNING.particle.showFlowGhosts) {
-      const omega = state.omega;
-      const g = 200; 
-      const steps = 40;
-      const dt_sim = 0.05;
-  
-      ctx.save();
-      ctx.lineWidth = 1.5;
-
-      // --- PATH 1: ACTUAL ORBIT (Solid White) ---
-      // This uses the current particle's vt to show its real future
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.setLineDash([]); // Solid line for reality
-      ctx.beginPath();
-      let ax = p.x, ay = p.y;
-      ctx.moveTo(x, y);
-      for (let i = 0; i < steps; i++) {
-        const vxg = -omega * ay;
-        const vyg = omega * ax;
-        ax += vxg * dt_sim;
-        ay += (vyg - p.vt) * dt_sim; // Real physics includes vt
-        ctx.lineTo(X2px(ax), Y2px(ay));
-        if (ax*ax + ay*ay > 10000) break; 
-      }
-      ctx.stroke();
-  
-      // --- PATH 2: GAS PATH (Dashed Cyan) ---
-      ctx.strokeStyle = '#5ad0ff';
-      ctx.setLineDash([4, 2]);
-      ctx.beginPath();
-      let gx = p.x, gy = p.y;
-      ctx.moveTo(x, y);
-      for (let i = 0; i < steps; i++) {
-        const ox = gx, oy = gy;
-        gx += (-omega * oy) * dt_sim;
-        gy += (omega * ox) * dt_sim;
-        ctx.lineTo(X2px(gx), Y2px(gy));
-      }
-      ctx.stroke();
-  
-      // --- PATH 3: VACUUM PATH (Dashed Purple) ---
-      ctx.strokeStyle = '#ff5aff';
-      ctx.beginPath();
-      let vx = p.x, vy = p.y, vvx = p.vx, vvy = p.vy;
-      ctx.moveTo(x, y);
-      for (let i = 0; i < steps; i++) {
-        vvy -= g * dt_sim;
-        vx += vvx * dt_sim;
-        vy += vvy * dt_sim;
-        ctx.lineTo(X2px(vx), Y2px(vy));
-        if (vx*vx + vy*vy > 10000) break;
-      }
-      ctx.stroke();
-  
-      // --- HIGHLIGHT RING ---
-      ctx.setLineDash([]);
-      ctx.strokeStyle = 'white';
-      ctx.beginPath();
-      ctx.arc(x, y, rpx + 4, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
-    }
-
     const lidar = state.laserOn;
     const FLASH_DUR = 0.40 * (lidar ? TUNING.lidar.flashDurMul : 1);
     let flash = 0;
@@ -2403,6 +2339,94 @@ function drawRepresentativeOrbits() {
     ctxOv.restore();
   }
 
+  /**
+   * Draws ghost paths, selection ring, and click hint for ghost HUD mode.
+   * Runs on ctxOv.
+   */
+  function drawGhostOverlay() {
+    if (!window.ghostModeOn) return;
+
+    const rInnerPx = pxDist(CFG.R_DRUM);
+    ctxOv.save();
+    ctxOv.beginPath();
+    ctxOv.arc(CX, CY, rInnerPx, 0, Math.PI * 2);
+    ctxOv.clip();
+
+    const omega  = state.omega;
+    const steps  = 40;
+    const dt_sim = 0.05;
+
+    for (const p of state.particles) {
+      if (!p.alive || !p.isDiagnosticTarget) continue;
+
+      const x   = X2px(p.x), y = Y2px(p.y);
+      const rpx = Math.max(2, pxDist(1.0));
+
+      // --- PATH 1: ACTUAL ORBIT (white solid) ---
+      ctxOv.strokeStyle = 'rgba(255,255,255,0.8)';
+      ctxOv.lineWidth = 1.5;
+      ctxOv.setLineDash([]);
+      ctxOv.beginPath();
+      let ax = p.x, ay = p.y;
+      ctxOv.moveTo(x, y);
+      for (let i = 0; i < steps; i++) {
+        ax += (-omega * ay)        * dt_sim;
+        ay += ( omega * ax - p.vt) * dt_sim;
+        ctxOv.lineTo(X2px(ax), Y2px(ay));
+        if (ax * ax + ay * ay > CFG.R_DRUM * CFG.R_DRUM) break;
+      }
+      ctxOv.stroke();
+
+      // --- PATH 2: GAS PATH (cyan dashed) ---
+      ctxOv.strokeStyle = 'rgba(90,208,255,0.75)';
+      ctxOv.lineWidth = 1.2;
+      ctxOv.setLineDash([4, 2]);
+      ctxOv.beginPath();
+      let gx = p.x, gy = p.y;
+      ctxOv.moveTo(x, y);
+      for (let i = 0; i < steps; i++) {
+        const ox = gx, oy = gy;
+        gx += (-omega * oy) * dt_sim;
+        gy += ( omega * ox) * dt_sim;
+        ctxOv.lineTo(X2px(gx), Y2px(gy));
+      }
+      ctxOv.stroke();
+
+      // --- PATH 3: VACUUM PATH (purple dashed) ---
+      ctxOv.strokeStyle = 'rgba(255,90,255,0.75)';
+      ctxOv.setLineDash([4, 2]);
+      ctxOv.beginPath();
+      let vx = p.x, vy = p.y, vvx = p.vx, vvy = p.vy;
+      ctxOv.moveTo(x, y);
+      for (let i = 0; i < steps; i++) {
+        vvy -= 200 * dt_sim;
+        vx  += vvx * dt_sim;
+        vy  += vvy * dt_sim;
+        ctxOv.lineTo(X2px(vx), Y2px(vy));
+        if (vx * vx + vy * vy > CFG.R_DRUM * CFG.R_DRUM * 1.1) break;
+      }
+      ctxOv.stroke();
+      ctxOv.setLineDash([]);
+
+      // --- SELECTION RING (pulsing) ---
+      const pulse = 0.6 + 0.4 * Math.sin(state.t * 5);
+      ctxOv.strokeStyle = `rgba(255,255,255,${pulse.toFixed(2)})`;
+      ctxOv.lineWidth = 1.5;
+      ctxOv.beginPath();
+      ctxOv.arc(x, y, rpx + 5, 0, Math.PI * 2);
+      ctxOv.stroke();
+    }
+
+    // --- CLICK HINT ---
+    const fs = Math.max(8, Math.min(11, pxDist(4)));
+    ctxOv.font = `${fs}px monospace`;
+    ctxOv.textAlign = 'center';
+    ctxOv.fillStyle = 'rgba(200,200,190,0.65)';
+    ctxOv.fillText('click to select particle', CX, CY - rInnerPx + fs * 1.6);
+
+    ctxOv.restore();
+  }
+
   // ============================================================
   // SECTION: RENDER — MASTER DRAW
   // ============================================================
@@ -2532,6 +2556,8 @@ function drawRepresentativeOrbits() {
           caption = "particle density n_p";
       } else if (heatmap.mode === 'product') {
           caption = "coll. proxy n_p · σ_v";
+      } else if (window.ghostModeOn) {
+          caption = "ghost paths";
       }
 
       const rInnerCaption = pxDist(CFG.R_DRUM); 
@@ -2555,6 +2581,7 @@ function drawRepresentativeOrbits() {
     drawVtProjection();
     drawAggSizeHist();
     drawVtDistribution();
+    drawGhostOverlay();
   }
 
   /**

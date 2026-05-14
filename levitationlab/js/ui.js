@@ -28,7 +28,7 @@
   // ============================================================
   // SECTION: EXPERT ANALYSIS CONTROLLER
   // ============================================================
-  const ANALYSIS_MODES = ['vectors', 'orbits', 'density', 'dispersion', 'product'];
+  const ANALYSIS_MODES = ['vectors', 'ghost' 'orbits', 'density', 'dispersion', 'product'];
   let currentAnalysisIdx = 0;
   window.hudMasterOn = false;
 
@@ -37,26 +37,25 @@
    * isActivation=true resets the accumulation buffers (only on fresh HUD power-on).
    */
   function updateAnalysisInstrument(isActivation = false) {
-    const btnPrev = document.getElementById('btnModePrev');
-    const btnNext = document.getElementById('btnModeNext');
+    const btnPrev   = document.getElementById('btnModePrev');
+    const btnNext   = document.getElementById('btnModeNext');
     const btnMaster = document.getElementById('btnHudMaster');
-
     if (!btnPrev || !btnNext || !btnMaster) return;
 
-    state.showVectors = false;
+    state.showVectors  = false;
+    window.ghostModeOn = false;
 
     btnPrev.classList.toggle('disabled', !window.hudMasterOn);
     btnNext.classList.toggle('disabled', !window.hudMasterOn);
     btnMaster.classList.toggle('on', window.hudMasterOn);
 
     if (!hudMasterOn) {
-        heatmap.enabled = false;
-        ctxOv.clearRect(0, 0, W, H);
-        return;
+      heatmap.enabled = false;
+      _ghostClear();
+      ctxOv.clearRect(0, 0, W, H);
+      return;
     }
 
-    // Keep heatmap collecting for all three maps whenever HUD is on.
-    // Only wipe the buffers when the HUD is freshly powered on.
     heatmap.enabled = true;
     if (isActivation) {
       heatmap.ready = false;
@@ -70,12 +69,47 @@
     const mode = ANALYSIS_MODES[currentAnalysisIdx];
     if (mode === 'vectors') {
       state.showVectors = true;
+    } else if (mode === 'ghost') {
+      window.ghostModeOn = true;
+      _ghostEnsureTarget();
     } else {
       heatmap.mode = mode;
     }
   }
+
+  function _ghostClear() {
+    state.particles.forEach(p => p.isDiagnosticTarget = false);
+  }
+
+  function _ghostEnsureTarget() {
+    const cur = state.particles.find(p => p.isDiagnosticTarget && p.alive && !p.stuck);
+    if (cur) return;
+
+    const absOm = Math.abs(state.omega);
+    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+    const levitated = state.particles.filter(p =>
+      p.alive && !p.stuck && !p.merging && p.insideOnce &&
+      isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T
+    );
+
+    let next = null;
+    if (levitated.length > 0) {
+      next = levitated[Math.floor(Math.random() * levitated.length)];
+    } else {
+      const floating = state.particles.filter(p =>
+        p.alive && !p.stuck && !p.merging && p.insideOnce
+      );
+      if (floating.length > 0) next = floating[Math.floor(Math.random() * floating.length)];
+    }
+
+    _ghostClear();
+    if (next) next.isDiagnosticTarget = true;
+  }
+
   window.resetExpertUI = function() {
     hudMasterOn = false;
+    window.ghostModeOn = false;
+    _ghostClear();
     updateAnalysisInstrument();
   };
 
@@ -588,15 +622,7 @@
     if (!window.vtDistOn) ctxOv.clearRect(0, 0, W, H);
   });
 
-  // HUD 4. Ghost mode 
-  document.getElementById('btnFlowGhost').addEventListener('click', function() {
-    TUNING.particle.showFlowGhosts = !TUNING.particle.showFlowGhosts;
-    this.classList.toggle('on', TUNING.particle.showFlowGhosts);
-    // If turning off, clear all targets
-    if (!TUNING.particle.showFlowGhosts) {
-      state.particles.forEach(p => p.isDiagnosticTarget = false);
-    }
-  });
+  // HUD 4. undefined
 
   // HUD 5. Aggregate size distribution histogram
   window.aggHistOn = false;
@@ -894,30 +920,19 @@
   },7);
 
   cv.addEventListener('mousedown', function(e) {
-    if (!TUNING.particle.showFlowGhosts) return;
-
+    if (!window.ghostModeOn) return;
     const coords = getLocalCoords(e.clientX, e.clientY);
-    let closestDist = Infinity;
-    let selected = null;
-  
+    let closestDist = Infinity, selected = null;
     state.particles.forEach(p => {
-      if (!p.alive || p.stuck) return;
-      const dx = p.x - coords.x;
-      const dy = p.y - coords.y;
-      const d2 = dx*dx + dy*dy;
-      if (d2 < closestDist) {
-        closestDist = d2;
-        selected = p;
-      }
+      if (!p.alive || !p.insideOnce || p.stuck) return;
+      const dx = p.x - coords.x, dy = p.y - coords.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < closestDist) { closestDist = d2; selected = p; }
     });
-  
-    state.particles.forEach(p => p.isDiagnosticTarget = false);
-    if (selected) { 
-      selected.isDiagnosticTarget = true;
-      // Note: No distance check here ensures "nearest particle" behavior
-    }
+    _ghostClear();
+    if (selected) selected.isDiagnosticTarget = true;
   });
-    
+  
   // ============================================================
   // SECTION: EXPERT DOOR & URL FLAGS
   // ============================================================
@@ -1057,5 +1072,7 @@
       }
     });
   }
+  window._ghostClear        = _ghostClear;
+  window._ghostEnsureTarget = _ghostEnsureTarget;
 })();
 

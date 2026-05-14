@@ -87,6 +87,7 @@
       if (window.autoOmegaOn) {
         state.omegaTarget = computeAutoOmega();
       }
+      if (window.ghostModeOn) _ghostEnsureTarget();
       recordTrails();
       pollAggregateCounter();
       updateViewport(dt);
