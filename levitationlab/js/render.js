@@ -2427,6 +2427,163 @@ function drawRepresentativeOrbits() {
     ctxOv.restore();
   }
 
+  /**
+   * Draws closest-approach projections for the top-10 nearest aggregate pairs
+   * during the next orbit. Updates at ~5 Hz via frame counter gate.
+   * Runs on ctxOv.
+   */
+
+  // Module-level state for the encounter overlay
+  let _encFrameCount = 0;
+  let _encCache = []; // cached list of {ai, aj, xi, yi, xj, yj, dist} sorted by dist
+
+  function _updateEncounterCache() {
+    const omega = state.omega;
+    if (Math.abs(omega) < 1e-3) { _encCache = []; return; }
+
+    const live = state.aggregates.filter(a => a.alive && !a.stuck && !a.merging);
+    const n = live.length;
+    if (n < 2) { _encCache = []; return; }
+
+    const pairs = [];
+
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const ai = live[i], aj = live[j];
+
+        // Orbit centres
+        const xci = ai.vt / omega;
+        const xcj = aj.vt / omega;
+
+        // Orbit radii and phases
+        const Ri  = Math.hypot(ai.x - xci, ai.y);
+        const Rj  = Math.hypot(aj.x - xcj, aj.y);
+        const phi_i = Math.atan2(ai.y, ai.x - xci);
+        const phi_j = Math.atan2(aj.y, aj.x - xcj);
+
+        // Delta orbit centre
+        const dxc = xci - xcj;
+
+        // Cross-term coefficients
+        // d²(θ) = C + 2·dxc·(P·cos θ - Q·sin θ)
+        // where P = Ri·cos(phi_i) - Rj·cos(phi_j)
+        //       Q = Ri·sin(phi_i) - Rj·sin(phi_j)
+        const P = Ri * Math.cos(phi_i) - Rj * Math.cos(phi_j);
+        const Q = Ri * Math.sin(phi_i) - Rj * Math.sin(phi_j);
+
+        // Minimum distance angle — two candidates
+        let thetaMin;
+        if (Math.abs(P) < 1e-9 && Math.abs(Q) < 1e-9) {
+          // Concentric / same phase — constant distance
+          thetaMin = 0;
+        } else {
+          thetaMin = Math.atan2(-Q, P);
+        }
+
+        // Evaluate both candidates, keep the one with smaller d²
+        let bestD2 = Infinity, bestTheta = thetaMin;
+        for (const th of [thetaMin, thetaMin + Math.PI]) {
+          const xi = xci + Ri * Math.cos(phi_i + th);
+          const yi =       Ri * Math.sin(phi_i + th);
+          const xj = xcj + Rj * Math.cos(phi_j + th);
+          const yj =       Rj * Math.sin(phi_j + th);
+          const dx = xi - xj, dy = yi - yj;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < bestD2) { bestD2 = d2; bestTheta = th; }
+        }
+
+        // Closest approach positions
+        const xi = xci + Ri * Math.cos(phi_i + bestTheta);
+        const yi =       Ri * Math.sin(phi_i + bestTheta);
+        const xj = xcj + Rj * Math.cos(phi_j + bestTheta);
+        const yj =       Rj * Math.sin(phi_j + bestTheta);
+
+        pairs.push({ ai, aj, xi, yi, xj, yj, dist: Math.sqrt(bestD2) });
+      }
+    }
+
+    // Keep top 10 shortest
+    pairs.sort((a, b) => a.dist - b.dist);
+    _encCache = pairs.slice(0, 10);
+  }
+
+  function drawAggregateEncounters() {
+    if (!window.encountersOn) return;
+
+    // Gate updates to ~5 Hz
+    _encFrameCount++;
+    if (_encFrameCount % 12 === 0) _updateEncounterCache();
+    // Also update on first call after activation
+    if (_encCache.length === 0 && state.aggregates.length >= 2) _updateEncounterCache();
+
+    if (_encCache.length === 0) return;
+
+    const rInnerPx = pxDist(CFG.R_DRUM);
+    ctxOv.save();
+    ctxOv.beginPath();
+    ctxOv.arc(CX, CY, rInnerPx, 0, Math.PI * 2);
+    ctxOv.clip();
+
+    for (let k = 0; k < _encCache.length; k++) {
+      const { ai, aj, xi, yi, xj, yj, dist } = _encCache[k];
+
+      // Colour: green if overlapping (collision), amber if close, dim white otherwise
+      const sumR = ai.r + aj.r;
+      let lineColor, circleColor;
+      if (dist < sumR) {
+        lineColor   = 'rgba(64,255,112,0.85)';
+        circleColor = 'rgba(64,255,112,0.55)';
+      } else if (dist < sumR * 2.5) {
+        lineColor   = 'rgba(255,200,60,0.75)';
+        circleColor = 'rgba(255,200,60,0.40)';
+      } else {
+        lineColor   = 'rgba(180,180,200,0.35)';
+        circleColor = 'rgba(180,180,200,0.18)';
+      }
+
+      const pxi = X2px(xi), pyi = Y2px(yi);
+      const pxj = X2px(xj), pyj = Y2px(yj);
+      const pri = pxDist(ai.r);
+      const prj = pxDist(aj.r);
+
+      // Connecting line
+      ctxOv.strokeStyle = lineColor;
+      ctxOv.lineWidth = 1.0;
+      ctxOv.setLineDash([3, 2]);
+      ctxOv.beginPath();
+      ctxOv.moveTo(pxi, pyi);
+      ctxOv.lineTo(pxj, pyj);
+      ctxOv.stroke();
+      ctxOv.setLineDash([]);
+
+      // Closest-approach circles (filled lightly + stroked)
+      for (const [cx2, cy2, r2] of [[pxi, pyi, pri], [pxj, pyj, prj]]) {
+        ctxOv.fillStyle = circleColor;
+        ctxOv.beginPath();
+        ctxOv.arc(cx2, cy2, r2, 0, Math.PI * 2);
+        ctxOv.fill();
+        ctxOv.strokeStyle = lineColor;
+        ctxOv.lineWidth = 1.2;
+        ctxOv.beginPath();
+        ctxOv.arc(cx2, cy2, r2, 0, Math.PI * 2);
+        ctxOv.stroke();
+      }
+
+      // Distance label at midpoint (only for top 3)
+      if (k < 3) {
+        const mx = (pxi + pxj) * 0.5;
+        const my = (pyi + pyj) * 0.5;
+        const fs = Math.max(7, Math.min(9, pxDist(3.5)));
+        ctxOv.font = `${fs}px monospace`;
+        ctxOv.textAlign = 'center';
+        ctxOv.fillStyle = lineColor;
+        ctxOv.fillText(dist.toFixed(1), mx, my - 3);
+      }
+    }
+
+    ctxOv.restore();
+  }
+
   // ============================================================
   // SECTION: RENDER — MASTER DRAW
   // ============================================================
@@ -2582,6 +2739,7 @@ function drawRepresentativeOrbits() {
     drawAggSizeHist();
     drawVtDistribution();
     drawGhostOverlay();
+    drawAggregateEncounters();
   }
 
   /**
@@ -2694,4 +2852,5 @@ function drawRepresentativeOrbits() {
   window.visualSizeFactor = visualSizeFactor;
   window.angleSwept    = angleSwept;
   window.buildOmegaHint = buildOmegaHint;
+  window.resetEncounterCache = () => { _encCache = []; _encFrameCount = 0; };
 })();

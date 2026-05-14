@@ -622,7 +622,13 @@
     if (!window.vtDistOn) ctxOv.clearRect(0, 0, W, H);
   });
 
-  // HUD 4. undefined
+  // HUD 4. Aggregate encounter projections
+  window.encountersOn = false;
+  document.getElementById('btnAggEncounters').addEventListener('click', function() {
+    window.encountersOn = !window.encountersOn;
+    this.classList.toggle('on', window.encountersOn);
+    if (!window.encountersOn) { window.resetEncounterCache(); ctxOv.clearRect(0, 0, W, H); }
+  });
 
   // HUD 5. Aggregate size distribution histogram
   window.aggHistOn = false;
