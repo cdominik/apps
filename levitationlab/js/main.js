@@ -84,8 +84,45 @@
       if (!state.paused) updateMotorSound();
       
       // Auto-omega: track the current distribution every frame
-      if (window.autoOmegaOn) {
+      // --- OMEGA CONTROL MODE ---
+      const _wallNow = performance.now() / 1000;
+      if (window.omegaCtlMode === 1) {
+        // Auto: live tracking
         state.omegaTarget = computeAutoOmega();
+
+      } else if (window.omegaCtlMode === 2) {
+        const ls = window.launchState;
+
+        if (ls === 'waiting') {
+          // As soon as injection is scheduled, compute optimal spin-up sim time
+          if (state.toInject.length > 0 && window.launchT0 === null) {
+            window.launchTWait = window._computeOptimalWait();
+            window.launchT0    = state.t;
+            window.launchState = 'countdown';
+          }
+
+        } else if (ls === 'countdown') {
+          // Wait until simulation time reaches the optimal arrival time
+          if (state.t >= window.launchTWait) {
+            window.launchOmegaTgt = computeAutoOmega();
+            window.launchSpinDur  = 0.01;
+            window.launchSpinT0   = _wallNow;
+            window.launchState    = 'spinup';
+          }
+
+        } else if (ls === 'spinup') {
+          // Ramp omega smoothly to target over one orbital period
+          const u = Math.min(1, (_wallNow - window.launchSpinT0) / window.launchSpinDur);
+          const ease = u * u * (3 - 2 * u);
+          state.omegaTarget = window.launchOmegaTgt * ease;
+          if (u >= 1) {
+            window.launchState = 'tracking';
+          }
+
+        } else if (ls === 'tracking') {
+          // Live tracking — same as mode 1
+          state.omegaTarget = computeAutoOmega();
+        }
       }
       if (window.ghostModeOn) _ghostEnsureTarget();
       recordTrails();

@@ -1354,8 +1354,7 @@
         if (isLast) {
           state.omegaTarget = 0;
           window.autoOmegaOn = false;
-          const btnAuto = document.getElementById('btnSysAutoOmega');
-          if (btnAuto) btnAuto.classList.remove('on');
+          if (window.setOmegaCtlMode) window.setOmegaCtlMode(0);
           if (window.setOmegaDecay) window.setOmegaDecay(false);
         }
       }

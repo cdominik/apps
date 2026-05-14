@@ -313,9 +313,10 @@
       heatmap.accV2.fill(0);
       heatmap.ready = false;
     }
-    if (window.autoOmegaOn) {
-      window.autoOmegaOn = false;
-      if (btnSysAutoOmega) btnSysAutoOmega.classList.remove('on');
+    if (window.omegaCtlMode === 2) {
+      _resetLaunchState();
+    } else if (window.omegaCtlMode === 1) {
+      // keep mode 1 active across resets
     }
     ctxOv.clearRect(0, 0, W, H);
     
@@ -879,19 +880,73 @@
 
   // SYSTEM 1. UNASSIGNED
 
-  // SYSTEM 2. Auto-omega — set drum speed to centre orbit range in levitation zone
-  window.autoOmegaOn = false;
+  // SYSTEM 2. Omega control — three states: off / auto / launch
+  // 0 = off, 1 = auto (live tracking), 2 = launch (wait, spin up, then track)
+  window.autoOmegaOn  = false; // kept for compatibility with physics.js
+  window.omegaCtlMode = 0;
+
+  // Launch sub-states: 'waiting' | 'countdown' | 'spinup' | 'tracking'
+  window.launchState    = 'waiting';
+  window.launchT0       = null;  // wall time when injection was detected
+  window.launchTWait    = 0;     // computed wait duration in seconds
+  window.launchSpinT0   = null;  // wall time when spin-up started
+  window.launchSpinDur  = 0;     // spin-up ramp duration in seconds
+  window.launchOmegaTgt = 0;     // target omega for spin-up
+
   const btnSysAutoOmega = document.getElementById('btnSysAutoOmega');
+
+  function setOmegaCtlMode(mode) {
+    window.omegaCtlMode = mode;
+    window.autoOmegaOn  = (mode === 1);
+
+    if (btnSysAutoOmega) {
+      btnSysAutoOmega.classList.remove('on', 'cheat');
+      if (mode === 1) btnSysAutoOmega.classList.add('on');
+      if (mode === 2) btnSysAutoOmega.classList.add('cheat');
+    }
+
+    if (mode === 2) {
+      _resetLaunchState();
+    } else {
+      window.launchState = 'waiting';
+    }
+  }
+
+  function _resetLaunchState() {
+    window.launchState   = 'waiting';
+    window.launchT0      = null;
+    window.launchSpinT0  = null;
+    state.omegaTarget    = 0;
+  }
+
+  function _computeOptimalWait() {
+    // Find the time of peak flux at y=0: mode of KDE of arrival times.
+    const arrivals = state.toInject.map(p => p.t + CFG.RELEASE_Y / p.vt);
+    if (arrivals.length === 0) return 0;
+    const n    = arrivals.length;
+    const mean = arrivals.reduce((a, b) => a + b, 0) / n;
+    const sig  = Math.sqrt(Math.max(0.01, arrivals.reduce((s, v) => s + (v - mean) ** 2, 0) / n));
+    const bw   = 1.06 * sig * Math.pow(n, -0.2);
+    const tMin = Math.min(...arrivals);
+    const tMax = Math.max(...arrivals);
+    let bestT = mean, bestK = -1;
+    for (let i = 0; i <= 60; i++) {
+      const t = tMin + (i / 60) * (tMax - tMin);
+      let k = 0;
+      for (const a of arrivals) { const z = (t - a) / bw; k += Math.exp(-0.5 * z * z); }
+      if (k > bestK) { bestK = k; bestT = t; }
+    }
+    return Math.max(0, bestT - 1.0 / TUNING.drum.slipRate);
+  }
+
   if (btnSysAutoOmega) {
     btnSysAutoOmega.addEventListener('click', () => {
-      window.autoOmegaOn = !window.autoOmegaOn;
-      btnSysAutoOmega.classList.toggle('on', window.autoOmegaOn);
-      if (window.autoOmegaOn) {
-        // Apply immediately, don't wait for next frame
-        state.omegaTarget = computeAutoOmega();
-      }
+      setOmegaCtlMode((window.omegaCtlMode + 1) % 3);
     });
   }
+
+  window.setOmegaCtlMode  = setOmegaCtlMode;
+  window._resetLaunchState = _resetLaunchState;
 
   // SYSTEM 3. STILL UNASSIGNED
   
@@ -1153,6 +1208,9 @@
   window._ghostClear        = _ghostClear;
   window._ghostEnsureTarget = _ghostEnsureTarget;
   window._zoomRestore       = _zoomRestore;
-  window.setOmegaDecay = setOmegaDecay;
+  window.setOmegaDecay      = setOmegaDecay;
+  window.setOmegaCtlMode    = setOmegaCtlMode;
+  window._resetLaunchState  = _resetLaunchState;
+  window._computeOptimalWait = _computeOptimalWait;
 })();
 

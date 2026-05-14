@@ -84,7 +84,7 @@
     maxSigma: 0,
     maxDensity: 0,
     maxProduct: 0,
-    opacity: 0.5,
+    opacity: 0.0,
     ready: false,
   };
 
