@@ -320,9 +320,6 @@
     }
     ctxOv.clearRect(0, 0, W, H);
     
-    // 1a. OMEGA UNLOCK LOGIC
-    if (window.omegaDecayOff) setOmegaDecay(false);
-
     // 2. Clear basic simulation state
     initLevel(); 
 
@@ -399,68 +396,6 @@
     btnTrails.classList.toggle('on', state.trailsOn);
   });
 
-  // ── COLLECT BUTTON ─────────────────────────────────────────────────────
-  const btnCollect = document.getElementById('btnCollect');
-
-  if (btnCollect) {
-    btnCollect.addEventListener('click', () => {
-      const tray = state.tray;
-
-      // Second press while armed → disarm
-      if (tray.phase === 'armed') {
-        tray.phase = 'idle';
-        return;
-      }
-
-      // Only arm from idle; drum must be spinning
-      if (tray.phase !== 'idle') return;
-      if (Math.abs(state.omega) < 0.1) {
-        btnCollect.classList.add('flash');
-        setTimeout(() => btnCollect.classList.remove('flash'), 220);
-        return;
-      }
-
-      // Compute next time the slot marker crosses 12 o'clock on screen.
-      // Canvas angle of slot = slotAngle − drumAngle.
-      // 12 o'clock on screen = −π/2  (sin = −1 → topmost pixel).
-      const slotCanvas = tray.slotAngle - state.drumAngle;
-      const target     = -Math.PI / 2;
-      let delta = ((slotCanvas - target) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
-      if (delta < 0.2) delta += 2 * Math.PI;        // too close — wait one full turn
-      if (state.omega < 0) delta = delta - 2 * Math.PI; // reverse drum direction
-
-      tray.triggerAtAngle = state.drumAngle + delta;
-      tray.phase          = 'armed';
-      ensureAudio();
-    });
-
-    // Sync button appearance to tray phase every HUD tick
-    const _origUpdateHUD = window.updateHUD;
-    window.updateHUD = function () {
-      _origUpdateHUD();
-      const ph = state.tray.phase;
-      btnCollect.classList.toggle('on',    ph === 'armed');
-      btnCollect.classList.toggle('cheat', ph === 'inserting');
-      btnCollect.disabled = (ph === 'inserting' || ph === 'inserted');
-    };
-  }
-
-  const btnTheme = document.getElementById('btnTheme');
-  function applyTheme(name) {
-    if (name === 'light') {
-      document.body.classList.add('theme-light');
-      window.PAL = PAL_LIGHT;
-      btnTheme.classList.add('on');
-    } else {
-      document.body.classList.remove('theme-light');
-      window.PAL = PAL_DARK;
-      btnTheme.classList.remove('on');
-    }
-  }
-  btnTheme.addEventListener('click', () => {
-    applyTheme(PAL.name === 'dark' ? 'light' : 'dark');
-  });
-
   const btnManual = document.getElementById('btnManual');
   const manualOverlay = document.getElementById('manualOverlay');
   const manualClose = document.getElementById('manualClose');
@@ -499,49 +434,6 @@
     }
   });
   
-  // SECTION: DISTRIBUTION OVERLAY LOGIC
-  const btnDistMenu = document.getElementById('btnDistMenu');
-  const distOverlay = document.getElementById('distOverlay');
-  const distClose   = document.getElementById('distClose');
-  const distForm    = document.getElementById('distForm');
-
-  btnDistMenu.addEventListener('click', () => { distOverlay.hidden = false; });
-  distClose.addEventListener('click', () => { distOverlay.hidden = true; });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !distOverlay.hidden) distOverlay.hidden = true;
-  });  
-  
-  // Close on clicking the backdrop
-  distForm.addEventListener('change', () => {
-    const formData = new FormData(distForm);
-    state.distMode = formData.get('distMode');
-  
-    // Helper to safely get values
-    const safeVal = (id, fallback) => {
-      const el = document.getElementById(id);
-      return el ? parseFloat(el.value) : fallback;
-    };
-  
-    // Sync Bi-Monodisperse
-    state.distParams.bi.vt1 = safeVal('biVt1', 10);
-    state.distParams.bi.s1  = safeVal('biS1', 0);
-    state.distParams.bi.vt2 = safeVal('biVt2', 40);
-    state.distParams.bi.s2  = safeVal('biS2', 0);
-    state.distParams.bi.ratio = safeVal('biRatio', 1.0);
-  
-    // Sync Powerlaw
-    state.distParams.power.vtMin = safeVal('powMin', 5);
-    state.distParams.power.vtMax = safeVal('powMax', 50);
-    state.distParams.power.index = safeVal('powIndex', -3.5);
-  
-    // FIX THE BUTTON LIGHTING HERE
-    const menuBtn = document.getElementById('btnDistMenu');
-    if (menuBtn) {
-      menuBtn.classList.toggle('on', state.distMode !== 'default');
-    }
-  
-    updateHUD(); 
-  });
 
   // Initial layout and level setup — must run after all button wiring is complete
   window.addEventListener('resize', layout);
@@ -928,7 +820,49 @@
   // SECTION: EXPERT PANEL — SYSTEM
   // ============================================================
 
-  // SYSTEM 1. UNASSIGNED
+  // SYSTEM 1. DISTRIBUTION OVERLAY LOGIC
+  const btnDistMenu = document.getElementById('btnDistMenu');
+  const distOverlay = document.getElementById('distOverlay');
+  const distClose   = document.getElementById('distClose');
+  const distForm    = document.getElementById('distForm');
+
+  btnDistMenu.addEventListener('click', () => { distOverlay.hidden = false; });
+  distClose.addEventListener('click', () => { distOverlay.hidden = true; });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !distOverlay.hidden) distOverlay.hidden = true;
+  });  
+  
+  // Close on clicking the backdrop
+  distForm.addEventListener('change', () => {
+    const formData = new FormData(distForm);
+    state.distMode = formData.get('distMode');
+  
+    // Helper to safely get values
+    const safeVal = (id, fallback) => {
+      const el = document.getElementById(id);
+      return el ? parseFloat(el.value) : fallback;
+    };
+  
+    // Sync Bi-Monodisperse
+    state.distParams.bi.vt1 = safeVal('biVt1', 10);
+    state.distParams.bi.s1  = safeVal('biS1', 0);
+    state.distParams.bi.vt2 = safeVal('biVt2', 40);
+    state.distParams.bi.s2  = safeVal('biS2', 0);
+    state.distParams.bi.ratio = safeVal('biRatio', 1.0);
+  
+    // Sync Powerlaw
+    state.distParams.power.vtMin = safeVal('powMin', 5);
+    state.distParams.power.vtMax = safeVal('powMax', 50);
+    state.distParams.power.index = safeVal('powIndex', -3.5);
+  
+    // FIX THE BUTTON LIGHTING HERE
+    const menuBtn = document.getElementById('btnDistMenu');
+    if (menuBtn) {
+      menuBtn.classList.toggle('on', state.distMode !== 'default');
+    }
+  
+    updateHUD(); 
+  });
 
   // SYSTEM 2. Omega control — three states: off / auto / launch
   // 0 = off, 1 = auto (live tracking), 2 = launch (wait, spin up, then track)
@@ -999,8 +933,69 @@
   window.setOmegaCtlMode  = setOmegaCtlMode;
   window._resetLaunchState = _resetLaunchState;
 
-  // SYSTEM 3. STILL UNASSIGNED
-  
+  // SYSTEM 3. COLLECTION TRAY
+  const btnCollect = document.getElementById('btnCollect');
+
+  if (btnCollect) {
+    btnCollect.addEventListener('click', () => {
+      const tray = state.tray;
+
+      // Second press while armed → disarm
+      if (tray.phase === 'armed') {
+        tray.phase = 'idle';
+        return;
+      }
+
+      // Only arm from idle; drum must be spinning
+      if (tray.phase !== 'idle') return;
+      if (Math.abs(state.omega) < 0.1) {
+        btnCollect.classList.add('flash');
+        setTimeout(() => btnCollect.classList.remove('flash'), 220);
+        return;
+      }
+
+      // Compute next time the slot marker crosses 12 o'clock on screen.
+      // Canvas angle of slot = slotAngle − drumAngle.
+      // 12 o'clock on screen = −π/2  (sin = −1 → topmost pixel).
+      const slotCanvas = tray.slotAngle - state.drumAngle;
+      const target     = -Math.PI / 2;
+      let delta = ((slotCanvas - target) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+      if (delta < 0.2) delta += 2 * Math.PI;        // too close — wait one full turn
+      if (state.omega < 0) delta = delta - 2 * Math.PI; // reverse drum direction
+
+      tray.triggerAtAngle = state.drumAngle + delta;
+      tray.phase          = 'armed';
+      ensureAudio();
+    });
+
+    // Sync button appearance to tray phase every HUD tick
+    const _origUpdateHUD = window.updateHUD;
+    window.updateHUD = function () {
+      _origUpdateHUD();
+      const ph = state.tray.phase;
+      btnCollect.classList.toggle('on',    ph === 'armed');
+      btnCollect.classList.toggle('cheat', ph === 'inserting');
+      btnCollect.disabled = (ph === 'inserting' || ph === 'inserted');
+    };
+  }
+
+  const btnTheme = document.getElementById('btnTheme');
+  function applyTheme(name) {
+    if (name === 'light') {
+      document.body.classList.add('theme-light');
+      window.PAL = PAL_LIGHT;
+      btnTheme.classList.add('on');
+    } else {
+      document.body.classList.remove('theme-light');
+      window.PAL = PAL_DARK;
+      btnTheme.classList.remove('on');
+    }
+  }
+  btnTheme.addEventListener('click', () => {
+    applyTheme(PAL.name === 'dark' ? 'light' : 'dark');
+  });
+
+
   // SYSTEM 4-6. Simulation speed
 
     const speedGears   = [0.25, 0.5, 1.0, 2.0, 4.0];

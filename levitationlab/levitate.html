@@ -267,18 +267,18 @@
         <div class="expert-head">System</div>
         <!-- Row 1 -->
 
-        <button class="btnind btnsq" id="btnCollect"
-                title="Arm collection tray — waits for the gold slot marker to reach 12 o'clock, then slides a metal blade across the drum interior to collect everything floating inside.">
+
+        <button class="btnind btnsq" id="btnDistMenu" title="Injection distribution settings - monodisperse, bidisperse, or powerlaw">
           <span class="cap">
             <span class="cap-icon">
               <svg viewBox="0 0 24 24" width="20" height="20">
-                <!-- Drum circle -->
-                <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/>
-                <!-- Tray blade: horizontal, half a radius below centre,
-                     from rim inward to the drum's vertical axis -->
-                <line x1="19.8" y1="16.5" x2="12" y2="16.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
-                <!-- Hinge marker on the rim -->
-                <circle cx="19.8" cy="16.5" r="1.4" fill="currentColor"/>
+                <!-- Three bars: Same color, middle is highest, left/right are different -->
+                <!-- Left bar: height 8 -->
+                <rect x="4" y="12" width="4" height="8" fill="currentColor" />
+                <!-- Middle bar: highest (height 14) -->
+                <rect x="10" y="6" width="4" height="14" fill="currentColor" />
+                <!-- Right bar: height 11 (different from left) -->
+                <rect x="16" y="9" width="4" height="11" fill="currentColor" />
               </svg>
             </span>
           </span>
@@ -303,17 +303,18 @@
           </span>
         </button>
 
-        <button class="btnind btnsq" id="btnDistMenu" title="Injection distribution settings - monodisperse, bidisperse, or powerlaw">
+        <button class="btnind btnsq" id="btnCollect"
+                title="Arm collection tray — waits for the slot marker to reach 12 o'clock, then slides a metal blade into the drum and stops the drum so that particles and aggregates can collect on the tray.">
           <span class="cap">
             <span class="cap-icon">
               <svg viewBox="0 0 24 24" width="20" height="20">
-                <!-- Three bars: Same color, middle is highest, left/right are different -->
-                <!-- Left bar: height 8 -->
-                <rect x="4" y="12" width="4" height="8" fill="currentColor" />
-                <!-- Middle bar: highest (height 14) -->
-                <rect x="10" y="6" width="4" height="14" fill="currentColor" />
-                <!-- Right bar: height 11 (different from left) -->
-                <rect x="16" y="9" width="4" height="11" fill="currentColor" />
+                <!-- Drum circle -->
+                <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <!-- Tray blade: horizontal, half a radius below centre,
+                     from rim inward to the drum's vertical axis -->
+                <line x1="19.8" y1="16.5" x2="12" y2="16.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+                <!-- Hinge marker on the rim -->
+                <circle cx="19.8" cy="16.5" r="1.4" fill="currentColor"/>
               </svg>
             </span>
           </span>
@@ -354,7 +355,7 @@
           </span>
         </button>
 
-        <button class="btnind btnsq" id="btnProcSlowMo" title="Slow-motion during merging - watch aggregates and pebbles form. Designer cheat: 7 rapid presses activates fast chain synthesis."><span class="cap"><span class="cap-icon">🐌</span></span></button>
+        <button class="btnind btnsq" id="btnProcSlowMo" title="Slow-motion during merging - watch aggregates and pebbles form."><span class="cap"><span class="cap-icon">🐌</span></span></button>
 
         <button class="btnind btnsq" id="btnProcFast" title="Zoom — levitation zone fills the drum area">
           <span class="cap"><span class="cap-icon">
@@ -615,21 +616,6 @@
 
         <h3>System — simulation-wide settings</h3>
         <ul>
-          <li><strong>Collect</strong> — arms the collection
-            tray. When armed, the tray waits until the slot marker on
-            the rim reaches the top of the drum, then slides a metal
-            blade across the interior, scooping up everything floating
-            inside (particles, aggregates, and pebbles) onto the
-            blade. The drum decelerates to a stop with the blade
-            resting horizontally. Press again before insertion begins
-            to disarm.</li>
-          <li><strong>Auto-omega</strong> — continuously sets the drum
-            speed so that the full range of orbit centres for the
-            current <em>v<sub>t</sub></em> injection distribution is centred
-            inside the levitation zone. Updates in real time as you
-            change <em>v<sub>t</sub></em>, spread, or injection
-            profile. Pairs well with the orbit centre projection
-            overlay to verify the centring visually.</li>
           <li><strong>Injection profile</strong> — opens a panel to configure
             the particle <em>v<sub>t</sub></em> distribution: the standard
             Gaussian (driven by the wing sliders), a bi-disperse mixture
@@ -639,6 +625,21 @@
             to the next injection event. The VT and Spread displays on the
             left wing show a coloured label when a custom profile is
             active and can be clicked to get to the panel again.</li>
+          <li><strong>Auto-omega</strong> — continuously sets the drum
+            speed so that the full range of orbit centres for the
+            current <em>v<sub>t</sub></em> injection distribution is centred
+            inside the levitation zone. Updates in real time as you
+            change <em>v<sub>t</sub></em>, spread, or injection
+            profile. Pairs well with the orbit centre projection
+            overlay to verify the centring visually.</li>
+          <li><strong>Collect</strong> — arms the collection
+            tray. When armed, the tray waits until the slot marker on
+            the rim reaches the top of the drum, then slides a metal
+            blade across the interior, scooping up everything floating
+            inside (particles, aggregates, and pebbles) onto the
+            blade. The drum decelerates to a stop with the blade
+            resting horizontally. Press again before insertion begins
+            to disarm.</li>
           <li><strong>Simulation speed</strong> — a five-position gearbox
             (¼× / ½× / 1× / 2× / 4×). The middle button shows the current
             gear and snaps back to 1× when pressed. Speed affects all physics
