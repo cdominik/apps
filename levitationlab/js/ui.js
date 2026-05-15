@@ -24,6 +24,41 @@
   // ============================================================
   let isExpertURL = false;
 
+  // SECTION: Utility functions
+  function showToast(message, durationMs = 2000) {
+  let toast = document.getElementById('uiToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'uiToast';
+    toast.style.cssText = `
+      position: fixed;
+      background: rgba(8, 8, 12, 0.95);
+      color: #ffcc55;
+      border: 1px solid #5a4418;
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      pointer-events: none;
+      z-index: 1000;
+      transition: opacity 0.3s ease-in-out;
+      white-space: nowrap;
+      transform: translate(-50%, -50%);
+    `;
+    document.body.appendChild(toast);
+  }
+
+  toast.textContent = message;
+  toast.style.left  = CX + 'px';
+  toast.style.top   = CY + 'px';
+  toast.style.opacity = '1';
+
+  if (toast._hideTimer) clearTimeout(toast._hideTimer);
+  toast._hideTimer = setTimeout(() => {
+    toast.style.opacity = '0';
+  }, durationMs);
+}
+  
   // ============================================================
   // SECTION: EXPERT ANALYSIS CONTROLLER
   // ============================================================
@@ -762,6 +797,15 @@
       this.classList.add('flash');
       setTimeout(() => this.classList.remove('flash'), 200);
       return; // can't compute orbits without rotation
+    }
+    // ADD THIS GUARD:
+    const totalParticles = state.particles.length + state.aggregates.length;
+    const CAP = 10000;
+    if (totalParticles > CAP) {
+      this.classList.add('warn');
+      setTimeout(() => this.classList.remove('warn'), 400);
+      showToast('Too many particles — doubling aborted');
+      return;
     }
     
     const levParticles = state.particles.filter(p =>

@@ -800,7 +800,7 @@
     // In normal operation it kicks pebbles around; when the tray deploys, it's
     // the hinge from which the blade extends.
     const bumpAngle = state.tray.slotAngle - state.drumAngle;
-    const bumpR     = 3.5;
+    const bumpR     = 0.3;
     const bumpX     =  CFG.R_DRUM * Math.cos(bumpAngle);
     const bumpY     = -CFG.R_DRUM * Math.sin(bumpAngle);
     const dx        = b.x - bumpX;
@@ -821,9 +821,9 @@
       const vn     = vRelX * nx + vRelY * ny;
 
       if (vn < 0) {
-        const e = TUNING.ball.wallE;
-        b.vx -= (1 + e) * vn * nx;
-        b.vy -= (1 + e) * vn * ny;
+        const strength = TUNING.ball.bumpStrength;
+        b.vx -= (1 + strength) * vn * nx;
+        b.vy -= (1 + strength) * vn * ny;
         if (Math.abs(vn) > 10) soundGoldenThud(Math.abs(vn));
       }
     }

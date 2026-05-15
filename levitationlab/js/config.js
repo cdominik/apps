@@ -107,6 +107,7 @@
       wallFriction: 0.92, // coefficient   — tangential velocity fraction retained after wall contact
       contactDrag:  0.7,  // coefficient   — velocity damping while two balls are in contact
       ballE:        0.90, // coefficient   — restitution in ball-ball collisions
+      bumpStrength: 0.1,  // 0 = bump is a ghost, 1 = full elastic bounce
       settleVel:    0.6,  // drum-units/s  — speed below which a ball is considered settled
     },
 
