@@ -1,0 +1,1409 @@
+% =============================================================================
+%  LEVITATION LAB — TECHNICAL DOCUMENTATION
+%  GT4Pebbles Project
+% =============================================================================
+%
+%  Compilation:
+%    pdflatex -shell-escape levitation_lab_technical.tex
+%    (The -shell-escape flag is required by the svg package.)
+%
+%  Required packages (all available on CTAN / TeX Live):
+%    amsmath, amssymb, geometry, graphicx, hyperref,
+%    listings, xcolor, booktabs, float, svg, parskip, array, longtable
+%
+%  Button icons:
+%    Each button has a corresponding SVG file in icons/.
+%    The SVG source for each icon is given in Appendix A.
+%    To include icons inline, use \btnicon{name}, defined below.
+%    If the svg package is unavailable, replace \includesvg with
+%    \includegraphics and supply PNG conversions instead.
+% =============================================================================
+
+\documentclass[12pt, a4paper]{article}
+
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage[colorlinks=true, linkcolor=blue, urlcolor=blue]{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{parskip}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{mathtools}
+
+\geometry{margin=2.5cm}
+
+% ---- Inline button icon helper ----
+% Usage: \btnicon{btnName}  (file must exist as icons/btnName.svg)
+\newcommand{\btnicon}[1]{%
+  \IfFileExists{icons/#1.png}{%
+    \raisebox{-0.3ex}{\includegraphics[height=1.2em]{icons/#1}}%
+  }{%
+    \raisebox{-0.1ex}{\fbox{\tiny\texttt{#1}}}%
+  }%
+}
+
+% ---- Code listing style ----
+\lstset{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue},
+  commentstyle=\color{gray},
+  breaklines=true,
+  frame=single,
+  backgroundcolor=\color{gray!8},
+}
+
+% ---- Maths helpers ----
+\newcommand{\vt}{v_{\mathrm{t}}}
+\newcommand{\xc}{x_{\mathrm{c}}}
+\newcommand{\Hcx}{H_{\mathrm{cx}}}
+\newcommand{\Hr}{H_{\mathrm{r}}}
+\newcommand{\omg}{\omega}
+
+% =============================================================================
+\begin{document}
+% =============================================================================
+
+\begin{titlepage}
+  \centering
+  \vspace*{3cm}
+  {\Huge\bfseries Levitation Lab\\[0.4em]}
+  {\Large Technical Documentation\\[2em]}
+  {\large GT4Pebbles Project\\[0.5em]}
+  {\large \today}
+  \vfill
+  {\small
+    This document describes the full physics model, numerical implementation,
+    analytical tooling, user interface, and game design of the Levitation Lab
+    browser simulation. It is intended for developers, researchers, and outreach
+    coordinators who need to understand, extend, or verify the simulation.
+  }
+\end{titlepage}
+
+\tableofcontents
+\clearpage
+
+% =============================================================================
+\section{Introduction}
+% =============================================================================
+
+The \textbf{GT4Pebbles} (Ground Truth for Pebbles) project studies how planet
+formation begins in protoplanetary disks around young stars. A central
+experimental apparatus is a rotating drum in which dust particles are
+levitated for extended periods, allowing them to collide and grow through a
+sequence of stages: free particles $\to$ aggregates $\to$ compressed
+aggregates- a prestage for pebble formation.
+
+The \textbf{Levitation Lab} is a browser-based interactive simulation
+that captures the core physics of this experiment. It is used as a
+game, as an outreach tool—allowing members of the public to
+explore the experiment, and as a pedagogical tool for students and
+researchers. The simulation is built entirely in vanilla JavaScript
+and HTML5 Canvas, with no external physics engine.
+
+This document covers:
+\begin{itemize}
+  \item The underlying physical model and all governing equations.
+  \item The numerical implementation, including timestep management and
+        substep logic.
+  \item Every user interface control, including button icons, with rationale
+        for design choices.
+  \item The game and challenge modes and their win/fail logic.
+  \item The expert analytical panel and its visualisation tools.
+  \item Audio, viewport, and URL parameter systems.
+\end{itemize}
+
+% =============================================================================
+\section{Coordinate System and Drum Geometry}
+% =============================================================================
+
+\subsection{Coordinate System}
+
+The simulation uses a right-handed coordinate system centred on the drum axis,
+with $x$ pointing right and $y$ pointing upward. Positions are measured in
+\textbf{drum units} (equivalent to centimetres in the physical experiment).
+
+The drum has inner radius $R = 100\,\mathrm{du}$ and a hub of radius
+$R_{\mathrm{axis}} = 5\,\mathrm{du}$. The drum extrusion depth (into the
+screen) is $20\,\mathrm{du}$, but this dimension is not used in the 2-D
+simulation; it serves only as a conceptual reference.
+
+Canvas rendering converts drum coordinates to screen pixels as:
+\begin{align}
+  x_{\mathrm{px}} &= C_x + x \cdot S, \\
+  y_{\mathrm{px}} &= C_y - y \cdot S,
+\end{align}
+where $(C_x, C_y)$ is the screen-space drum centre and $S$ is the pixel scale
+(pixels per drum unit), both computed by the layout engine from the window size.
+
+\subsection{Levitation Zone}
+
+The levitation zone (the \emph{highlight zone} in the code) is a disc centred
+at $(\Hcx, H_{\mathrm{cy}}) = (50, 0)$ with radius $\Hr = 50\,\mathrm{du}$.
+This places the zone on the right side of the drum, tangent to both the drum
+wall and the axis. A particle is considered \emph{levitated} when it has
+remained continuously inside the levitation zone for at least one full drum
+revolution.
+
+% =============================================================================
+\section{Drum Rotation Dynamics}
+% =============================================================================
+
+\subsection{Angular Velocity Model}
+
+The drum has two angular velocity variables: the \emph{target} velocity
+$\omg_{\mathrm{target}}$ (set by the user via swipe or auto-omega) and the
+\emph{actual} velocity $\omg$.
+
+The target decays exponentially each frame:
+\begin{equation}
+  \omg_{\mathrm{target}}(t + \Delta t) = \omg_{\mathrm{target}}(t)
+    \cdot e^{-\lambda_d \Delta t},
+\end{equation}
+with $\lambda_d = 1/30\,\mathrm{s}^{-1}$ (i.e.\ a 30-second decay time
+constant). This models aerodynamic drag on the drum once the user stops
+spinning it. The decay can be disabled with the \textbf{$\Omega$ lock} button.
+
+The actual velocity tracks the target with a slip rate
+$\lambda_s = 0.7\,\mathrm{s}^{-1}$:
+\begin{equation}
+  \omg(t + \Delta t) = \omg(t) + \bigl[\omg_{\mathrm{target}}(t+\Delta t)
+    - \omg(t)\bigr] \cdot \bigl(1 - e^{-\lambda_s \Delta t}\bigr).
+\end{equation}
+
+\subsection{User Input: Swipe}
+
+A pointer drag across the drum surface imparts angular momentum proportional
+to the tangential component of the drag velocity:
+\begin{equation}
+  \Delta\omg_{\mathrm{target}} = g_s \cdot
+    \frac{\Delta s_{\mathrm{tang}}}{r / R},
+\end{equation}
+where $g_s = 0.003\,\mathrm{(rad\,s^{-1})/px}$ is the swipe gain,
+$\Delta s_{\mathrm{tang}}$ is the pointer displacement projected onto the
+tangential direction, and $r$ is the distance of the midpoint from the axis.
+The denominator $(r/R)$ normalises for swipes near the axis versus near the
+wall, giving consistent feel at all radii. The result is clamped to
+$|\omg_{\mathrm{target}}| \leq \omg_{\max} = 2\pi \times 1.5\,\mathrm{rad\,s^{-1}}$.
+
+\paragraph{Design note.} The physical experiment runs at approximately
+$1\,\mathrm{RPM} \approx 0.105\,\mathrm{rad\,s^{-1}}$. At that speed,
+the levitation feedback to the user would be far too slow for an interactive
+experience. The simulation maximum of $1.5\,\mathrm{rev\,s^{-1}}$ is
+approximately 90 times faster, but preserves all the qualitative physics.
+
+% =============================================================================
+\section{Particle Kinematics and Levitation}
+% =============================================================================
+
+\subsection{Equations of Motion}
+
+In the rotating frame, the gas co-rotates with the drum and exerts a drag force
+on the particle that brings its velocity to the local gas velocity minus its
+terminal settling velocity $\vt$. In the (non-rotating) lab frame, the
+particle's instantaneous velocity is:
+\begin{align}
+  \dot{x} &= -\omg y, \label{eq:vx} \\
+  \dot{y} &= +\omg x - \vt. \label{eq:vy}
+\end{align}
+
+\noindent Equation~\eqref{eq:vx}--\eqref{eq:vy} give the gas velocity at the
+particle's position (a co-rotating body has $\dot{x} = -\omg y$,
+$\dot{y} = +\omg x$), reduced by $\vt$ in the $y$-direction. The settling
+velocity $\vt$ is always directed downward (the $-\hat{y}$ direction) and
+represents the particle's Stokes terminal velocity in quiescent gas.
+
+This is a \emph{kinematic} model: accelerations are not integrated; the
+velocity is set to the equilibrium value at every substep. This is valid when
+the aerodynamic drag time is much shorter than the orbital period, which is
+the overdamped (high-Stokes-drag) limit appropriate for the small particles
+of interest.
+
+\subsection{Circular Orbits}
+
+Setting $\ddot{x} = \ddot{y} = 0$ in the Newtonian sense (the orbit is
+closed) gives the orbit centre:
+\begin{equation}
+  \boxed{\xc = \frac{\vt}{\omg}, \qquad y_c = 0.}
+  \label{eq:orbit_centre}
+\end{equation}
+
+A particle at $(x_0, y_0)$ therefore orbits a circle of radius
+\begin{equation}
+  r = \sqrt{(x_0 - \xc)^2 + y_0^2}
+\end{equation}
+centred at $(\xc, 0)$. The orbit traces out at angular rate $\omg$ (the same
+rate as the drum).
+
+From eq.~\eqref{eq:orbit_centre}, heavier particles (larger $\vt$) orbit at
+larger $\xc$ and therefore closer to the drum wall. For a particle to remain
+levitated, its entire orbit must stay within the levitation zone. Since the
+levitation zone is centred at $(\Hcx, 0) = (50, 0)$ with radius
+$\Hr = 50$, this corresponds roughly to $\xc \approx 50$ and
+$r \lesssim 30$--$40\,\mathrm{du}$.
+
+\subsection{Terminal Velocity Distributions}
+
+Each injection event draws $N_P$ particles with terminal velocities from one
+of three distributions:
+
+\subsubsection{Gaussian (default)}
+\begin{equation}
+  \vt^{(i)} = \bar{\vt} \cdot \bigl(1 + s \cdot \xi_i\bigr),
+  \qquad \xi_i \sim \mathcal{N}(0, 1),
+\end{equation}
+where $\bar{\vt}$ is the mean terminal velocity and $s$ is the relative spread
+parameter (SPREAD slider, $0 \leq s \leq 0.5$).
+
+\subsubsection{Bi-disperse}
+Two groups with terminal velocities $\vt^{(1)}, \vt^{(2)}$, fractional
+spreads $s_1, s_2$, and mixing ratio $q$ (particles in group 1 per particle
+in group 2):
+\begin{equation}
+  P(\text{group 1}) = \frac{q}{1 + q}.
+\end{equation}
+Within each group, the terminal velocity is Gaussian with the group's own
+$\bar{\vt}^{(k)}$ and $s_k$.
+
+\subsubsection{Power-law}
+The differential size distribution $n(v) \propto v^q$ on $[v_{\min}, v_{\max}]$
+is sampled by inverse-transform:
+\begin{equation}
+  \vt = \Bigl[u\,\bigl(v_{\max}^{q+1} - v_{\min}^{q+1}\bigr)
+    + v_{\min}^{q+1}\Bigr]^{1/(q+1)}, \qquad u \sim \mathrm{Uniform}(0,1),
+\end{equation}
+with the special case $q = -1$ (log-uniform):
+\begin{equation}
+  \vt = v_{\min} \cdot \left(\frac{v_{\max}}{v_{\min}}\right)^u.
+\end{equation}
+
+In all cases, $\vt$ is clamped from below at the \emph{settle floor}
+$= 2\,\mathrm{cm\,s^{-1}}$.
+
+\subsection{Visual Size}
+
+The rendered radius of a particle scales as:
+\begin{equation}
+  s_{\mathrm{vis}} = \sqrt{\frac{\vt}{\vt^{\mathrm{ref}}}},
+  \qquad
+  \vt^{\mathrm{ref}} = 30\,\mathrm{cm\,s^{-1}},
+\end{equation}
+clamped to $[s_{\min}, s_{\max}] = [0.55, 1.8]$ drum units, and further
+scaled down by a factor $0.1$--$0.7$ at large particle counts
+($N_P \geq 300$) to keep the display readable.
+
+\subsection{Injection and Release}
+
+Particles are released from a brass manifold above the drum
+at $y = 110\,\mathrm{du}$ (above the wall), spread uniformly in $x$ across
+$[0, 100]\,\mathrm{du}$. They fall freely (no drag) until they cross the inner
+drum wall, at which point the kinematic drag model~\eqref{eq:vx}--\eqref{eq:vy}
+activates. Injection events are evenly spaced over the injection interval
+$\Delta t_{\mathrm{inj}}$; a puff animation accompanies the start of injection
+(one puff per nozzle, no further puffs regardless of particle count, to avoid
+GPU performance issues on mobile).
+
+\subsection{Wall Collision and Particle Loss}
+
+At each substep, if a non-stuck particle's distance from the axis satisfies
+$r \geq R_{\mathrm{wall}} = R - r_{\mathrm{coll}}$ (where
+$r_{\mathrm{coll}} = 0.5\,\mathrm{du}$ is the collision radius), the particle
+is \emph{stuck}: it is fixed to the wall at the collision angle and rotates
+with the drum. Stuck particles are displayed in red, fade over $5\,\mathrm{s}$,
+and then removed. The \texttt{lostCount} accumulator is incremented.
+
+With \textbf{Nanocoating} active, wall contact is handled elastically instead:
+the radial component of the velocity is reflected, and the particle is clamped
+just inside the wall.
+
+% =============================================================================
+\section{Automatic Drum Speed Control}
+% =============================================================================
+
+\subsection{Orbit-Centring Formula}
+
+The auto-omega function computes the drum speed that centres the range of orbit
+centres for the current $\vt$ distribution inside the levitation zone.
+
+From eq.~\eqref{eq:orbit_centre}, an orbit at $\vt$ is centred at
+$\xc = \vt / \omg$. For a distribution spanning $[\vt^{\min}, \vt^{\max}]$,
+the orbit centres span
+$[\vt^{\min}/\omg,\; \vt^{\max}/\omg]$.
+Centring this range on $\Hcx = 50$ gives:
+\begin{equation}
+  \boxed{\omg_{\mathrm{auto}} = \frac{\vt^{\min} + \vt^{\max}}{2 \Hcx}.}
+  \label{eq:auto_omega}
+\end{equation}
+
+For the Gaussian distribution,
+$\vt^{\min} = \bar{\vt}(1 - s)$, $\vt^{\max} = \bar{\vt}(1 + s)$, giving
+$\omg_{\mathrm{auto}} = \bar{\vt}/\Hcx$, independent of spread.
+
+For bi-disperse and power-law distributions, the full envelope of the
+distribution is used. The result is clamped to $[0.02, \omg_{\max}]$.
+
+\subsection{Launch Mode}
+
+In \emph{launch mode} (three-state auto-omega button, second state), the
+controller waits for particles to be injected, estimates the time of peak
+particle flux at $y = 0$, spins the drum up just before that time using a
+kernel-density estimate of the arrival time distribution, then transitions to
+live tracking. The optimal spin-up time is:
+\begin{equation}
+  t_{\mathrm{wait}} = \hat{t}_{\mathrm{peak}} - \frac{1}{\lambda_s},
+\end{equation}
+where $\hat{t}_{\mathrm{peak}}$ is the KDE mode of arrival times
+$t_{\mathrm{arr}}^{(i)} = t_{\mathrm{inj}}^{(i)} + R_{\mathrm{release}}/\vt^{(i)}$
+and the subtracted term accounts for the drum slip lag.
+
+% =============================================================================
+\section{Aggregate Formation}
+% =============================================================================
+
+\subsection{Formation Threshold and Trigger}
+
+Aggregate formation becomes possible when at least
+$N_{\mathrm{lev}}^{\min} = 30$ particles are simultaneously levitated and the
+velocity spread satisfies $s \geq s_{\min}^{\mathrm{agg}} = 0.20$.
+
+Once the threshold is met, a counter accumulates in units of drum revolutions:
+\begin{equation}
+  \mathcal{R}_{\mathrm{agg}} \mathrel{+}= \frac{\Delta t}{T},
+  \qquad T = \frac{2\pi}{\omg}.
+\end{equation}
+The first aggregate forms after $\mathcal{R}_{\mathrm{agg}} \geq 3$
+revolutions; each subsequent one after $\geq 1$ revolution (scaled down at
+large $N_P$ to maintain visual interest).
+
+\subsection{Merge Animation}
+
+When triggered, $n_{\mathrm{merge}} = 10$ levitated particles near a randomly
+chosen levitated particle are selected as the nearest cluster. They are animated
+along straight paths toward their centroid over a duration
+$\tau_{\mathrm{merge}} = 0.6\,\mathrm{s}$, then replaced by a single aggregate.
+
+\subsection{Aggregate Terminal Velocity and Stokes Kick}
+
+The aggregate's terminal velocity is the mass-weighted mean of its constituent
+monomers, scaled by a Stokes-number factor:
+\begin{equation}
+  \vt^{\mathrm{agg}} = \bar{\vt} \cdot f_{\mathrm{Stokes}},
+  \qquad f_{\mathrm{Stokes}} = 1.2 \text{ (when Stokes kick is on)}.
+\end{equation}
+
+The factor $f_{\mathrm{Stokes}} > 1$ reflects two physical effects acting in
+the same direction:
+\begin{enumerate}
+  \item \textbf{Increased inertia}: a compact aggregate has a higher
+    Stokes number (ratio of aerodynamic response time to orbital period) than
+    an individual monomer, so it settles faster in the rotating gas frame.
+  \item \textbf{Cross-section shadowing}: the aggregate's projected area is
+    smaller than the sum of its constituent areas (for compact, roughly spherical
+    aggregates), reducing drag per unit mass.
+\end{enumerate}
+
+The effect is that aggregates orbit at a slightly larger $\xc$ than the
+monomer population from which they formed, enabling them to orbit closer to the
+wall and reducing the risk of further levitation loss.
+
+When \textbf{Stokes kick} is off, $f_{\mathrm{Stokes}} = 1$ and the aggregate
+orbits exactly at the mean monomer orbit centre.
+
+\subsection{Aggregate Orbital Mechanics}
+
+Aggregates follow the same kinematic orbit equations
+\eqref{eq:vx}--\eqref{eq:vy} as monomers, but with their own $\vt^{\mathrm{agg}}$.
+Additionally, when \textbf{aggregate growth mode} is active, turbulent
+perturbations are applied each substep:
+\begin{align}
+  \delta v_x &= \sigma_B \xi_x, \label{eq:brownian_x} \\
+  \delta v_y &= \sigma_B \xi_y, \label{eq:brownian_y}
+\end{align}
+where $\xi_{x,y} \sim \mathcal{N}(0,1)$ and $\sigma_B = 2\,\mathrm{cm\,s^{-1}}$.
+A restoring force returns the aggregate toward its natural orbit centre
+$(\xc, 0)$:
+\begin{align}
+  \dot{v}_x^{\mathrm{restore}} &= k_R (\xc - x), \\
+  \dot{v}_y^{\mathrm{restore}} &= k_R (0 - y),
+\end{align}
+with spring constant $k_R = 0.5\,\mathrm{s}^{-1}$. This is a Langevin-type
+equation that produces a random walk around the orbit centre with a
+characteristic diffusion length set by $\sigma_B / k_R$.
+
+The perturbations cause aggregate orbits to drift, enabling close approaches
+with other aggregates.
+
+\subsection{Aggregate–Aggregate Growth Collisions}
+
+When growth mode is active (\btnicon{btnProcGrowth} orange state), aggregate
+pairs are checked for overlap each frame. When two aggregates touch
+($d < r_i + r_j$), the smaller merges into the larger over
+$\tau_{\mathrm{grow}} = 0.6\,\mathrm{s}$:
+\begin{align}
+  n_{\mathrm{new}} &= n_i + n_j, \\
+  \vt^{\mathrm{new}} &= \frac{n_i \vt^{(i)} + n_j \vt^{(j)}}{n_i + n_j}
+    \cdot f_{\mathrm{grow}},
+\end{align}
+where $f_{\mathrm{grow}} = 1.05$ per growth step (when Stokes kick is on).
+The visual radius grows as:
+\begin{equation}
+  r_{\mathrm{agg}} = r_{\mathrm{coll}} \cdot s_{\mathrm{vis}} \cdot
+    n_{\mathrm{mult}} \cdot \sqrt{n/10},
+\end{equation}
+with $n_{\mathrm{mult}} = 10$ (the aggregate size multiplier) and $n$ the
+current monomer count.
+
+An aggregate reaching $n \geq 100$ monomers automatically becomes a
+\textbf{pebble} (golden ball).
+
+\subsection{Wall Collision of Aggregates}
+
+An aggregate reaching the drum wall fragments into 10 stuck monomers spread
+around the impact angle, and the aggregate count is decremented. With
+\textbf{Nanocoating} active, the aggregate is instead elastically reflected.
+
+% =============================================================================
+\section{Pebble (Golden Ball) Formation}
+% =============================================================================
+
+\subsection{Formation Threshold}
+
+After $n_{\mathrm{agg}}^{\mathrm{crit}} = 7$ aggregates are simultaneously
+levitated for a hold time of $H_{\mathrm{pebble}} = 3$ revolutions (first
+pebble) or $3$ revolutions (subsequent), a pebble merge is triggered. The
+velocity spread condition $s \geq s_{\min}^{\mathrm{pebble}} = 0.30$ must
+also be satisfied.
+
+The aggregate targets are chosen by a K-nearest-neighbours search
+($K = 3$) to find the densest cluster, producing visually coherent merges.
+The $n_{\mathrm{agg}}^{\mathrm{crit}} = 7$ chosen aggregates are animated
+toward their centroid over $\tau_{\mathrm{pebble}} = 0.6\,\mathrm{s}$, and
+the aggregate count is reduced by 7 on completion.
+
+\subsection{Golden Ball Physics}
+
+Golden balls obey Newtonian dynamics, not the kinematic drag model:
+\begin{align}
+  \ddot{x} &= 0, \\
+  \ddot{y} &= -g = -200\,\mathrm{du\,s^{-2}}.
+\end{align}
+
+They bounce off the drum wall with restitution coefficient
+$e_w = 0.85$ (normal) and tangential friction $\mu_w = 0.92$:
+\begin{align}
+  v_n^+ &= -e_w v_n^-, \\
+  v_t^+ &= \mu_w v_t^-,
+\end{align}
+where superscripts $\pm$ denote post- and pre-collision components.
+
+Ball–ball collisions are handled with coefficient $e_b = 0.90$:
+\begin{equation}
+  J = \frac{(1 + e_b)\,v_{\mathrm{rel,n}}}{2},
+  \qquad \Delta\mathbf{v}_{A,B} = \mp J\,\hat{n}.
+\end{equation}
+
+A rotating \textbf{bump} fixed to the drum wall (at the same angular position
+as the collection tray slot) collides with balls as the drum rotates, adding
+energy to keep them bouncing.
+
+Wall contact drag interpolates the ball's tangential velocity toward the
+drum surface velocity with time constant $\lambda_c = 0.7\,\mathrm{s}^{-1}$.
+
+% =============================================================================
+\section{Globe (Planet) Formation}
+% =============================================================================
+
+\subsection{Formation Threshold}
+
+When $n_{\mathrm{ball}}^{\mathrm{crit}} = 3$ golden balls are simultaneously
+present, they merge into a \textbf{globe} over $\tau_{\mathrm{globe}} = 1.2\,\mathrm{s}$.
+Up to 7 globes can exist simultaneously.
+
+\subsection{Globe Hover Physics}
+
+Each globe is attracted toward the hover point $(0, -50)$ (drum units) by a
+spring:
+\begin{align}
+  \dot{v}_x &\mathrel{+}= 0.01 \cdot 60 \cdot (0 - x)\,\Delta t, \\
+  \dot{v}_y &\mathrel{+}= 0.01 \cdot 60 \cdot (-50 - y)\,\Delta t,
+\end{align}
+and repelled from all other globes by a $1/r^2$ force with constant
+$F_{\mathrm{rep}} = 15000\,\mathrm{du^3\,s^{-2}}$, with an additional linear
+hard-contact push when $d < 2.2 R_{\mathrm{globe}}$.
+
+Velocity is damped at $\exp(-9.74\,\Delta t)$ per frame, equivalent to
+$\approx 0.85^{1/\Delta t}$ at $60\,\mathrm{fps}$.
+
+% =============================================================================
+\section{Solar System Phase Machine}
+% =============================================================================
+
+Once a second globe forms, the simulation enters a solar system mode and
+progresses through a finite state machine: \texttt{showing}
+$\to$ \texttt{transitioning} $\to$ \texttt{orbiting}
+$\to$ \texttt{spindown} $\to$ \texttt{final\_move}
+$\to$ \texttt{final\_view}.
+
+\subsection{Orbital Dynamics}
+
+Each globe is assigned an orbit with semi-major axis from the sequence
+$[11, 17, 24, 31, 37, 42, 50]\,\mathrm{du}$ (scaled dynamically to fit all
+globes inside the drum). The orbital angular velocity follows a modified
+Keplerian law:
+\begin{equation}
+  \omg_{\mathrm{orbit}}(r) = \frac{\omg_0}{r^{0.75}},
+  \qquad \omg_0 \approx 3.006\,\mathrm{rad\,s^{-1}},
+\end{equation}
+where $\omg_0 = (2\pi/8) \cdot 6^{0.75}$.
+
+The exponent $0.75$ is shallower than the true Keplerian value of $1.5$.
+This is a deliberate design choice: the full Keplerian scaling would make inner
+planets orbit extremely fast relative to outer ones, which looks chaotic at the
+speed of the simulation. The $0.75$ exponent gives a visually convincing
+impression of varying orbital periods while keeping all orbits visible at once.
+
+The orbits are displayed as inclined ellipses with inclination
+$\cos i = 0.3$ (i.e.\ $i \approx 73^{\circ}$), giving a sense of a tilted orbital
+plane viewed in 3-D perspective.
+
+\subsection{System Scale}
+
+As new globes are added, the system scale $\mathcal{S}$ is reduced so that
+all orbits fit within the drum:
+\begin{equation}
+  \mathcal{S}_n = \frac{R_{\max}}{r_n + r_{\mathrm{orb}}},
+\end{equation}
+where $R_{\max} = 80\,\mathrm{du}$ is the maximum safe orbit radius,
+$r_n$ is the outermost orbit radius for $n$ globes, and
+$r_{\mathrm{orb}} = 3\,\mathrm{du}$ is the visual orbit size.
+Transitions between scales are eased with a cubic smoothstep over
+$3\,\mathrm{s}$.
+
+\subsection{Voyager Probes}
+
+After the solar system reaches its final static state (all seven planets,
+drum stopped), two probe objects are launched sequentially (with a $2.4\,\mathrm{s}$
+gap) from the innermost planet. Each probe visits all planets in order at
+speed $28\,\mathrm{du\,s^{-1}}$, then escapes radially to the drum edge.
+The probes leave luminous trails. When both probes have completed their
+escape, an end-of-game sheet is shown after a $2\,\mathrm{s}$ delay.
+
+% =============================================================================
+\section{Numerical Implementation}
+% =============================================================================
+
+\subsection{Timestep and Substep Logic}
+
+The main loop runs at the browser's animation frame rate
+($\approx 60\,\mathrm{fps}$ on most displays). The wall-clock frame duration
+$\Delta t_{\mathrm{frame}}$ is capped at $\Delta t_{\max} = 0.033\,\mathrm{s}$
+to prevent large jumps after tab switches or garbage collection pauses.
+A simulation speed multiplier $s_{\mathrm{sim}} \in [0.25, 4]$ is applied:
+\begin{equation}
+  \Delta t = \min(\Delta t_{\mathrm{frame}},\, \Delta t_{\max}) \cdot s_{\mathrm{sim}}.
+\end{equation}
+
+Physics are advanced in substeps of size $h = \Delta t / n_{\mathrm{sub}}$,
+where:
+\begin{equation}
+  n_{\mathrm{sub}} = \max\Bigl(1,\; \left\lceil\frac{\Delta t}{\Delta t_{\mathrm{sub}}}\right\rceil\Bigr),
+  \qquad \Delta t_{\mathrm{sub}} = \frac{T_{\min}}{100}
+    = \frac{2\pi/\omg_{\max}}{100}.
+\end{equation}
+
+At $\omg_{\max} = 2\pi \times 1.5\,\mathrm{rad\,s^{-1}}$,
+$\Delta t_{\mathrm{sub}} \approx 6.7\times10^{-3}\,\mathrm{s}$, giving
+$\approx 10$ substeps per frame at $60\,\mathrm{fps}$. This ensures that even
+the fastest orbiting particles do not cross the collision margin in a single
+substep.
+
+\subsection{Slow-Motion During Merges}
+
+When the slow-motion flag is armed (\btnicon{btnProcSlowMo}), any frame
+during which a merge animation is active (aggregate, pebble, or globe) is
+advanced at $1/5$ real speed:
+\begin{equation}
+  \Delta t \to \Delta t / 5 \quad \text{(when merging)}.
+\end{equation}
+This does not affect the audio system, which runs on the Web Audio API and
+is independent of the simulation clock.
+
+\subsection{Stroboscopic Mode}
+
+When strobe mode is active (\btnicon{btnSysStrobe}), the canvas is redrawn
+only once per complete drum revolution. The revolution counter is tracked as
+$\lfloor |\theta_{\mathrm{drum}}| / 2\pi \rfloor$; when this advances, a
+redraw is triggered. Levitated particles appear stationary; drifting particles
+advance between flashes, revealing their motion.
+
+\subsection{Simulation Speed Gears}
+
+Five speed gears are available: $\{0.25\times, 0.5\times, 1\times, 2\times,
+4\times\}$. The multiplier applies to $\Delta t$ before substep splitting.
+The drum decay, injection timing, particle injection, and all physics scale
+with the simulation clock, so all processes are accelerated or decelerated
+uniformly.
+
+\subsection{Pause}
+
+Pressing \texttt{Space} pauses the simulation. All physics, drum rotation,
+and motor audio freeze; the canvas continues to render the frozen state.
+
+% =============================================================================
+\section{Heatmap and Analytical Overlays}
+% =============================================================================
+
+\subsection{Heatmap Accumulation}
+
+The drum interior is divided into a $50 \times 50$ grid. Each substep, each
+live non-stuck particle is binned by position, and three quantities are
+accumulated per cell:
+$n$ (count), $\Sigma v$ (speed sum), and $\Sigma v^2$ (speed-squared sum).
+
+At the end of each complete drum revolution, the following quantities are
+finalised for each cell:
+\begin{align}
+  \bar{v} &= \frac{\Sigma v}{n}, \\
+  \sigma_v &= \sqrt{\frac{\Sigma v^2}{n} - \bar{v}^2}
+    \quad \text{(velocity dispersion)}, \\
+  \rho &= \frac{n}{N_{\mathrm{ticks}}}
+    \quad \text{(mean particle density per frame)}, \\
+  \mathcal{C} &= \rho \cdot \sigma_v^2
+    \quad \text{(collision proxy)}.
+\end{align}
+
+The collision proxy $\mathcal{C} = \rho \sigma_v^2$ is motivated by the
+kinetic theory expression for the collision rate between two particle
+populations: $R_{12} \propto n_1 n_2 \sigma_{\mathrm{rel}}$, where
+$\sigma_{\mathrm{rel}} \propto \sigma_v$ for particles with different $\vt$.
+The proxy therefore highlights regions where both population density and
+velocity dispersion are high — i.e.\ where aggregate formation is most likely.
+
+Three display modes cycle through with the $\blacktriangleleft$ $\blacktriangleright$ buttons:
+\begin{enumerate}
+  \item \textbf{Velocity variance} $\sigma_v$ — shows where particles have
+    the largest spread in speed, indicating different orbital radii crossing.
+  \item \textbf{Particle density} $\rho$ — shows where particles spend the
+    most time.
+  \item \textbf{Collision proxy} $\mathcal{C} = \rho \sigma_v^2$ — combines
+    the two, highlighting the most collision-active region.
+\end{enumerate}
+
+\subsection{Orbit Projections}
+
+The \emph{selected orbits} mode draws, for a representative sample of particles:
+\begin{itemize}
+  \item The orbit circle centred at $(\xc, 0) = (\vt/\omg, 0)$ with
+    radius $r = \sqrt{(x-\xc)^2 + y^2}$.
+  \item A dot marking $\xc$ on the $x$-axis.
+  \item Green circles for levitated particles, red for non-levitated.
+\end{itemize}
+The sample is updated every $3\,\mathrm{s}$ and comprises: the 5
+smallest-circumference orbits, up to 10 levitated particles spanning the
+full $\xc$ range, and up to 10 non-levitated particles spanning their $\xc$
+range.
+
+\subsection{Aggregate Encounter Prediction}
+
+For each pair of live aggregates, the simulation analytically computes the
+\emph{closest approach} position during the next orbit. Each aggregate
+follows a circular orbit:
+\begin{align}
+  x_i(\theta) &= \xc^{(i)} + R_i \cos(\phi_i + \theta), \\
+  y_i(\theta) &= R_i \sin(\phi_i + \theta),
+\end{align}
+where $\theta$ is the orbital phase advance (both advance at the same rate
+$\omg$). The squared separation is:
+\begin{equation}
+  d^2(\theta) = C_0 + 2\,\Delta\xc\,(P\cos\theta - Q\sin\theta),
+\end{equation}
+where
+$P = R_i\cos\phi_i - R_j\cos\phi_j$,
+$Q = R_i\sin\phi_i - R_j\sin\phi_j$,
+$\Delta\xc = \xc^{(i)} - \xc^{(j)}$.
+The minimum is at $\theta^* = \arctan(-Q, P)$; both $\theta^*$ and
+$\theta^* + \pi$ are evaluated and the smaller $d^2$ is taken.
+
+The top 10 closest-approach pairs are shown with connecting lines. When a
+pair is within $\Delta\theta \approx 0.15\,\mathrm{rad}$ of their closest
+approach, the display flashes white.
+
+\subsection{Ghost Paths}
+
+In ghost mode, a selected particle's future trajectory is shown in three
+versions:
+\begin{itemize}
+  \item \textbf{White solid}: actual kinematic orbit
+    (integrating eqs.~\eqref{eq:vx}--\eqref{eq:vy} for 40 substeps of
+    $0.05\,\mathrm{s}$).
+  \item \textbf{Cyan dashed}: gas-only co-rotation (no settling, i.e.\
+    $\vt = 0$).
+  \item \textbf{Purple dashed}: free-fall vacuum trajectory
+    (no drag, only gravity $g = 200\,\mathrm{du\,s^{-2}}$ downward).
+\end{itemize}
+The comparison between the three paths makes the role of aerodynamic drag
+and the settling velocity physically intuitive.
+
+\subsection{$v_t$ Distribution Display}
+
+Live kernel-density estimates are drawn for:
+\begin{itemize}
+  \item \textbf{Yellow}: $\vt$ distribution of all floating (non-levitated) particles.
+  \item \textbf{Green}: $\vt$ distribution of levitated particles.
+\end{itemize}
+The KDE uses Silverman's rule of thumb for bandwidth:
+$h = 1.06\,\hat\sigma\,n^{-1/5}$.
+An amber histogram shows $\vt$ values of live aggregates.
+
+All three are normalised independently (height = 1 at peak), so relative
+shapes are directly comparable regardless of population size.
+
+\subsection{Aggregate Size Histogram}
+
+A bar chart inside the left half of the drum shows the current aggregate
+population binned by monomer count in steps of 10 (bins 10–100), plus a
+gold bar for pebbles. The $y$-axis is fixed at a maximum of 10; count
+labels appear above bars when counts exceed the axis. The display updates
+continuously.
+
+% =============================================================================
+\section{Collection Tray}
+% =============================================================================
+
+The collection tray is a retractable metal blade that can be inserted into
+the drum to capture levitated particles, aggregates, and pebbles.
+
+\subsection{Arming}
+
+Pressing the \textbf{Collect} button (\btnicon{btnCollect}) arms the tray.
+The arm waits for the gold slot marker on the bolt ring to cross the
+12-o'clock position on screen (canvas angle $-\pi/2$). At that moment,
+insertion begins. Pressing the button again while armed cancels arming.
+
+\subsection{Insertion Kinematics}
+
+The blade extends from the slot marker (the hinge point on the rim) inward
+along a fixed direction locked at fire time. The direction aims toward a
+point $(0.447R, 0.224R)$ in drum coordinates, producing a blade that sweeps
+a chord roughly $0.89R$ long.
+
+Insertion sweeps $270°$ of drum rotation, divided into two phases:
+\begin{enumerate}
+  \item \textbf{Cruise} (first $2/3$): drum speed held constant at the
+    firing value.
+  \item \textbf{Brake} (final $1/3$): drum decelerates smoothly to zero via
+    a cubic smoothstep ramp:
+    \begin{equation}
+      \omg(t) = \omg_0 \cdot \bigl(1 - 3u^2 + 2u^3\bigr),
+      \quad u = (t - t_{\mathrm{brake}}) / \tau_{\mathrm{brake}}.
+    \end{equation}
+\end{enumerate}
+
+Particles and aggregates within $2 \times \tau_{\mathrm{thick}}$ of the tray
+line are captured and pinned to the upper blade surface, then co-rotate with
+the drum until insertion is complete.
+
+% =============================================================================
+\section{Slice Widening (Doubling)}
+% =============================================================================
+
+\subsection{Physical Justification}
+
+The simulation models a single axial \emph{slice} of the drum. Early in a
+run, this slice is injected with $N_P$ particles. Through wall losses and
+aggregate/pebble formation, the active particle count decreases. Computational
+capacity is then underused.
+
+The physical assumption is that adjacent axial slices have undergone the same
+process: they started with a similar particle distribution and have evolved
+identically (same levitation conditions, same statistics). Widening the
+simulated slice to include one adjacent slice should therefore approximately
+double the levitated population without introducing any particles that are
+physically implausible.
+
+\subsection{Implementation}
+
+Pressing \btnicon{btnProcDouble} duplicates all currently levitated particles
+and all currently levitated aggregates. Each copy is placed $90°$ ahead of
+the original in its orbit. The copy's position is computed as:
+\begin{align}
+  x' &= \xc + r \cos(\phi + \pi/2) = \xc - r\sin\phi = \xc - y, \\
+  y' &= r \sin(\phi + \pi/2) = r\cos\phi = x - \xc,
+\end{align}
+and the copy's velocity is set to the orbital velocity at the new position:
+\begin{align}
+  v_x' &= -\omg y', \\
+  v_y' &= +\omg x' - \vt.
+\end{align}
+The $90°$ offset ensures no two copies are at the same position, avoiding
+initialisation artefacts. The copies inherit \texttt{inHighlightSince} from
+the originals so they count as immediately levitated. The button flashes
+without action if the drum is not spinning (orbits are undefined).
+
+% =============================================================================
+\section{User Interface — Main Controls}
+% =============================================================================
+
+\subsection{Left Wing: Injection Parameters}
+
+\begin{longtable}{@{}p{2cm}lp{9cm}@{}}
+  \toprule
+  Icon & Label & Description \\
+  \midrule
+  \btnicon{winNP}  & \textbf{Particles} &
+    Number of particles per injection event $N_P \in
+    \{1,2,3,10,30,100,300,1000,3000,10000\}$.\\
+  \btnicon{winVT}  & \textbf{$v_t$ cm/s} &
+    Mean terminal velocity $\bar{\vt} \in \{2,5,10,20,30,40,50\}\,\mathrm{cm\,s^{-1}}$.
+    Larger $\vt$ produces visually larger particles. Overridden by the
+    distribution panel when a custom profile is active.\\
+  \btnicon{winSpread} & \textbf{$v_t$ spread} &
+    Relative Gaussian spread $s \in \{0,0.01,0.02,0.05,0.10,0.20,0.30,0.50\}$.
+    Must be $\geq 0.20$ for aggregate formation and $\geq 0.30$ for pebble
+    formation.\\
+  \btnicon{winDT}  & \textbf{$\Delta t$ inject} &
+    Injection time span $\Delta t_{\mathrm{inj}} \in \{0,0.5,1,...,10\}\,\mathrm{s}$.
+    Particles are released uniformly over this interval.\\
+  \bottomrule
+\end{longtable}
+
+Clicking the value display of VT or Spread when a custom distribution profile
+is active opens the distribution overlay directly, rather than cycling the
+value. The display shows the profile name in orange.
+
+\subsection{Right Wing: Action Controls}
+
+\begin{longtable}{@{}p{2cm}lp{9cm}@{}}
+  \toprule
+  Icon & Label & Description \\
+  \midrule
+  \btnicon{btnStart}   & \textbf{Inject} &
+    Clears existing particles and releases a new batch. The mill start sound
+    plays for the injection duration. \\
+  \btnicon{btnSound}   & \textbf{Sound} &
+    Toggles all audio (motor hum, impact sounds, chimes). Default: on. \\
+  \btnicon{btnOmegaCtl} & \textbf{$\Omega$} &
+    Locks the current drum rotation rate: decay is set to zero and no
+    further acceleration is applied. Useful for sustained levitation
+    experiments. \\
+  \btnicon{btnTrails}  & \textbf{Trails} &
+    Enables particle trail rendering. Each particle leaves a fading path
+    showing its recent trajectory over $1\,\mathrm{s}$. Disabled for
+    $N_P \geq 300$ (performance). \\
+  \btnicon{btnLaser}   & \textbf{Lidar} &
+    Engages \emph{lidar mode}: the drum darkens and particles are visible only
+    when the scanning green laser beam crosses them. The laser makes one full
+    revolution every $1.2\,\mathrm{s}$ (angular velocity
+    $\omg_{\mathrm{laser}} = 2\pi/1.2 \approx 5.24\,\mathrm{rad\,s^{-1}}$). \\
+  \btnicon{btnMicro}   & \textbf{Microscope} &
+    Slides the ceiling-mounted viewport down to display microscope imagery
+    or live rendered content, governed by the viewport rule system (§\ref{sec:viewport}). \\
+  \btnicon{btnChart}   & \textbf{Chart} &
+    Slides the viewport down to display data charts or live rendered content.\\
+  \btnicon{btnTheme}   & \textbf{Lighting} &
+    Toggles between the dark laboratory background and the light daytime
+    background. \\
+  \btnicon{btnGameMode} & \textbf{Game} &
+    Enters the 8-level progressive game mode (§\ref{sec:game}). \\
+  \btnicon{btnChallenge} & \textbf{Challenge} &
+    Enters timed challenge mode with a local leaderboard (§\ref{sec:challenge}). \\
+  \btnicon{btnManual}  & \textbf{Info} &
+    Opens the user manual overlay. \\
+  \btnicon{btnReset}   & \textbf{Reset} &
+    Clears all particles, aggregates, pebbles, and globes; resets the
+    simulation to a clean state ready for a new injection. \\
+  \bottomrule
+\end{longtable}
+
+% =============================================================================
+\section{Expert Panel}
+% =============================================================================
+
+The expert panel is concealed behind a locked door at the bottom of the left
+wing. It can be opened by:
+\begin{itemize}
+  \item Triple-tapping the title plate.
+  \item Appending \texttt{?expert} to the URL.
+\end{itemize}
+
+The panel is divided into three sections: HUD, Processes, and System.
+
+\subsection{HUD — Visualisation Overlays}
+
+\begin{longtable}{@{}p{1.5cm}lp{9.5cm}@{}}
+  \toprule
+  Icon & Name & Description \\
+  \midrule
+  \btnicon{btnVtProj} & \textbf{Orbit centre projection} &
+    Draws the range of orbit centres $[\vt^{\min}/\omg, \vt^{\max}/\omg]$
+    as a horizontal dashed line on the drum equator, with dots at the
+    endpoints and centre. Updates live as $\vt$, spread, or $\omg$ changes.
+    Reveals the physical intuition behind eq.~\eqref{eq:orbit_centre}. \\
+  \btnicon{btnFlashOrbit} & \textbf{Flash orbit} &
+    After each aggregate forms, briefly draws its orbit ring (cyan) alongside
+    the mean-$\vt$ orbit of the levitated population (amber), connected by a
+    line showing the offset due to the Stokes kick. \\
+  \btnicon{btnAggEncounters} & \textbf{Encounter projections} &
+    Shows the closest-approach positions and separation distance for the
+    top-10 aggregate pairs (§9.2). Flashes white when a pair is near approach. \\
+  \btnicon{btnVtDist} & \textbf{$v_t$ distribution} &
+    Live KDE of levitated (green) and floating (yellow) particles, plus
+    amber histogram of aggregate $\vt$ values. \\
+  \btnicon{btnAggHist} & \textbf{Size histogram} &
+    Bar chart of current aggregate monomer count distribution, plus pebble count. \\
+  \btnicon{btnSysSolidMap} & \textbf{Backdrop} &
+    Opaque backing sheet behind all overlays for contrast. Short press
+    toggles; long press ($>400\,\mathrm{ms}$) opens an opacity slider. \\
+  $\blacktriangleleft$ & \textbf{Mode prev} & Step to previous analysis mode. \\
+  \btnicon{btnHudMaster} & \textbf{Analysis HUD} &
+    Master power switch for the heatmap and overlay analysis engine.
+    Activating resets all accumulators. Six modes cycle with $\blacktriangleleft$ $\blacktriangleright$:
+    \emph{vector field}, \emph{ghost paths}, \emph{orbit sample},
+    \emph{density}, \emph{dispersion}, \emph{collision proxy}. \\
+  $\blacktriangleright$ & \textbf{Mode next} & Step to next analysis mode. \\
+  \bottomrule
+\end{longtable}
+
+\subsection{Processes}
+
+\begin{longtable}{@{}p{1.5cm}lp{9.5cm}@{}}
+  \toprule
+  Icon & Name & Description \\
+  \midrule
+  \btnicon{btnProcInvinc} & \textbf{Nanocoating} &
+    Prevents particle and aggregate loss at the wall. Particles are elastically
+    reflected; aggregates are clamped and damped. Useful for accumulating large
+    levitated populations. \\
+  \btnicon{btnProcPeb} & \textbf{Sweep} &
+    Instantly removes all non-levitated floating particles.
+    A single-use action (flashes, returns to passive). \\
+  \btnicon{btnProcDouble} & \textbf{Widen slice} &
+    Duplicates all levitated particles and aggregates, placing copies $90°$
+    ahead in their orbits. Models widening the simulated drum slice. \\
+  \btnicon{btnProcPureV} & \textbf{Stokes kick} &
+    When on (default off), aggregates receive a $\times 1.2$ $\vt$ boost at
+    formation and $\times 1.05$ per growth merge, reflecting higher Stokes
+    number and cross-section shadowing. \\
+  \btnicon{btnProcAgg} & \textbf{Aggregate formation} &
+    Green (default on): aggregates form normally from levitated particles.
+    Red (off): the formation threshold is set to $10^6$ (effectively disabled),
+    useful for accumulating large levitated monomer populations without
+    self-organisation. \\
+  \btnicon{btnProcGrowth} & \textbf{Growth mode} &
+    Three-state button:
+    \begin{itemize}
+      \item \emph{Green (Pebble)}: standard operation — 7 levitated aggregates
+        merge into a pebble after the hold criterion.
+      \item \emph{Amber (Grow)}: aggregate–aggregate collision growth active.
+        Brownian perturbations, restoring spring, and pebble transition at
+        $n = 100$. Pebble formation via the standard path is disabled.
+      \item \emph{Red (Off)}: all growth beyond aggregate formation disabled.
+    \end{itemize} \\
+  \bottomrule
+\end{longtable}
+
+\subsection{System}
+
+\begin{longtable}{@{}p{1.5cm}lp{9.5cm}@{}}
+  \toprule
+  Icon & Name & Description \\
+  \midrule
+  \btnicon{btnDistMenu} & \textbf{Distribution} &
+    Opens the injection profile panel. Three modes: Gaussian (uses wing
+    sliders), bi-disperse (two groups with individual $\vt$, spread, ratio),
+    and power-law (eq.~\eqref{eq:auto_omega}). Applies from next injection. \\
+  \btnicon{btnSysAutoOmega} & \textbf{Auto-omega} &
+    Three-state button:
+    \begin{itemize}
+      \item \emph{Off}: user controls $\omg$ manually.
+      \item \emph{Green (Auto)}: live orbit-centring using
+        eq.~\eqref{eq:auto_omega}.
+      \item \emph{Orange (Launch)}: waits for injection, computes optimal
+        spin-up time, spins up, then tracks.
+    \end{itemize} \\
+  \btnicon{btnCollect} & \textbf{Collect} &
+    Arms the collection tray. Waits for the slot marker to reach 12 o'clock,
+    then inserts the blade and stops the drum. \\
+  $\blacktriangleleft$ & \textbf{Speed down} & Reduce simulation speed one gear. \\
+  \btnicon{btnSpeedReset} & \textbf{Speed} &
+    Shows current speed gear; press to reset to $1\times$. \\
+  $\blacktriangleright$ & \textbf{Speed up} & Increase simulation speed one gear. \\
+  \btnicon{btnSysStrobe} & \textbf{Strobe} &
+    Redraws once per drum revolution (stroboscopic mode). \\
+  \btnicon{btnProcSlowMo} & \textbf{Slow motion} &
+    Short press: $5\times$ slow during merge animations.
+    Long press ($>2\,\mathrm{s}$): activates \emph{Fast Chain} mode
+    (dramatically reduced thresholds for rapid prototyping). \\
+  \btnicon{btnProcFast} & \textbf{Zoom} &
+    Zooms the view so the levitation zone fills the drum area. \\
+  \bottomrule
+\end{longtable}
+
+% =============================================================================
+\section{Game Mode}
+\label{sec:game}
+% =============================================================================
+
+Game mode presents 8 progressive levels. The game locks the injection
+parameter selectors during play and monitors simulation state each frame.
+
+\begin{longtable}{@{}rp{6cm}p{8cm}@{}}
+  \toprule
+  \# & Name & Parameters / Goal / Fail \\
+  \midrule
+  1 & First Contact &
+    $N_P=3$, $\vt=20$, $s=0$ \newline
+    \textit{Goal:} $\geq 1$ levitated for $3\,\mathrm{s}$ \newline
+    \textit{Fail:} all particles lost \\[4pt]
+  2 & Finding the Sweet Spot &
+    $N_P=3$, $\vt=30$, $s=0$, trails \newline
+    \textit{Goal:} $\geq 2$ levitated for $5\,\mathrm{s}$ \newline
+    \textit{Fail:} fewer than 2 floating \\[4pt]
+  3 & Reading the Orbits &
+    $N_P=5$, $\vt=50$, $s=0$, trails \newline
+    \textit{Goal:} $\geq 2$ levitated for $5\,\mathrm{s}$ \newline
+    \textit{Fail:} fewer than 2 floating \\[4pt]
+  4 & A Spread of Sizes &
+    $N_P=15$, $\vt=30$, $s=0.15$, trails \newline
+    \textit{Goal:} $\geq 4$ levitated for $5\,\mathrm{s}$ \newline
+    \textit{Fail:} fewer than 4 floating \\[4pt]
+  5 & Flying Blind &
+    $N_P=20$, $\vt=30$, $s=0.15$, lidar \newline
+    \textit{Goal:} $\geq 6$ levitated for $8\,\mathrm{s}$ \newline
+    \textit{Fail:} fewer than 6 floating \\[4pt]
+  6 & Crowded Skies &
+    $N_P=50$, $\vt=30$, $s=0.15$ \newline
+    \textit{Goal:} $\geq 10$ levitated for $10\,\mathrm{s}$ \newline
+    \textit{Fail:} fewer than 10 floating \\[4pt]
+  7 & Encouraging Collisions &
+    $N_P=100$, $\vt=30$, $s=0.20$ \newline
+    \textit{Goal:} $\geq 1$ aggregate formed \newline
+    \textit{Fail:} timeout after 40 revolutions \\[4pt]
+  8 & More Energetic Encounters &
+    $N_P=300$, $\vt=30$, $s=0.30$, trails \newline
+    \textit{Goal:} $\geq 1$ pebble formed \newline
+    \textit{Fail:} timeout after 100 revolutions \\
+  \bottomrule
+\end{longtable}
+
+Structure-forming levels (7--8) use a wall-clock-scaled timeout:
+$t_{\max} = n_{\mathrm{revs}} \times 3\,\mathrm{s}$ (assuming
+$\geq 1\,\mathrm{rev\,per\,3\,s}$). A win confirmation delay of $5\,\mathrm{s}$
+is applied before the success sheet appears, giving the player time to observe
+the formed structure.
+
+Completing level 8 shows a transition sheet to the free-play sandbox, with the
+level-8 parameters (300 particles, 30\% spread) pre-applied.
+
+% =============================================================================
+\section{Challenge Mode}
+\label{sec:challenge}
+% =============================================================================
+
+Challenge mode runs a timed levitation contest with a weighted score:
+\begin{equation}
+  \mathrm{Score} = N_{\mathrm{part}} + 10\,N_{\mathrm{agg}}
+    + 100\,N_{\mathrm{pebble}} + 1000\,N_{\mathrm{planet}},
+\end{equation}
+where each count is taken at run end. A particle counts if it has been
+continuously levitated for $\geq 3$ full revolutions.
+
+The run ends when all injected particles are either levitated, stuck, or lost,
+or when the time limit $\Delta t_{\mathrm{limit}} = 60 + \Delta t_{\mathrm{inj}}$
+seconds is exceeded.
+
+Default challenge parameters: $N_P = 300$, $\vt = 30\,\mathrm{cm\,s^{-1}}$,
+$s = 0.30$, $\Delta t_{\mathrm{inj}} = 3\,\mathrm{s}$. All can be overridden
+by URL parameters (see §\ref{sec:url}).
+
+Scores are stored in browser \texttt{localStorage} under the key
+\texttt{levitation\_highscores} as a JSON array of
+\texttt{\{name, score, np, date\}} objects. The top 7 are displayed.
+
+% =============================================================================
+\section{Viewport System}
+\label{sec:viewport}
+% =============================================================================
+
+The viewport is a brass-framed screen that slides down from above the drum
+on the Microscope or Chart button press. It displays either static image or
+video assets, or live canvas-rendered content, driven by a rule engine.
+
+\subsection{Rule Evaluation}
+
+Every $1/5\,\mathrm{s}$, the engine evaluates a bank of rules for the active
+channel (\texttt{microscope} or \texttt{chart}). Each rule has:
+\begin{itemize}
+  \item A \texttt{when} predicate receiving a \texttt{ctx} snapshot of
+    simulation state (particle counts, drum state, mode flags, etc.).
+  \item An \texttt{asset} (filename string, array for random selection,
+    or a \texttt{\{type, src/name\}} descriptor).
+  \item A \texttt{priority} (higher wins; default 0).
+\end{itemize}
+
+The highest-priority matching rule is selected. Asset changes are crossfaded
+over $0.4\,\mathrm{s}$ with a $1.0\,\mathrm{s}$ debounce to prevent flickering.
+
+\subsection{Live Renderers}
+
+Any asset of type \texttt{render} calls a registered JavaScript function
+that paints into the viewport's off-screen canvas each frame:
+\begin{lstlisting}[language=Java]
+registerViewportRenderer('myPlot', function(g, w, h, ctx, t) {
+    // g: 2D context  w,h: pixel size  ctx: simulation snapshot  t: sim time
+});
+\end{lstlisting}
+The \texttt{ctx} object exposes particle counts, drum state, mode flags, and
+current parameters, enabling data-driven visualisations.
+
+\subsection{Context Object Summary}
+
+Key fields available in \texttt{ctx}:
+\begin{itemize}
+  \item \texttt{ctx.particles.\{floating, levitated, lost, total, ...\ \}}
+  \item \texttt{ctx.aggregates.\{active, levitated, totalFormed\}}
+  \item \texttt{ctx.pebbles.\{count\}}
+  \item \texttt{ctx.drum.\{omega, period, spinning, direction\}}
+  \item \texttt{ctx.params.\{N\_P, V\_T, VT\_SPREAD, DT\_INJECT\}}
+  \item \texttt{ctx.mode.\{game, gameLevel, challenge, running\}}
+  \item \texttt{ctx.flags.\{laserOn, trailsOn, theme\}}
+\end{itemize}
+
+% =============================================================================
+\section{Audio System}
+% =============================================================================
+
+All audio is synthesised in real time using the Web Audio API.
+
+\begin{longtable}{@{}lp{11cm}@{}}
+  \toprule
+  Sound & Description \\
+  \midrule
+  Motor hum &
+    Two sawtooth oscillators at $60\,\mathrm{Hz}$ and $60.6\,\mathrm{Hz}$
+    (slight detuning for beating effect) through a $400\,\mathrm{Hz}$ low-pass
+    filter, plus bandpass-filtered noise at $300\,\mathrm{Hz}$. Gain and pitch
+    track $|\omg|$ smoothly with time constant $\tau = 0.06\,\mathrm{s}$. \\
+  Tink &
+    Short metallic impact: $220 \to 90\,\mathrm{Hz}$ sine sweep with
+    $500\,\mathrm{ms}$ cooldown. Fires on particle–wall collision when
+    $N_P \leq 30$. \\
+  Snap &
+    9 accelerating clicks (sawtooth transients at $2500$--$4300\,\mathrm{Hz}$,
+    inter-click gap multiplied by 0.85 each step). Fires on aggregate formation. \\
+  Aggregate merge &
+    Soft sine thud descending from $600$ to $220\,\mathrm{Hz}$ as aggregate
+    size increases from 20 to 100 monomers. Fires on growth merges. \\
+  Crunch &
+    500 random sawtooth bursts ($2000$--$5000\,\mathrm{Hz}$, $80\,\mathrm{ms}$
+    random offsets, $0.8\,\mathrm{s}$ total). Fires on pebble formation. \\
+  Chime &
+    Two-note (880 and $1320\,\mathrm{Hz}$) sine arpeggio with $150\,\mathrm{ms}$
+    cooldown. Fires when a particle achieves levitation. \\
+  Golden chime &
+    Four-note arpeggio (C5, E5, G5, D6) with decaying envelope. Fires when
+    the aggregate gauge or pebble gauge first appears. \\
+  Golden thud &
+    Sine sweep $160 \to 70\,\mathrm{Hz}$, amplitude proportional to collision
+    speed. Fires on strong golden-ball wall or ball–ball impacts. \\
+  Mill start &
+    Full five-component sequence (blade, hiss, grind, thud, body) lasting the
+    injection duration. Fires on Inject press. \\
+  Expert door &
+    Heavy metallic clunk plus a 3-second cavernous low-frequency reverb tail.
+    Fires when the expert door is clicked while closed. \\
+  \bottomrule
+\end{longtable}
+
+The \texttt{AudioContext} is created and suspended on first load. It is
+resumed on the first user gesture (\texttt{pointerdown} or \texttt{keydown}),
+as required by browser autoplay policies. Muting sets the master gain to 0
+with a $50\,\mathrm{ms}$ ramp; the audio graph remains active.
+Tab visibility changes also mute and unmute smoothly.
+
+% =============================================================================
+\section{URL Parameters}
+\label{sec:url}
+% =============================================================================
+
+Parameters are parsed from \texttt{window.location.search} at load time.
+
+\begin{longtable}{@{}lp{11cm}@{}}
+  \toprule
+  Parameter & Effect \\
+  \midrule
+  \texttt{?expert} &
+    Opens the expert panel and activates the $\Omega$ lock. \\
+  \texttt{?game} &
+    Starts Game Mode at level 1, splash suppressed. \\
+  \texttt{?game=N} &
+    Starts Game Mode at level $N$ (1-indexed; out-of-range falls back to 1). \\
+  \texttt{?challenge} &
+    Starts Challenge Mode with default challenge parameters, splash suppressed. \\
+  \texttt{?challenge\&np=N} &
+    Override particle count in challenge (also \texttt{vt}, \texttt{spread}, \texttt{dt}). \\
+  \texttt{?modern} &
+    Applies the clinical lab visual theme (light gray metals, teal buttons). \\
+  \texttt{?pfeiffer} &
+    Applies the Pfeiffer variant (red structural elements, modern theme). \\
+  \texttt{?verify} &
+    Developer smoke-test mode: $N_P = 3000$, $s = 0.30$, $\Omega$ lock on. \\
+  \bottomrule
+\end{longtable}
+
+Multiple parameters can be combined: e.g.\ \texttt{?expert\&game=3} or
+\texttt{?modern\&challenge\&np=1000}.
+
+% =============================================================================
+\section{Performance Notes}
+% =============================================================================
+
+\begin{itemize}
+  \item \textbf{Trail rendering} is disabled for $N_P \geq 300$ (the
+    \texttt{maxN} tuning constant). At high particle counts, per-particle
+    trail segment storage and rendering becomes the bottleneck.
+
+  \item \textbf{Particle glow} (radial gradient per particle) is skipped
+    for $N_P \geq 300$; only the core circle is drawn.
+
+  \item \textbf{Injection puffs} are limited to one burst of 5 puffs
+    (one per nozzle) at injection start, regardless of $N_P$. Each puff
+    generates three \texttt{createRadialGradient} calls per frame for its
+    $0.42\,\mathrm{s}$ lifetime. At $N_P = 3000$ over a $2\,\mathrm{s}$
+    injection window, the original per-particle puff design created up to
+    $\sim 1500\,\mathrm{puffs\,s^{-1}}$, causing significant frame-rate
+    drops on mobile WebKit (observed on iPad).
+
+  \item \textbf{Encounter prediction} updates its cache at $\approx 5\,\mathrm{Hz}$
+    (every 12 frames at 60 fps) to keep the $O(n^2)$ pairwise computation
+    from dominating each frame.
+
+  \item \textbf{Heatmap} finalisation runs once per full drum revolution,
+    not every frame; the per-frame cost is only the accumulation of one
+    position per particle per substep.
+\end{itemize}
+
+% =============================================================================
+\appendix
+% =============================================================================
+
+\section{Tuning Constants Reference}
+\label{app:tuning}
+
+All tuning constants are defined in \texttt{config.js} under the \texttt{TUNING}
+object and backed up in \texttt{TUNING\_DEFAULT} for restoration after overrides.
+
+\begin{longtable}{@{}lrl@{}}
+  \toprule
+  Key & Default & Description \\
+  \midrule
+  \multicolumn{3}{l}{\textit{Drum}} \\
+  \texttt{drum.slipRate}         & 0.7    & Omega tracking lag ($\lambda_s$, $\mathrm{s^{-1}}$) \\
+  \texttt{drum.omegaDecay}       & 1/30   & Omega target decay ($\lambda_d$, $\mathrm{s^{-1}}$) \\
+  \texttt{drum.swipeGain}        & 0.003  & Swipe to omega conversion \\
+  \texttt{drum.omegaMax}         & $3\pi$ & Max angular velocity ($\mathrm{rad\,s^{-1}}$) \\
+  \midrule
+  \multicolumn{3}{l}{\textit{Highlight zone}} \\
+  \texttt{highlight.cx}          & 50     & Zone centre $x$ (du) \\
+  \texttt{highlight.radius}      & 50     & Zone radius (du) \\
+  \midrule
+  \multicolumn{3}{l}{\textit{Particles}} \\
+  \texttt{particle.settleFloor}  & 2.0    & Minimum $\vt$ (cm/s) \\
+  \texttt{particle.sizeRefVt}    & 30     & Reference $\vt$ for size scaling \\
+  \texttt{particle.collisionR}   & 0.5    & Collision radius (du) \\
+  \midrule
+  \multicolumn{3}{l}{\textit{Aggregates}} \\
+  \texttt{aggregate.minLevitated}    & 30    & Min levitated for formation \\
+  \texttt{aggregate.mergeCount}      & 10    & Monomers per aggregate \\
+  \texttt{aggregate.initialHoldRevs} & 3     & Hold revs before first aggregate \\
+  \texttt{aggregate.subseqHoldRevs}  & 1     & Hold revs for subsequent aggregates \\
+  \texttt{aggregate.sizeMult}        & 10    & Visual size multiplier \\
+  \texttt{aggregate.mergeDur}        & 0.6   & Merge animation duration (s) \\
+  \texttt{aggregate.minSpread}       & 0.20  & Min spread for formation \\
+  \texttt{aggregate.vtFactor}        & 1.2   & Stokes kick factor \\
+  \texttt{aggregate.vtGrowFactor}    & 1.05  & Per-growth-merge kick factor \\
+  \texttt{aggregate.brownian}        & 2.0   & Brownian kick amplitude ($\mathrm{cm\,s^{-1}}$) \\
+  \texttt{aggregate.restoreK}        & 0.5   & Restoring spring constant ($\mathrm{s^{-1}}$) \\
+  \midrule
+  \multicolumn{3}{l}{\textit{Pebbles (egg)}} \\
+  \texttt{egg.nCrit}             & 7     & Aggregates required for pebble merge \\
+  \texttt{egg.holdTarget}        & 3     & Hold revs for first pebble \\
+  \texttt{egg.holdSubseq}        & 3     & Hold revs for subsequent pebbles \\
+  \texttt{egg.maxBalls}          & 30    & Maximum simultaneous pebbles \\
+  \texttt{egg.minSpread}         & 0.30  & Min spread for pebble formation \\
+  \midrule
+  \multicolumn{3}{l}{\textit{Golden balls}} \\
+  \texttt{ball.gravity}          & 200   & Gravitational acceleration ($\mathrm{du\,s^{-2}}$) \\
+  \texttt{ball.radius}           & 2.5   & Physical radius (du) \\
+  \texttt{ball.wallE}            & 0.85  & Wall restitution coefficient \\
+  \texttt{ball.wallFriction}     & 0.92  & Wall tangential retention \\
+  \texttt{ball.ballE}            & 0.90  & Ball–ball restitution coefficient \\
+  \midrule
+  \multicolumn{3}{l}{\textit{Globes}} \\
+  \texttt{globe.nCrit}           & 3     & Pebbles required per globe \\
+  \texttt{globe.radius}          & 12.5  & Globe physical radius (du) \\
+  \texttt{globe.mergeDur}        & 1.2   & Merge animation duration (s) \\
+  \texttt{globe.repulsion}       & 15000 & Globe–globe repulsion constant \\
+  \texttt{globe.limit}           & 7     & Maximum simultaneous globes \\
+  \midrule
+  \multicolumn{3}{l}{\textit{Solar system}} \\
+  \texttt{solar.inclCos}         & 0.3   & $\cos i$ of orbital plane tilt \\
+  \texttt{solar.omegaBase}       & 3.006 & Keplerian base rate ($\mathrm{rad\,s^{-1}}$) \\
+  \texttt{solar.maxR}            & 80    & Max orbit radius (du) \\
+  \texttt{solar.persp}           & 0.10  & Perspective size variation \\
+  \midrule
+  \multicolumn{3}{l}{\textit{Audio}} \\
+  \texttt{audio.masterGain}      & 0.6   & Master volume (0--1) \\
+  \texttt{audio.millBlade}       & 0.085 & Mill blade component level \\
+  \texttt{audio.millGrind}       & 0.85  & Mill grind component level \\
+  \bottomrule
+\end{longtable}
+
+\section{Button Icon SVG Sources}
+\label{app:icons}
+
+The following SVG fragments are the source code for each custom button icon.
+They should be saved as individual files in an \texttt{icons/} subdirectory
+for inclusion via \texttt{\textbackslash btnicon\{\}} in this document.
+All icons use a $24 \times 24$ viewBox and \texttt{currentColor} for strokes
+and fills that should respond to button state; hardcoded colours are used for
+elements that should remain constant across states.
+
+\subsection{Widen Slice (\texttt{btnProcDouble})}
+
+\begin{lstlisting}[language=html]
+<svg viewBox="0 0 24 24" width="20" height="20">
+  <!-- Shadow copy (right): no left side -->
+  <path d="M 11 4 L 16 4 L 16 20 L 11 20"
+        fill="none" stroke="#8a6040" stroke-width="1.5"/>
+  <circle cx="12.8" cy="6.5"  r="0.7" fill="#8a6040"/>
+  <circle cx="14.2" cy="9.5"  r="0.7" fill="#8a6040"/>
+  <circle cx="13.5" cy="12.5" r="0.7" fill="#8a6040"/>
+  <circle cx="12.8" cy="15.5" r="0.7" fill="#8a6040"/>
+  <circle cx="14.0" cy="18.0" r="0.7" fill="#8a6040"/>
+  <!-- Original (left) -->
+  <rect x="6" y="4" width="5" height="16"
+        fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <circle cx="7.8"  cy="6.5"  r="0.7" fill="currentColor"/>
+  <circle cx="9.2"  cy="9.5"  r="0.7" fill="currentColor"/>
+  <circle cx="7.6"  cy="12.5" r="0.7" fill="currentColor"/>
+  <circle cx="9.0"  cy="15.5" r="0.7" fill="currentColor"/>
+  <circle cx="8.0"  cy="18.0" r="0.7" fill="currentColor"/>
+</svg>
+\end{lstlisting}
+
+The left rectangle uses \texttt{currentColor} so it responds to the button's
+amber base, hover, and ON-state colours. The right rectangle and its particles
+are hardcoded to \texttt{\#8a6040} to remain consistently dim regardless of
+button state.
+
+\end{document}
+%%% Local Variables:
+%%% mode: LaTeX
+%%% TeX-master: t
+%%% End:
