@@ -266,16 +266,23 @@
         <!-- The SYSTEM buttons -->
         <div class="expert-head">System</div>
         <!-- Row 1 -->
-        <button class="btnind btnsq" id="btnSysNoDecay" title="Disable Ω rotation decay while keeping swipe control active. A 2-second press on Ω on the right wing is a cheat for non-experts to get the same.">
+
+        <button class="btnind btnsq" id="btnCollect"
+                title="Arm collection tray — waits for the gold slot marker to reach 12 o'clock, then slides a metal blade across the drum interior to collect everything floating inside.">
           <span class="cap">
             <span class="cap-icon">
-              <svg viewBox="0 0 24 24" width="18" height="18">
-                <text x="12" y="17" text-anchor="middle" font-family="serif" font-size="16" font-weight="bold" fill="currentColor">Ω</text>
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <!-- Drum circle -->
+                <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                <!-- Tray blade: horizontal, half a radius below centre,
+                     from rim inward to the drum's vertical axis -->
+                <line x1="19.8" y1="16.5" x2="12" y2="16.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+                <!-- Hinge marker on the rim -->
+                <circle cx="19.8" cy="16.5" r="1.4" fill="currentColor"/>
               </svg>
             </span>
           </span>
         </button>
-
 
         <button class="btnind btnsq" id="btnSysAutoOmega"
                 title="Omega control — off / auto (live tracking) / launch (wait for injection, spin up automatically, then track)">          <span class="cap">
@@ -395,11 +402,6 @@
     </span></span></button>
     <button class="btnind btn-mode" id="btnGameMode" title="Start 7-level game at level 1 - the game will lead you to the more interesting corners of the simulation"><span class="cap"><span class="cap-label">Game</span></span></button>
     <button class="btnind btn-mode" id="btnChallenge" title="Start challenge with scoreboard, using current settings"><span class="cap"><span class="cap-label">Challenge</span></span></button>
-
-    <button class="btnind btn-collect" id="btnCollect"
-            title="Arm collection tray — waits for the gold slot marker to reach 12 o'clock, then slides the tray in over ¾ of a drum rotation. Press again to disarm.">
-      <span class="cap"><span class="cap-label">Collect</span></span>
-    </button>
 
     <button class="btnind btn-info" id="btnManual" title="Compact manual of the simulation"><span class="cap"><span class="cap-label">Info</span></span></button>
     <button class="btnind btn-emergency" id="btnReset" title="Reset - returns the trum to a state ready for a new injection"><span class="cap"><span class="cap-label">Reset</span></span></button>
@@ -613,11 +615,14 @@
 
         <h3>System — simulation-wide settings</h3>
         <ul>
-          <li><strong>Disable Ω decay</strong> — turns off rotational drag on
-            the drum entirely so the rotation rate holds indefinitely without
-            swiping. Swiping stays available to change Ω. The same
-            effect is available to non-expert users as a cheat via a
-            two-second hold on the right-wing Ω button.</li>
+          <li><strong>Collect</strong> — arms the collection
+            tray. When armed, the tray waits until the slot marker on
+            the rim reaches the top of the drum, then slides a metal
+            blade across the interior, scooping up everything floating
+            inside (particles, aggregates, and pebbles) onto the
+            blade. The drum decelerates to a stop with the blade
+            resting horizontally. Press again before insertion begins
+            to disarm.</li>
           <li><strong>Auto-omega</strong> — continuously sets the drum
             speed so that the full range of orbit centres for the
             current <em>v<sub>t</sub></em> injection distribution is centred
