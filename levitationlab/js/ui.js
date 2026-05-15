@@ -754,13 +754,90 @@
     });
   }
 
-  // PROCESSES 3. Stokes kick
+  // PROCESSES 3. Slice duplication
+  document.getElementById('btnProcDouble').addEventListener('click', function() {
+    const absOm = Math.abs(state.omega);
+    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+    if (!isFinite(T)) {
+      this.classList.add('flash');
+      setTimeout(() => this.classList.remove('flash'), 200);
+      return; // can't compute orbits without rotation
+    }
+    
+    const levParticles = state.particles.filter(p =>
+      p.alive && !p.stuck && !p.merging && p.insideOnce &&
+        p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T
+    );
+    const levAggs = state.aggregates.filter(a =>
+      a.alive && !a.stuck && !a.merging &&
+        a.inHighlightSince !== null && (state.t - a.inHighlightSince) >= T
+    );
+    
+    // Helper: rotate a point 90° forward in its circular orbit
+    function rotateInOrbit(x, y, vt) {
+      const xc  = vt / state.omega;       // orbit centre on x-axis
+      const dx  = x - xc, dy = y;
+      const r   = Math.hypot(dx, dy);
+      const phi = Math.atan2(dy, dx);
+      const nx  = xc + r * Math.cos(phi + Math.PI / 2);
+      const ny  =      r * Math.sin(phi + Math.PI / 2);
+      return { nx, ny };
+    }
+    
+    const newParticles = levParticles.map(p => {
+      const { nx, ny } = rotateInOrbit(p.x, p.y, p.vt);
+      return {
+        x: nx, y: ny,
+        vx: -state.omega * ny,
+        vy:  state.omega * nx - p.vt,
+        vt: p.vt,
+        stuck: false, stuckAngle: 0,
+        alive: true,
+        inHighlightSince: p.inHighlightSince,
+        flashEndsAt: -1,
+        insideOnce: true,
+        wasLevitated: true,
+        imgIdx: p.imgIdx,
+        trail: [],
+        merging: false,
+      };
+    });
+    
+    const newAggs = levAggs.map(a => {
+      const { nx, ny } = rotateInOrbit(a.x, a.y, a.vt);
+      return {
+        x: nx, y: ny,
+        vx: -state.omega * ny,
+        vy:  state.omega * nx - a.vt,
+        vt: a.vt,
+        r: a.r,
+        count: a.count,
+        rot: a.rot + Math.PI / 2,
+        rotSpeed: a.rotSpeed,
+        stuck: false,
+        alive: true,
+        inHighlightSince: a.inHighlightSince,
+        merging: false,
+        imgIdx: a.imgIdx,
+        orbitFlashEndsAt: state.t + 2.0,
+      };
+    });
+    
+    state.particles.push(...newParticles);
+    state.aggregates.push(...newAggs);
+    state.aggCount += newAggs.length;
+    
+    this.classList.add('flash');
+    setTimeout(() => this.classList.remove('flash'), 200);
+  });
+  
+  // PROCESSES 4. Stokes kick
   window.stonesKickOn = false;
   wireProcessButton('btnProcPureV', 'on', (active) => {
     window.stokesKickOn = active;
   });
-
-  // PROCESSES 4. Aggregate formation (Green = ON, Red = OFF)
+  
+  // PROCESSES 5. Aggregate formation (Green = ON, Red = OFF)
   const btnProcAgg = document.getElementById('btnProcAgg');
   if (btnProcAgg) {
     btnProcAgg.addEventListener('click', function() {
@@ -778,8 +855,6 @@
       }
     });
   }
-
-  // PROCESSES 5. UNASSIGNED
 
   // PROCESSES 6. Formation mode — three states: pebble / grow / off
   let growthMode = 0; // 0=pebble, 1=grow, 2=off

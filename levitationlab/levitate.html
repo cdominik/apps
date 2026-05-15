@@ -198,8 +198,28 @@
           <span class="cap"><span class="cap-icon">🧹</span></span>
         </button>
 
-        <button class="btnind btnsq disabled" id="btnSys7" title="..."><span class="cap"><span class="cap-icon">?</span></span></button>
-        
+        <button class="btnind btnsq" id="btnProcDouble"
+                title="Widen the slice — duplicate all levitated particles and aggregates, placing copies 90° ahead in their orbits. Models widening the simulated drum slice to include neighboring regions that have evolved identically.">
+          <span class="cap"><span class="cap-icon">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <!-- Shadow copy (right): no left side -->
+                <path d="M 11 4 L 16 4 L 16 20 L 11 20" fill="none" stroke="#8554030" stroke-width="1.5"/>
+                <circle cx="12.8" cy="6.5"  r="0.7" fill="#8a6040"/>
+                <circle cx="14.2" cy="9.5"  r="0.7" fill="#8a6040"/>
+                <circle cx="13.5" cy="12.5" r="0.7" fill="#8a6040"/>
+                <circle cx="12.8" cy="15.5" r="0.7" fill="#8a6040"/>
+                <circle cx="14.0" cy="18.0" r="0.7" fill="#8a6040"/>
+                <!-- Original (left) -->
+                <rect x="6" y="4" width="5" height="16" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="7.8"  cy="6.5"  r="0.7" fill="currentColor"/>
+                <circle cx="9.2"  cy="9.5"  r="0.7" fill="currentColor"/>
+                <circle cx="7.6"  cy="12.5" r="0.7" fill="currentColor"/>
+                <circle cx="9.0"  cy="15.5" r="0.7" fill="currentColor"/>
+                <circle cx="8.0"  cy="18.0" r="0.7" fill="currentColor"/>
+              </svg>
+          </span></span>
+        </button>
+
         <!-- Row 2 -->
 
         <button class="btnind btnsq" id="btnProcPureV" title="Stokes kick — when on, newly formed aggregates get a 1.2× v_t kick, and each growth merge adds a further 1.05× kick, indicating compaction and cross section shadowing">
@@ -575,6 +595,12 @@
           <li><strong>Sweep</strong> — removes all non-levitated floating
             particles instantly. Press once to clean up the drum without a
             full reset.</li>
+            <li><strong>Widen slice</strong> — duplicates all levitated
+            particles and aggregates, placing each copy 90° ahead in
+            its orbit. Models widening the simulated drum slice to
+            include a neighbouring region that has evolved
+            identically, using computational headroom lost to
+            wall collisions and aggregate formation. 
           <li><strong>Pure average <em>v<sub>t</sub></em></strong> — when on,
             aggregates inherit the exact mass-weighted mean <em>v<sub>t</sub></em>
             of their constituent monomers with no Stokes-number bump. Useful
