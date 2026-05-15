@@ -371,8 +371,14 @@
             const t = lenSq < 1e-9 ? 0
               : Math.max(0, Math.min(1, ((p.x - ep.hx) * tdx + (p.y - ep.hy) * tdy) / lenSq));
             const cx = ep.hx + t * tdx, cy = ep.hy + t * tdy;
-            if (Math.hypot(p.x - cx, p.y - cy) < TUNING.tray.thickness) {
-              p.x = cx; p.y = cy; p.vx = 0; p.vy = 0; p.onTray = true;
+            if (Math.hypot(p.x - cx, p.y - cy) < TUNING.tray.thickness * 2) {
+              // Land on the upper surface, offset by half-thickness + particle radius
+              const rP = TUNING.particle.collisionR;
+              const off = TUNING.tray.thickness * 0.5 + rP;
+              p.x = cx + ep.upx * off;
+              p.y = cy + ep.upy * off;
+              p.vx = 0; p.vy = 0;
+              p.onTray = true;
             }
           }
         }
@@ -1110,8 +1116,13 @@
             const t = lenSq < 1e-9 ? 0
               : Math.max(0, Math.min(1, ((agg.x - ep.hx) * tdx + (agg.y - ep.hy) * tdy) / lenSq));
             const cx = ep.hx + t * tdx, cy = ep.hy + t * tdy;
-            if (Math.hypot(agg.x - cx, agg.y - cy) < TUNING.tray.thickness * 2) {
-              agg.x = cx; agg.y = cy; agg.vx = 0; agg.vy = 0; agg.onTray = true;
+            if (Math.hypot(agg.x - cx, agg.y - cy) < TUNING.tray.thickness * 2 + agg.r) {
+              // Land on the upper surface, offset by half-thickness + aggregate radius
+              const off = TUNING.tray.thickness * 0.5 + agg.r;
+              agg.x = cx + ep.upx * off;
+              agg.y = cy + ep.upy * off;
+              agg.vx = 0; agg.vy = 0;
+              agg.onTray = true;
             }
           }
         }
@@ -1601,7 +1612,19 @@
     const tx  = hx + dirX * len;
     const ty  = hy + dirY * len;
 
-    return { hx, hy, tx, ty };
+    // Perpendicular unit vector to the tray axis, in the drum frame,
+    // pointing toward the tray's "top" surface (the side particles
+    // land on). For a tray entering from the rim, the natural choice
+    // is the side facing the drum centre — i.e. roughly opposite the
+    // outward radial at the hinge. We compute it as 90° CCW from
+    // (hinge → tip), then flip if it points outward.
+    const ax = tx - hx, ay = ty - hy;
+    const alen = Math.hypot(ax, ay) || 1;
+    let upx = -ay / alen, upy = ax / alen;     // 90° CCW
+    // Flip if pointing outward (dot product with hinge's outward radial > 0)
+    if (upx * hx + upy * hy > 0) { upx = -upx; upy = -upy; }
+
+    return { hx, hy, tx, ty, upx, upy };
   }
   window.trayEndpoints = trayEndpoints;
 

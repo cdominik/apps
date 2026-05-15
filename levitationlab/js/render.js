@@ -2665,10 +2665,12 @@ function drawRepresentativeOrbits() {
    * At progress = 1 the tray spans the full drum diameter at y = TUNING.tray.yPos.
    */
   /**
- * Draws the collection tray.
- * Outer end tracks the rotating slot; inner end grows toward (drum x=0, yPos).
- * At full insertion the tray is horizontal at y = TUNING.tray.yPos, half-width.
- */
+   * Draws the collection tray as a thin metallic blade.
+   * Reads endpoints from window.trayEndpoints() so render and physics
+   * stay in sync. The blade is rendered as three parallel strokes:
+   * a dark underside line, a flat steel gradient body, and a bright
+   * top-edge highlight — plus a small cap across the leading tip.
+   */
   function drawTray() {
     const ep = window.trayEndpoints && window.trayEndpoints();
     if (!ep) return;
@@ -2679,46 +2681,64 @@ function drawRepresentativeOrbits() {
     const R_px = pxDist(CFG.R_DRUM);
     const th   = Math.max(3, pxDist(TUNING.tray.thickness));
 
+    // Perpendicular unit vector (canvas pixels) to the tray axis,
+    // 90° CCW from (hinge → tip). Used to offset the edge lines.
+    const dx = ix - ox, dy = iy - oy;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len, ny = dx / len;
+
     ctx.save();
+
+    // Clip to drum interior so the tray cannot poke past the rim.
     ctx.beginPath();
     ctx.arc(CX, CY, R_px - 1, 0, Math.PI * 2);
     ctx.clip();
-    
-    // Drop shadow
-    ctx.lineCap = 'round';
-    ctx.lineWidth = th + 2;
-    ctx.strokeStyle = 'rgba(0,0,0,0.40)';
+
+    ctx.lineCap = 'butt';
+
+    // 1. Dark underside line
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(0,0,0,0.75)';
     ctx.beginPath();
-    ctx.moveTo(ox + 2, oy + 2);
-    ctx.lineTo(ix + 2, iy + 2);
+    ctx.moveTo(ox + nx * th * 0.5, oy + ny * th * 0.5);
+    ctx.lineTo(ix + nx * th * 0.5, iy + ny * th * 0.5);
     ctx.stroke();
 
-    // Body
-    const g = ctx.createLinearGradient(ox, oy, ix, iy);
-    g.addColorStop(0.00, '#fff4d0');
-    g.addColorStop(0.15, '#e8c77a');
-    g.addColorStop(0.55, '#c9a858');
-    g.addColorStop(0.85, '#8a6b2e');
-    g.addColorStop(1.00, '#5a4418');
+    // 2. Body fill — flat steel gradient across the thickness
+    const bgx = ox + nx * th, bgy = oy + ny * th;
+    const tgx = ox - nx * th, tgy = oy - ny * th;
+    const g = ctx.createLinearGradient(bgx, bgy, tgx, tgy);
+    g.addColorStop(0.0, '#2a2a2e');   // dark underside
+    g.addColorStop(0.3, '#7a7a82');
+    g.addColorStop(0.6, '#c8c8cc');
+    g.addColorStop(1.0, '#f4f4f6');   // bright top edge
     ctx.strokeStyle = g;
-    ctx.lineWidth   = th;
+    ctx.lineWidth = th;
     ctx.beginPath();
     ctx.moveTo(ox, oy);
     ctx.lineTo(ix, iy);
     ctx.stroke();
 
-    // Leading-edge highlight at the tip
-    const ang = Math.atan2(iy - oy, ix - ox) + Math.PI / 2;
+    // 3. Bright top-edge highlight
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.beginPath();
+    ctx.moveTo(ox - nx * th * 0.5, oy - ny * th * 0.5);
+    ctx.lineTo(ix - nx * th * 0.5, iy - ny * th * 0.5);
+    ctx.stroke();
+
+    // 4. Tip cap — small darker line across the leading edge
+    const ang = Math.atan2(dy, dx) + Math.PI / 2;
     const hw  = th * 0.55;
-    ctx.strokeStyle = 'rgba(255,250,210,0.85)';
-    ctx.lineWidth   = 2;
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(40,40,50,0.9)';
     ctx.beginPath();
     ctx.moveTo(ix + Math.cos(ang) * hw, iy + Math.sin(ang) * hw);
     ctx.lineTo(ix - Math.cos(ang) * hw, iy - Math.sin(ang) * hw);
     ctx.stroke();
-    
+
     ctx.restore();
-  }
+  }  
 
   // ============================================================
   // SECTION: RENDER — MASTER DRAW
