@@ -104,6 +104,11 @@
    * All sampled vt values are clamped to TUNING.particle.settleFloor.
    */
   function scheduleInjections() {
+    if (GEO && GEO.nozzleXs.length) {
+      for (const nx of GEO.nozzleXs) {
+        state.puffs.push({ x: nx, y: GEO.nozzleTipY, bornAt: state.t, life: 1.42 });
+      }
+    }
     state.toInject = [];
     const N    = CFG.N_P;
     const dist = state.distMode;
@@ -261,7 +266,6 @@
         vt: inj.vt,
         imgIdx: Math.floor(Math.random() * aggregateImages.length),
       });
-      if (CFG.N_P <= 30) spawnPuffAtNozzle(inj.x);
     }
 
     const omega  = state.omega;
