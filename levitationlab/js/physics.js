@@ -792,10 +792,13 @@
    */
   function resolveWallCollision(b) {
     // --- BUMP COLLISION ---
-    const bumpAngle = -state.drumAngle;
+    // The bump sits at the same spot on the rim as the tray's collection slot.
+    // In normal operation it kicks pebbles around; when the tray deploys, it's
+    // the hinge from which the blade extends.
+    const bumpAngle = state.tray.slotAngle - state.drumAngle;
     const bumpR     = 3.5;
-    const bumpX     = CFG.R_DRUM * Math.cos(bumpAngle);
-    const bumpY     = CFG.R_DRUM * Math.sin(bumpAngle);
+    const bumpX     =  CFG.R_DRUM * Math.cos(bumpAngle);
+    const bumpY     = -CFG.R_DRUM * Math.sin(bumpAngle);
     const dx        = b.x - bumpX;
     const dy        = b.y - bumpY;
     const dist      = Math.hypot(dx, dy);
