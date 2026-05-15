@@ -36,7 +36,7 @@
   
     for (const p of state.particles) {
       if (!p.alive) continue;
-      if (p.stuck) { p.wasLevitated = false; continue; }
+      if (p.stuck || p.onTray) { p.wasLevitated = false; continue; }
       if (p.merging) continue;
   
       floating++;
@@ -107,7 +107,19 @@
     if (gaugePebble.style.display !== 'none') {
       elPebbleCount.textContent = state.eggBallCount;
     }
+    // Tray arming beep
+    const BEEP_INTERVAL = 1.0;
+    if (state.tray.phase === 'armed' || state.tray.phase === 'inserting') {
+      if (!updateHUD._lastBeep ||
+          (state.t - updateHUD._lastBeep) >= BEEP_INTERVAL) {
+        updateHUD._lastBeep = state.t;
+        soundTrayBeep();
+      }
+    } else {
+      updateHUD._lastBeep = null;
+    }
   }
+
   // ============================================================
   // SECTION: SETTINGS SELECTORS
   // ============================================================

@@ -529,6 +529,23 @@
     o.start(t); o.stop(t + 0.3);
   }
 
+  function soundTrayBeep() {
+    if (!AUDIO.ctx) return;
+    const t = AUDIO.ctx.currentTime;
+    const o = AUDIO.ctx.createOscillator();
+    const g = AUDIO.ctx.createGain();
+    o.type = 'square';
+    o.frequency.value = 880;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.18, t + 0.004);
+    g.gain.setValueAtTime(0.18, t + 0.10);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+    o.connect(g);
+    g.connect(AUDIO.master);
+    o.start(t);
+    o.stop(t + 0.38);
+  }
+
   /**
    * Initialises and/or resumes the AudioContext if suspended.
    */
@@ -564,4 +581,6 @@
   window.soundGoldenChime = soundGoldenChime;
   window.soundGoldenThud  = soundGoldenThud;
   window.soundExpertDoorKnock = soundExpertDoorKnock;
+  window.soundTrayBeep = soundTrayBeep;
+
 })();

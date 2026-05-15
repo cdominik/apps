@@ -1051,6 +1051,8 @@
       btnCollect.classList.toggle('on',    ph === 'armed');
       btnCollect.classList.toggle('cheat', ph === 'inserting');
       btnCollect.disabled = (ph === 'inserting' || ph === 'inserted');
+      btnCollect.classList.toggle('on', ph === 'armed');
+      btnCollect.classList.toggle('cheat', ph === 'inserting');
     };
   }
 

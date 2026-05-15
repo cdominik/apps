@@ -2585,11 +2585,9 @@ function drawRepresentativeOrbits() {
       const { ai, aj, xi, yi, xj, yj, dist, bestTheta, xci, xcj, Ri, Rj, phi_i, phi_j } = enc;
 
       // --- CLOSEST APPROACH DETECTION (every frame, using live positions) ---
-      const curPhiI = Math.atan2(ai.y, ai.x - xci);
-      const dTheta  = ((curPhiI - phi_i) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
-      const advance = dTheta; // how far ai has moved since cache was built
-      const distToApproach = Math.abs(((bestTheta - phi_i - advance + Math.PI) % (2 * Math.PI)) - Math.PI);
-
+      const curPhiI = Math.atan2(ai.y, ai.x - enc.xci);
+      const advance = ((curPhiI - enc.phi_i) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+      const distToApproach = Math.abs(((enc.bestTheta - advance + Math.PI) % (2 * Math.PI)) - Math.PI);
       if (distToApproach < NEAR_THRESHOLD) {
         enc.flashEndsAt = state.t + FLASH_DUR;
       }

@@ -1712,6 +1712,8 @@
         tray.savedOmega       = state.omega;
         tray.progress         = 0;
         tray.brakeT0          = 0; // mark brake phase as not-yet-entered
+        tray._savedOmegaDecay  = TUNING.drum.omegaDecay;
+        TUNING.drum.omegaDecay = 0;
 
         // ── LOCK IN TRAY GEOMETRY ──────────────────────────────────────
         // Everything below is computed in the drum (y-up) frame.
@@ -1788,6 +1790,10 @@
       tray.phase        = 'inserted';
       state.omegaTarget = 0;
       state.omega       = 0;
+      TUNING.drum.omegaDecay = tray._savedOmegaDecay != null
+        ? tray._savedOmegaDecay
+        : TUNING_DEFAULT.drum.omegaDecay;
+      tray._savedOmegaDecay  = null;
     }
   }
 
