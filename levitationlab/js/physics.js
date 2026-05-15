@@ -261,7 +261,7 @@
         vt: inj.vt,
         imgIdx: Math.floor(Math.random() * aggregateImages.length),
       });
-      spawnPuffAtNozzle(inj.x);
+      if (CFG.N_P <= 30) spawnPuffAtNozzle(inj.x);
     }
 
     const omega  = state.omega;
