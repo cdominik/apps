@@ -2670,33 +2670,22 @@ function drawRepresentativeOrbits() {
  * At full insertion the tray is horizontal at y = TUNING.tray.yPos, half-width.
  */
   function drawTray() {
-    const tray = state.tray;
-    if (tray.phase === 'idle' || tray.progress <= 0) return;
+    const ep = window.trayEndpoints && window.trayEndpoints();
+    if (!ep) return;
 
-    const p    = tray.progress;
-    const yT   = TUNING.tray.yPos;           // −50 drum-units
+    const ox = X2px(ep.hx), oy = Y2px(ep.hy);
+    const ix = X2px(ep.tx), iy = Y2px(ep.ty);
+
     const R_px = pxDist(CFG.R_DRUM);
     const th   = Math.max(3, pxDist(TUNING.tray.thickness));
 
-    // Outer end: live slot position on the drum rim (rotates with drum)
-    const slotA = state.tray.slotAngle - state.drumAngle;
-    const ox = CX + R_px * Math.cos(slotA);
-    const oy = CY + R_px * Math.sin(slotA);
-
-    // Inner end: lerps from (ox, oy) toward (CX, Y2px(yT)) as p goes 0 → 1
-    //   ix = CX + (1-p) * R_px * cos(slotA)            →  CX            at p=1
-    //   iy = CY + (1-p) * R_px * sin(slotA) − p*yT*SCALE →  Y2px(yT)   at p=1
-    const ix = CX + (1 - p) * R_px * Math.cos(slotA);
-    const iy = CY + (1 - p) * R_px * Math.sin(slotA) - p * yT * SCALE;
-
     ctx.save();
-    // Clip to drum interior
     ctx.beginPath();
     ctx.arc(CX, CY, R_px - 1, 0, Math.PI * 2);
     ctx.clip();
     
     // Drop shadow
-    ctx.lineCap  = 'round';
+    ctx.lineCap = 'round';
     ctx.lineWidth = th + 2;
     ctx.strokeStyle = 'rgba(0,0,0,0.40)';
     ctx.beginPath();
@@ -2704,7 +2693,7 @@ function drawRepresentativeOrbits() {
     ctx.lineTo(ix + 2, iy + 2);
     ctx.stroke();
 
-    // Tray body — brass gradient from outer (bright) to inner (dark)
+    // Body
     const g = ctx.createLinearGradient(ox, oy, ix, iy);
     g.addColorStop(0.00, '#fff4d0');
     g.addColorStop(0.15, '#e8c77a');
@@ -2718,7 +2707,7 @@ function drawRepresentativeOrbits() {
     ctx.lineTo(ix, iy);
     ctx.stroke();
 
-    // Leading-edge highlight — bright cross-stroke at the advancing inner tip
+    // Leading-edge highlight at the tip
     const ang = Math.atan2(iy - oy, ix - ox) + Math.PI / 2;
     const hw  = th * 0.55;
     ctx.strokeStyle = 'rgba(255,250,210,0.85)';
@@ -2727,7 +2716,7 @@ function drawRepresentativeOrbits() {
     ctx.moveTo(ix + Math.cos(ang) * hw, iy + Math.sin(ang) * hw);
     ctx.lineTo(ix - Math.cos(ang) * hw, iy - Math.sin(ang) * hw);
     ctx.stroke();
-
+    
     ctx.restore();
   }
 

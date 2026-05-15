@@ -73,6 +73,9 @@
       insertStartAngle: 0,       // drumAngle recorded when insertion began
       savedOmega:       0,       // drum omega captured at insertion start
       progress:         0,       // 0–1 tray insertion progress
+      trayLen:          0,       // locked-in tray length (drum-units)
+      trayDirX:         0,       // ← NEW: locked-in tray direction unit vector (drum frame, rotates with drum)
+      trayDirY:         0,       // ← NEW
     },
   };
   

@@ -364,21 +364,16 @@
         // Collect particles within tray thickness of the live rotating tray line
         if ((state.tray.phase === 'inserting' || state.tray.phase === 'inserted')
             && !p.onTray && p.insideOnce) {
-          const sCA = state.tray.slotAngle - state.drumAngle;
-          const tp  = state.tray.progress;
-          // Tray endpoints in drum (lab) coords — match drawTray() geometry exactly
-          const tOX = CFG.R_DRUM * Math.cos(sCA);
-          const tOY = -CFG.R_DRUM * Math.sin(sCA);
-          const tIX = (1 - tp) * tOX;
-          const tIY = tp * TUNING.tray.yPos + (1 - tp) * tOY;
-          // Project particle onto tray segment; catch if within thickness
-          const tdx = tIX - tOX, tdy = tIY - tOY;
-          const lenSq = tdx * tdx + tdy * tdy;
-          const t = lenSq < 1e-9 ? 0
-            : Math.max(0, Math.min(1, ((p.x - tOX) * tdx + (p.y - tOY) * tdy) / lenSq));
-          const cx = tOX + t * tdx, cy = tOY + t * tdy;
-          if (Math.hypot(p.x - cx, p.y - cy) < TUNING.tray.thickness) {
-            p.x = cx; p.y = cy; p.vx = 0; p.vy = 0; p.onTray = true;
+          const ep = trayEndpoints();
+          if (ep) {
+            const tdx = ep.tx - ep.hx, tdy = ep.ty - ep.hy;
+            const lenSq = tdx * tdx + tdy * tdy;
+            const t = lenSq < 1e-9 ? 0
+              : Math.max(0, Math.min(1, ((p.x - ep.hx) * tdx + (p.y - ep.hy) * tdy) / lenSq));
+            const cx = ep.hx + t * tdx, cy = ep.hy + t * tdy;
+            if (Math.hypot(p.x - cx, p.y - cy) < TUNING.tray.thickness) {
+              p.x = cx; p.y = cy; p.vx = 0; p.vy = 0; p.onTray = true;
+            }
           }
         }
 
@@ -1108,19 +1103,16 @@
         // Collect aggregates within catch distance of the live rotating tray line
         if ((state.tray.phase === 'inserting' || state.tray.phase === 'inserted')
             && !agg.onTray) {
-          const sCA = state.tray.slotAngle - state.drumAngle;
-          const tp  = state.tray.progress;
-          const tOX = CFG.R_DRUM * Math.cos(sCA);
-          const tOY = -CFG.R_DRUM * Math.sin(sCA);
-          const tIX = (1 - tp) * tOX;
-          const tIY = tp * TUNING.tray.yPos + (1 - tp) * tOY;
-          const tdx = tIX - tOX, tdy = tIY - tOY;
-          const lenSq = tdx * tdx + tdy * tdy;
-          const t = lenSq < 1e-9 ? 0
-            : Math.max(0, Math.min(1, ((agg.x - tOX) * tdx + (agg.y - tOY) * tdy) / lenSq));
-          const cx = tOX + t * tdx, cy = tOY + t * tdy;
-          if (Math.hypot(agg.x - cx, agg.y - cy) < TUNING.tray.thickness * 2) {
-            agg.x = cx; agg.y = cy; agg.vx = 0; agg.vy = 0; agg.onTray = true;
+          const ep = trayEndpoints();
+          if (ep) {
+            const tdx = ep.tx - ep.hx, tdy = ep.ty - ep.hy;
+            const lenSq = tdx * tdx + tdy * tdy;
+            const t = lenSq < 1e-9 ? 0
+              : Math.max(0, Math.min(1, ((agg.x - ep.hx) * tdx + (agg.y - ep.hy) * tdy) / lenSq));
+            const cx = ep.hx + t * tdx, cy = ep.hy + t * tdy;
+            if (Math.hypot(agg.x - cx, agg.y - cy) < TUNING.tray.thickness * 2) {
+              agg.x = cx; agg.y = cy; agg.vx = 0; agg.vy = 0; agg.onTray = true;
+            }
           }
         }
         const r2    = agg.x * agg.x + agg.y * agg.y;
@@ -1577,6 +1569,42 @@
    *               final (1 – decelStart) fraction only
    *   inserted  → drum stopped, particles/aggregates settle onto tray
    */
+
+  /**
+ * Returns the tray's hinge and tip in drum (lab) coordinates for the
+ * current drum angle and tray progress. Returns null if tray not extended.
+ */
+  function trayEndpoints() {
+    const tray = state.tray;
+    if (tray.phase === 'idle' || tray.progress <= 0) return null;
+
+    // slotAngle and drumAngle are canvas-frame angles (y-down). Convert
+    // to a drum-frame angle (y-up) for use with X2px/Y2px later.
+    const sCA      = tray.slotAngle - state.drumAngle;   // canvas frame
+    const sCA_drum = -sCA;                               // drum frame (y-up)
+
+    // Hinge: on the rim, in drum coordinates.
+    const hx = CFG.R_DRUM * Math.cos(sCA_drum);
+    const hy = CFG.R_DRUM * Math.sin(sCA_drum);
+
+    // Recover lab-frame tray direction from the stored drum-frame vector.
+    // Drum rotates by -drumAngle in the drum (y-up) frame, so we apply
+    // the inverse rotation by +drumAngle here (sign flip of state.drumAngle
+    // already accounted for by the storage convention below).
+    const theta = state.drumAngle;
+    const c = Math.cos(theta);
+    const s = Math.sin(theta);
+    const dirX = tray.trayDirX * c - tray.trayDirY * s;
+    const dirY = tray.trayDirX * s + tray.trayDirY * c;
+    // Tip: hinge + (current length) · direction.   Length grows linearly with p.
+    const len = tray.trayLen * tray.progress;
+    const tx  = hx + dirX * len;
+    const ty  = hy + dirY * len;
+
+    return { hx, hy, tx, ty };
+  }
+  window.trayEndpoints = trayEndpoints;
+
   function updateTray() {
     const tray = state.tray;
     if (tray.phase === 'idle' || tray.phase === 'inserted') return;
@@ -1592,6 +1620,41 @@
         tray.insertStartAngle = state.drumAngle;
         tray.savedOmega       = state.omega;
         tray.progress         = 0;
+
+        // ── LOCK IN TRAY GEOMETRY ──────────────────────────────────────
+        // Everything below is computed in the drum (y-up) frame.
+        //
+        // At fire-time the slot is at canvas-frame angle (slotAngle - drumAngle),
+        // which equals -π/2 (top of screen). In the drum (y-up) frame that's +π/2.
+        // We use that as our reference and work from there.
+        const sCA_drum = -(tray.slotAngle - state.drumAngle);   // hinge angle, drum frame
+        
+        // Hinge position at fire-time, drum frame:
+        const hx0 = CFG.R_DRUM * Math.cos(sCA_drum);
+        const hy0 = CFG.R_DRUM * Math.sin(sCA_drum);
+        
+        // Lab-frame (drum-frame, y-up) direction the tray points at fire-time.
+        // Aim toward the far side of the drum, leaning along the wall.
+        // Easiest concrete choice: aim at (0, -R) — the bottom of the drum,
+        // diametrically opposite the slot at fire-time. The tip will sweep a
+        // chord that's roughly a diameter. Override with another point if you
+        // want a different sweep.
+        const aimX = +CFG.R_DRUM*0.4472;
+        const aimY = +CFG.R_DRUM*0.2236;
+        const ddx = aimX - hx0;
+        const ddy = aimY - hy0;
+        const L   = Math.hypot(ddx, ddy);
+        const labDirX = ddx / L;
+        const labDirY = ddy / L;
+
+        // Store in the drum-rotating frame so the tray co-rotates with the rim.
+        // Forward rotation by +drumAngle (drum-frame convention).
+        const theta = -state.drumAngle;
+        const c = Math.cos(theta);
+        const s = Math.sin(theta);
+        tray.trayDirX = labDirX * c - labDirY * s;
+        tray.trayDirY = labDirX * s + labDirY * c;
+        tray.trayLen  = L;
       }
       return;
     }
