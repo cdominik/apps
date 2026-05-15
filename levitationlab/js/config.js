@@ -171,6 +171,8 @@
       decelStart: 0.82,          //      — fraction through insertion before braking begins
       yPos:      -50,            // drum-units — tray y = bottom of levitation zone
       thickness:  3.0,           // drum-units — visual tray height
+      decelStart: 0.667,   // start braking when hinge passes 6 o'clock
+      brakeDur:   0.8,     // s — duration of the brake-to-zero ramp
     },
 
   };

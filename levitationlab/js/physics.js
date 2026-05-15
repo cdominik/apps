@@ -1643,6 +1643,7 @@
         tray.insertStartAngle = state.drumAngle;
         tray.savedOmega       = state.omega;
         tray.progress         = 0;
+        tray.brakeT0          = 0; // mark brake phase as not-yet-entered
 
         // ── LOCK IN TRAY GEOMETRY ──────────────────────────────────────
         // Everything below is computed in the drum (y-up) frame.
@@ -1686,15 +1687,33 @@
     const swept   = Math.abs(state.drumAngle - tray.insertStartAngle);
     tray.progress = Math.min(1, swept / TUNING.tray.totalAngle);
 
-    const ds = TUNING.tray.decelStart;            // 0.82 by default
+    const ds = TUNING.tray.decelStart;     // 0.667 — start braking at 6 o'clock
+
     if (tray.progress < ds) {
-      // Hold full speed — counteract whatever omegaDecay just removed
+      // ── Cruise phase: hold full speed, defy decay and slip lag ──
+      state.omega       = tray.savedOmega;
       state.omegaTarget = tray.savedOmega;
+
     } else {
-      // Brake only in the final fraction: smooth cubic 0 → 1
-      const u    = (tray.progress - ds) / (1 - ds);
-      const ease = u * u * (3 - 2 * u);           // smoothstep
-      state.omegaTarget = tray.savedOmega * (1 - ease);
+      // ── Brake phase: drive omega smoothly to zero on wall-clock time ──
+      const now = performance.now() / 1000;
+
+      // On first entry to brake phase, lock in start time, omega, and
+      // a brake duration matched to remaining rotation.
+      if (tray.brakeT0 === 0) {
+        tray.brakeT0         = now;
+        tray.brakeStartOmega = state.omega;
+        const sign = tray.savedOmega >= 0 ? 1 : -1;
+        const absOm = Math.max(0.01, Math.abs(state.omega));
+        tray.brakeDur = 2 * (1 - ds) * TUNING.tray.totalAngle / absOm;
+        // sign doesn't matter for duration, but pin omega start magnitude
+        void sign;
+      }
+
+      const u = Math.min(1, (now - tray.brakeT0) / tray.brakeDur);
+      const ease = u * u * (3 - 2 * u);    // smoothstep
+      state.omega       = tray.brakeStartOmega * (1 - ease);
+      state.omegaTarget = state.omega;
     }
 
     if (tray.progress >= 1) {

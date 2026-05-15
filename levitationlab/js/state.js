@@ -69,13 +69,16 @@
     tray: {
       phase:            'idle',  // 'idle' | 'armed' | 'inserting' | 'inserted'
       slotAngle:        0,       // drum-local angle of the gold slot marker (0 = 3 o'clock)
-      triggerAtAngle:   0,       // cumulative drumAngle at which insertion fires
-      insertStartAngle: 0,       // drumAngle recorded when insertion began
-      savedOmega:       0,       // drum omega captured at insertion start
-      progress:         0,       // 0–1 tray insertion progress
-      trayLen:          0,       // locked-in tray length (drum-units)
-      trayDirX:         0,       // ← NEW: locked-in tray direction unit vector (drum frame, rotates with drum)
-      trayDirY:         0,       // ← NEW
+      triggerAtAngle:   0,  // cumulative drumAngle at which insertion fires
+      insertStartAngle: 0,  // drumAngle recorded when insertion began
+      savedOmega:       0,  // drum omega captured at insertion start
+      progress:         0,  // 0–1 tray insertion progress
+      trayLen:          0,  // locked-in tray length (drum-units)
+      trayDirX:         0,  // locked-in tray direction unit vector (drum frame, rotates with drum)
+      trayDirY:         0,  // 
+      brakeT0:          0,  // wall-clock time when brake phase began
+      brakeDur:         0,  // total duration of brake phase
+      brakeStartOmega:  0,  // omega at the moment brake began
     },
   };
   
