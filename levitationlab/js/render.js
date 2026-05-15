@@ -2821,7 +2821,8 @@ function drawRepresentativeOrbits() {
         ctxOv.beginPath();
         ctxOv.arc(CX, CY, pxDist(CFG.R_DRUM), 0, Math.PI * 2);
         ctxOv.clip();
-        ctxOv.globalAlpha = heatmap.opacity;
+        ctxOv.globalAlpha = 0.6;
+        ctxOv.globalAlpha = 0.5 + heatmap.opacity * 0.35;
 
         for (let gy = 0; gy < res; gy++) {
           for (let gx = 0; gx < res; gx++) {
@@ -2858,7 +2859,7 @@ function drawRepresentativeOrbits() {
         ctxOv.strokeRect(bx, by, barW, barH);
 
         ctxOv.save();
-        ctxOv.globalAlpha = 1.0;
+        ctxOv.globalAlpha = 0.7;
         ctxOv.fillStyle = (PAL.name === 'light') ? '#000000' : '#ffffff';
         ctxOv.font = 'bold 11px monospace';
         ctxOv.textAlign = 'center';
@@ -2877,7 +2878,7 @@ function drawRepresentativeOrbits() {
 
       // DRAW CAPTION
       ctxOv.save();
-      ctxOv.globalAlpha = heatmap.opacity;
+      ctxOv.globalAlpha = 0.7;
       const hudColor = (PAL.name === 'light') ? '#000000' : '#ffffff';
       ctxOv.fillStyle = hudColor;
 
@@ -2893,6 +2894,8 @@ function drawRepresentativeOrbits() {
       let caption = "";
       if (state.showVectors) {
         caption = "vector field";
+      } else if (window.ghostModeOn) {
+        caption = "ghost paths";
       } else if (heatmap.mode === 'orbits') {
         caption = "selected orbits";
       } else if (heatmap.mode === 'dispersion') {
@@ -2901,8 +2904,6 @@ function drawRepresentativeOrbits() {
         caption = "particle density n_p";
       } else if (heatmap.mode === 'product') {
         caption = "coll. proxy n_p · σ_v";
-      } else if (window.ghostModeOn) {
-        caption = "ghost paths";
       }
 
       const rInnerCaption = pxDist(CFG.R_DRUM);
@@ -2913,7 +2914,7 @@ function drawRepresentativeOrbits() {
 
       if (heatmap.enabled && !heatmap.ready && !state.showVectors) {
         ctxOv.font = 'italic 13px "Courier New", monospace';
-        ctxOv.globalAlpha = heatmap.opacity * 0.7;
+        ctxOv.globalAlpha = 0.7;
         ctxOv.fillText("(accumulating orbital data...)", CX, textY + 28);
       }
       ctxOv.restore();

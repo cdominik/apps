@@ -505,7 +505,8 @@ function updateViewport(dt) {
    * Renders the viewport panel, asset content, and glass overlay onto ctxOv.
    */
   function drawViewport() {
-    try { ctxOv.restore(); } catch (e) {}
+    ctxOv.setTransform(DPR, 0, 0, DPR, 0, 0);
+
     ctxOv.clearRect(0, 0, W, H);
     ctxOv.save();
     if (VIEWPORT.phase === 'hidden') {

@@ -78,6 +78,8 @@
 
     state.showVectors  = false;
     window.ghostModeOn = false;
+    state.orbitSample  = [];
+    ctxOv.clearRect(0, 0, W, H);
 
     btnPrev.classList.toggle('disabled', !window.hudMasterOn);
     btnNext.classList.toggle('disabled', !window.hudMasterOn);
@@ -103,8 +105,10 @@
     const mode = ANALYSIS_MODES[currentAnalysisIdx];
     if (mode === 'vectors') {
       state.showVectors = true;
+      heatmap.mode = 'none';
     } else if (mode === 'ghost') {
       window.ghostModeOn = true;
+      heatmap.mode = 'none';
       _ghostEnsureTarget();
     } else {
       heatmap.mode = mode;
