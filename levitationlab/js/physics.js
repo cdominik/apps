@@ -530,20 +530,79 @@
    *
    * @param {number} dt - Elapsed time in seconds since the last frame.
    */
+  /**
+   * Integrates golden balls, resolves collisions, and manages pebble merge sequencing.
+   *
+   * On-tray pebbles co-rotate rigidly with the drum (same as on-tray
+   * particles and aggregates) and are skipped by gravity integration,
+   * wall collision, and ball-ball collision. When the tray is extending
+   * or fully inserted, any free pebble within catch distance of the tray
+   * segment is collected and pinned to the blade's upper surface.
+   *
+   * A merge animation is started when enough aggregates have been levitated
+   * for the required number of revolutions (holdTarget / holdSubseq).
+   * While a merge is in progress (state.eggMerging), no new merge can start.
+   *
+   * @param {number} dt - Elapsed time in seconds since the last frame.
+   */
   function updateEgg(dt) {
-    for (const b of state.goldenBalls) integrateGoldenBall(b, dt);
-    if (state.goldenBalls.length > 1) resolveBallBallCollisions();
-    for (const b of state.goldenBalls) resolveWallCollision(b);
+    // 1. Advance free pebbles; pin on-tray pebbles to the drum frame.
+    for (const b of state.goldenBalls) {
+      if (b.onTray) {
+        // Rotate rigidly with the drum so the pebble stays fixed on the blade.
+        const dA = state.omega * dt;
+        const c = Math.cos(dA), s = Math.sin(dA);
+        const nx = b.x * c - b.y * s, ny = b.x * s + b.y * c;
+        b.x = nx; b.y = ny;
+        b.vx = -state.omega * b.y;
+        b.vy =  state.omega * b.x;
+        continue;
+      }
+      integrateGoldenBall(b, dt);
+    }
 
-    // Advance an in-progress pebble merge animation.
+    // 2. Ball-ball collisions — only between free pebbles.
+    if (state.goldenBalls.length > 1) resolveBallBallCollisions();
+
+    // 3. Wall and bump collisions — only for free pebbles.
+    for (const b of state.goldenBalls) {
+      if (b.onTray) continue;
+      resolveWallCollision(b);
+    }
+
+    // 4. Tray catch — pin pebbles to the upper surface of the blade.
+    if (state.tray.phase === 'inserting' || state.tray.phase === 'inserted') {
+      const ep = trayEndpoints();
+      if (ep) {
+        const tdx = ep.tx - ep.hx, tdy = ep.ty - ep.hy;
+        const lenSq = tdx * tdx + tdy * tdy;
+        for (const b of state.goldenBalls) {
+          if (b.onTray || b.merging) continue;
+          const t = lenSq < 1e-9 ? 0
+            : Math.max(0, Math.min(1, ((b.x - ep.hx) * tdx + (b.y - ep.hy) * tdy) / lenSq));
+          const cx = ep.hx + t * tdx, cy = ep.hy + t * tdy;
+          if (Math.hypot(b.x - cx, b.y - cy) < TUNING.tray.thickness * 2 + b.r) {
+            const off = TUNING.tray.thickness * 0.5 + b.r;
+            b.x = cx + ep.upx * off;
+            b.y = cy + ep.upy * off;
+            b.vx = 0;
+            b.vy = 0;
+            b.spinRate = 0;
+            b.onTray = true;
+          }
+        }
+      }
+    }
+
+    // 5. Advance in-progress pebble merge animation.
     if (state.eggMerging) {
       const m = state.eggMerging;
       const u = (state.t - m.startedAt) / m.dur;
       if (u >= 1) {
         for (const p of m.particles) p.alive = false;
         spawnGoldenBall(m.target.x, m.target.y);
-        state.aggCount = Math.max(0, state.aggCount - TUNING.egg.nCrit);
-        state.eggMerging  = null;
+        state.aggCount     = Math.max(0, state.aggCount - TUNING.egg.nCrit);
+        state.eggMerging   = null;
         state.eggBallCount++;
       }
       return; // block new merges while one is running
@@ -551,13 +610,14 @@
 
     if (state.eggBallCount >= TUNING.egg.maxBalls) return;
 
+    // 6. Check whether enough aggregates are levitated to start a new merge.
     const target = (state.eggBallCount === 0)
       ? TUNING.egg.holdTarget
       : TUNING.egg.holdSubseq;
 
-    const lev    = eggLevitatedAggregates();
-    const absOm  = Math.abs(state.omega);
-    const T      = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+    const lev   = eggLevitatedAggregates();
+    const absOm = Math.abs(state.omega);
+    const T     = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
 
     if (lev.length >= TUNING.egg.nCrit && isFinite(T) && CFG.VT_SPREAD >= TUNING.egg.minSpread) {
       state.eggHoldRevs += dt / T;
@@ -569,7 +629,6 @@
       state.eggHoldRevs = 0;
     }
   }
-
 
   // ============================================================
   // SECTION: PHYSICS — GLOBES (PLANETS)
@@ -799,7 +858,9 @@
     const e     = TUNING.ball.ballE;
 
     for (let i = 0; i < n; i++) {
+      if (balls[i].onTray) continue;
       for (let j = i + 1; j < n; j++) {
+        if (balls[j].onTray) continue;
         const A  = balls[i], B = balls[j];
         const dx = B.x - A.x, dy = B.y - A.y;
         const d2 = dx * dx + dy * dy;
