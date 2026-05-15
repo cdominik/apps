@@ -1776,8 +1776,9 @@
         const sign = tray.savedOmega >= 0 ? 1 : -1;
         const absOm = Math.max(0.01, Math.abs(state.omega));
         tray.brakeDur = 2 * (1 - ds) * TUNING.tray.totalAngle / absOm;
-        // sign doesn't matter for duration, but pin omega start magnitude
         void sign;
+        // Disable omega control so it doesn't fight the brake
+        if (window.setOmegaCtlMode) window.setOmegaCtlMode(0);
       }
 
       const u = Math.min(1, (now - tray.brakeT0) / tray.brakeDur);
