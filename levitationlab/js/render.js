@@ -1642,7 +1642,7 @@
     
     // Set the exact opacity and color
     ctx.globalAlpha = heatmap.opacity;
-    ctx.fillStyle = PAL.name === 'light' ? '#d8d4c8' : '#0a0a0c'; 
+    ctx.fillStyle = '#0a0a0c'; // Locked to dark for analytical visibility
     
     // 1. Draw the core circular drum backdrop
     ctx.beginPath();
