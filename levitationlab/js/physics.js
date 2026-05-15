@@ -13,7 +13,7 @@
  *                  soundTink, soundSnap, soundCrunch,
  *                  soundGoldenThud, soundGoldenChime,
  *                  GEO, X2px, angleSwept, visualSizeFactor,
- *                  updateHUD, resetExpertUI
+ *                  updateGauge, resetExpertUI
  */
 (() => {
   'use strict';
@@ -75,7 +75,7 @@
     state.tray.phase    = 'idle';
     state.tray.progress = 0;
 
-    updateHUD();
+    updateGauge();
   }
 
   /**

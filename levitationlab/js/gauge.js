@@ -1,11 +1,11 @@
 /**
- * @file hud.js
+ * @file gauge.js
  * @description
  *   Heads-up display: period, floating/levitated/captured counters, aggregate
  *   and pebble gauges. Also owns the parameter selectors (NP, VT, SPREAD, DT)
  *   including their click wiring and initial application.
  *
- * Exposes globals: updateHUD, SETTINGS, SEL_WIN, cycleSetting,
+ * Exposes globals: updateGauge, SETTINGS, SEL_WIN, cycleSetting,
  *                  applyInitialSettings
  * Reads globals:   CFG, state, soundChime, soundGoldenChime
  */
@@ -13,7 +13,7 @@
   'use strict';
 
   // ============================================================
-  // SECTION: HUD
+  // SECTION: GAUGES
   // ============================================================
   const elPeriod = document.getElementById('period');
   const elFloating = document.getElementById('floating');
@@ -28,7 +28,7 @@
    * captured counters in the HUD; reveals the aggregate and pebble gauges on
    * their first non-zero appearance.
    */
-  function updateHUD() {
+  function updateGauge() {
     const absOm = Math.abs(state.omega);
     const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
     elPeriod.textContent = isFinite(T) ? T.toFixed(2) : '∞';
@@ -110,13 +110,13 @@
     // Tray arming beep
     const BEEP_INTERVAL = 1.0;
     if (state.tray.phase === 'armed' || state.tray.phase === 'inserting') {
-      if (!updateHUD._lastBeep ||
-          (state.t - updateHUD._lastBeep) >= BEEP_INTERVAL) {
-        updateHUD._lastBeep = state.t;
+      if (!updateGauge._lastBeep ||
+          (state.t - updateGauge._lastBeep) >= BEEP_INTERVAL) {
+        updateGauge._lastBeep = state.t;
         soundTrayBeep();
       }
     } else {
-      updateHUD._lastBeep = null;
+      updateGauge._lastBeep = null;
     }
   }
 
@@ -195,7 +195,7 @@
   });
   applyInitialSettings();
 
-  window.updateHUD          = updateHUD;
+  window.updateGauge        = updateGauge;
   window.SETTINGS           = SETTINGS;
   window.SEL_WIN            = SEL_WIN;
   window.cycleSetting       = cycleSetting;

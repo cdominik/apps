@@ -15,7 +15,7 @@
  *                  layout, draw,
  *                  cv, W, H, ctxOv, CX, CY, SCALE, REGIME,
  *                  enterGameMode, enterChallengeMode, lockSelectors,
- *                  updateHUD, updateAnalysisInstrument (internal)
+ *                  updateGauge, updateAnalysisInstrument (internal)
  */
 (() => {
   'use strict';
@@ -984,7 +984,7 @@
       menuBtn.classList.toggle('on', state.distMode !== 'default');
     }
   
-    updateHUD(); 
+    updateGauge(); 
   });
 
   // SYSTEM 2. Omega control — three states: off / auto / launch
@@ -1092,9 +1092,9 @@
     });
 
     // Sync button appearance to tray phase every HUD tick
-    const _origUpdateHUD = window.updateHUD;
-    window.updateHUD = function () {
-      _origUpdateHUD();
+    const _origUpdateGauge = window.updateGauge;
+    window.updateGauge = function () {
+      _origUpdateGauge();
       const ph = state.tray.phase;
       btnCollect.classList.toggle('on',    ph === 'armed');
       btnCollect.classList.toggle('cheat', ph === 'inserting');

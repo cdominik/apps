@@ -11,7 +11,7 @@
  *                  updateAggregates, updateGlobe, updateMotorSound,
  *                  recordTrails, pollAggregateCounter,
  *                  updateViewport, draw, drawGlobes,
- *                  updateHUD, updateGame, updateChallenge,
+ *                  updateGauge, updateGame, updateChallenge,
  *                  showSheet, gameSheet, TUNING_DEFAULT
  */
 (() => {
@@ -130,7 +130,7 @@
       updateGlobe(dt); 
       updateSolar();
       if (_strobeShouldDraw) drawGlobes();
-      updateHUD();
+      updateGauge();
       updateGame();
       updateChallenge();
 
