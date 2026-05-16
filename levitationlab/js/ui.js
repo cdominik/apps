@@ -283,9 +283,9 @@
   cv.addEventListener('pointerleave', e => onUp(e.pointerId, e));
   document.addEventListener('gesturestart', e => e.preventDefault());
   document.addEventListener('touchmove', e => {
-    // Allow native touch scrolling inside scrollable overlay boxes;
-    // suppress page rubber-banding everywhere else (drum interaction).
-    if (e.target.closest('.manual-box, .splash-box')) return;
+    // Allow native touch scrolling inside scrollable overlay boxes and
+    // sheet content. Suppress everywhere else (drum rubber-banding).
+    if (e.target.closest('.manual-box, .splash-box, .sheet-content')) return;
     e.preventDefault();
   }, { passive: false });
 

@@ -860,6 +860,29 @@ body.theme-light .sel .chev { color: #1a1006; }
   text-transform: uppercase;
 }
 
+/* The global * { touch-action: none } reset kills pan-gesture recognition
+   on text children of scrollable overlays — the browser reads touch-action
+   before touchmove fires, so the ui.js closest() guard never gets a chance.
+   Re-assert pan-y on the boxes and every descendant. */
+.manual-box,
+.manual-box *,
+.splash-box,
+.splash-box * {
+  touch-action: pan-y;
+}
+
+/* Sheet content inside game/challenge sheets can overflow on small portrait
+   screens. Give it a scroll budget and the same touch treatment. */
+.sheet-content {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  max-height: calc(100dvh - 80px);
+  touch-action: pan-y;
+}
+.sheet-content * {
+  touch-action: pan-y;
+}
 .dev-control {
   margin-bottom: 12px;
   padding: 10px;
