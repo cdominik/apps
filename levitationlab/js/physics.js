@@ -367,26 +367,13 @@
           p.prevR2 = r2;
         }
 
-        // Collect particles within tray thickness of the live rotating tray line
+        // Collect particles within tray thickness of the live rotating tray line.
+        // Particles: catchR = 0 (no radius added to the threshold), offsetR =
+        // collisionR — the asymmetry is preserved exactly.
         if ((state.tray.phase === 'inserting' || state.tray.phase === 'inserted')
             && !p.onTray && p.insideOnce) {
           const ep = trayEndpoints();
-          if (ep) {
-            const tdx = ep.tx - ep.hx, tdy = ep.ty - ep.hy;
-            const lenSq = tdx * tdx + tdy * tdy;
-            const t = lenSq < 1e-9 ? 0
-              : Math.max(0, Math.min(1, ((p.x - ep.hx) * tdx + (p.y - ep.hy) * tdy) / lenSq));
-            const cx = ep.hx + t * tdx, cy = ep.hy + t * tdy;
-            if (Math.hypot(p.x - cx, p.y - cy) < TUNING.tray.thickness * 2) {
-              // Land on the upper surface, offset by half-thickness + particle radius
-              const rP = TUNING.particle.collisionR;
-              const off = TUNING.tray.thickness * 0.5 + rP;
-              p.x = cx + ep.upx * off;
-              p.y = cy + ep.upy * off;
-              p.vx = 0; p.vy = 0;
-              p.onTray = true;
-            }
-          }
+          if (ep) tryCatchOnTray(p, ep, 0, TUNING.particle.collisionR);
         }
 
         // Remove particles that escaped the drum entirely.
@@ -567,25 +554,14 @@
     }
 
     // 4. Tray catch — pin pebbles to the upper surface of the blade.
+    // ep fetched once per frame (unchanged); helper zeroes spinRate because
+    // golden balls carry a spinRate field.
     if (state.tray.phase === 'inserting' || state.tray.phase === 'inserted') {
       const ep = trayEndpoints();
       if (ep) {
-        const tdx = ep.tx - ep.hx, tdy = ep.ty - ep.hy;
-        const lenSq = tdx * tdx + tdy * tdy;
         for (const b of state.goldenBalls) {
           if (b.onTray || b.merging) continue;
-          const t = lenSq < 1e-9 ? 0
-            : Math.max(0, Math.min(1, ((b.x - ep.hx) * tdx + (b.y - ep.hy) * tdy) / lenSq));
-          const cx = ep.hx + t * tdx, cy = ep.hy + t * tdy;
-          if (Math.hypot(b.x - cx, b.y - cy) < TUNING.tray.thickness * 2 + b.r) {
-            const off = TUNING.tray.thickness * 0.5 + b.r;
-            b.x = cx + ep.upx * off;
-            b.y = cy + ep.upy * off;
-            b.vx = 0;
-            b.vy = 0;
-            b.spinRate = 0;
-            b.onTray = true;
-          }
+          tryCatchOnTray(b, ep, b.r, b.r);
         }
       }
     }
@@ -1173,26 +1149,14 @@
         agg.y += agg.vy * dt;
         agg.rot += agg.rotSpeed * dt;
 
-        // Collect aggregates within catch distance of the live rotating tray line
+        // Collect aggregates within catch distance of the live rotating tray line.
+        // Aggregates use their radius for both the catch threshold and offset.
         if ((state.tray.phase === 'inserting' || state.tray.phase === 'inserted')
             && !agg.onTray) {
           const ep = trayEndpoints();
-          if (ep) {
-            const tdx = ep.tx - ep.hx, tdy = ep.ty - ep.hy;
-            const lenSq = tdx * tdx + tdy * tdy;
-            const t = lenSq < 1e-9 ? 0
-              : Math.max(0, Math.min(1, ((agg.x - ep.hx) * tdx + (agg.y - ep.hy) * tdy) / lenSq));
-            const cx = ep.hx + t * tdx, cy = ep.hy + t * tdy;
-            if (Math.hypot(agg.x - cx, agg.y - cy) < TUNING.tray.thickness * 2 + agg.r) {
-              // Land on the upper surface, offset by half-thickness + aggregate radius
-              const off = TUNING.tray.thickness * 0.5 + agg.r;
-              agg.x = cx + ep.upx * off;
-              agg.y = cy + ep.upy * off;
-              agg.vx = 0; agg.vy = 0;
-              agg.onTray = true;
-            }
-          }
+          if (ep) tryCatchOnTray(agg, ep, agg.r, agg.r);
         }
+
         const r2    = agg.x * agg.x + agg.y * agg.y;
         const Rwall = CFG.R_DRUM - agg.r;
 
@@ -1694,6 +1658,39 @@
     return { hx, hy, tx, ty, upx, upy };
   }
   window.trayEndpoints = trayEndpoints;
+
+  /**
+   * Pins a floating object onto the collection-tray blade if it lies within
+   * catch distance of the tray segment. Shared by particles, aggregates, and
+   * pebbles (the three previously-duplicated catch blocks).
+   *
+   * The caller owns the phase gate, the eligibility checks
+   * (onTray / merging / insideOnce), and supplying `ep` — so the per-frame
+   * trayEndpoints() call frequency is unchanged at every site.
+   *
+   * @param {object} obj     - Object with x, y, vx, vy (optionally spinRate, onTray).
+   * @param {object} ep      - Non-null result of trayEndpoints().
+   * @param {number} catchR  - Radius added to the catch-distance threshold.
+   * @param {number} offsetR - Radius used for the landing offset off the blade.
+   * @returns {boolean} True if the object was caught and pinned this call.
+   */
+  function tryCatchOnTray(obj, ep, catchR, offsetR) {
+    const tdx = ep.tx - ep.hx, tdy = ep.ty - ep.hy;
+    const lenSq = tdx * tdx + tdy * tdy;
+    const t = lenSq < 1e-9 ? 0
+      : Math.max(0, Math.min(1, ((obj.x - ep.hx) * tdx + (obj.y - ep.hy) * tdy) / lenSq));
+    const cx = ep.hx + t * tdx, cy = ep.hy + t * tdy;
+    if (Math.hypot(obj.x - cx, obj.y - cy) < TUNING.tray.thickness * 2 + catchR) {
+      const off = TUNING.tray.thickness * 0.5 + offsetR;
+      obj.x = cx + ep.upx * off;
+      obj.y = cy + ep.upy * off;
+      obj.vx = 0; obj.vy = 0;
+      if (obj.spinRate !== undefined) obj.spinRate = 0;
+      obj.onTray = true;
+      return true;
+    }
+    return false;
+  }
 
   function updateTray() {
     const tray = state.tray;
