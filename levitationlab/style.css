@@ -524,6 +524,10 @@ body.theme-light .sel .chev { color: #1a1006; }
   transition: filter 0.1s, transform 0.05s;
   pointer-events: auto;
 }
+/* The hidden attribute must win over .title-plate's display:flex.
+   game.js toggles elTitlePlate.hidden for Game/Challenge modes; without
+   this the class's display:flex silently overrides [hidden]. */
+.title-plate[hidden] { display: none !important; }
 
 .title-plate:hover  { filter: brightness(1.15); }
 .title-plate:active { transform: translateY(1px); box-shadow: inset 0 2px 3px rgba(0,0,0,0.5); }
