@@ -2122,6 +2122,67 @@ function drawRepresentativeOrbits() {
   }
 
   /**
+   * Draws one Gaussian-KDE curve (filled area + stroked outline) for a v_t
+   * sample, normalised to its own peak. Shared by the floating-particle and
+   * levitated-particle curves in drawVtDistribution (previously duplicated).
+   *
+   * Uses Silverman's rule for bandwidth and a fixed 60-point grid over
+   * [xMin, xMax]. No-ops if the sample is empty or degenerate (kMax === 0).
+   * Caller owns clipping and draw order.
+   *
+   * @param {number[]} vts    - Terminal-velocity samples.
+   * @param {string}   fill   - Fill style for the area under the curve.
+   * @param {string}   stroke - Stroke style for the curve outline.
+   * @param {number}   xMin   - Left edge of the KDE domain (cm/s).
+   * @param {number}   xMax   - Right edge of the KDE domain (cm/s).
+   * @param {number}   X0     - Left edge of the plot in drum-units.
+   * @param {number}   totalW - Plot width in drum-units.
+   * @param {number}   baseY  - Baseline y in drum-units.
+   * @param {number}   plotH  - Plot height in drum-units.
+   */
+  function drawKDE(vts, fill, stroke, xMin, xMax, X0, totalW, baseY, plotH) {
+    if (!vts || vts.length === 0) return;
+    const n    = vts.length;
+    const mean = vts.reduce((a, b) => a + b, 0) / n;
+    const sig  = Math.sqrt(Math.max(0.1, vts.reduce((s, v) => s + (v - mean) ** 2, 0) / n));
+    const bw   = 1.06 * sig * Math.pow(n, -0.2);
+
+    const nGrid = 60;
+    const ky = new Array(nGrid);
+    let kMax = 0;
+    for (let i = 0; i < nGrid; i++) {
+      const vt = xMin + (i / (nGrid - 1)) * (xMax - xMin);
+      let sum = 0;
+      for (const v of vts) { const z = (vt - v) / bw; sum += Math.exp(-0.5 * z * z); }
+      ky[i] = sum / (n * bw * Math.sqrt(2 * Math.PI));
+      if (ky[i] > kMax) kMax = ky[i];
+    }
+
+    if (kMax > 0) {
+      ctxOv.beginPath();
+      ctxOv.moveTo(X2px(X0), Y2px(baseY));
+      for (let i = 0; i < nGrid; i++) {
+        const x = X0 + (i / (nGrid - 1)) * totalW;
+        ctxOv.lineTo(X2px(x), Y2px(baseY + plotH * (ky[i] / kMax)));
+      }
+      ctxOv.lineTo(X2px(X0 + totalW), Y2px(baseY));
+      ctxOv.closePath();
+      ctxOv.fillStyle = fill;
+      ctxOv.fill();
+
+      ctxOv.beginPath();
+      for (let i = 0; i < nGrid; i++) {
+        const x = X0 + (i / (nGrid - 1)) * totalW;
+        const y = baseY + plotH * (ky[i] / kMax);
+        i === 0 ? ctxOv.moveTo(X2px(x), Y2px(y)) : ctxOv.lineTo(X2px(x), Y2px(y));
+      }
+      ctxOv.strokeStyle = stroke;
+      ctxOv.lineWidth = 1.5;
+      ctxOv.stroke();
+    }
+  }
+
+  /**
    * Draws the v_t distribution of levitated particles (KDE, green) and
    * live aggregates (histogram bins, amber) in the upper-left drum area.
    */
@@ -2204,88 +2265,13 @@ function drawRepresentativeOrbits() {
     ctxOv.clip();
 
     // --- KDE FOR FLOATING PARTICLES (yellow, drawn first) ---
-    if (floatVts.length > 0) {
-      const n    = floatVts.length;
-      const mean = floatVts.reduce((a, b) => a + b, 0) / n;
-      const sig  = Math.sqrt(Math.max(0.1, floatVts.reduce((s, v) => s + (v - mean) ** 2, 0) / n));
-      const bw   = 1.06 * sig * Math.pow(n, -0.2);
-
-      const nGrid = 60;
-      const ky = new Array(nGrid);
-      let kMax = 0;
-      for (let i = 0; i < nGrid; i++) {
-        const vt = xMin + (i / (nGrid - 1)) * (xMax - xMin);
-        let sum = 0;
-        for (const v of floatVts) { const z = (vt - v) / bw; sum += Math.exp(-0.5 * z * z); }
-        ky[i] = sum / (n * bw * Math.sqrt(2 * Math.PI));
-        if (ky[i] > kMax) kMax = ky[i];
-      }
-
-      if (kMax > 0) {
-        ctxOv.beginPath();
-        ctxOv.moveTo(X2px(X0), Y2px(baseY));
-        for (let i = 0; i < nGrid; i++) {
-          const x = X0 + (i / (nGrid - 1)) * totalW;
-          ctxOv.lineTo(X2px(x), Y2px(baseY + plotH * (ky[i] / kMax)));
-        }
-        ctxOv.lineTo(X2px(X1), Y2px(baseY));
-        ctxOv.closePath();
-        ctxOv.fillStyle = 'rgba(255,238,51,0.10)';
-        ctxOv.fill();
-
-        ctxOv.beginPath();
-        for (let i = 0; i < nGrid; i++) {
-          const x = X0 + (i / (nGrid - 1)) * totalW;
-          const y = baseY + plotH * (ky[i] / kMax);
-          i === 0 ? ctxOv.moveTo(X2px(x), Y2px(y)) : ctxOv.lineTo(X2px(x), Y2px(y));
-        }
-        ctxOv.strokeStyle = 'rgba(255,238,51,0.75)';
-        ctxOv.lineWidth = 1.5;
-        ctxOv.stroke();
-      }
-    }
-
     // --- KDE FOR LEVITATED PARTICLES (green, drawn on top) ---
-    if (levVts.length > 0) {
-      const n    = levVts.length;
-      const mean = levVts.reduce((a, b) => a + b, 0) / n;
-      const sig  = Math.sqrt(Math.max(0.1, levVts.reduce((s, v) => s + (v - mean) ** 2, 0) / n));
-      const bw   = 1.06 * sig * Math.pow(n, -0.2);
-
-      const nGrid = 60;
-      const ky = new Array(nGrid);
-      let kMax = 0;
-      for (let i = 0; i < nGrid; i++) {
-        const vt = xMin + (i / (nGrid - 1)) * (xMax - xMin);
-        let sum = 0;
-        for (const v of levVts) { const z = (vt - v) / bw; sum += Math.exp(-0.5 * z * z); }
-        ky[i] = sum / (n * bw * Math.sqrt(2 * Math.PI));
-        if (ky[i] > kMax) kMax = ky[i];
-      }
-
-      if (kMax > 0) {
-        ctxOv.beginPath();
-        ctxOv.moveTo(X2px(X0), Y2px(baseY));
-        for (let i = 0; i < nGrid; i++) {
-          const x = X0 + (i / (nGrid - 1)) * totalW;
-          ctxOv.lineTo(X2px(x), Y2px(baseY + plotH * (ky[i] / kMax)));
-        }
-        ctxOv.lineTo(X2px(X1), Y2px(baseY));
-        ctxOv.closePath();
-        ctxOv.fillStyle = 'rgba(64,255,112,0.15)';
-        ctxOv.fill();
-
-        ctxOv.beginPath();
-        for (let i = 0; i < nGrid; i++) {
-          const x = X0 + (i / (nGrid - 1)) * totalW;
-          const y = baseY + plotH * (ky[i] / kMax);
-          i === 0 ? ctxOv.moveTo(X2px(x), Y2px(y)) : ctxOv.lineTo(X2px(x), Y2px(y));
-        }
-        ctxOv.strokeStyle = 'rgba(64,255,112,0.85)';
-        ctxOv.lineWidth = 1.5;
-        ctxOv.stroke();
-      }
-    }
+    // Order matters: floating must draw before levitated so the green curve
+    // sits on top, exactly as before.
+    drawKDE(floatVts, 'rgba(255,238,51,0.10)', 'rgba(255,238,51,0.75)',
+            xMin, xMax, X0, totalW, baseY, plotH);
+    drawKDE(levVts, 'rgba(64,255,112,0.15)', 'rgba(64,255,112,0.85)',
+            xMin, xMax, X0, totalW, baseY, plotH);
 
     // --- HISTOGRAM BINS FOR AGGREGATES (amber) ---
     if (aggVts.length > 0) {
