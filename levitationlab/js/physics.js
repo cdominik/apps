@@ -14,7 +14,7 @@
  *                  soundTink, soundSnap, soundCrunch, soundAggMerge,
  *                  soundGoldenThud, soundGoldenChime,
  *                  GEO, X2px, angleSwept, visualSizeFactor,
- *                  updateGauge, resetExpertUI
+ *                  updateGauge, resetExpertUI, resetSimSpeed
  */
 (() => {
   'use strict';
@@ -1705,6 +1705,9 @@
         : state.drumAngle <= tray.triggerAtAngle;
       if (past) {
         tray.phase            = 'inserting';
+        // Fast sim speed makes the brake ramp overshoot final positioning —
+        // force 1× the moment deployment actually begins.
+        if (window.resetSimSpeed) window.resetSimSpeed();
         tray.insertStartAngle = state.drumAngle;
         tray.savedOmega       = state.omega;
         tray.progress         = 0;

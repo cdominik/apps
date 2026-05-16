@@ -9,7 +9,8 @@
  * Exposes globals: slowMoArmed (window), resetExpertUI (window),
  *                  setOmegaDecay (window), setOmegaCtlMode (window),
  *                  _resetLaunchState (window), _computeOptimalWait (window),
- *                  _ghostClear (window), _ghostEnsureTarget (window)
+ *                  _ghostClear (window), _ghostEnsureTarget (window),
+ *                  resetSimSpeed (window)
  * Reads globals:   TUNING, TUNING_DEFAULT, CFG, PAL, PAL_DARK, PAL_LIGHT,
  *                  AUDIO, state, heatmap,
  *                  SETTINGS, SEL_WIN, applyInitialSettings,
@@ -195,7 +196,11 @@
     
     if (r > outerRadius) return; 
     if (window.omegaMode === 1) return; // LOCKED: ignore click
-
+    // Tray deploying/deployed → collection is terminal until Reset; ignore swipes.
+    if (state.tray.phase === 'inserting' || state.tray.phase === 'inserted') {
+      showToast('Lab locked — press Reset to start a new run');
+      return;
+    }
     state.pointers.set(id, { x: c.x, y: c.y, lastT: performance.now() / 1000 });
     state.holding = true;
     cv.style.cursor = 'grabbing';
@@ -212,6 +217,14 @@
     if (p) {
       if (window.omegaMode === 1) {
         // Locked mid-drag
+        state.pointers.delete(id);
+        state.holding = state.pointers.size > 0;
+        cv.style.cursor = inCircle ? 'not-allowed' : 'default';
+        return;
+      }
+
+      if (state.tray.phase === 'inserting' || state.tray.phase === 'inserted') {
+        // Tray locked the lab mid-drag — drop the pointer like the Ω-lock path.
         state.pointers.delete(id);
         state.holding = state.pointers.size > 0;
         cv.style.cursor = inCircle ? 'not-allowed' : 'default';
@@ -1046,10 +1059,17 @@
 
   if (btnSysAutoOmega) {
     btnSysAutoOmega.addEventListener('click', () => {
+      // Tray deploying/deployed → collection is terminal until Reset.
+      // Block omega-control changes so auto/launch can't re-spin the drum
+      // into the desynced on-tray state.
+      if (state.tray.phase === 'inserting' || state.tray.phase === 'inserted') {
+        showToast('Lab locked — press Reset to start a new run');
+        return;
+      }
       setOmegaCtlMode((window.omegaCtlMode + 1) % 3);
     });
   }
-
+  
   window.setOmegaCtlMode  = setOmegaCtlMode;
   window._resetLaunchState = _resetLaunchState;
 
@@ -1118,45 +1138,47 @@
 
   // SYSTEM 4-6. Simulation speed
 
-    const speedGears   = [0.25, 0.5, 1.0, 2.0, 4.0];
-    let currentGearIdx = 2; // Default to 1.0x
+  const speedGears   = [0.25, 0.5, 1.0, 2.0, 4.0];
+  let currentGearIdx = 2; // Default to 1.0x
   
-    /**
-     * Applies the current speed gear to state.simSpeed and updates the speed display label.
-     */
-    function updateSpeedUI() {
-      const speed = speedGears[currentGearIdx];
-      state.simSpeed = speed;
-      
-      // Use single-character Unicode fractions for better fit
-      let label;
-      if (speed === 0.5) label = "½x";
-      else if (speed === 0.25) label = "¼x";
-      else label = speed + 'x';
-
-      document.getElementById('speedDisp').textContent = label;
-      
-      // Visual feedback: Glow the middle button if not at standard 1x
-      document.getElementById('btnSpeedReset').classList.toggle('on', speed !== 1.0);
-    }
+  /**
+   * Applies the current speed gear to state.simSpeed and updates the speed display label.
+   */
+  function updateSpeedUI() {
+    const speed = speedGears[currentGearIdx];
+    state.simSpeed = speed;
+    
+    // Use single-character Unicode fractions for better fit
+    let label;
+    if (speed === 0.5) label = "½x";
+    else if (speed === 0.25) label = "¼x";
+    else label = speed + 'x';
+    
+    document.getElementById('speedDisp').textContent = label;
+    
+    // Visual feedback: Glow the middle button if not at standard 1x
+    document.getElementById('btnSpeedReset').classList.toggle('on', speed !== 1.0);
+  }
   
-    document.getElementById('btnSpeedUp').addEventListener('click', () => {
-      if (currentGearIdx < speedGears.length - 1) {
-        currentGearIdx++;
-        updateSpeedUI();
-      }
-    });
-    document.getElementById('btnSpeedDown').addEventListener('click', () => {
-      if (currentGearIdx > 0) {
-        currentGearIdx--;
-        updateSpeedUI();
-      }
-    });
-    document.getElementById('btnSpeedReset').addEventListener('click', () => {
-      currentGearIdx = 2; // Snap back to 1.0x
+  document.getElementById('btnSpeedUp').addEventListener('click', () => {
+    if (currentGearIdx < speedGears.length - 1) {
+      currentGearIdx++;
       updateSpeedUI();
-    });
-
+    }
+  });
+  document.getElementById('btnSpeedDown').addEventListener('click', () => {
+    if (currentGearIdx > 0) {
+      currentGearIdx--;
+      updateSpeedUI();
+    }
+  });
+  function resetSimSpeed() {
+    currentGearIdx = 2; // Snap back to 1.0x
+    updateSpeedUI();
+  }
+  document.getElementById('btnSpeedReset').addEventListener('click', resetSimSpeed);
+  window.resetSimSpeed = resetSimSpeed;
+  
   // SYSTEM 7-9. Other Speed adjustments
   
   // SYSTEM 7. Stroboscopic rendering — paint once per drum revolution
