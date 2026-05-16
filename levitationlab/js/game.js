@@ -509,7 +509,8 @@
     on: false,
     phase: 'idle',
     startTime: 0,
-    scores: loadHighscores()
+    scores: loadHighscores(),
+    contract: null // Locked parameter contract for the current leaderboard session.
   };
 
   const btnChallenge   = document.getElementById('btnChallenge');
@@ -583,7 +584,7 @@
       // Settings keeps the wing selectors as-is. (?challenge URL path
       // applies defaults itself — see ui.js — to stay canonical.)
       showChallengeIntro();
-   } else {
+    } else {
       CHALLENGE.phase = 'idle';
       gameSheet.hidden = true;
       setChallengeBtnLabel('Challenge');
@@ -591,6 +592,7 @@
       lockSelectors(false);
       hideVideoElement();
       state.challengeTimeOverride = null;
+      CHALLENGE.contract = null;       // session over → next entry is a fresh game master
       initLevel();
     }
   }
@@ -613,18 +615,30 @@
   }
 
   /**
-   * Shows the challenge intro sheet with the current particle-count setup and
-   * hides the name-entry and leaderboard areas.
+   * Shows the challenge intro sheet.
+   * @param {boolean} bound - true => bound (Next Player) mode: the session
+   *   contract is fixed, show a single Start button and re-label it. false
+   *   (default) => game-master mode: two-button parameter choice.
    */
-  function showChallengeIntro() {
+  function showChallengeIntro(bound = false) {
     chalTitle.textContent = "Outreach Challenge";
     chalDesc.textContent = "You have got about a minute. Keep as many particles " +
       "levitated as possible. If something grows in your time window - it will " +
       "improve your score.";
     chalInputArea.hidden = true;
     chalBoardArea.hidden = true;
-    chalStartBtn.hidden = false;
-    chalStartDefaultBtn.hidden = false;
+    if (bound) {
+      // Bound by the game master's contract — no parameter choice.
+      applyChallengeContract();          // defend the contract against drift
+      chalStartDefaultBtn.hidden = true;
+      chalStartBtn.hidden = false;
+      chalStartBtn.textContent = "Start";
+    } else {
+      // Game master: full two-button choice.
+      chalStartBtn.textContent = "Current Lab Setting";
+      chalStartDefaultBtn.hidden = false;
+      chalStartBtn.hidden = false;
+    }
     challengeSheet.hidden = false;
   }
 
@@ -641,17 +655,50 @@
   }
   window.applyChallengeDefaults = applyChallengeDefaults;
 
+  /**
+   * Snapshots the current resolved parameters as the locked session
+   * contract. Called when the game master starts (either button). Stores
+   * concrete values, not the choice — so the session is comparable
+   * regardless of which button was used.
+   */
+  function lockChallengeContract() {
+    CHALLENGE.contract = {
+      NP:     CFG.N_P,
+      VT:     CFG.V_T,
+      SPREAD: CFG.VT_SPREAD,
+      DT:     CFG.DT_INJECT,
+      timeOverride: state.challengeTimeOverride,
+    };
+  }
+
+  /**
+   * Re-applies the locked contract to the selectors and the time override.
+   * Called for every bound (Next Player) run so the contract cannot drift.
+   * No-op if no contract is set (defensive).
+   */
+  function applyChallengeContract() {
+    const c = CHALLENGE.contract;
+    if (!c) return;
+    setSettingByValue('NP',     c.NP);
+    setSettingByValue('VT',     c.VT);
+    setSettingByValue('SPREAD', c.SPREAD);
+    setSettingByValue('DT',     c.DT);
+    state.challengeTimeOverride = c.timeOverride;
+  }
+
   const chalStartDefaultBtn = document.getElementById('chalStartDefaultBtn');
 
-  // "Default Challenge" — force the standard parameters, then run.
+  // "Default Challenge" — game master picks defaults; lock the contract.
   chalStartDefaultBtn.addEventListener('click', () => {
     applyChallengeDefaults();
+    lockChallengeContract();          // capture AFTER defaults applied (reading (a))
     challengeSheet.hidden = true;
     startChallengeRun();
   });
 
-  // "Current Settings" — keep whatever the wings currently hold, then run.
+  // "Current Lab Setting" — game master picks current setup; lock it.
   chalStartBtn.addEventListener('click', () => {
+    lockChallengeContract();          // capture the as-is resolved values
     challengeSheet.hidden = true;
     startChallengeRun();
   });
@@ -769,7 +816,9 @@
     chalBoardArea.hidden = false;
   });
 
-  chalNextBtn.addEventListener('click', () => { showChallengeIntro(); });
+  // Next Player is bound by the game master's locked contract — single
+  // Start button, parameters re-applied, no choice.
+  chalNextBtn.addEventListener('click', () => { showChallengeIntro(true); });
 
   btnChallenge.addEventListener('click', () => {
     if (CHALLENGE.on && (CHALLENGE.phase === 'playing' || CHALLENGE.phase === 'scoring')) {
