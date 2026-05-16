@@ -305,7 +305,11 @@
     setGameBtnLabel('Game Menu');
     lockSelectors(true);
     if (window.setOmegaDecay) { setOmegaDecay(false); }
-    document.getElementById('btnOmegaCtl').classList.add('disabled');    startRelease();
+    document.getElementById('btnOmegaCtl').classList.add('disabled');
+    initLevel();
+    state.globes = [];
+    if (state.solar) state.solar.phase = 'none';
+    startRelease();
     
     state.omega = 0;
     state.omegaTarget = 0;
@@ -665,6 +669,10 @@
     lockSelectors(true);
     if (window.setOmegaDecay) setOmegaDecay(false);
     document.getElementById('btnOmegaCtl').classList.add('disabled');
+
+    initLevel();
+    state.globes = [];
+    if (state.solar) state.solar.phase = 'none';
     startRelease();
     state.omega = 0;
     state.omegaTarget = 0;
