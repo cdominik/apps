@@ -850,10 +850,11 @@
     let s = Math.sqrt(Math.max(0.01, vt) / TUNING.particle.sizeRefVt);
     if (s < TUNING.particle.sizeMin) s = TUNING.particle.sizeMin;
     if (s > TUNING.particle.sizeMax) s = TUNING.particle.sizeMax;
-    if (CFG.N_P >= 10000)     s *= 0.10;
-    else if (CFG.N_P >= 3000) s *= 0.20;
-    else if (CFG.N_P >= 1000) s *= 0.50;
-    else if (CFG.N_P >= 300)  s *= 0.70;
+    const n = state.renderN || CFG.N_P;
+    if      (n >= 10000) s *= 0.10;
+    else if (n >= 3000)  s *= 0.20;
+    else if (n >= 1000)  s *= 0.50;
+    else if (n >= 300)   s *= 0.70;
     return s;
   }
 
@@ -1318,7 +1319,7 @@
   /** Renders all particle trail lines with a head-to-tail opacity fade. */
   function drawTrails() {
     if (!state.trailsOn) return;
-    if (CFG.N_P >= TUNING.trails.maxN) return;
+    if ((state.renderN || CFG.N_P) >= TUNING.trails.maxN) return;
     if (state.laserOn) return;
     
     const dur = TUNING.trails.durationS;
@@ -1369,7 +1370,7 @@
   /** Appends the current position of each live, non-stuck particle to its trail buffer. */
   function recordTrails() {
     if (!state.trailsOn) return;
-    if (CFG.N_P >= TUNING.trails.maxN) return;
+    if ((state.renderN || CFG.N_P) >= TUNING.trails.maxN) return;
     
     // Use simulation time (state.t) for consistent length during slow-mo
     const dur = TUNING.trails.durationS;
@@ -1475,7 +1476,8 @@
   function drawOneParticle(p) {
     const x = X2px(p.x), y = Y2px(p.y);
     const sizeFac = visualSizeFactor(p.vt);
-    const minR = CFG.N_P >= 1000 ? 0.5 : (CFG.N_P >= 300 ? 1.0 : 2.0);
+    const n = state.renderN || CFG.N_P;
+    const minR = n >= 1000 ? 0.5 : (n >= 300 ? 1.0 : 2.0);
     const rpx = Math.max(minR, pxDist(TUNING.particle.collisionR) * 2 * sizeFac);
     const lidar = state.laserOn;
     const FLASH_DUR = 0.40 * (lidar ? TUNING.lidar.flashDurMul : 1);
@@ -1498,7 +1500,7 @@
       if (p.stuck) alphaMul *= TUNING.lidar.stuckAlpha;
     }
 
-    const drawGlow = lidar || (CFG.N_P < 300);
+    const drawGlow = lidar || ((state.renderN || CFG.N_P) < 300);
 
     let coreColor, glowColor;
     if (p.stuck) {

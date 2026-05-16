@@ -58,7 +58,7 @@
     state.drumAngle  = 0;
     state.puffs      = [];
     state.lostCount  = 0;
-
+    state.renderN      = CFG.N_P;
     state.eggHoldRevs  = 0;
     state.eggBallCount = 0;
     state.eggMerging   = null;
@@ -200,6 +200,7 @@
     state.globes.forEach(g => { g.bornAt = 0; });
     state.pebbleBannerUsed = false;
 
+    state.renderN = CFG.N_P;
     scheduleInjections();
     state.running = true;
   }
