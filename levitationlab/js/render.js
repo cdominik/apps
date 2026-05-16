@@ -1379,9 +1379,7 @@
       const trail = p.trail;
       if (!trail || trail.length < 2) continue;
 
-      const absOm = Math.abs(state.omega);
-      const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
-      const levitated = isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
+      const levitated = state.isLevitated(p);
       
       let r, g, b;
       if (levitated) { r = 0x40; g = 0xff; b = 0x70; }
@@ -1531,10 +1529,8 @@
       flash = (p.flashEndsAt - state.t) / FLASH_DUR;
       if (flash > 1) flash = 1; if (flash < 0) flash = 0;
     }
-    const absOm = Math.abs(state.omega);
-    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
-    const levitated = !p.stuck && isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
 
+    const levitated = state.isLevitated(p);
     let alphaMul = 1;
     if (p.stuck && p.stuckAt !== undefined) {
       const age = state.t - p.stuckAt;
@@ -1767,18 +1763,15 @@ function drawRepresentativeOrbits() {
       return { p, xc, r, isLevitated: isLev };
     };
 
-    const absOm = Math.abs(state.omega);
-    const T = (absOm < 1e-3) ? Infinity : (2 * Math.PI / absOm);
-
     // Filter all floating particles first
     const allValid = state.particles
       .filter(p => p.alive && !p.stuck)
       .map(p => {
-        const isL = p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
+        const isL = state.isLevitated(p);
         return getContainedOrb(p, isL);
       })
       .filter(o => o !== null);
-
+    
     if (allValid.length === 0) {
       state.orbitSample = [];
       return;
@@ -2180,17 +2173,13 @@ function drawRepresentativeOrbits() {
   function drawVtDistribution() {
     if (!window.vtDistOn) return;
 
-    const absOm = Math.abs(state.omega);
-    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
-
     // --- COLLECT DATA ---
     const levVts   = [];
     const floatVts = [];
     for (const p of state.particles) {
       if (!p.alive || p.stuck || p.merging || !p.insideOnce) continue;
-      const nowLev = isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
-      if (nowLev) levVts.push(p.vt);
-      else        floatVts.push(p.vt);
+      if (state.isLevitated(p)) levVts.push(p.vt);
+      else                      floatVts.push(p.vt);
     }
     const aggVts = [];
     for (const agg of state.aggregates) {

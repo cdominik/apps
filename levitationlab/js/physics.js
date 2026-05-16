@@ -494,15 +494,10 @@
    * @returns {object[]} Array of levitated particle objects.
    */
   function eggLevitatedParticles() {
-    const absOm = Math.abs(state.omega);
-    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
-    if (!isFinite(T)) return [];
     const out = [];
     for (const p of state.particles) {
       if (!p.alive || p.stuck || p.merging) continue;
-      if (p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T) {
-        out.push(p);
-      }
+      if (state.isLevitated(p)) out.push(p);
     }
     return out;
   }
@@ -514,15 +509,10 @@
    * @returns {object[]} Array of levitated aggregate objects.
    */
   function eggLevitatedAggregates() {
-    const absOm = Math.abs(state.omega);
-    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
-    if (!isFinite(T)) return [];
     const out = [];
     for (const agg of state.aggregates) {
       if (!agg.alive || agg.stuck || agg.merging) continue;
-      if (agg.inHighlightSince !== null && (state.t - agg.inHighlightSince) >= T) {
-        out.push(agg);
-      }
+      if (state.isLevitated(agg)) out.push(agg);
     }
     return out;
   }
@@ -621,9 +611,8 @@
       ? TUNING.egg.holdTarget
       : TUNING.egg.holdSubseq;
 
-    const lev   = eggLevitatedAggregates();
-    const absOm = Math.abs(state.omega);
-    const T     = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+    const lev = eggLevitatedAggregates();
+    const T   = state.period();
 
     if (lev.length >= TUNING.egg.nCrit && isFinite(T) && CFG.VT_SPREAD >= TUNING.egg.minSpread) {
       state.eggHoldRevs += dt / T;
@@ -1106,10 +1095,9 @@
 
     // Check whether enough particles are levitated to start a new aggregate merge.
     if (!state.aggMerging) {
-      const lev    = eggLevitatedParticles();
-      const absOm  = Math.abs(state.omega);
-      const T      = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
-
+      const lev = eggLevitatedParticles();
+      const T   = state.period();
+      
       if (lev.length >= TUNING.aggregate.minLevitated &&
           isFinite(T) &&
           CFG.VT_SPREAD >= TUNING.aggregate.minSpread) {

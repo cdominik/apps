@@ -78,24 +78,19 @@
    * @returns {object} Snapshot of particles, aggregates, pebbles, drum, time, params, mode, and flags
    */
   function buildViewportContext() {
-    const absOm = Math.abs(state.omega);
-    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+    const T = state.period();
     let floating = 0, levitated = 0, stuck = 0;
     for (const p of state.particles) {
       if (!p.alive) continue;
       if (p.stuck) { stuck++; continue; }
       if (p.merging) continue;
       floating++;
-      if (isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T) {
-        levitated++;
-      }
+      if (state.isLevitated(p)) levitated++;
     }
     let aggLev = 0;
     for (const a of state.aggregates) {
       if (!a.alive || a.stuck || a.merging) continue;
-      if (isFinite(T) && a.inHighlightSince !== null && (state.t - a.inHighlightSince) >= T) {
-        aggLev++;
-      }
+      if (state.isLevitated(a)) aggLev++;
     }
     const sinceInj = (VIEWPORT.lastInjectedAt < 0) ? Infinity : (state.t - VIEWPORT.lastInjectedAt);
     return {
@@ -121,7 +116,7 @@
         omega: state.omega,
         omegaTarget: state.omegaTarget,
         period: T,
-        spinning: absOm > 0.05,
+        spinning: Math.abs(state.omega) > 0.05,
         direction: state.omega > 0 ? 1 : (state.omega < 0 ? -1 : 0),
         angle: state.drumAngle,
       },

@@ -123,11 +123,8 @@
     const cur = state.particles.find(p => p.isDiagnosticTarget && p.alive && !p.stuck);
     if (cur) return;
 
-    const absOm = Math.abs(state.omega);
-    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
     const levitated = state.particles.filter(p =>
-      p.alive && !p.stuck && !p.merging && p.insideOnce &&
-      isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T
+      p.alive && !p.stuck && !p.merging && p.insideOnce && state.isLevitated(p)
     );
 
     let next = null;
@@ -770,15 +767,15 @@
   if (btnProcPeb) {
     btnProcPeb.addEventListener('click', function() {
       const btn = this;
-      const absOm = Math.abs(state.omega);
-      const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+
+      // Drum stopped → "levitated" is undefined; don't sweep anything.
+      if (!isFinite(state.period())) return;
 
       // Remove non-levitated particles
       state.particles = state.particles.filter(p => {
         if (!p.alive) return false;
         if (p.stuck) return false;
-        if (!isFinite(T)) return true;
-        return p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
+        return state.isLevitated(p);
       });
 
       // Flash twice then return to passive
@@ -795,9 +792,7 @@
 
   // PROCESSES 3. Slice duplication
   document.getElementById('btnProcDouble').addEventListener('click', function() {
-    const absOm = Math.abs(state.omega);
-    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
-    if (!isFinite(T)) {
+    if (!isFinite(state.period())) {
       this.classList.add('flash');
       setTimeout(() => this.classList.remove('flash'), 200);
       return; // can't compute orbits without rotation
@@ -813,12 +808,10 @@
     }
     
     const levParticles = state.particles.filter(p =>
-      p.alive && !p.stuck && !p.merging && p.insideOnce &&
-        p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T
+      p.alive && !p.stuck && !p.merging && p.insideOnce && state.isLevitated(p)
     );
     const levAggs = state.aggregates.filter(a =>
-      a.alive && !a.stuck && !a.merging &&
-        a.inHighlightSince !== null && (state.t - a.inHighlightSince) >= T
+      a.alive && !a.stuck && !a.merging && state.isLevitated(a)
     );
     
     // Helper: rotate a point 90° forward in its circular orbit
@@ -880,7 +873,7 @@
   });
   
   // PROCESSES 4. Stokes kick
-  window.stokeskickon = false;
+  window.stokesKickOn = false;
   wireProcessButton('btnProcPureV', 'on', (active) => {
     window.stokesKickOn = active;
   });

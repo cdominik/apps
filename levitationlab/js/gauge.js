@@ -29,8 +29,7 @@
    * their first non-zero appearance.
    */
   function updateGauge() {
-    const absOm = Math.abs(state.omega);
-    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+    const T = state.period();
     elPeriod.textContent = isFinite(T) ? T.toFixed(2) : '∞';
     let floating = 0, levitated = 0;
   
@@ -40,7 +39,7 @@
       if (p.merging) continue;
   
       floating++;
-      const nowLev = isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
+      const nowLev = state.isLevitated(p);
   
       if (nowLev) {
         levitated++;
