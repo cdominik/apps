@@ -1251,7 +1251,6 @@
   // ============================================================
   // URL flags (all optional, all checked here):
   //   ?expert       Open the expert door (public-facing).
-  //   ?designer     Open the expert door AND unlock Fast Chain (internal only;
   //                 do not document for users — Fast Chain ruins the discovery arc).
   //   ?verify       Developer test mode: 3000 particles, vt=30, spread=30%, dt=2,
   //                 omega decay disabled. For rapid full-system smoke tests.
@@ -1299,7 +1298,7 @@
     });
   }
 
-  // Unified access: Either ?expert or ?designer automatically opens the door
+  // Unified access: ?expert automatically opens the door
   if (isExpertURL && expertContainer) {
     expertContainer.classList.add('open');
     setOmegaDecay(true);
