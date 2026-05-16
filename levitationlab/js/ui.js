@@ -1286,7 +1286,7 @@
         e.preventDefault();
         e.stopPropagation(); // Prevents this click from reaching the Title Plate secret
 
-        // Play the heavy cavernous sound defined in audio_3.js
+        // Play the heavy cavernous sound defined in audio.js
         if (window.soundExpertDoorKnock) {
           window.soundExpertDoorKnock();
         }
