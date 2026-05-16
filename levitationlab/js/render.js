@@ -551,52 +551,7 @@
     for (const g of state.globes) {
       const cx = X2px(g.x), cy = Y2px(g.y);
       const rpx = pxDist(g.r);
-      const texture = globeMaps[g.mapIdx]; // Select the specific map for this planet
-
-      ctx.save();
-      
-      // A. Atmospheric Halo (Outer blue glow)
-      const halo = ctx.createRadialGradient(cx, cy, rpx * 0.9, cx, cy, rpx * 1.3);
-      halo.addColorStop(0, 'rgba(100, 200, 255, 0.3)');
-      halo.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = halo;
-      ctx.beginPath(); ctx.arc(cx, cy, rpx * 1.3, 0, Math.PI * 2); ctx.fill();
-
-      // B. Setup the Sphere Clipping
-      ctx.beginPath(); 
-      ctx.arc(cx, cy, rpx, 0, Math.PI * 2); 
-      ctx.clip(); 
-
-      // C. Draw the Texture (Seamless looping)
-      if (texture && texture.complete) {
-        const tw = rpx * 4; 
-        const th = rpx * 2;
-        
-        const shift = (g.spin / (2 * Math.PI) * tw) % tw;
-        ctx.drawImage(texture, cx - rpx + shift,      cy - rpx, tw, th);
-        ctx.drawImage(texture, cx - rpx + shift - tw, cy - rpx, tw, th);
-      } else {
-        // Fallback color if image is missing
-        ctx.fillStyle = '#1e4a6d';
-        ctx.fill();
-      }
-
-      // D. Spherical Shading (Overlay to give 3D depth)
-      const shade = ctx.createRadialGradient(cx - rpx*0.3, cy - rpx*0.3, 0, cx, cy, rpx);
-      shade.addColorStop(0, 'rgba(255, 255, 255, 0.2)'); // Top-left highlight
-      shade.addColorStop(0.5, 'rgba(0, 0, 0, 0)');      // Midtones
-      shade.addColorStop(1, 'rgba(0, 0, 0, 0.6)');      // Shadowed edge
-      ctx.fillStyle = shade;
-      ctx.fillRect(cx - rpx, cy - rpx, rpx * 2, rpx * 2);
-
-      ctx.restore(); // Exit clipping
-
-      // E. Specular Shine (Glossy surface spot)
-      const shine = ctx.createRadialGradient(cx - rpx*0.4, cy - rpx*0.4, 0, cx - rpx*0.4, cy - rpx*0.4, rpx * 0.7);
-      shine.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
-      shine.addColorStop(1, 'rgba(255, 255, 255, 0)');
-      ctx.fillStyle = shine;
-      ctx.beginPath(); ctx.arc(cx - rpx*0.4, cy - rpx*0.4, rpx * 0.7, 0, Math.PI * 2); ctx.fill();
+      _drawGlobeBody(g, cx, cy, rpx);
     }
     
     // 2. Draw the merging pebbles during the "soft motion" phase
