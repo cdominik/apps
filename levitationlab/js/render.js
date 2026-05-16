@@ -804,6 +804,7 @@
    */
   function drawSuccessText() {
     for (const b of state.goldenBalls) {
+      if (!b.showBanner) continue;
       const age = state.t - b.bornAt;
       if (age < 1 || age > 3) continue;
       const u = (age - 1) / 2;

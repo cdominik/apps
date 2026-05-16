@@ -62,6 +62,7 @@
     state.eggBallCount = 0;
     state.eggMerging   = null;
     state.goldenBalls  = [];
+    state.pebbleBannerUsed = false;
 
     state.aggregates  = [];
     state.aggGrowMerging = null;
@@ -190,12 +191,13 @@
     state.tray.progress = 0;
 
     // Re-sync persistent objects to the new timeline origin.
-    state.goldenBalls.forEach(b  => { b.bornAt = 0; });
+    state.goldenBalls.forEach(b  => { b.bornAt = 0; b.showBanner = false; });
     state.aggregates.forEach(agg => {
       agg.inHighlightSince = null; // force them to re-earn levitation
       agg.orbitFlashEndsAt = 0;
     });
     state.globes.forEach(g => { g.bornAt = 0; });
+    state.pebbleBannerUsed = false;
 
     scheduleInjections();
     state.running = true;
@@ -901,6 +903,15 @@
    * @param {number} y - Initial y position in drum-units.
    */
   function spawnGoldenBall(x, y) {
+    const inChallenge = !!(window.CHALLENGE && window.CHALLENGE.on &&
+                           window.CHALLENGE.phase === 'playing');
+    let showBanner;
+    if (inChallenge) {
+      showBanner = true; // every pebble is celebrated in Challenge
+    } else {
+      showBanner = !state.pebbleBannerUsed; // first pebble of the run only
+      if (showBanner) state.pebbleBannerUsed = true;
+    }
     state.goldenBalls.push({
       x, y,
       vx: 0, vy: 0,
@@ -908,10 +919,10 @@
       spin:     0,
       spinRate: 0,
       bornAt:   state.t,
+      showBanner,
     });
     soundCrunch();
   }
-
   /**
    * Selects aggregate targets and initiates an egg-merge (pebble) animation.
    *

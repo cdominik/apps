@@ -32,6 +32,7 @@
     aggHoldRevs: 0,
     aggCount: 0,
     aggMerging: null,
+    pebbleBannerUsed: false,   // latches the first-pebble banner per run (sandbox/game)
     showVectors: false,
     simSpeed: 1.0,
     orbitSample: [],
