@@ -1,3 +1,6 @@
 *.log
 *.toc
-levitation_lab_technical.pdt
+*.out
+*.aux
+auto
+levitation_lab_technical.pdf

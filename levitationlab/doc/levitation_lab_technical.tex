@@ -17,6 +17,19 @@
 %    To include icons inline, use \btnicon{name}, defined below.
 %    If the svg package is unavailable, replace \includesvg with
 %    \includegraphics and supply PNG conversions instead.
+%
+%  CHANGELOG (checked against source, this revision):
+%    - §12: corrected tray sweep angle 270° → 240° (Math.PI * 4/3)
+%    - §12: clarified that TUNING.tray.brakeDur is unused; actual brake
+%            duration is computed dynamically from drum speed at fire time
+%    - §17: corrected snap sound upper frequency 4300 Hz → 4100 Hz
+%    - §17: corrected injection puff lifetime 0.42 s → 1.42 s
+%    - §17: added soundTrayBeep entry (previously undocumented)
+%    - §14: added missing DT: 2 for Level 5; added missing DT: 1 for Level 3
+%    - §15: added ?challenge&time=N URL parameter
+%    - Appendix A: added tray.* constants; added ball.bumpStrength,
+%                  ball.settleVel, ball.contactDrag; added note on
+%                  tray.brakeDur being a vestigial config value
 % =============================================================================
 
 \documentclass[12pt, a4paper]{article}
@@ -97,11 +110,11 @@ formation begins in protoplanetary disks around young stars. A central
 experimental apparatus is a rotating drum in which dust particles are
 levitated for extended periods, allowing them to collide and grow through a
 sequence of stages: free particles $\to$ aggregates $\to$ compressed
-aggregates- a prestage for pebble formation.
+aggregates---a prestage for pebble formation.
 
 The \textbf{Levitation Lab} is a browser-based interactive simulation
 that captures the core physics of this experiment. It is used as a
-game, as an outreach tool—allowing members of the public to
+game, as an outreach tool---allowing members of the public to
 explore the experiment, and as a pedagogical tool for students and
 researchers. The simulation is built entirely in vanilla JavaScript
 and HTML5 Canvas, with no external physics engine.
@@ -438,7 +451,7 @@ characteristic diffusion length set by $\sigma_B / k_R$.
 The perturbations cause aggregate orbits to drift, enabling close approaches
 with other aggregates.
 
-\subsection{Aggregate–Aggregate Growth Collisions}
+\subsection{Aggregate--Aggregate Growth Collisions}
 
 When growth mode is active (\btnicon{btnProcGrowth} orange state), aggregate
 pairs are checked for overlap each frame. When two aggregates touch
@@ -501,7 +514,7 @@ $e_w = 0.85$ (normal) and tangential friction $\mu_w = 0.92$:
 \end{align}
 where superscripts $\pm$ denote post- and pre-collision components.
 
-Ball–ball collisions are handled with coefficient $e_b = 0.90$:
+Ball--ball collisions are handled with coefficient $e_b = 0.90$:
 \begin{equation}
   J = \frac{(1 + e_b)\,v_{\mathrm{rel,n}}}{2},
   \qquad \Delta\mathbf{v}_{A,B} = \mp J\,\hat{n}.
@@ -509,7 +522,9 @@ Ball–ball collisions are handled with coefficient $e_b = 0.90$:
 
 A rotating \textbf{bump} fixed to the drum wall (at the same angular position
 as the collection tray slot) collides with balls as the drum rotates, adding
-energy to keep them bouncing.
+energy to keep them bouncing. The bump collision applies a fractional impulse
+controlled by \texttt{ball.bumpStrength} $= 0.1$; a value of 0 makes the bump
+a ghost and 1 gives a fully elastic kick.
 
 Wall contact drag interpolates the ball's tangential velocity toward the
 drum surface velocity with time constant $\lambda_c = 0.7\,\mathrm{s}^{-1}$.
@@ -537,7 +552,7 @@ $F_{\mathrm{rep}} = 15000\,\mathrm{du^3\,s^{-2}}$, with an additional linear
 hard-contact push when $d < 2.2 R_{\mathrm{globe}}$.
 
 Velocity is damped at $\exp(-9.74\,\Delta t)$ per frame, equivalent to
-$\approx 0.85^{1/\Delta t}$ at $60\,\mathrm{fps}$.
+$\approx 0.85$ per frame at $60\,\mathrm{fps}$.
 
 % =============================================================================
 \section{Solar System Phase Machine}
@@ -682,15 +697,15 @@ kinetic theory expression for the collision rate between two particle
 populations: $R_{12} \propto n_1 n_2 \sigma_{\mathrm{rel}}$, where
 $\sigma_{\mathrm{rel}} \propto \sigma_v$ for particles with different $\vt$.
 The proxy therefore highlights regions where both population density and
-velocity dispersion are high — i.e.\ where aggregate formation is most likely.
+velocity dispersion are high---i.e.\ where aggregate formation is most likely.
 
 Three display modes cycle through with the $\blacktriangleleft$ $\blacktriangleright$ buttons:
 \begin{enumerate}
-  \item \textbf{Velocity variance} $\sigma_v$ — shows where particles have
+  \item \textbf{Velocity variance} $\sigma_v$ --- shows where particles have
     the largest spread in speed, indicating different orbital radii crossing.
-  \item \textbf{Particle density} $\rho$ — shows where particles spend the
+  \item \textbf{Particle density} $\rho$ --- shows where particles spend the
     most time.
-  \item \textbf{Collision proxy} $\mathcal{C} = \rho \sigma_v^2$ — combines
+  \item \textbf{Collision proxy} $\mathcal{C} = \rho \sigma_v^2$ --- combines
     the two, highlighting the most collision-active region.
 \end{enumerate}
 
@@ -766,7 +781,7 @@ shapes are directly comparable regardless of population size.
 \subsection{Aggregate Size Histogram}
 
 A bar chart inside the left half of the drum shows the current aggregate
-population binned by monomer count in steps of 10 (bins 10–100), plus a
+population binned by monomer count in steps of 10 (bins 10--100), plus a
 gold bar for pebbles. The $y$-axis is fixed at a maximum of 10; count
 labels appear above bars when counts exceed the axis. The display updates
 continuously.
@@ -792,16 +807,27 @@ along a fixed direction locked at fire time. The direction aims toward a
 point $(0.447R, 0.224R)$ in drum coordinates, producing a blade that sweeps
 a chord roughly $0.89R$ long.
 
-Insertion sweeps $270°$ of drum rotation, divided into two phases:
+Insertion sweeps $240°$ ($= 4\pi/3\,\mathrm{rad}$) of drum rotation,
+divided into two phases:
 \begin{enumerate}
-  \item \textbf{Cruise} (first $2/3$): drum speed held constant at the
-    firing value.
-  \item \textbf{Brake} (final $1/3$): drum decelerates smoothly to zero via
-    a cubic smoothstep ramp:
+  \item \textbf{Cruise} (first $2/3$ of travel, i.e.\ $160°$): drum speed
+    held constant at the firing value.
+  \item \textbf{Brake} (final $1/3$, i.e.\ $80°$): drum decelerates smoothly
+    to zero via a cubic smoothstep ramp:
     \begin{equation}
       \omg(t) = \omg_0 \cdot \bigl(1 - 3u^2 + 2u^3\bigr),
       \quad u = (t - t_{\mathrm{brake}}) / \tau_{\mathrm{brake}}.
     \end{equation}
+    The brake duration $\tau_{\mathrm{brake}}$ is computed at fire time from
+    the drum's actual angular velocity:
+    \begin{equation}
+      \tau_{\mathrm{brake}} = \frac{2(1-d_s)\,\Phi_{\mathrm{total}}}{|\omg_0|},
+    \end{equation}
+    where $d_s = 0.667$ is the decel-start fraction and
+    $\Phi_{\mathrm{total}} = 4\pi/3$. This ensures the brake phase always
+    covers exactly $1/3$ of the total sweep regardless of initial speed.
+    (\texttt{TUNING.tray.brakeDur} exists in the config for reference but is
+    not used at runtime; the value is computed dynamically as above.)
 \end{enumerate}
 
 Particles and aggregates within $2 \times \tau_{\mathrm{thick}}$ of the tray
@@ -846,7 +872,7 @@ the originals so they count as immediately levitated. The button flashes
 without action if the drum is not spinning (orbits are undefined).
 
 % =============================================================================
-\section{User Interface — Main Controls}
+\section{User Interface --- Main Controls}
 % =============================================================================
 
 \subsection{Left Wing: Injection Parameters}
@@ -933,7 +959,7 @@ wing. It can be opened by:
 
 The panel is divided into three sections: HUD, Processes, and System.
 
-\subsection{HUD — Visualisation Overlays}
+\subsection{HUD --- Visualisation Overlays}
 
 \begin{longtable}{@{}p{1.5cm}lp{9.5cm}@{}}
   \toprule
@@ -997,9 +1023,9 @@ The panel is divided into three sections: HUD, Processes, and System.
   \btnicon{btnProcGrowth} & \textbf{Growth mode} &
     Three-state button:
     \begin{itemize}
-      \item \emph{Green (Pebble)}: standard operation — 7 levitated aggregates
+      \item \emph{Green (Pebble)}: standard operation --- 7 levitated aggregates
         merge into a pebble after the hold criterion.
-      \item \emph{Amber (Grow)}: aggregate–aggregate collision growth active.
+      \item \emph{Amber (Grow)}: aggregate--aggregate collision growth active.
         Brownian perturbations, restoring spring, and pebble transition at
         $n = 100$. Pebble formation via the standard path is disabled.
       \item \emph{Red (Off)}: all growth beyond aggregate formation disabled.
@@ -1052,40 +1078,40 @@ The panel is divided into three sections: HUD, Processes, and System.
 Game mode presents 8 progressive levels. The game locks the injection
 parameter selectors during play and monitors simulation state each frame.
 
-\begin{longtable}{@{}rp{6cm}p{8cm}@{}}
+\begin{longtable}{@{}rp{5cm}p{9cm}@{}}
   \toprule
   \# & Name & Parameters / Goal / Fail \\
   \midrule
   1 & First Contact &
-    $N_P=3$, $\vt=20$, $s=0$ \newline
+    $N_P=3$, $\vt=20$, $s=0$, $\Delta t=1\,\mathrm{s}$ \newline
     \textit{Goal:} $\geq 1$ levitated for $3\,\mathrm{s}$ \newline
     \textit{Fail:} all particles lost \\[4pt]
   2 & Finding the Sweet Spot &
-    $N_P=3$, $\vt=30$, $s=0$, trails \newline
+    $N_P=3$, $\vt=30$, $s=0$, $\Delta t=1\,\mathrm{s}$, trails \newline
     \textit{Goal:} $\geq 2$ levitated for $5\,\mathrm{s}$ \newline
     \textit{Fail:} fewer than 2 floating \\[4pt]
   3 & Reading the Orbits &
-    $N_P=5$, $\vt=50$, $s=0$, trails \newline
+    $N_P=5$, $\vt=50$, $s=0$, $\Delta t=1\,\mathrm{s}$, trails \newline
     \textit{Goal:} $\geq 2$ levitated for $5\,\mathrm{s}$ \newline
     \textit{Fail:} fewer than 2 floating \\[4pt]
   4 & A Spread of Sizes &
-    $N_P=15$, $\vt=30$, $s=0.15$, trails \newline
+    $N_P=15$, $\vt=30$, $s=0.15$, $\Delta t=2\,\mathrm{s}$, trails \newline
     \textit{Goal:} $\geq 4$ levitated for $5\,\mathrm{s}$ \newline
     \textit{Fail:} fewer than 4 floating \\[4pt]
   5 & Flying Blind &
-    $N_P=20$, $\vt=30$, $s=0.15$, lidar \newline
+    $N_P=20$, $\vt=30$, $s=0.15$, $\Delta t=2\,\mathrm{s}$, lidar \newline
     \textit{Goal:} $\geq 6$ levitated for $8\,\mathrm{s}$ \newline
     \textit{Fail:} fewer than 6 floating \\[4pt]
   6 & Crowded Skies &
-    $N_P=50$, $\vt=30$, $s=0.15$ \newline
+    $N_P=50$, $\vt=30$, $s=0.15$, $\Delta t=3\,\mathrm{s}$ \newline
     \textit{Goal:} $\geq 10$ levitated for $10\,\mathrm{s}$ \newline
     \textit{Fail:} fewer than 10 floating \\[4pt]
   7 & Encouraging Collisions &
-    $N_P=100$, $\vt=30$, $s=0.20$ \newline
+    $N_P=100$, $\vt=30$, $s=0.20$, $\Delta t=3\,\mathrm{s}$ \newline
     \textit{Goal:} $\geq 1$ aggregate formed \newline
     \textit{Fail:} timeout after 40 revolutions \\[4pt]
   8 & More Energetic Encounters &
-    $N_P=300$, $\vt=30$, $s=0.30$, trails \newline
+    $N_P=300$, $\vt=30$, $s=0.30$, $\Delta t=3\,\mathrm{s}$, trails \newline
     \textit{Goal:} $\geq 1$ pebble formed \newline
     \textit{Fail:} timeout after 100 revolutions \\
   \bottomrule
@@ -1191,11 +1217,12 @@ All audio is synthesised in real time using the Web Audio API.
     track $|\omg|$ smoothly with time constant $\tau = 0.06\,\mathrm{s}$. \\
   Tink &
     Short metallic impact: $220 \to 90\,\mathrm{Hz}$ sine sweep with
-    $500\,\mathrm{ms}$ cooldown. Fires on particle–wall collision when
+    $500\,\mathrm{ms}$ cooldown. Fires on particle--wall collision when
     $N_P \leq 30$. \\
   Snap &
-    9 accelerating clicks (sawtooth transients at $2500$--$4300\,\mathrm{Hz}$,
-    inter-click gap multiplied by 0.85 each step). Fires on aggregate formation. \\
+    9 accelerating clicks (sawtooth transients at $2500$--$4100\,\mathrm{Hz}$,
+    stepping $+200\,\mathrm{Hz}$ per click, inter-click gap multiplied by 0.85
+    each step). Fires on aggregate formation. \\
   Aggregate merge &
     Soft sine thud descending from $600$ to $220\,\mathrm{Hz}$ as aggregate
     size increases from 20 to 100 monomers. Fires on growth merges. \\
@@ -1210,7 +1237,11 @@ All audio is synthesised in real time using the Web Audio API.
     the aggregate gauge or pebble gauge first appears. \\
   Golden thud &
     Sine sweep $160 \to 70\,\mathrm{Hz}$, amplitude proportional to collision
-    speed. Fires on strong golden-ball wall or ball–ball impacts. \\
+    speed. Fires on strong golden-ball wall or ball--ball impacts. \\
+  Tray beep &
+    Single 880\,Hz square-wave pulse ($\approx 350\,\mathrm{ms}$ duration),
+    repeated every $1.0\,\mathrm{s}$ while the tray is in the \emph{armed} or
+    \emph{inserting} phase. Provides auditory countdown feedback to the operator. \\
   Mill start &
     Full five-component sequence (blade, hiss, grind, thud, body) lasting the
     injection duration. Fires on Inject press. \\
@@ -1247,6 +1278,9 @@ Parameters are parsed from \texttt{window.location.search} at load time.
     Starts Challenge Mode with default challenge parameters, splash suppressed. \\
   \texttt{?challenge\&np=N} &
     Override particle count in challenge (also \texttt{vt}, \texttt{spread}, \texttt{dt}). \\
+  \texttt{?challenge\&time=N} &
+    Override the challenge run length to $N$ seconds (default 60). The actual
+    limit is $N + \Delta t_{\mathrm{inj}}$ as with the default. \\
   \texttt{?modern} &
     Applies the clinical lab visual theme (light gray metals, teal buttons). \\
   \texttt{?pfeiffer} &
@@ -1274,7 +1308,7 @@ Multiple parameters can be combined: e.g.\ \texttt{?expert\&game=3} or
   \item \textbf{Injection puffs} are limited to one burst of 5 puffs
     (one per nozzle) at injection start, regardless of $N_P$. Each puff
     generates three \texttt{createRadialGradient} calls per frame for its
-    $0.42\,\mathrm{s}$ lifetime. At $N_P = 3000$ over a $2\,\mathrm{s}$
+    $1.42\,\mathrm{s}$ lifetime. At $N_P = 3000$ over a $2\,\mathrm{s}$
     injection window, the original per-particle puff design created up to
     $\sim 1500\,\mathrm{puffs\,s^{-1}}$, causing significant frame-rate
     drops on mobile WebKit (observed on iPad).
@@ -1329,6 +1363,8 @@ object and backed up in \texttt{TUNING\_DEFAULT} for restoration after overrides
   \texttt{aggregate.vtGrowFactor}    & 1.05  & Per-growth-merge kick factor \\
   \texttt{aggregate.brownian}        & 2.0   & Brownian kick amplitude ($\mathrm{cm\,s^{-1}}$) \\
   \texttt{aggregate.restoreK}        & 0.5   & Restoring spring constant ($\mathrm{s^{-1}}$) \\
+  \texttt{aggregate.flashOrbit}      & false & Enable orbit flash on new aggregate \\
+  \texttt{aggregate.growFlashDur}    & 2.5   & Duration of growth orbit flash (s) \\
   \midrule
   \multicolumn{3}{l}{\textit{Pebbles (egg)}} \\
   \texttt{egg.nCrit}             & 7     & Aggregates required for pebble merge \\
@@ -1342,13 +1378,16 @@ object and backed up in \texttt{TUNING\_DEFAULT} for restoration after overrides
   \texttt{ball.radius}           & 2.5   & Physical radius (du) \\
   \texttt{ball.wallE}            & 0.85  & Wall restitution coefficient \\
   \texttt{ball.wallFriction}     & 0.92  & Wall tangential retention \\
-  \texttt{ball.ballE}            & 0.90  & Ball–ball restitution coefficient \\
+  \texttt{ball.contactDrag}      & 0.7   & Wall-contact drag time constant ($\mathrm{s^{-1}}$) \\
+  \texttt{ball.ballE}            & 0.90  & Ball--ball restitution coefficient \\
+  \texttt{ball.bumpStrength}     & 0.1   & Bump impulse fraction (0 = ghost, 1 = elastic) \\
+  \texttt{ball.settleVel}        & 0.6   & Speed below which a ball is considered settled ($\mathrm{du\,s^{-1}}$) \\
   \midrule
   \multicolumn{3}{l}{\textit{Globes}} \\
   \texttt{globe.nCrit}           & 3     & Pebbles required per globe \\
   \texttt{globe.radius}          & 12.5  & Globe physical radius (du) \\
   \texttt{globe.mergeDur}        & 1.2   & Merge animation duration (s) \\
-  \texttt{globe.repulsion}       & 15000 & Globe–globe repulsion constant \\
+  \texttt{globe.repulsion}       & 15000 & Globe--globe repulsion constant \\
   \texttt{globe.limit}           & 7     & Maximum simultaneous globes \\
   \midrule
   \multicolumn{3}{l}{\textit{Solar system}} \\
@@ -1357,50 +1396,25 @@ object and backed up in \texttt{TUNING\_DEFAULT} for restoration after overrides
   \texttt{solar.maxR}            & 80    & Max orbit radius (du) \\
   \texttt{solar.persp}           & 0.10  & Perspective size variation \\
   \midrule
+  \multicolumn{3}{l}{\textit{Collection tray}} \\
+  \texttt{tray.totalAngle}       & $4\pi/3$ & Total insertion sweep ($240°$, rad) \\
+  \texttt{tray.yPos}             & $-50$ & Tray y-position reference (du) \\
+  \texttt{tray.thickness}        & 3.0   & Blade visual half-thickness (du) \\
+  \texttt{tray.decelStart}       & 0.667 & Progress fraction at which braking begins \\
+  \texttt{tray.brakeDur}         & 0.8   & \textit{Vestigial config value; not used at runtime.}
+                                           Actual brake duration is computed dynamically
+                                           from drum speed at fire time. \\
+  \midrule
   \multicolumn{3}{l}{\textit{Audio}} \\
   \texttt{audio.masterGain}      & 0.6   & Master volume (0--1) \\
   \texttt{audio.millBlade}       & 0.085 & Mill blade component level \\
+  \texttt{audio.millHiss}        & 0.10  & Mill hiss component level \\
   \texttt{audio.millGrind}       & 0.85  & Mill grind component level \\
+  \texttt{audio.millThud}        & 0.20  & Mill thud component level \\
+  \texttt{audio.millBody}        & 0.035 & Mill body resonance component level \\
+  \texttt{audio.aggMerge}        & 0.4   & Aggregate merge sound level \\
   \bottomrule
 \end{longtable}
-
-\section{Button Icon SVG Sources}
-\label{app:icons}
-
-The following SVG fragments are the source code for each custom button icon.
-They should be saved as individual files in an \texttt{icons/} subdirectory
-for inclusion via \texttt{\textbackslash btnicon\{\}} in this document.
-All icons use a $24 \times 24$ viewBox and \texttt{currentColor} for strokes
-and fills that should respond to button state; hardcoded colours are used for
-elements that should remain constant across states.
-
-\subsection{Widen Slice (\texttt{btnProcDouble})}
-
-\begin{lstlisting}[language=html]
-<svg viewBox="0 0 24 24" width="20" height="20">
-  <!-- Shadow copy (right): no left side -->
-  <path d="M 11 4 L 16 4 L 16 20 L 11 20"
-        fill="none" stroke="#8a6040" stroke-width="1.5"/>
-  <circle cx="12.8" cy="6.5"  r="0.7" fill="#8a6040"/>
-  <circle cx="14.2" cy="9.5"  r="0.7" fill="#8a6040"/>
-  <circle cx="13.5" cy="12.5" r="0.7" fill="#8a6040"/>
-  <circle cx="12.8" cy="15.5" r="0.7" fill="#8a6040"/>
-  <circle cx="14.0" cy="18.0" r="0.7" fill="#8a6040"/>
-  <!-- Original (left) -->
-  <rect x="6" y="4" width="5" height="16"
-        fill="none" stroke="currentColor" stroke-width="1.5"/>
-  <circle cx="7.8"  cy="6.5"  r="0.7" fill="currentColor"/>
-  <circle cx="9.2"  cy="9.5"  r="0.7" fill="currentColor"/>
-  <circle cx="7.6"  cy="12.5" r="0.7" fill="currentColor"/>
-  <circle cx="9.0"  cy="15.5" r="0.7" fill="currentColor"/>
-  <circle cx="8.0"  cy="18.0" r="0.7" fill="currentColor"/>
-</svg>
-\end{lstlisting}
-
-The left rectangle uses \texttt{currentColor} so it responds to the button's
-amber base, hover, and ON-state colours. The right rectangle and its particles
-are hardcoded to \texttt{\#8a6040} to remain consistently dim regardless of
-button state.
 
 \end{document}
 %%% Local Variables:
