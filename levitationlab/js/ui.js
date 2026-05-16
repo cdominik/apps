@@ -1317,7 +1317,6 @@
 
   // ?game[=N] — drop straight into Game Mode, optionally at level N (1-indexed)
   if (uP.has('game')) {
-    window.__suppressSplash = true;
     let startLevel = 0;
     const raw = uP.get('game');
     if (raw !== null && raw !== '') {
@@ -1332,7 +1331,6 @@
   // ?challenge — drop straight into Challenge Mode using challenge defaults.
   // Optional URL overrides: np, vt, spread, dt (applied after defaults).
   if (uP.has('challenge')) {
-    window.__suppressSplash = true;
     setTimeout(() => {
       enterChallengeMode(true);
       // Selective URL overrides on top of CHALLENGE_CFG defaults
