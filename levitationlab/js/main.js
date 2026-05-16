@@ -44,6 +44,21 @@
     }
     return false;
   }
+  
+  // ============================================================
+  // TAB VISIBILITY PAUSE HANDLER
+  // ============================================================
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      // User switched tabs: Pause the simulation
+      state.paused = true;
+    } else {
+      // User returned: Unpause and reset time
+      state.paused = false;
+      // CRITICAL: Reset lastT so we don't calculate a huge dt
+      lastT = performance.now() / 1000; 
+    }
+  });
   /**
    * Runs one animation frame: advances physics sub-steps, renders, ticks HUD
    * and game logic, then schedules itself for the next frame.
