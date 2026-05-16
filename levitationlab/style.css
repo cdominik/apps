@@ -75,7 +75,7 @@ body.theme-light {
 #app {
   position: relative;
   width: 100vw;
-  height: 100vh;
+  height: 100dvh;
   background: var(--bg-app, radial-gradient(ellipse at center, #1a1a1f 0%, #08080a 100%));
   background-image: url('assets/background/lab_night.png');
   background-size: cover;
