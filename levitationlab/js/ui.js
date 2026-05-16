@@ -282,7 +282,12 @@
   cv.addEventListener('pointercancel', e => onUp(e.pointerId, e));
   cv.addEventListener('pointerleave', e => onUp(e.pointerId, e));
   document.addEventListener('gesturestart', e => e.preventDefault());
-  document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+  document.addEventListener('touchmove', e => {
+    // Allow native touch scrolling inside scrollable overlay boxes;
+    // suppress page rubber-banding everywhere else (drum interaction).
+    if (e.target.closest('.manual-box, .splash-box')) return;
+    e.preventDefault();
+  }, { passive: false });
 
   // ============================================================
   // SECTION: INPUT — OMEGA CONTROLS

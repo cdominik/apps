@@ -663,6 +663,9 @@ body.theme-light .sel .chev { color: #1a1006; }
   width: calc(100% - 64px);
   max-height: calc(100% - 64px);
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
   padding: 28px 32px;
   background: linear-gradient(180deg, #3a3a44 0%, #2a2a32 30%, #1e1e26 80%, #12121a 100%);
   border: 1px solid #5a4418;
@@ -756,6 +759,11 @@ body.theme-light .sel .chev { color: #1a1006; }
 .splash-box {
   max-width: 560px;
   width: calc(100% - 64px);
+  max-height: calc(100% - 64px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
   padding: 36px 40px;
   background: linear-gradient(180deg, #3a3a44 0%, #2a2a32 30%, #1e1e26 80%, #12121a 100%);
   border: 1px solid #5a4418;
