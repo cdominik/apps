@@ -489,6 +489,7 @@ body.theme-light .sel .chev { color: #1a1006; }
 .scr.warn { color: #ff7a5a; text-shadow: 0 0 4px rgba(255,122,90,0.7); background: radial-gradient(ellipse at 50% 30%, #30140a 0%, #1a0a06 70%, #0a0302 100%); }
 .scr.rot  { color: #5ad0ff; text-shadow: 0 0 4px rgba(90,208,255,0.6);  background: radial-gradient(ellipse at 50% 30%, #0a2034 0%, #061020 70%, #02060a 100%); }
 .scr.gold { color: #ffcc55; text-shadow: 0 0 4px rgba(255,204,85,0.6);  background: radial-gradient(ellipse at 50% 30%, #2a1c06 0%, #1a1204 70%, #0a0602 100%); }
+.scr.tlight { color: #fff0c8; text-shadow: 0 0 4px rgba(255,255,255,0.5); background: radial-gradient(ellipse at 50% 30%, #1c1c22 0%, #101014 70%, #060608 100%); }
 
 .lbl {
   font-family: 'Courier New', monospace;
@@ -1223,6 +1224,7 @@ body.theme-modern .scr {
 body.theme-modern .scr.warn { color: #ff4d4d !important; text-shadow: 0 0 5px rgba(255,77,77,0.4) !important; }
 body.theme-modern .scr.gold { color: #40ff90 !important; text-shadow: 0 0 5px rgba(64,255,144,0.4) !important; }
 body.theme-modern .scr.rot  { color: #d0d8e0 !important; text-shadow: none !important; }
+body.theme-modern .scr.tlight { color: #e8eef4 !important; text-shadow: none !important; }
 
 /* Labels — keep readable against modern backgrounds */
 body.theme-modern .sel-lbl,

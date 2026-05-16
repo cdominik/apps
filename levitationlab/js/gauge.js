@@ -27,6 +27,8 @@
   const elPebbleCount = document.getElementById('pebbleCount');
   const gaugeAgg = document.getElementById('gaugeAgg');
   const gaugePebble = document.getElementById('gaugePebble');
+  const gaugeTime = document.getElementById('gaugeTime');
+  const elChalTimeLeft = document.getElementById('chalTimeLeft');
   /**
    * Reads simulation state and updates the period, floating, levitated, and
    * captured counters in the HUD; reveals the aggregate and pebble gauges on
@@ -110,6 +112,29 @@
     if (gaugePebble.style.display !== 'none') {
       elPebbleCount.textContent = state.eggBallCount;
     }
+    if (gaugePebble.style.display !== 'none') {
+      elPebbleCount.textContent = state.eggBallCount;
+    }
+
+    // Challenge countdown — visible only during an active challenge run.
+    // Limit expression MUST match updateChallenge() so it honors ?time
+    // and never drifts: (override || CHALLENGE_CFG.TIME_LIMIT) + DT_INJECT.
+    if (typeof CHALLENGE !== 'undefined' && CHALLENGE.on &&
+        CHALLENGE.phase === 'playing') {
+      const baseLimit = (typeof state.challengeTimeOverride === 'number' &&
+                         isFinite(state.challengeTimeOverride) &&
+                         state.challengeTimeOverride > 0)
+        ? state.challengeTimeOverride
+        : CHALLENGE_CFG.TIME_LIMIT;
+      const limit   = baseLimit + CFG.DT_INJECT;
+      const elapsed = state.t - CHALLENGE.startTime;
+      const left    = Math.max(0, Math.ceil(limit - elapsed));
+      if (gaugeTime.style.display === 'none') gaugeTime.style.display = 'flex';
+      elChalTimeLeft.textContent = left;
+    } else if (gaugeTime.style.display !== 'none') {
+      gaugeTime.style.display = 'none';
+    }
+
     // Tray arming beep
     const BEEP_INTERVAL = 1.0;
     if (state.tray.phase === 'armed' || state.tray.phase === 'inserting') {
