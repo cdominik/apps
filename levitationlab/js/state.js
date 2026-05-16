@@ -5,6 +5,7 @@
  *   heatmap accumulators) and image asset arrays.
  *
  * Exposes globals: state, heatmap, aggregateImages, globeMaps
+ * state.period() and state.isLevitated()  exist as helper functions
  * Reads globals:   (none — this module has no dependencies)
  */
 (() => {
@@ -32,6 +33,7 @@
     aggHoldRevs: 0,
     aggCount: 0,
     aggMerging: null,
+    pebbleBannerUsed: false,   // latches the first-pebble banner per run (sandbox/game)
     showVectors: false,
     simSpeed: 1.0,
     orbitSample: [],
@@ -81,7 +83,23 @@
       brakeStartOmega:  0,  // omega at the moment brake began
     },
   };
-  
+ 
+  // --- Derived state queries (single source of truth; see issue 9) ---
+  // Drum rotation period in seconds, or Infinity when effectively stopped.
+  state.period = function () {
+    const absOm = Math.abs(state.omega);
+    return absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+  };
+
+  // True if obj has held the highlight zone for `orbits` (default 1) full
+  // periods. Works for particles and aggregates (both use inHighlightSince).
+  state.isLevitated = function (obj, orbits) {
+    if (!obj || obj.stuck || obj.inHighlightSince === null) return false;
+    const T = state.period();
+    if (!isFinite(T)) return false;
+    return (state.t - obj.inHighlightSince) >= (orbits || 1) * T;
+  };
+ 
   const heatmap = {
     enabled: false,
     mode: 'dispersion', // Default mode

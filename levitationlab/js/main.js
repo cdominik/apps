@@ -7,12 +7,13 @@
  *
  * Exposes globals: cancelEndingSequence
  * Reads globals:   CFG, TUNING, TUNING_DEFAULT, state,
- *                  slowMoArmed, updateDrum, step, updateEgg,
- *                  updateAggregates, updateGlobe, updateMotorSound,
+ *                  slowMoArmed, updateDrum, updateTray, step, updateEgg,
+ *                  updateAggregates, updateGlobe, updateSolar,
+ *                  computeAutoOmega, updateMotorSound,
  *                  recordTrails, pollAggregateCounter,
  *                  updateViewport, draw, drawGlobes,
  *                  updateGauge, updateGame, updateChallenge,
- *                  showSheet, gameSheet, TUNING_DEFAULT
+ *                  showSheet, gameSheet
  */
 (() => {
   'use strict';
@@ -35,15 +36,14 @@
    */
   function _strobeGate() {
     if (!window.strobeOn) return true;
-    if (Math.abs(state.omega) < 0.08) return true; // drum nearly stopped — render freely
+    if (Math.abs(state.omega) < 0.08) return true;
     const rev = Math.floor(Math.abs(state.drumAngle) / (2 * Math.PI));
-    if (rev !== _lastStrobeRev) {
+    if (rev !== window._lastStrobeRev) {
       window._lastStrobeRev = rev;
       return true;
     }
     return false;
   }
-
   /**
    * Runs one animation frame: advances physics sub-steps, renders, ticks HUD
    * and game logic, then schedules itself for the next frame.

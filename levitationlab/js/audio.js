@@ -6,10 +6,11 @@
  *   the AudioContext after a user gesture.
  *
  * Exposes globals: AUDIO, initAudio, updateMotorSound, ensureAudio,
- *                  soundTink, soundSnap, soundCrunch, soundChime,
- *                  soundMillStart, soundMillStop,
- *                  soundGoldenChime, soundGoldenThud
- * Reads globals:   TUNING, state
+ *                  soundTink, soundSnap, soundAggMerge, soundCrunch,
+ *                  soundChime, soundMillStart, soundMillStop,
+ *                  soundGoldenChime, soundGoldenThud,
+ *                  soundExpertDoorKnock, soundTrayBeep
+ * Reads globals:   TUNING, CFG, state
  */
 (() => {
   'use strict';

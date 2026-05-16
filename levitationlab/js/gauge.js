@@ -5,10 +5,14 @@
  *   and pebble gauges. Also owns the parameter selectors (NP, VT, SPREAD, DT)
  *   including their click wiring and initial application.
  *
- * Exposes globals: updateGauge, SETTINGS, SEL_WIN, cycleSetting,
- *                  applyInitialSettings
- * Reads globals:   CFG, state, soundChime, soundGoldenChime
- */
+* Exposes globals: GAME, CHALLENGE, enterGameMode, enterChallengeMode,
+ *                  updateGame, updateChallenge, showSheet, lockSelectors,
+ *                  setSettingByValue, showChallengeIntro, setChallengeBtnLabel
+ * Reads globals:   TUNING, TUNING_DEFAULT, CFG, CHALLENGE_CFG, state,
+ *                  SETTINGS, SEL_WIN, initLevel, startRelease,
+ *                  ensureAudio, soundMillStart, layout,
+ *                  hideVideoElement
+  */
 (() => {
   'use strict';
 
@@ -29,8 +33,7 @@
    * their first non-zero appearance.
    */
   function updateGauge() {
-    const absOm = Math.abs(state.omega);
-    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+    const T = state.period();
     elPeriod.textContent = isFinite(T) ? T.toFixed(2) : '∞';
     let floating = 0, levitated = 0;
   
@@ -40,7 +43,7 @@
       if (p.merging) continue;
   
       floating++;
-      const nowLev = isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
+      const nowLev = state.isLevitated(p);
   
       if (nowLev) {
         levitated++;

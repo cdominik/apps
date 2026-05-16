@@ -6,13 +6,18 @@
  *   toggles, system controls), and the expert door URL-flag logic.
  *   Also owns the Expert Analysis Controller (hudMasterOn, heatmap mode).
  *
- * Exposes globals: slowMoArmed (window), resetExpertUI (window)
- * Reads globals:   TUNING, TUNING_DEFAULT, CFG, PAL, state, heatmap,
+ * Exposes globals: slowMoArmed (window), resetExpertUI (window),
+ *                  setOmegaDecay (window), setOmegaCtlMode (window),
+ *                  _resetLaunchState (window), _computeOptimalWait (window),
+ *                  _ghostClear (window), _ghostEnsureTarget (window),
+ *                  resetSimSpeed (window)
+ * Reads globals:   TUNING, TUNING_DEFAULT, CFG, PAL, PAL_DARK, PAL_LIGHT,
+ *                  AUDIO, state, heatmap,
  *                  SETTINGS, SEL_WIN, applyInitialSettings,
  *                  GAME, CHALLENGE, VIEWPORT,
  *                  initLevel, startRelease, scheduleInjections,
  *                  ensureAudio, soundMillStart, soundSnap, soundTink,
- *                  layout, draw,
+ *                  soundExpertDoorKnock, layout, draw,
  *                  cv, W, H, ctxOv, CX, CY, SCALE, REGIME,
  *                  enterGameMode, enterChallengeMode, lockSelectors,
  *                  updateGauge, updateAnalysisInstrument (internal)
@@ -123,11 +128,8 @@
     const cur = state.particles.find(p => p.isDiagnosticTarget && p.alive && !p.stuck);
     if (cur) return;
 
-    const absOm = Math.abs(state.omega);
-    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
     const levitated = state.particles.filter(p =>
-      p.alive && !p.stuck && !p.merging && p.insideOnce &&
-      isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T
+      p.alive && !p.stuck && !p.merging && p.insideOnce && state.isLevitated(p)
     );
 
     let next = null;
@@ -194,7 +196,11 @@
     
     if (r > outerRadius) return; 
     if (window.omegaMode === 1) return; // LOCKED: ignore click
-
+    // Tray deploying/deployed → collection is terminal until Reset; ignore swipes.
+    if (state.tray.phase === 'inserting' || state.tray.phase === 'inserted') {
+      showToast('Lab locked — press Reset to start a new run');
+      return;
+    }
     state.pointers.set(id, { x: c.x, y: c.y, lastT: performance.now() / 1000 });
     state.holding = true;
     cv.style.cursor = 'grabbing';
@@ -211,6 +217,14 @@
     if (p) {
       if (window.omegaMode === 1) {
         // Locked mid-drag
+        state.pointers.delete(id);
+        state.holding = state.pointers.size > 0;
+        cv.style.cursor = inCircle ? 'not-allowed' : 'default';
+        return;
+      }
+
+      if (state.tray.phase === 'inserting' || state.tray.phase === 'inserted') {
+        // Tray locked the lab mid-drag — drop the pointer like the Ω-lock path.
         state.pointers.delete(id);
         state.holding = state.pointers.size > 0;
         cv.style.cursor = inCircle ? 'not-allowed' : 'default';
@@ -770,15 +784,15 @@
   if (btnProcPeb) {
     btnProcPeb.addEventListener('click', function() {
       const btn = this;
-      const absOm = Math.abs(state.omega);
-      const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+
+      // Drum stopped → "levitated" is undefined; don't sweep anything.
+      if (!isFinite(state.period())) return;
 
       // Remove non-levitated particles
       state.particles = state.particles.filter(p => {
         if (!p.alive) return false;
         if (p.stuck) return false;
-        if (!isFinite(T)) return true;
-        return p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
+        return state.isLevitated(p);
       });
 
       // Flash twice then return to passive
@@ -795,9 +809,7 @@
 
   // PROCESSES 3. Slice duplication
   document.getElementById('btnProcDouble').addEventListener('click', function() {
-    const absOm = Math.abs(state.omega);
-    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
-    if (!isFinite(T)) {
+    if (!isFinite(state.period())) {
       this.classList.add('flash');
       setTimeout(() => this.classList.remove('flash'), 200);
       return; // can't compute orbits without rotation
@@ -813,12 +825,10 @@
     }
     
     const levParticles = state.particles.filter(p =>
-      p.alive && !p.stuck && !p.merging && p.insideOnce &&
-        p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T
+      p.alive && !p.stuck && !p.merging && p.insideOnce && state.isLevitated(p)
     );
     const levAggs = state.aggregates.filter(a =>
-      a.alive && !a.stuck && !a.merging &&
-        a.inHighlightSince !== null && (state.t - a.inHighlightSince) >= T
+      a.alive && !a.stuck && !a.merging && state.isLevitated(a)
     );
     
     // Helper: rotate a point 90° forward in its circular orbit
@@ -880,7 +890,7 @@
   });
   
   // PROCESSES 4. Stokes kick
-  window.stonesKickOn = false;
+  window.stokesKickOn = false;
   wireProcessButton('btnProcPureV', 'on', (active) => {
     window.stokesKickOn = active;
   });
@@ -1049,10 +1059,17 @@
 
   if (btnSysAutoOmega) {
     btnSysAutoOmega.addEventListener('click', () => {
+      // Tray deploying/deployed → collection is terminal until Reset.
+      // Block omega-control changes so auto/launch can't re-spin the drum
+      // into the desynced on-tray state.
+      if (state.tray.phase === 'inserting' || state.tray.phase === 'inserted') {
+        showToast('Lab locked — press Reset to start a new run');
+        return;
+      }
       setOmegaCtlMode((window.omegaCtlMode + 1) % 3);
     });
   }
-
+  
   window.setOmegaCtlMode  = setOmegaCtlMode;
   window._resetLaunchState = _resetLaunchState;
 
@@ -1099,8 +1116,6 @@
       btnCollect.classList.toggle('on',    ph === 'armed');
       btnCollect.classList.toggle('cheat', ph === 'inserting');
       btnCollect.disabled = (ph === 'inserting' || ph === 'inserted');
-      btnCollect.classList.toggle('on', ph === 'armed');
-      btnCollect.classList.toggle('cheat', ph === 'inserting');
     };
   }
 
@@ -1123,45 +1138,47 @@
 
   // SYSTEM 4-6. Simulation speed
 
-    const speedGears   = [0.25, 0.5, 1.0, 2.0, 4.0];
-    let currentGearIdx = 2; // Default to 1.0x
+  const speedGears   = [0.25, 0.5, 1.0, 2.0, 4.0];
+  let currentGearIdx = 2; // Default to 1.0x
   
-    /**
-     * Applies the current speed gear to state.simSpeed and updates the speed display label.
-     */
-    function updateSpeedUI() {
-      const speed = speedGears[currentGearIdx];
-      state.simSpeed = speed;
-      
-      // Use single-character Unicode fractions for better fit
-      let label;
-      if (speed === 0.5) label = "½x";
-      else if (speed === 0.25) label = "¼x";
-      else label = speed + 'x';
-
-      document.getElementById('speedDisp').textContent = label;
-      
-      // Visual feedback: Glow the middle button if not at standard 1x
-      document.getElementById('btnSpeedReset').classList.toggle('on', speed !== 1.0);
-    }
+  /**
+   * Applies the current speed gear to state.simSpeed and updates the speed display label.
+   */
+  function updateSpeedUI() {
+    const speed = speedGears[currentGearIdx];
+    state.simSpeed = speed;
+    
+    // Use single-character Unicode fractions for better fit
+    let label;
+    if (speed === 0.5) label = "½x";
+    else if (speed === 0.25) label = "¼x";
+    else label = speed + 'x';
+    
+    document.getElementById('speedDisp').textContent = label;
+    
+    // Visual feedback: Glow the middle button if not at standard 1x
+    document.getElementById('btnSpeedReset').classList.toggle('on', speed !== 1.0);
+  }
   
-    document.getElementById('btnSpeedUp').addEventListener('click', () => {
-      if (currentGearIdx < speedGears.length - 1) {
-        currentGearIdx++;
-        updateSpeedUI();
-      }
-    });
-    document.getElementById('btnSpeedDown').addEventListener('click', () => {
-      if (currentGearIdx > 0) {
-        currentGearIdx--;
-        updateSpeedUI();
-      }
-    });
-    document.getElementById('btnSpeedReset').addEventListener('click', () => {
-      currentGearIdx = 2; // Snap back to 1.0x
+  document.getElementById('btnSpeedUp').addEventListener('click', () => {
+    if (currentGearIdx < speedGears.length - 1) {
+      currentGearIdx++;
       updateSpeedUI();
-    });
-
+    }
+  });
+  document.getElementById('btnSpeedDown').addEventListener('click', () => {
+    if (currentGearIdx > 0) {
+      currentGearIdx--;
+      updateSpeedUI();
+    }
+  });
+  function resetSimSpeed() {
+    currentGearIdx = 2; // Snap back to 1.0x
+    updateSpeedUI();
+  }
+  document.getElementById('btnSpeedReset').addEventListener('click', resetSimSpeed);
+  window.resetSimSpeed = resetSimSpeed;
+  
   // SYSTEM 7-9. Other Speed adjustments
   
   // SYSTEM 7. Stroboscopic rendering — paint once per drum revolution
@@ -1285,7 +1302,7 @@
         e.preventDefault();
         e.stopPropagation(); // Prevents this click from reaching the Title Plate secret
 
-        // Play the heavy cavernous sound defined in audio_3.js
+        // Play the heavy cavernous sound defined in audio.js
         if (window.soundExpertDoorKnock) {
           window.soundExpertDoorKnock();
         }
@@ -1316,7 +1333,6 @@
 
   // ?game[=N] — drop straight into Game Mode, optionally at level N (1-indexed)
   if (uP.has('game')) {
-    window.__suppressSplash = true;
     let startLevel = 0;
     const raw = uP.get('game');
     if (raw !== null && raw !== '') {
@@ -1331,7 +1347,6 @@
   // ?challenge — drop straight into Challenge Mode using challenge defaults.
   // Optional URL overrides: np, vt, spread, dt (applied after defaults).
   if (uP.has('challenge')) {
-    window.__suppressSplash = true;
     setTimeout(() => {
       enterChallengeMode(true);
       // Selective URL overrides on top of CHALLENGE_CFG defaults

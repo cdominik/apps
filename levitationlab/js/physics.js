@@ -6,14 +6,15 @@
  *   (planet) merging, and heatmap accumulation.
  *
  * Exposes globals: initLevel, randn, scheduleInjections, startRelease,
- *                  updateDrum, step, eggLevitatedParticles, updateEgg,
- *                  updateGlobe, spawnGoldenBall, updateAggregates
+ *                  updateDrum, step, eggLevitatedParticles, aggImageIndex,
+ *                  updateEgg, updateGlobe, spawnGoldenBall, updateAggregates,
+ *                  updateSolar, computeAutoOmega, trayEndpoints, updateTray
  * Reads globals:   TUNING, TUNING_DEFAULT, CFG, LASER_OMEGA,
  *                  state, heatmap, aggregateImages,
- *                  soundTink, soundSnap, soundCrunch,
+ *                  soundTink, soundSnap, soundCrunch, soundAggMerge,
  *                  soundGoldenThud, soundGoldenChime,
  *                  GEO, X2px, angleSwept, visualSizeFactor,
- *                  updateGauge, resetExpertUI
+ *                  updateGauge, resetExpertUI, resetSimSpeed
  */
 (() => {
   'use strict';
@@ -62,6 +63,7 @@
     state.eggBallCount = 0;
     state.eggMerging   = null;
     state.goldenBalls  = [];
+    state.pebbleBannerUsed = false;
 
     state.aggregates  = [];
     state.aggGrowMerging = null;
@@ -190,12 +192,13 @@
     state.tray.progress = 0;
 
     // Re-sync persistent objects to the new timeline origin.
-    state.goldenBalls.forEach(b  => { b.bornAt = 0; });
+    state.goldenBalls.forEach(b  => { b.bornAt = 0; b.showBanner = false; });
     state.aggregates.forEach(agg => {
       agg.inHighlightSince = null; // force them to re-earn levitation
       agg.orbitFlashEndsAt = 0;
     });
     state.globes.forEach(g => { g.bornAt = 0; });
+    state.pebbleBannerUsed = false;
 
     scheduleInjections();
     state.running = true;
@@ -365,26 +368,13 @@
           p.prevR2 = r2;
         }
 
-        // Collect particles within tray thickness of the live rotating tray line
+        // Collect particles within tray thickness of the live rotating tray line.
+        // Particles: catchR = 0 (no radius added to the threshold), offsetR =
+        // collisionR — the asymmetry is preserved exactly.
         if ((state.tray.phase === 'inserting' || state.tray.phase === 'inserted')
             && !p.onTray && p.insideOnce) {
           const ep = trayEndpoints();
-          if (ep) {
-            const tdx = ep.tx - ep.hx, tdy = ep.ty - ep.hy;
-            const lenSq = tdx * tdx + tdy * tdy;
-            const t = lenSq < 1e-9 ? 0
-              : Math.max(0, Math.min(1, ((p.x - ep.hx) * tdx + (p.y - ep.hy) * tdy) / lenSq));
-            const cx = ep.hx + t * tdx, cy = ep.hy + t * tdy;
-            if (Math.hypot(p.x - cx, p.y - cy) < TUNING.tray.thickness * 2) {
-              // Land on the upper surface, offset by half-thickness + particle radius
-              const rP = TUNING.particle.collisionR;
-              const off = TUNING.tray.thickness * 0.5 + rP;
-              p.x = cx + ep.upx * off;
-              p.y = cy + ep.upy * off;
-              p.vx = 0; p.vy = 0;
-              p.onTray = true;
-            }
-          }
+          if (ep) tryCatchOnTray(p, ep, 0, TUNING.particle.collisionR);
         }
 
         // Remove particles that escaped the drum entirely.
@@ -492,15 +482,10 @@
    * @returns {object[]} Array of levitated particle objects.
    */
   function eggLevitatedParticles() {
-    const absOm = Math.abs(state.omega);
-    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
-    if (!isFinite(T)) return [];
     const out = [];
     for (const p of state.particles) {
       if (!p.alive || p.stuck || p.merging) continue;
-      if (p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T) {
-        out.push(p);
-      }
+      if (state.isLevitated(p)) out.push(p);
     }
     return out;
   }
@@ -512,15 +497,10 @@
    * @returns {object[]} Array of levitated aggregate objects.
    */
   function eggLevitatedAggregates() {
-    const absOm = Math.abs(state.omega);
-    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
-    if (!isFinite(T)) return [];
     const out = [];
     for (const agg of state.aggregates) {
       if (!agg.alive || agg.stuck || agg.merging) continue;
-      if (agg.inHighlightSince !== null && (state.t - agg.inHighlightSince) >= T) {
-        out.push(agg);
-      }
+      if (state.isLevitated(agg)) out.push(agg);
     }
     return out;
   }
@@ -575,25 +555,14 @@
     }
 
     // 4. Tray catch — pin pebbles to the upper surface of the blade.
+    // ep fetched once per frame (unchanged); helper zeroes spinRate because
+    // golden balls carry a spinRate field.
     if (state.tray.phase === 'inserting' || state.tray.phase === 'inserted') {
       const ep = trayEndpoints();
       if (ep) {
-        const tdx = ep.tx - ep.hx, tdy = ep.ty - ep.hy;
-        const lenSq = tdx * tdx + tdy * tdy;
         for (const b of state.goldenBalls) {
           if (b.onTray || b.merging) continue;
-          const t = lenSq < 1e-9 ? 0
-            : Math.max(0, Math.min(1, ((b.x - ep.hx) * tdx + (b.y - ep.hy) * tdy) / lenSq));
-          const cx = ep.hx + t * tdx, cy = ep.hy + t * tdy;
-          if (Math.hypot(b.x - cx, b.y - cy) < TUNING.tray.thickness * 2 + b.r) {
-            const off = TUNING.tray.thickness * 0.5 + b.r;
-            b.x = cx + ep.upx * off;
-            b.y = cy + ep.upy * off;
-            b.vx = 0;
-            b.vy = 0;
-            b.spinRate = 0;
-            b.onTray = true;
-          }
+          tryCatchOnTray(b, ep, b.r, b.r);
         }
       }
     }
@@ -619,9 +588,8 @@
       ? TUNING.egg.holdTarget
       : TUNING.egg.holdSubseq;
 
-    const lev   = eggLevitatedAggregates();
-    const absOm = Math.abs(state.omega);
-    const T     = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
+    const lev = eggLevitatedAggregates();
+    const T   = state.period();
 
     if (lev.length >= TUNING.egg.nCrit && isFinite(T) && CFG.VT_SPREAD >= TUNING.egg.minSpread) {
       state.eggHoldRevs += dt / T;
@@ -901,6 +869,15 @@
    * @param {number} y - Initial y position in drum-units.
    */
   function spawnGoldenBall(x, y) {
+    const inChallenge = !!(window.CHALLENGE && window.CHALLENGE.on &&
+                           window.CHALLENGE.phase === 'playing');
+    let showBanner;
+    if (inChallenge) {
+      showBanner = true; // every pebble is celebrated in Challenge
+    } else {
+      showBanner = !state.pebbleBannerUsed; // first pebble of the run only
+      if (showBanner) state.pebbleBannerUsed = true;
+    }
     state.goldenBalls.push({
       x, y,
       vx: 0, vy: 0,
@@ -908,10 +885,10 @@
       spin:     0,
       spinRate: 0,
       bornAt:   state.t,
+      showBanner,
     });
     soundCrunch();
   }
-
   /**
    * Selects aggregate targets and initiates an egg-merge (pebble) animation.
    *
@@ -1095,10 +1072,9 @@
 
     // Check whether enough particles are levitated to start a new aggregate merge.
     if (!state.aggMerging) {
-      const lev    = eggLevitatedParticles();
-      const absOm  = Math.abs(state.omega);
-      const T      = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
-
+      const lev = eggLevitatedParticles();
+      const T   = state.period();
+      
       if (lev.length >= TUNING.aggregate.minLevitated &&
           isFinite(T) &&
           CFG.VT_SPREAD >= TUNING.aggregate.minSpread) {
@@ -1174,26 +1150,14 @@
         agg.y += agg.vy * dt;
         agg.rot += agg.rotSpeed * dt;
 
-        // Collect aggregates within catch distance of the live rotating tray line
+        // Collect aggregates within catch distance of the live rotating tray line.
+        // Aggregates use their radius for both the catch threshold and offset.
         if ((state.tray.phase === 'inserting' || state.tray.phase === 'inserted')
             && !agg.onTray) {
           const ep = trayEndpoints();
-          if (ep) {
-            const tdx = ep.tx - ep.hx, tdy = ep.ty - ep.hy;
-            const lenSq = tdx * tdx + tdy * tdy;
-            const t = lenSq < 1e-9 ? 0
-              : Math.max(0, Math.min(1, ((agg.x - ep.hx) * tdx + (agg.y - ep.hy) * tdy) / lenSq));
-            const cx = ep.hx + t * tdx, cy = ep.hy + t * tdy;
-            if (Math.hypot(agg.x - cx, agg.y - cy) < TUNING.tray.thickness * 2 + agg.r) {
-              // Land on the upper surface, offset by half-thickness + aggregate radius
-              const off = TUNING.tray.thickness * 0.5 + agg.r;
-              agg.x = cx + ep.upx * off;
-              agg.y = cy + ep.upy * off;
-              agg.vx = 0; agg.vy = 0;
-              agg.onTray = true;
-            }
-          }
+          if (ep) tryCatchOnTray(agg, ep, agg.r, agg.r);
         }
+
         const r2    = agg.x * agg.x + agg.y * agg.y;
         const Rwall = CFG.R_DRUM - agg.r;
 
@@ -1696,6 +1660,39 @@
   }
   window.trayEndpoints = trayEndpoints;
 
+  /**
+   * Pins a floating object onto the collection-tray blade if it lies within
+   * catch distance of the tray segment. Shared by particles, aggregates, and
+   * pebbles (the three previously-duplicated catch blocks).
+   *
+   * The caller owns the phase gate, the eligibility checks
+   * (onTray / merging / insideOnce), and supplying `ep` — so the per-frame
+   * trayEndpoints() call frequency is unchanged at every site.
+   *
+   * @param {object} obj     - Object with x, y, vx, vy (optionally spinRate, onTray).
+   * @param {object} ep      - Non-null result of trayEndpoints().
+   * @param {number} catchR  - Radius added to the catch-distance threshold.
+   * @param {number} offsetR - Radius used for the landing offset off the blade.
+   * @returns {boolean} True if the object was caught and pinned this call.
+   */
+  function tryCatchOnTray(obj, ep, catchR, offsetR) {
+    const tdx = ep.tx - ep.hx, tdy = ep.ty - ep.hy;
+    const lenSq = tdx * tdx + tdy * tdy;
+    const t = lenSq < 1e-9 ? 0
+      : Math.max(0, Math.min(1, ((obj.x - ep.hx) * tdx + (obj.y - ep.hy) * tdy) / lenSq));
+    const cx = ep.hx + t * tdx, cy = ep.hy + t * tdy;
+    if (Math.hypot(obj.x - cx, obj.y - cy) < TUNING.tray.thickness * 2 + catchR) {
+      const off = TUNING.tray.thickness * 0.5 + offsetR;
+      obj.x = cx + ep.upx * off;
+      obj.y = cy + ep.upy * off;
+      obj.vx = 0; obj.vy = 0;
+      if (obj.spinRate !== undefined) obj.spinRate = 0;
+      obj.onTray = true;
+      return true;
+    }
+    return false;
+  }
+
   function updateTray() {
     const tray = state.tray;
     if (tray.phase === 'idle' || tray.phase === 'inserted') return;
@@ -1708,6 +1705,9 @@
         : state.drumAngle <= tray.triggerAtAngle;
       if (past) {
         tray.phase            = 'inserting';
+        // Fast sim speed makes the brake ramp overshoot final positioning —
+        // force 1× the moment deployment actually begins.
+        if (window.resetSimSpeed) window.resetSimSpeed();
         tray.insertStartAngle = state.drumAngle;
         tray.savedOmega       = state.omega;
         tray.progress         = 0;

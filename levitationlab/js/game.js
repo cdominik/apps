@@ -440,15 +440,13 @@
     }
 
     // --- WIN/FAIL: levitation goal ---
-    const absOm = Math.abs(state.omega);
-    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
     let lev = 0, floating = 0;
 
     for (const p of state.particles) {
       if (!p.alive) continue;
       if (p.stuck) continue;
       floating++;
-      if (isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T) lev++;
+      if (state.isLevitated(p)) lev++;
     }
 
     if (lv.goal.minLevitated !== undefined && lv.goal.minLevitated > 0) {
@@ -647,18 +645,13 @@
    * @returns {number} Number of secured particles.
    */
   function countSecured() {
-    const absOm = Math.abs(state.omega);
-    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
     let secured = 0;
     for (const p of state.particles) {
       if (!p.alive || p.stuck) continue;
-      if (isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= 3 * T) {
-        secured++;
-      }
+      if (state.isLevitated(p, 3)) secured++;
     }
     return secured;
   }
-
   /**
    * Begins a challenge run: locks selectors, releases particles, records the
    * start time, and fires the mill start sound.
@@ -768,9 +761,6 @@
    */
   function updateChallenge() {
     if (!CHALLENGE.on || CHALLENGE.phase !== 'playing') return;
-
-    const absOm = Math.abs(state.omega);
-    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
 
     let floating = 0;
     for (const p of state.particles) {

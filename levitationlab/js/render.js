@@ -8,10 +8,10 @@
  * Exposes globals: cv, ctxOv, W, H, DPR, CX, CY, SCALE, GEO, REGIME,
  *                  layout, draw, drawGlobes, recordTrails,
  *                  X2px, Y2px, pxDist, visualSizeFactor, angleSwept,
- *                  buildOmegaHint
+ *                  buildOmegaHint, resetEncounterCache, _zoomRestore
  * Reads globals:   TUNING, CFG, PAL, PAL_DARK, PAL_LIGHT,
  *                  state, heatmap, aggregateImages, globeMaps,
- *                  eggLevitatedParticles,
+ *                  eggLevitatedParticles, trayEndpoints,
  *                  drawViewport
  */
 (() => {
@@ -551,52 +551,7 @@
     for (const g of state.globes) {
       const cx = X2px(g.x), cy = Y2px(g.y);
       const rpx = pxDist(g.r);
-      const texture = globeMaps[g.mapIdx]; // Select the specific map for this planet
-
-      ctx.save();
-      
-      // A. Atmospheric Halo (Outer blue glow)
-      const halo = ctx.createRadialGradient(cx, cy, rpx * 0.9, cx, cy, rpx * 1.3);
-      halo.addColorStop(0, 'rgba(100, 200, 255, 0.3)');
-      halo.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = halo;
-      ctx.beginPath(); ctx.arc(cx, cy, rpx * 1.3, 0, Math.PI * 2); ctx.fill();
-
-      // B. Setup the Sphere Clipping
-      ctx.beginPath(); 
-      ctx.arc(cx, cy, rpx, 0, Math.PI * 2); 
-      ctx.clip(); 
-
-      // C. Draw the Texture (Seamless looping)
-      if (texture && texture.complete) {
-        const tw = rpx * 4; 
-        const th = rpx * 2;
-        
-        const shift = (g.spin / (2 * Math.PI) * tw) % tw;
-        ctx.drawImage(texture, cx - rpx + shift,      cy - rpx, tw, th);
-        ctx.drawImage(texture, cx - rpx + shift - tw, cy - rpx, tw, th);
-      } else {
-        // Fallback color if image is missing
-        ctx.fillStyle = '#1e4a6d';
-        ctx.fill();
-      }
-
-      // D. Spherical Shading (Overlay to give 3D depth)
-      const shade = ctx.createRadialGradient(cx - rpx*0.3, cy - rpx*0.3, 0, cx, cy, rpx);
-      shade.addColorStop(0, 'rgba(255, 255, 255, 0.2)'); // Top-left highlight
-      shade.addColorStop(0.5, 'rgba(0, 0, 0, 0)');      // Midtones
-      shade.addColorStop(1, 'rgba(0, 0, 0, 0.6)');      // Shadowed edge
-      ctx.fillStyle = shade;
-      ctx.fillRect(cx - rpx, cy - rpx, rpx * 2, rpx * 2);
-
-      ctx.restore(); // Exit clipping
-
-      // E. Specular Shine (Glossy surface spot)
-      const shine = ctx.createRadialGradient(cx - rpx*0.4, cy - rpx*0.4, 0, cx - rpx*0.4, cy - rpx*0.4, rpx * 0.7);
-      shine.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
-      shine.addColorStop(1, 'rgba(255, 255, 255, 0)');
-      ctx.fillStyle = shine;
-      ctx.beginPath(); ctx.arc(cx - rpx*0.4, cy - rpx*0.4, rpx * 0.7, 0, Math.PI * 2); ctx.fill();
+      _drawGlobeBody(g, cx, cy, rpx);
     }
     
     // 2. Draw the merging pebbles during the "soft motion" phase
@@ -804,6 +759,7 @@
    */
   function drawSuccessText() {
     for (const b of state.goldenBalls) {
+      if (!b.showBanner) continue;
       const age = state.t - b.bornAt;
       if (age < 1 || age > 3) continue;
       const u = (age - 1) / 2;
@@ -1378,9 +1334,7 @@
       const trail = p.trail;
       if (!trail || trail.length < 2) continue;
 
-      const absOm = Math.abs(state.omega);
-      const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
-      const levitated = isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
+      const levitated = state.isLevitated(p);
       
       let r, g, b;
       if (levitated) { r = 0x40; g = 0xff; b = 0x70; }
@@ -1530,10 +1484,8 @@
       flash = (p.flashEndsAt - state.t) / FLASH_DUR;
       if (flash > 1) flash = 1; if (flash < 0) flash = 0;
     }
-    const absOm = Math.abs(state.omega);
-    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
-    const levitated = !p.stuck && isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
 
+    const levitated = state.isLevitated(p);
     let alphaMul = 1;
     if (p.stuck && p.stuckAt !== undefined) {
       const age = state.t - p.stuckAt;
@@ -1766,18 +1718,15 @@ function drawRepresentativeOrbits() {
       return { p, xc, r, isLevitated: isLev };
     };
 
-    const absOm = Math.abs(state.omega);
-    const T = (absOm < 1e-3) ? Infinity : (2 * Math.PI / absOm);
-
     // Filter all floating particles first
     const allValid = state.particles
       .filter(p => p.alive && !p.stuck)
       .map(p => {
-        const isL = p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
+        const isL = state.isLevitated(p);
         return getContainedOrb(p, isL);
       })
       .filter(o => o !== null);
-
+    
     if (allValid.length === 0) {
       state.orbitSample = [];
       return;
@@ -2173,23 +2122,80 @@ function drawRepresentativeOrbits() {
   }
 
   /**
+   * Draws one Gaussian-KDE curve (filled area + stroked outline) for a v_t
+   * sample, normalised to its own peak. Shared by the floating-particle and
+   * levitated-particle curves in drawVtDistribution (previously duplicated).
+   *
+   * Uses Silverman's rule for bandwidth and a fixed 60-point grid over
+   * [xMin, xMax]. No-ops if the sample is empty or degenerate (kMax === 0).
+   * Caller owns clipping and draw order.
+   *
+   * @param {number[]} vts    - Terminal-velocity samples.
+   * @param {string}   fill   - Fill style for the area under the curve.
+   * @param {string}   stroke - Stroke style for the curve outline.
+   * @param {number}   xMin   - Left edge of the KDE domain (cm/s).
+   * @param {number}   xMax   - Right edge of the KDE domain (cm/s).
+   * @param {number}   X0     - Left edge of the plot in drum-units.
+   * @param {number}   totalW - Plot width in drum-units.
+   * @param {number}   baseY  - Baseline y in drum-units.
+   * @param {number}   plotH  - Plot height in drum-units.
+   */
+  function drawKDE(vts, fill, stroke, xMin, xMax, X0, totalW, baseY, plotH) {
+    if (!vts || vts.length === 0) return;
+    const n    = vts.length;
+    const mean = vts.reduce((a, b) => a + b, 0) / n;
+    const sig  = Math.sqrt(Math.max(0.1, vts.reduce((s, v) => s + (v - mean) ** 2, 0) / n));
+    const bw   = 1.06 * sig * Math.pow(n, -0.2);
+
+    const nGrid = 60;
+    const ky = new Array(nGrid);
+    let kMax = 0;
+    for (let i = 0; i < nGrid; i++) {
+      const vt = xMin + (i / (nGrid - 1)) * (xMax - xMin);
+      let sum = 0;
+      for (const v of vts) { const z = (vt - v) / bw; sum += Math.exp(-0.5 * z * z); }
+      ky[i] = sum / (n * bw * Math.sqrt(2 * Math.PI));
+      if (ky[i] > kMax) kMax = ky[i];
+    }
+
+    if (kMax > 0) {
+      ctxOv.beginPath();
+      ctxOv.moveTo(X2px(X0), Y2px(baseY));
+      for (let i = 0; i < nGrid; i++) {
+        const x = X0 + (i / (nGrid - 1)) * totalW;
+        ctxOv.lineTo(X2px(x), Y2px(baseY + plotH * (ky[i] / kMax)));
+      }
+      ctxOv.lineTo(X2px(X0 + totalW), Y2px(baseY));
+      ctxOv.closePath();
+      ctxOv.fillStyle = fill;
+      ctxOv.fill();
+
+      ctxOv.beginPath();
+      for (let i = 0; i < nGrid; i++) {
+        const x = X0 + (i / (nGrid - 1)) * totalW;
+        const y = baseY + plotH * (ky[i] / kMax);
+        i === 0 ? ctxOv.moveTo(X2px(x), Y2px(y)) : ctxOv.lineTo(X2px(x), Y2px(y));
+      }
+      ctxOv.strokeStyle = stroke;
+      ctxOv.lineWidth = 1.5;
+      ctxOv.stroke();
+    }
+  }
+
+  /**
    * Draws the v_t distribution of levitated particles (KDE, green) and
    * live aggregates (histogram bins, amber) in the upper-left drum area.
    */
   function drawVtDistribution() {
     if (!window.vtDistOn) return;
 
-    const absOm = Math.abs(state.omega);
-    const T = absOm < 1e-3 ? Infinity : (2 * Math.PI / absOm);
-
     // --- COLLECT DATA ---
     const levVts   = [];
     const floatVts = [];
     for (const p of state.particles) {
       if (!p.alive || p.stuck || p.merging || !p.insideOnce) continue;
-      const nowLev = isFinite(T) && p.inHighlightSince !== null && (state.t - p.inHighlightSince) >= T;
-      if (nowLev) levVts.push(p.vt);
-      else        floatVts.push(p.vt);
+      if (state.isLevitated(p)) levVts.push(p.vt);
+      else                      floatVts.push(p.vt);
     }
     const aggVts = [];
     for (const agg of state.aggregates) {
@@ -2259,88 +2265,13 @@ function drawRepresentativeOrbits() {
     ctxOv.clip();
 
     // --- KDE FOR FLOATING PARTICLES (yellow, drawn first) ---
-    if (floatVts.length > 0) {
-      const n    = floatVts.length;
-      const mean = floatVts.reduce((a, b) => a + b, 0) / n;
-      const sig  = Math.sqrt(Math.max(0.1, floatVts.reduce((s, v) => s + (v - mean) ** 2, 0) / n));
-      const bw   = 1.06 * sig * Math.pow(n, -0.2);
-
-      const nGrid = 60;
-      const ky = new Array(nGrid);
-      let kMax = 0;
-      for (let i = 0; i < nGrid; i++) {
-        const vt = xMin + (i / (nGrid - 1)) * (xMax - xMin);
-        let sum = 0;
-        for (const v of floatVts) { const z = (vt - v) / bw; sum += Math.exp(-0.5 * z * z); }
-        ky[i] = sum / (n * bw * Math.sqrt(2 * Math.PI));
-        if (ky[i] > kMax) kMax = ky[i];
-      }
-
-      if (kMax > 0) {
-        ctxOv.beginPath();
-        ctxOv.moveTo(X2px(X0), Y2px(baseY));
-        for (let i = 0; i < nGrid; i++) {
-          const x = X0 + (i / (nGrid - 1)) * totalW;
-          ctxOv.lineTo(X2px(x), Y2px(baseY + plotH * (ky[i] / kMax)));
-        }
-        ctxOv.lineTo(X2px(X1), Y2px(baseY));
-        ctxOv.closePath();
-        ctxOv.fillStyle = 'rgba(255,238,51,0.10)';
-        ctxOv.fill();
-
-        ctxOv.beginPath();
-        for (let i = 0; i < nGrid; i++) {
-          const x = X0 + (i / (nGrid - 1)) * totalW;
-          const y = baseY + plotH * (ky[i] / kMax);
-          i === 0 ? ctxOv.moveTo(X2px(x), Y2px(y)) : ctxOv.lineTo(X2px(x), Y2px(y));
-        }
-        ctxOv.strokeStyle = 'rgba(255,238,51,0.75)';
-        ctxOv.lineWidth = 1.5;
-        ctxOv.stroke();
-      }
-    }
-
     // --- KDE FOR LEVITATED PARTICLES (green, drawn on top) ---
-    if (levVts.length > 0) {
-      const n    = levVts.length;
-      const mean = levVts.reduce((a, b) => a + b, 0) / n;
-      const sig  = Math.sqrt(Math.max(0.1, levVts.reduce((s, v) => s + (v - mean) ** 2, 0) / n));
-      const bw   = 1.06 * sig * Math.pow(n, -0.2);
-
-      const nGrid = 60;
-      const ky = new Array(nGrid);
-      let kMax = 0;
-      for (let i = 0; i < nGrid; i++) {
-        const vt = xMin + (i / (nGrid - 1)) * (xMax - xMin);
-        let sum = 0;
-        for (const v of levVts) { const z = (vt - v) / bw; sum += Math.exp(-0.5 * z * z); }
-        ky[i] = sum / (n * bw * Math.sqrt(2 * Math.PI));
-        if (ky[i] > kMax) kMax = ky[i];
-      }
-
-      if (kMax > 0) {
-        ctxOv.beginPath();
-        ctxOv.moveTo(X2px(X0), Y2px(baseY));
-        for (let i = 0; i < nGrid; i++) {
-          const x = X0 + (i / (nGrid - 1)) * totalW;
-          ctxOv.lineTo(X2px(x), Y2px(baseY + plotH * (ky[i] / kMax)));
-        }
-        ctxOv.lineTo(X2px(X1), Y2px(baseY));
-        ctxOv.closePath();
-        ctxOv.fillStyle = 'rgba(64,255,112,0.15)';
-        ctxOv.fill();
-
-        ctxOv.beginPath();
-        for (let i = 0; i < nGrid; i++) {
-          const x = X0 + (i / (nGrid - 1)) * totalW;
-          const y = baseY + plotH * (ky[i] / kMax);
-          i === 0 ? ctxOv.moveTo(X2px(x), Y2px(y)) : ctxOv.lineTo(X2px(x), Y2px(y));
-        }
-        ctxOv.strokeStyle = 'rgba(64,255,112,0.85)';
-        ctxOv.lineWidth = 1.5;
-        ctxOv.stroke();
-      }
-    }
+    // Order matters: floating must draw before levitated so the green curve
+    // sits on top, exactly as before.
+    drawKDE(floatVts, 'rgba(255,238,51,0.10)', 'rgba(255,238,51,0.75)',
+            xMin, xMax, X0, totalW, baseY, plotH);
+    drawKDE(levVts, 'rgba(64,255,112,0.15)', 'rgba(64,255,112,0.85)',
+            xMin, xMax, X0, totalW, baseY, plotH);
 
     // --- HISTOGRAM BINS FOR AGGREGATES (amber) ---
     if (aggVts.length > 0) {
