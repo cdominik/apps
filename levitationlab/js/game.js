@@ -530,6 +530,8 @@
   const chalBoardArea  = document.getElementById('chalBoardArea');
   const chalTableBody  = document.querySelector('#chalTable tbody');
   const chalNextBtn    = document.getElementById('chalNextBtn');
+  const chalGoBtn      = document.getElementById('chalGoBtn');
+  const chalGmClearBtn = document.getElementById('chalGmClearBtn');
 
   /**
    * Persists CHALLENGE.scores to localStorage under the key
@@ -604,15 +606,20 @@
     chalExitBtn.addEventListener('click', () => { enterChallengeMode(false); });
   }
 
-  if (chalClearBtn) {
-    chalClearBtn.addEventListener('click', () => {
-      if (confirm("Permanently clear all highscores?")) {
-        CHALLENGE.scores = [];
-        saveHighscores();
-        renderHighscores();
-      }
-    });
+  /**
+   * Confirms, then wipes the persistent leaderboard. Shared by the
+   * board-screen link (chalClearBtn) and the game-master-screen link
+   * (chalGmClearBtn) so the logic lives in exactly one place.
+   */
+  function clearAllHighscores() {
+    if (!confirm("Permanently clear all highscores?")) return;
+    CHALLENGE.scores = [];
+    saveHighscores();
+    renderHighscores();
   }
+
+  if (chalClearBtn)   chalClearBtn.addEventListener('click', clearAllHighscores);
+  if (chalGmClearBtn) chalGmClearBtn.addEventListener('click', clearAllHighscores);
 
   /**
    * Shows the challenge intro sheet.
@@ -621,23 +628,33 @@
    *   (default) => game-master mode: two-button parameter choice.
    */
   function showChallengeIntro(bound = false) {
-    chalTitle.textContent = "Outreach Challenge";
-    chalDesc.textContent = "You have got about a minute. Keep as many particles " +
-      "levitated as possible. If something grows in your time window - it will " +
-      "improve your score.";
+    chalTitle.textContent = "Challenge with Scoreboard";
+    const tOverride = bound
+      ? (CHALLENGE.contract ? CHALLENGE.contract.timeOverride : state.challengeTimeOverride)
+      : state.challengeTimeOverride;
+    const customTime = (typeof tOverride === 'number' && isFinite(tOverride) && tOverride > 0);
+    chalDesc.textContent = (customTime
+        ? "You have got a limited time. "
+        : "You have got about a minute. ") +
+      "Keep as many particles levitated as possible. If something grows " +
+      "in your time window - it will improve your score.";
     chalInputArea.hidden = true;
     chalBoardArea.hidden = true;
     if (bound) {
       // Bound by the game master's contract — no parameter choice.
+      // ONLY the dedicated Start button is on this screen.
       applyChallengeContract();          // defend the contract against drift
       chalStartDefaultBtn.hidden = true;
-      chalStartBtn.hidden = false;
-      chalStartBtn.textContent = "Start";
+      chalStartBtn.hidden        = true;
+      chalGmClearBtn.hidden      = true;
+      chalGoBtn.hidden           = false;
     } else {
-      // Game master: full two-button choice.
-      chalStartBtn.textContent = "Current Lab Setting";
+      // Game master: configure-and-proceed. Two parameter buttons plus
+      // the clear-leaderboard link. The run does NOT start from here.
       chalStartDefaultBtn.hidden = false;
-      chalStartBtn.hidden = false;
+      chalStartBtn.hidden        = false;
+      chalGmClearBtn.hidden      = false;
+      chalGoBtn.hidden           = true;
     }
     challengeSheet.hidden = false;
   }
@@ -688,17 +705,24 @@
 
   const chalStartDefaultBtn = document.getElementById('chalStartDefaultBtn');
 
-  // "Default Challenge" — game master picks defaults; lock the contract.
+  // "Use Defaults" — game master: apply challenge defaults, lock the
+  // contract, advance to the bound Start screen. Does NOT start a run.
   chalStartDefaultBtn.addEventListener('click', () => {
     applyChallengeDefaults();
-    lockChallengeContract();          // capture AFTER defaults applied (reading (a))
-    challengeSheet.hidden = true;
-    startChallengeRun();
+    lockChallengeContract();          // capture AFTER defaults applied
+    showChallengeIntro(true);         // → bound Start screen, sheet stays open
   });
 
-  // "Current Lab Setting" — game master picks current setup; lock it.
+  // "Use Current Settings" — game master: lock the as-is resolved values
+  // as the contract, advance to the bound Start screen. No run yet.
   chalStartBtn.addEventListener('click', () => {
     lockChallengeContract();          // capture the as-is resolved values
+    showChallengeIntro(true);         // → bound Start screen, sheet stays open
+  });
+
+  // "Start" — the ONLY control that begins a challenge run. Lives only on
+  // the bound screen (player 1 and every Next Player). One job.
+  chalGoBtn.addEventListener('click', () => {
     challengeSheet.hidden = true;
     startChallengeRun();
   });
@@ -713,8 +737,9 @@
 
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' || challengeSheet.hidden) return;
-    if (!chalStartBtn.hidden)        { chalStartBtn.click();  return; }
-    if (!chalBoardArea.hidden)       { chalNextBtn.click();   return; }
+    if (!chalGoBtn.hidden)     { chalGoBtn.click();     return; }
+    if (!chalStartBtn.hidden)  { chalStartBtn.click();  return; }
+    if (!chalBoardArea.hidden) { chalNextBtn.click();   return; }
   });
 
   /**
@@ -797,6 +822,8 @@
 
     chalStartBtn.hidden = true;
     chalStartDefaultBtn.hidden = true;
+    chalGoBtn.hidden = true;
+    chalGmClearBtn.hidden = true;
     chalBoardArea.hidden = true;
     chalInputArea.hidden = false;
     chalNameInput.value = '';

@@ -644,6 +644,30 @@ body.theme-light .sel .chev { color: #1a1006; }
 }
 .name-input:focus { outline: none; border-color: #ffcc55; box-shadow: 0 0 8px rgba(255,204,85,0.4); }
 
+/* Challenge GM/bound action buttons: too wide to sit inline in the 400px
+   sheet — they wrapped with no gap and their box-shadows overlapped.
+   Force each onto its own full-width line with breathing room. Scoped by
+   id so the global .sheet-btn (gameSheet, the flex board row) is untouched.
+   box-sizing:border-box is already global, so width:100% won't overflow. */
+#chalStartDefaultBtn,
+#chalStartBtn,
+#chalGoBtn {
+  display: block;
+  width: 100%;
+  margin: 10px auto 0;
+}
+#chalStartDefaultBtn { margin-top: 0; }
+
+/* Same trap as .title-plate[hidden] (§10): the explicit display above
+   would override the [hidden] attribute and leak chalGoBtn onto the GM
+   screen (and the GM buttons onto the bound screen), breaking the
+   single-purpose separation. Re-assert hidden. */
+#chalStartDefaultBtn[hidden],
+#chalStartBtn[hidden],
+#chalGoBtn[hidden] {
+  display: none !important;
+}
+
 
 /* =============================================================
    12. MANUAL & SPLASH OVERLAYS
