@@ -162,29 +162,32 @@
         </button>
 
         <!-- Row 3 - Multi-mode full drum analysis -->
-        <button class="btnind btnsq" id="btnModePrev"  title="Previous HUD mode"><span class="cap"><span class="cap-icon">◀</span></span></button>
+        <div class="gear-cluster">
+          <button class="btnind btnsq" id="btnModePrev"  title="Previous HUD mode"><span class="cap"><span class="cap-icon">◀</span></span></button>
 
-        <button class="btnind btnsq" id="btnHudMaster" title="Analysis projections - acceleration vector field and collision data, use arrows to cycle through">
-          <span class="cap"><span class="cap-icon">
-              <svg viewBox="0 0 24 24" width="20" height="20">
-                <!-- Corner brackets — AR frame -->
-                <path d="M4 9 L4 4 L9 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M15 4 L20 4 L20 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M4 15 L4 20 L9 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M15 20 L20 20 L20 15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                <!-- Central reticle -->
-                <circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.2"/>
-                <circle cx="12" cy="12" r="0.8" fill="currentColor"/>
-                <!-- Tick marks -->
-                <line x1="12" y1="7" x2="12" y2="9" stroke="currentColor" stroke-width="1.0" stroke-linecap="round"/>
-                <line x1="12" y1="15" x2="12" y2="17" stroke="currentColor" stroke-width="1.0" stroke-linecap="round"/>
-                <line x1="7" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="1.0" stroke-linecap="round"/>
-                <line x1="15" y1="12" x2="17" y2="12" stroke="currentColor" stroke-width="1.0" stroke-linecap="round"/>
-              </svg>
-          </span></span>
-        </button>
+          <button class="btnind btnsq" id="btnHudMaster" title="Analysis projections - acceleration vector field and collision data, use arrows to cycle through">
+            <span class="cap"><span class="cap-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20">
+                  <!-- Corner brackets — AR frame -->
+                  <path d="M4 9 L4 4 L9 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M15 4 L20 4 L20 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M4 15 L4 20 L9 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M15 20 L20 20 L20 15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  <!-- Central reticle -->
+                  <circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.2"/>
+                  <circle cx="12" cy="12" r="0.8" fill="currentColor"/>
+                  <!-- Tick marks -->
+                  <line x1="12" y1="7" x2="12" y2="9" stroke="currentColor" stroke-width="1.0" stroke-linecap="round"/>
+                  <line x1="12" y1="15" x2="12" y2="17" stroke="currentColor" stroke-width="1.0" stroke-linecap="round"/>
+                  <line x1="7" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="1.0" stroke-linecap="round"/>
+                  <line x1="15" y1="12" x2="17" y2="12" stroke="currentColor" stroke-width="1.0" stroke-linecap="round"/>
+                </svg>
+            </span></span>
+          </button>
 
-        <button class="btnind btnsq" id="btnModeNext"  title="Next HUD mode"><span class="cap"><span class="cap-icon">▶</span></span></button>
+          <button class="btnind btnsq" id="btnModeNext"  title="Next HUD
+                                                                mode"><span class="cap"><span class="cap-icon">▶</span></span></button>
+        </div>
         <hr>
 
         <!-- The PROCESSES buttons -->
@@ -342,16 +345,18 @@
         </button>
 
         <!-- Row 2: Speed Gear Shifter -->
-        <button class="btnind btnsq" id="btnSpeedDown" title="Slower simulation speed">
-          <span class="cap"><span class="cap-icon">◀</span></span>
-        </button>
-        <button class="btnind btnsq" id="btnSpeedReset" title="Shows current simulation speed - press to reset to 1x">
-          <span class="cap"><span class="cap-label" id="speedDisp" style="font-size:10px;">1x</span></span>
-        </button>
-        <button class="btnind btnsq" id="btnSpeedUp" title="Faster simulation speed">
-          <span class="cap"><span class="cap-icon">▶</span></span>
-        </button> 
-
+        <div class="gear-cluster">
+          <button class="btnind btnsq" id="btnSpeedDown" title="Slower simulation speed">
+            <span class="cap"><span class="cap-icon">◀</span></span>
+          </button>
+          <button class="btnind btnsq" id="btnSpeedReset" title="Shows current simulation speed - press to reset to 1x">
+            <span class="cap"><span class="cap-label" id="speedDisp" style="font-size:10px;">1x</span></span>
+          </button>
+          <button class="btnind btnsq" id="btnSpeedUp" title="Faster simulation speed">
+            <span class="cap"><span class="cap-icon">▶</span></span>
+          </button>
+        </div>
+        
         <!-- Row 3 — other speed controls -->
 
         <button class="btnind btnsq" id="btnSysStrobe"
