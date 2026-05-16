@@ -1354,11 +1354,18 @@
   if (uP.has('challenge')) {
     setTimeout(() => {
       enterChallengeMode(true);
-      // Selective URL overrides on top of CHALLENGE_CFG defaults
+      // ?challenge is the canonical comparable run: force CHALLENGE_CFG
+      // defaults (entry no longer does this), then apply selective URL
+      // overrides on top, exactly as documented in the manual.
+      if (window.applyChallengeDefaults) window.applyChallengeDefaults();
       if (uP.has('np'))     setSettingByValue('NP',     parseInt(uP.get('np'), 10));
       if (uP.has('vt'))     setSettingByValue('VT',     parseFloat(uP.get('vt')));
       if (uP.has('spread')) setSettingByValue('SPREAD', parseFloat(uP.get('spread')));
       if (uP.has('dt'))     setSettingByValue('DT',     parseFloat(uP.get('dt')));
+      if (uP.has('time')) {
+        const tv = parseFloat(uP.get('time'));
+        state.challengeTimeOverride = (isFinite(tv) && tv > 0) ? tv : null;
+      }
       showChallengeIntro(); // refresh sheet with final parameter values
     }, 0);
   }

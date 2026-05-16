@@ -695,8 +695,9 @@
           <li><kbd>?challenge</kbd> — start Challenge Mode with the built-in
             challenge parameters (300 particles, 30% spread). Override
             selectively with <kbd>?challenge&amp;np=1000</kbd>,
-            <kbd>&amp;vt=40</kbd>, <kbd>&amp;spread=0.20</kbd>, or
-            <kbd>&amp;dt=5</kbd>.</li>
+            <kbd>&amp;vt=40</kbd>, <kbd>&amp;spread=0.20</kbd>,
+            <kbd>&amp;dt=5</kbd>, or <kbd>&amp;time=90</kbd> (run length
+            in seconds; default 60).</li>
           <li><kbd>?modern</kbd> — apply the clinical lab visual theme.</li>
           <li><kbd>?pfeiffer</kbd> — apply the clinical lab visual
           theme with red support structures pointing to the Pfeiffer
@@ -831,7 +832,10 @@
         <button id="chalClearBtn" style="margin-top: 20px; background: none; border: none; color: #ff6060; font-family: monospace; font-size: 10px; cursor: pointer; text-decoration: underline;">Clear Leaderboard</button>
       </div>
 
-      <button class="sheet-btn" id="chalStartBtn">Start Challenge</button>
+      <button class="sheet-btn" id="chalStartDefaultBtn">Default Challenge</button>
+      <button class="sheet-btn" id="chalStartBtn">Current Lab Settings</button>
+    </div>
+  </div>
     </div>
   </div>
 </div>

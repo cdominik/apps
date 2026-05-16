@@ -6,7 +6,8 @@
  *   initial layout() and initLevel() calls that start the simulation.
  *
  * Exposes globals: GAME, CHALLENGE, enterGameMode, enterChallengeMode,
- *                  updateGame, updateChallenge, showSheet, lockSelectors
+ *                  updateGame, updateChallenge, showSheet, lockSelectors,
+ *                  applyChallengeDefaults
  * Reads globals:   TUNING, TUNING_DEFAULT, CFG, state,
  *                  SETTINGS, SEL_WIN, initLevel, startRelease,
  *                  ensureAudio, soundMillStart, layout,
@@ -573,19 +574,23 @@
     if (on) {
       CHALLENGE.phase = 'idle';
       gameSheet.hidden = true;
-      // Apply challenge defaults from CFG, then let URL params override
-      setSettingByValue('NP',     CHALLENGE_CFG.N_P);
-      setSettingByValue('VT',     CHALLENGE_CFG.V_T);
-      setSettingByValue('SPREAD', CHALLENGE_CFG.VT_SPREAD);
-      setSettingByValue('DT',     CHALLENGE_CFG.DT_INJECT);
+      // Clear any prior ?time override on every entry. The ?challenge URL
+      // handler (ui.js) re-applies it afterward if &time= is present, so
+      // URL launches keep it and plain button entry starts clean.
+      state.challengeTimeOverride = null;
+      // Parameters are NOT forced on entry anymore — the intro sheet's two
+      // buttons decide: Default Challenge applies CHALLENGE_CFG, Current
+      // Settings keeps the wing selectors as-is. (?challenge URL path
+      // applies defaults itself — see ui.js — to stay canonical.)
       showChallengeIntro();
-    } else {
+   } else {
       CHALLENGE.phase = 'idle';
       gameSheet.hidden = true;
       setChallengeBtnLabel('Challenge');
       challengeSheet.hidden = true;
       lockSelectors(false);
       hideVideoElement();
+      state.challengeTimeOverride = null;
       initLevel();
     }
   }
@@ -613,17 +618,44 @@
    */
   function showChallengeIntro() {
     chalTitle.textContent = "Outreach Challenge";
-    chalDesc.textContent = `Levitate as many particles as possible for 3 full orbits. Current Setup: ${CFG.N_P} particles.`;
+    chalDesc.textContent = "You have got about a minute. Keep as many particles " +
+      "levitated as possible. If something grows in your time window - it will " +
+      "improve your score.";
     chalInputArea.hidden = true;
     chalBoardArea.hidden = true;
     chalStartBtn.hidden = false;
+    chalStartDefaultBtn.hidden = false;
     challengeSheet.hidden = false;
   }
 
+/**
+   * Applies the canonical challenge defaults (CHALLENGE_CFG) to the wing
+   * selectors. Single source of truth, used by the Default Challenge button
+   * and the ?challenge URL path.
+   */
+  function applyChallengeDefaults() {
+    setSettingByValue('NP',     CHALLENGE_CFG.N_P);
+    setSettingByValue('VT',     CHALLENGE_CFG.V_T);
+    setSettingByValue('SPREAD', CHALLENGE_CFG.VT_SPREAD);
+    setSettingByValue('DT',     CHALLENGE_CFG.DT_INJECT);
+  }
+  window.applyChallengeDefaults = applyChallengeDefaults;
+
+  const chalStartDefaultBtn = document.getElementById('chalStartDefaultBtn');
+
+  // "Default Challenge" — force the standard parameters, then run.
+  chalStartDefaultBtn.addEventListener('click', () => {
+    applyChallengeDefaults();
+    challengeSheet.hidden = true;
+    startChallengeRun();
+  });
+
+  // "Current Settings" — keep whatever the wings currently hold, then run.
   chalStartBtn.addEventListener('click', () => {
     challengeSheet.hidden = true;
     startChallengeRun();
   });
+  
   chalNameInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -717,6 +749,7 @@
     chalFinalScore.textContent = totalScore;
 
     chalStartBtn.hidden = true;
+    chalStartDefaultBtn.hidden = true;
     chalBoardArea.hidden = true;
     chalInputArea.hidden = false;
     chalNameInput.value = '';
@@ -771,8 +804,14 @@
 
     const allInjected = state.toInject.length === 0;
     const timeSinceStart = state.t - CHALLENGE.startTime;
-    const TIME_LIMIT = CHALLENGE_CFG.TIME_LIMIT + CFG.DT_INJECT;
-
+    // ?challenge&time=N overrides the base window (N seconds); the
+    // +DT_INJECT addition is preserved exactly as in the default path.
+    const baseLimit = (typeof state.challengeTimeOverride === 'number' &&
+                       isFinite(state.challengeTimeOverride) &&
+                       state.challengeTimeOverride > 0)
+          ? state.challengeTimeOverride
+          : CHALLENGE_CFG.TIME_LIMIT;
+    const TIME_LIMIT = baseLimit + CFG.DT_INJECT;
     if (allInjected) {
       if (floating === 0 || (floating > 0 && floating === secured) || timeSinceStart > TIME_LIMIT) {
         endChallengeRun(secured);
