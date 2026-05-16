@@ -977,6 +977,43 @@ body.theme-light #expertDoor {
   width: 100%;
 }
 
+/* Gear cluster — three btnsq controls fused into one brass faceplate.
+   Must re-establish the 3-col row since wrapping removed the buttons
+   as direct grid children of #expertBlock. */
+#expertBlock .gear-cluster {
+  grid-column: span 3;
+  display: grid;
+  grid-template-columns: repeat(3, 30px);
+  gap: 0;
+  justify-content: center;
+  align-items: center;
+  padding: 3px;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #e8c77a 0%, #c9a858 18%, #8a6b2e 55%, #5a4418 85%, #3a2a0e 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,235,170,0.7),
+    inset 0 -2px 3px rgba(0,0,0,0.55),
+    0 3px 5px rgba(0,0,0,0.6);
+}
+
+/* Inner buttons: drop their own brass frame + corner rivets so they read
+   as windows inset into the shared plate, not separate buttons. The .cap
+   (the lit, state-colored surface) is left fully intact so .on/.cheat/
+   .warn/.disabled lighting still works per-button. */
+#expertBlock .gear-cluster .btnind {
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+#expertBlock .gear-cluster .btnind::before,
+#expertBlock .gear-cluster .btnind::after { display: none; }
+
+/* Hairline dividers between the three windows for the "one instrument,
+   three positions" read. */
+#expertBlock .gear-cluster .btnind + .btnind {
+  border-left: 1px solid rgba(0,0,0,0.35);
+  box-shadow: inset 1px 0 0 rgba(255,235,170,0.25);
+}
 
 /* =============================================================
    15. VIEWPORT & CANVAS
@@ -1189,6 +1226,22 @@ body.theme-light.theme-modern .lbl,
 body.theme-light.theme-modern #expertBlock .expert-head { color: #343a40 !important; text-shadow: none !important; }
 
 body.theme-modern #expertBlock hr { border-bottom: 1px solid #cfd4d9 !important; }
+
+/* Gear cluster — clinical faceplate to match the modern panel.
+   Mirrors the §19 brass→grey treatment used for .btnind / .sel-body. */
+body.theme-modern #expertBlock .gear-cluster {
+  background: #e8ecef !important;
+  border: 1px solid #cfd4d9 !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.08), inset 0 1px 0 #ffffff !important;
+  border-radius: 6px !important;
+}
+
+/* Neutral hairline dividers between the inset windows (brass tones
+   read wrong on the grey plate). */
+body.theme-modern #expertBlock .gear-cluster .btnind + .btnind {
+  border-left: 1px solid #cfd4d9 !important;
+  box-shadow: inset 1px 0 0 rgba(255,255,255,0.7) !important;
+}
 
 body.theme-modern .sel .chev       { background: #f8f9fa !important; color: #6c757d !important; border: 1px solid #d5d9dd !important; box-shadow: none !important; }
 body.theme-modern .sel .chev:hover { background: #ffffff !important; color: #212529 !important; }
