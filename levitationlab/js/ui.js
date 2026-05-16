@@ -880,7 +880,7 @@
   });
   
   // PROCESSES 4. Stokes kick
-  window.stonesKickOn = false;
+  window.stokeskickon = false;
   wireProcessButton('btnProcPureV', 'on', (active) => {
     window.stokesKickOn = active;
   });
