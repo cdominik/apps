@@ -6,11 +6,12 @@
  *   (planet) merging, and heatmap accumulation.
  *
  * Exposes globals: initLevel, randn, scheduleInjections, startRelease,
- *                  updateDrum, step, eggLevitatedParticles, updateEgg,
- *                  updateGlobe, spawnGoldenBall, updateAggregates
+ *                  updateDrum, step, eggLevitatedParticles, aggImageIndex,
+ *                  updateEgg, updateGlobe, spawnGoldenBall, updateAggregates,
+ *                  updateSolar, computeAutoOmega, trayEndpoints, updateTray
  * Reads globals:   TUNING, TUNING_DEFAULT, CFG, LASER_OMEGA,
  *                  state, heatmap, aggregateImages,
- *                  soundTink, soundSnap, soundCrunch,
+ *                  soundTink, soundSnap, soundCrunch, soundAggMerge,
  *                  soundGoldenThud, soundGoldenChime,
  *                  GEO, X2px, angleSwept, visualSizeFactor,
  *                  updateGauge, resetExpertUI

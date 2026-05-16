@@ -6,13 +6,17 @@
  *   toggles, system controls), and the expert door URL-flag logic.
  *   Also owns the Expert Analysis Controller (hudMasterOn, heatmap mode).
  *
- * Exposes globals: slowMoArmed (window), resetExpertUI (window)
- * Reads globals:   TUNING, TUNING_DEFAULT, CFG, PAL, state, heatmap,
+ * Exposes globals: slowMoArmed (window), resetExpertUI (window),
+ *                  setOmegaDecay (window), setOmegaCtlMode (window),
+ *                  _resetLaunchState (window), _computeOptimalWait (window),
+ *                  _ghostClear (window), _ghostEnsureTarget (window)
+ * Reads globals:   TUNING, TUNING_DEFAULT, CFG, PAL, PAL_DARK, PAL_LIGHT,
+ *                  AUDIO, state, heatmap,
  *                  SETTINGS, SEL_WIN, applyInitialSettings,
  *                  GAME, CHALLENGE, VIEWPORT,
  *                  initLevel, startRelease, scheduleInjections,
  *                  ensureAudio, soundMillStart, soundSnap, soundTink,
- *                  layout, draw,
+ *                  soundExpertDoorKnock, layout, draw,
  *                  cv, W, H, ctxOv, CX, CY, SCALE, REGIME,
  *                  enterGameMode, enterChallengeMode, lockSelectors,
  *                  updateGauge, updateAnalysisInstrument (internal)

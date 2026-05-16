@@ -8,10 +8,10 @@
  * Exposes globals: cv, ctxOv, W, H, DPR, CX, CY, SCALE, GEO, REGIME,
  *                  layout, draw, drawGlobes, recordTrails,
  *                  X2px, Y2px, pxDist, visualSizeFactor, angleSwept,
- *                  buildOmegaHint
+ *                  buildOmegaHint, resetEncounterCache, _zoomRestore
  * Reads globals:   TUNING, CFG, PAL, PAL_DARK, PAL_LIGHT,
  *                  state, heatmap, aggregateImages, globeMaps,
- *                  eggLevitatedParticles,
+ *                  eggLevitatedParticles, trayEndpoints,
  *                  drawViewport
  */
 (() => {

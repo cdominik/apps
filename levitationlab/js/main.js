@@ -7,12 +7,13 @@
  *
  * Exposes globals: cancelEndingSequence
  * Reads globals:   CFG, TUNING, TUNING_DEFAULT, state,
- *                  slowMoArmed, updateDrum, step, updateEgg,
- *                  updateAggregates, updateGlobe, updateMotorSound,
+ *                  slowMoArmed, updateDrum, updateTray, step, updateEgg,
+ *                  updateAggregates, updateGlobe, updateSolar,
+ *                  computeAutoOmega, updateMotorSound,
  *                  recordTrails, pollAggregateCounter,
  *                  updateViewport, draw, drawGlobes,
  *                  updateGauge, updateGame, updateChallenge,
- *                  showSheet, gameSheet, TUNING_DEFAULT
+ *                  showSheet, gameSheet
  */
 (() => {
   'use strict';
