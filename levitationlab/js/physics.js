@@ -889,6 +889,7 @@
       bornAt:   state.t,
       showBanner,
     });
+    if (navigator.vibrate) navigator.vibrate([60, 80, 120]);
     soundCrunch();
   }
   /**
@@ -1295,6 +1296,7 @@
       imgIdx,
       orbitFlashEndsAt: state.t + 2.0,
     });
+    if (state.aggCount < 10 && navigator.vibrate) navigator.vibrate(30);
     soundSnap();
   }
 
