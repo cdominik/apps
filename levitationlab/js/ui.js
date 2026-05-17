@@ -188,6 +188,10 @@
    */
 
   function onDown(id, clientX, clientY) {
+    if (state.paused) {
+      if (window.handleTimelineClick) window.handleTimelineClick(clientX, clientY);
+      return;
+    }
     const c = getLocalCoords(clientX, clientY);
     
     // Strict circular check: distance from center must be within the outer band
@@ -416,7 +420,8 @@
     gaugePebble.style.display = 'none';
     
     // Crucial: hide the "System Complete" sheet so you can play again
-    gameSheet.hidden = true; 
+    gameSheet.hidden = true;
+    if (window.resetTimeline) window.resetTimeline();
   });
 
   btnLaser.addEventListener('click', () => {
@@ -455,6 +460,11 @@
     btnTrails.classList.toggle('on', state.trailsOn);
   });
 
+  document.getElementById('btnPause')?.addEventListener('click', () => {
+    if (window.togglePause) window.togglePause();
+  });
+
+  
   const btnManual = document.getElementById('btnManual');
   const manualOverlay = document.getElementById('manualOverlay');
   const manualClose = document.getElementById('manualClose');
@@ -480,20 +490,9 @@
     if (e.key !== ' ') return;
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     e.preventDefault();
-    state.paused = !state.paused;
-    
-    if (AUDIO.ctx && AUDIO.motor.started) {
-      const t = AUDIO.ctx.currentTime;
-      if (state.paused) {
-        AUDIO.motor.gainOsc.gain.cancelScheduledValues(t);
-        AUDIO.motor.gainOsc.gain.setValueAtTime(0, t);
-        AUDIO.motor.gainNoise.gain.cancelScheduledValues(t);
-        AUDIO.motor.gainNoise.gain.setValueAtTime(0, t);
-      }
-    }
+    if (window.togglePause) window.togglePause();
   });
   
-
   // Initial layout and level setup — must run after all button wiring is complete
   window.addEventListener('resize', layout);
   layout();

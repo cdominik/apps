@@ -378,7 +378,7 @@ body.theme-light .sel .chev { color: #1a1006; }
 .btn-grid2x2 {
   display: grid;
   grid-template-columns: 46px 46px;
-  grid-template-rows: 46px 46px 46px;
+  grid-auto-rows: 46px;
   gap: 4px;
   width: 96px;
 }
@@ -1110,7 +1110,7 @@ body.regime-compact .btnind       { width: 84px; height: 46px; }
 body.regime-compact .btnind.inject { width: 84px; height: 84px; }
 body.regime-compact .btnind .cap-label { font-size: 11px; letter-spacing: 1.2px; }
 body.regime-compact .btnind.btnsq { width: 40px; height: 40px; }
-body.regime-compact .btn-grid2x2  { grid-template-columns: 40px 40px; grid-template-rows: 40px 40px 40px; width: 84px; }
+body.regime-compact .btn-grid2x2  { grid-template-columns: 40px 40px; grid-auto-rows: 40px; width: 84px; }
 body.regime-compact .sel          { width: 84px; }
 body.regime-compact .sel .sel-body { height: 26px; }
 body.regime-compact .sel .win     { font-size: 12px; }
@@ -1148,7 +1148,7 @@ body.regime-portrait .btnind .cap-label { font-size: 10px; letter-spacing: 1px; 
 body.regime-portrait .btnind.btnsq { width: 38px; height: 38px; }
 body.regime-portrait .btnind.btnsq .cap { left: 4px; right: 4px; top: 4px; bottom: 4px; }
 body.regime-portrait .btnind.btnsq svg  { width: 18px; height: 18px; }
-body.regime-portrait .btn-grid2x2  { grid-template-columns: repeat(6, 38px); grid-template-rows: 38px; width: auto; gap: 4px; }
+body.regime-portrait .btn-grid2x2  { grid-template-columns: repeat(7, 38px); grid-auto-rows: 38px; width: auto; gap: 4px; }
 
 /* Expert panel and logo hidden in portrait */
 body.regime-portrait #expertContainer { display: none !important; }

@@ -131,10 +131,12 @@
       updateSolar();
       if (_strobeShouldDraw) drawGlobes();
       if (window.drawHints) drawHints();
+      if (window.drawTimeline) window.drawTimeline();
 
       updateGauge();
       updateGame();
       updateChallenge();
+      if (window.takeSnapshot) window.takeSnapshot();
       if (window.updateHints) updateHints();
 
       // --- UNIVERSAL SUCCESS CHECK ---

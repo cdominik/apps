@@ -327,23 +327,9 @@
           </span>
         </button>
 
-        <button class="btnind btnsq" id="btnCollect"
-                title="Arm collection tray — waits for the slot marker to reach 12 o'clock, then slides a metal blade into the drum and stops the drum so that particles and aggregates can collect on the tray.">
-          <span class="cap">
-            <span class="cap-icon">
-              <svg viewBox="0 0 24 24" width="20" height="20">
-                <!-- Drum circle -->
-                <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/>
-                <!-- Tray blade: horizontal, half a radius below centre,
-                     from rim inward to the drum's vertical axis -->
-                <line x1="19.8" y1="16.5" x2="12" y2="16.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
-                <!-- Hinge marker on the rim -->
-                <circle cx="19.8" cy="16.5" r="1.4" fill="currentColor"/>
-              </svg>
-            </span>
-          </span>
+        <button class="btnind btnsq disabled" id="btnExpertSlot" title="">
+          <span class="cap"></span>
         </button>
-
         <!-- Row 2: Speed Gear Shifter -->
         <div class="gear-cluster">
           <button class="btnind btnsq" id="btnSpeedDown" title="Slower simulation speed">
@@ -422,6 +408,30 @@
       <button class="btnind btnsq" id="btnChart" title="Chart view - real-time research data triggered by simulation events (forthcoming)"><span class="cap"><span class="cap-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="22" height="22"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 L4 4"/><path d="M4 20 L20 20"/><path d="M6 16 L10 11 L13 13 L18 6"/><circle cx="6" cy="16" r="0.8" fill="currentColor"/><circle cx="10" cy="11" r="0.8" fill="currentColor"/><circle cx="13" cy="13" r="0.8" fill="currentColor"/><circle cx="18" cy="6" r="0.8" fill="currentColor"/></g></svg>
       </span></span></button>
+      <button class="btnind btnsq" id="btnPause" title="Pause — use ← → to scrub history, SPACE to branch or resume">
+        <span class="cap"><span class="cap-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <rect x="6"  y="5" width="4" height="14" rx="1" fill="currentColor"/>
+              <rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/>
+            </svg>
+        </span></span>
+      </button>
+      <button class="btnind btnsq" id="btnCollect"
+              title="Arm collection tray — waits for the slot marker to reach 12 o'clock, then slides a metal blade into the drum and stops the drum so that particles and aggregates can collect on the tray.">
+        <span class="cap">
+          <span class="cap-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <!-- Drum circle -->
+              <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/>
+              <!-- Tray blade: horizontal, half a radius below centre,
+                   from rim inward to the drum's vertical axis -->
+              <line x1="19.8" y1="16.5" x2="12" y2="16.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+              <!-- Hinge marker on the rim -->
+              <circle cx="19.8" cy="16.5" r="1.4" fill="currentColor"/>
+            </svg>
+          </span>
+        </span>
+      </button>
     </div>
     <button class="btnind" id="btnTheme" title="Lighting of the laboratory (dark / light)"><span class="cap"><span class="cap-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24" width="22" height="22"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17 L15 17"/><path d="M9.5 19 L14.5 19"/><path d="M10.5 21 L13.5 21"/><path d="M8.5 15.5 C 7 14 6.2 12.2 6.2 10.3 C 6.2 7 8.8 4.3 12 4.3 C 15.2 4.3 17.8 7 17.8 10.3 C 17.8 12.2 17 14 15.5 15.5 Z"/><path d="M10 15.5 C 10 13 11 11 12 9 C 13 11 14 13 14 15.5"/></g></svg>
@@ -472,252 +482,235 @@
   
   <!-- INFO OVERLAY -->
 
+  <!-- INFO OVERLAY -->
   <div class="manual-overlay" id="manualOverlay" hidden>
     <div class="manual-box">
       <button class="manual-close" id="manualClose" aria-label="Close manual">×</button>
       <h2>LEVITATION LAB · Manual</h2>
       <p>
         The drum is a cylindrical vacuum chamber viewed head-on. Particles are injected
-        from the brass manifold above the drum and fall through rarified gas
-        toward the bottom wall. By rotating the drum, you rotate the gas with it, which
-        drags particles into orbits. The goal is to <em>levitate</em> as many particles
-        as possible in the highlighted region on the right of the drum.
+        from the brass manifold above the drum and fall through rarified gas toward the
+        bottom wall. By rotating the drum you rotate the gas with it, which drags
+        particles into orbits. The goal is to <em>levitate</em> as many particles as
+        possible in the highlighted region on the right of the drum.
       </p>
 
       <h3>How to play</h3>
       <ul>
-        <li><strong>Set up</strong> the run with the left wing:
-          number of particles (1–10000), settling velocity
-          <em>v<sub>t</sub></em>, optional spread of <em>v<sub>t</sub></em> across particles,
-          and the time interval over which particles are injected.
-          Particles with larger <em>v<sub>t</sub></em> appear visibly larger.</li>
-        <li><strong>Inject</strong> particles with the right-wing button.
-          You can start rotating the drum <em>before or after</em> injection.</li>
-        <li><strong>Rotate the drum</strong> by swiping across it. To slow down,
-          swipe in the opposite direction. The <strong>Ω lock</strong>
-          button on the right wing freezes the current rotation rate.</li>
+        <li><strong>Set up</strong> the run with the left wing: number of particles
+          (1–10 000), settling velocity <em>v<sub>t</sub></em>, optional spread of
+          <em>v<sub>t</sub></em> across particles, and the time interval over which
+          particles are injected. Particles with larger <em>v<sub>t</sub></em> appear
+          visibly larger.</li>
+        <li><strong>Inject</strong> particles with the right-wing button. You can start
+          rotating the drum <em>before or after</em> injection.</li>
+        <li><strong>Rotate the drum</strong> by swiping across it. Swipe in the opposite
+          direction to slow down. The <strong>Ω lock</strong> button on the right wing
+          freezes the current rotation rate.</li>
         <li>Particles that hit the wall become <span style="color:#ff6060">red</span>
-          (<strong>LOST</strong>). Particles floating are <span style="color:#ffcc55">yellow</span>.
-          A particle that stays in the highlighted region for at least one full rotation
-          period turns <span style="color:#60ff90">green</span> and counts as
+          (<strong>LOST</strong>). Floating particles are
+          <span style="color:#ffcc55">yellow</span>. A particle that stays in the
+          highlighted region for at least one full rotation period turns
+          <span style="color:#60ff90">green</span> and counts as
           <strong>LEVITATED</strong>.</li>
-        <li><strong>Reset</strong> returns the drum to a clean state, ready for a
-          new injection.</li>
+        <li><strong>Reset</strong> returns the drum to a clean state ready for a new
+          injection.</li>
       </ul>
 
       <h3>Optional instruments</h3>
       <ul>
-        <li><strong>Sound</strong> — motor hum (pitch tracks rotation speed),
+        <li><strong>Sound</strong> — motor hum whose pitch tracks the rotation speed,
           a dull plonk when a particle is lost, and a soft chime when one becomes
           levitated.</li>
-        <li><strong>Trails</strong> — each particle leaves a fading trail of
-          its recent path, so orbits become visible. Disabled at very high
-          particle counts.</li>
-        <li><strong>Laser</strong> — engages <em>lidar mode</em>: the drum interior
-          goes dark and particles become invisible. A scanning green laser beam
-          sweeps the chamber, briefly revealing any particles it crosses.</li>
-        <li><strong>Lighting</strong> — toggles the lab between a dim night
-          setting and a bright day setting.</li>
-        <li><strong>Microscope / Chart</strong> — slide the ceiling-mounted
-          viewport down to display close-up imagery (microscope) or data
-          plots (chart). That data actually comes from our real lab
-          and simulations.</li>
+        <li><strong>Trails</strong> — each particle leaves a fading trail of its recent
+          path, making orbits visible. Disabled at very high particle counts.</li>
+        <li><strong>Laser</strong> — engages <em>lidar mode</em>: the drum interior goes
+          dark and particles become invisible. A scanning green laser beam sweeps the
+          chamber, briefly revealing any particles it crosses.</li>
+        <li><strong>Pause</strong> — freezes the simulation and reveals a timeline
+          scrubber. Snapshots of the full drum state are saved automatically every
+          10 seconds while the simulation runs, keeping up to 200 seconds of history.
+          Use ← → on the keyboard, or tap a dot on the scrubber, to step through
+          that history. The drum updates immediately at each step so you can review
+          what happened. Press <kbd>Space</kbd> or the pause button again to resume:
+          if you have stepped back in time the simulation branches forward from that
+          point, discarding the saved future.</li>
+        <li><strong>Collect</strong> — arms the collection tray. The tray waits until
+          the gold slot marker on the rim reaches the top of the drum, then slides a
+          metal blade across the interior, scooping up all floating particles,
+          aggregates, and pebbles onto the blade. The drum decelerates to a stop with
+          the blade resting horizontally. Press again before insertion begins to
+          disarm.</li>
+        <li><strong>Lighting</strong> — toggles the lab between a dim night setting
+          and a bright day setting.</li>
+        <li><strong>Microscope / Chart</strong> — slides a ceiling-mounted viewport
+          down to display close-up imagery (microscope) or data plots (chart). The
+          content comes from our real lab and simulations and responds to what is
+          happening in the drum.</li>
       </ul>
 
-      <h3>Game & Challenge</h3>
+      <h3>Game &amp; Challenge</h3>
       <ul>
-        <li><strong>Game Mode</strong> — Progress through predefined levels with
-          locked parameters. You must levitate a target number of particles for
-          a set duration to clear the level.</li>
-        <li><strong>Challenge Mode</strong> — A high-score competition. Using
-          the current parameter setup, levitate as many particles as you can
-          for 3 full orbits, then enter your name on the local leaderboard.</li>
+        <li><strong>Game Mode</strong> — eight progressive levels with locked
+          parameters. Each level sets a levitation or growth target you must reach
+          to advance. The final level opens the lab in free-play mode.</li>
+        <li><strong>Challenge Mode</strong> — a high-score competition. Levitate as
+          many particles as possible and grow as many structures as you can within
+          the time limit, then enter your name on the local leaderboard. Aggregates,
+          pebbles, and planets each add bonus points.</li>
       </ul>
 
       <div id="manualExpertSection" hidden>
         <h2 style="margin-top: 24px;">Expert Panel</h2>
         <p>
-          The expert panel sits behind a locked door at the bottom of the
-          left wing. Its controls expose the underlying physics and analytical
-          tooling, and are grouped into three sections: <strong>HUD</strong>
-          (visualisation overlays), <strong>Processes</strong> (toggles for the
-          physics of growth), and <strong>System</strong> (simulation-wide
-          settings).
+          The expert panel sits behind a locked door at the bottom of the left wing.
+          Its controls expose the underlying physics and analytical tooling, grouped
+          into three sections: <strong>HUD</strong> (visualisation overlays),
+          <strong>Processes</strong> (toggles for the physics of growth), and
+          <strong>System</strong> (simulation-wide settings).
         </p>
 
         <h3>HUD — visualisation overlays</h3>
         <ul>
           <li><strong>Orbit centre projection</strong> — three-state button.
-          First press (<em>amber</em>): overlays the predicted range of orbit
-          centres from the current parameter selectors as a dashed line on the
-          equator, with dots at the endpoints and centre.
-          Second press (<em>green</em>): switches to a live KDE band computed
-          from particles and aggregates currently in the drum — cyan for
-          particles, amber for aggregates, brightness proportional to local
-          population density. When aggregates are present the band splits:
-          particles in the lower half, aggregates in the upper half.
-          Third press: off.</li>
-          <li><strong>Flash orbit of new aggregates</strong> — when an
-            aggregate forms from particles, briefly draws its orbit ring
-            alongside the mean-<em>v<sub>t</sub></em> orbit of the levitated
-            population. Useful for seeing the small Stokes-number bump
-            aggregates inherit from their <em>v<sub>t</sub></em> factor.</li>
+            First press (<em>amber</em>): overlays the predicted range of orbit centres
+            from the current parameter selectors as a dashed line on the equator, with
+            dots at the endpoints and centre. Second press (<em>green</em>): switches to
+            a live KDE band computed from particles and aggregates in the drum — cyan for
+            particles, amber for aggregates, brightness proportional to local population
+            density. When aggregates are present the band splits: particles in the lower
+            half, aggregates in the upper half. Third press: off.</li>
+          <li><strong>Flash orbit of new aggregates</strong> — when an aggregate forms,
+            briefly draws its orbit ring alongside the mean-<em>v<sub>t</sub></em> orbit
+            of the levitated population. Shows the small Stokes-number shift aggregates
+            inherit from their increased inertia.</li>
           <li><strong>Aggregate encounter projections</strong> — for each tracked
-          aggregate pair, predicts the closest approach position during the next
-          orbit. Colour encodes the prediction: <em>green</em> if the pair will
-          touch this orbit, <em>amber</em> for the top tracked pairs that are
-          not yet colliding, <em>gray-purple</em> for the rest. For the top
-          pairs, an arc is drawn on each aggregate's orbit from its current
-          position to the closest-approach point, in the direction of motion.
-          The number of pairs shown and the number with arcs are tunable in
-          <code>TUNING.encounters</code>.</li>
-          <li><strong>v<sub>t</sub> distribution</strong> — draws two
-            kernel-density curves inside the drum: a yellow curve for all
-            floating particles currently inside the drum (not yet levitated),
-            and a green curve for levitated particles. An amber histogram
-            shows the terminal velocities of live aggregates. All three are
-            normalised independently.</li>
-          <li><strong>Aggregate size distribution</strong> — draws a live
-            histogram inside the left half of the drum showing the current
-            population of aggregates by monomer count (bins 10–100 in steps
-            of 10) plus a gold bar for pebbles.</li>
-          <li><strong>Backdrop</strong> — slides an opaque sheet behind all
-            active analytical overlays for extra contrast against the drum
-            interior. Short press toggles it on and off; long press opens a
-            slider to set the opacity continuously from 0 to 100%.</li>
-          <li><strong>Analysis projections</strong> — the central HUD button
-            powers on a heatmap engine that accumulates data over full drum
-            revolutions. The flanking ◀ ▶ arrows cycle through six modes:
-            <em>vector field</em>, <em>ghost paths</em>, representative
-            <em>orbits</em>, particle <em>density</em>, velocity
-            <em>variance</em>, and a <em>collision proxy</em>
-            (density × variance). In ghost paths mode a particle is
-            automatically selected and three predicted future paths are shown:
-            the actual orbit (white solid), the gas-only co-rotation path
-            (cyan dashed), and the vacuum free-fall path (purple dashed).
-            Click any particle to select it instead. A colour bar and caption
-            appear while the HUD is active.</li>
+            aggregate pair, predicts the closest approach position during the next orbit.
+            Green if the pair will touch this orbit; amber for the top tracked pairs not
+            yet colliding; gray-purple for the rest. For the top pairs an arc is drawn
+            from the current position to the closest-approach point in the direction of
+            motion. The number of pairs shown and the number with arcs are tunable in
+            <code>TUNING.encounters</code>.</li>
+          <li><strong>v<sub>t</sub> distribution</strong> — two kernel-density curves
+            inside the drum: yellow for all floating particles (not yet levitated) and
+            green for levitated particles. An amber histogram shows the terminal
+            velocities of live aggregates. All three are normalised independently.</li>
+          <li><strong>Aggregate size distribution</strong> — a live histogram inside the
+            left half of the drum showing the aggregate population by monomer count
+            (bins 10–100 in steps of 10) plus a gold bar for pebbles.</li>
+          <li><strong>Backdrop</strong> — slides an opaque sheet behind all active
+            analytical overlays for extra contrast. Short press toggles it on and off;
+            long press opens a slider to set the opacity continuously from 0 to
+            100%.</li>
+          <li><strong>Analysis projections</strong> — the central HUD button powers on
+            a heatmap engine that accumulates data over full drum revolutions. The
+            flanking ◀ ▶ arrows cycle through six modes: <em>vector field</em>,
+            <em>ghost paths</em>, representative <em>orbits</em>, particle
+            <em>density</em>, velocity <em>variance</em>, and a <em>collision
+            proxy</em> (density × variance). In ghost paths mode a particle is
+            automatically selected and three predicted future paths are shown: the
+            actual orbit (white solid), the gas-only co-rotation path (cyan dashed),
+            and the vacuum free-fall path (purple dashed). Click any particle to select
+            it instead. A colour bar and caption appear while the HUD is active.</li>
         </ul>
 
         <h3>Processes — toggle the physics of growth</h3>
         <ul>
-          <li><strong>Nanocoating</strong> — coats the drum wall so particles
-            never stick. Lets you study orbits and accumulate large populations
-            without attrition.</li>
-          <li><strong>Sweep</strong> — removes all non-levitated floating
-            particles instantly. Press once to clean up the drum without a
-            full reset.</li>
-            <li><strong>Widen slice</strong> — duplicates all levitated
-            particles and aggregates, placing each copy 90° ahead in
-            its orbit. Models widening the simulated drum slice to
-            include a neighbouring region that has evolved
-            identically, using computational headroom lost to
-            wall collisions and aggregate formation. 
-          <li><strong>Pure average <em>v<sub>t</sub></em></strong> — when on,
-            aggregates inherit the exact mass-weighted mean <em>v<sub>t</sub></em>
-            of their constituent monomers with no Stokes-number bump. Useful
-            for comparing the effect of the <em>v<sub>t</sub></em> factor on
-            aggregate orbit positions.</li>
-          <li><strong>Aggregate formation</strong> — green when on (default),
-            red when off. Disabling halts the levitated particles →
-            aggregate transition entirely, allowing you to accumulate a large
-            levitated population without it self-organising.</li>
-          <li><strong>Growth mode</strong> — a three-state button cycling
-            green → amber → red on each press:
+          <li><strong>Nanocoating</strong> — coats the drum wall so particles never
+            stick. Lets you accumulate large populations without attrition.</li>
+          <li><strong>Sweep</strong> — removes all non-levitated floating particles
+            instantly. Press once to clean up the drum without a full reset.</li>
+          <li><strong>Widen slice</strong> — duplicates all levitated particles and
+            aggregates, placing each copy 90° ahead in its orbit. Models widening the
+            simulated drum slice to include a neighbouring region that has evolved
+            identically, recovering headroom lost to wall collisions and aggregate
+            formation.</li>
+          <li><strong>Pure average <em>v<sub>t</sub></em></strong> — aggregates
+            inherit the exact mass-weighted mean <em>v<sub>t</sub></em> of their
+            monomers with no Stokes-number bump. Useful for comparing the effect of
+            the inertia kick on aggregate orbit positions.</li>
+          <li><strong>Aggregate formation</strong> — green when on (default), red when
+            off. Disabling halts the levitated particles → aggregate transition,
+            letting you accumulate a large levitated population without it
+            self-organising.</li>
+          <li><strong>Growth mode</strong> — cycles green → amber → red on each press:
             <ul>
-              <li><em>Green (Pebble)</em> — normal operation: seven levitated
-                aggregates merge into a pebble after holding for the required
-                revolutions.</li>
-              <li><em>Amber (Grow)</em> — aggregate-aggregate collision growth
-                is active. Aggregates undergo Brownian motion and merge when
-                they overlap. Each merge produces a larger aggregate using the
-                mass-weighted <em>v<sub>t</sub></em>. An aggregate reaching
-                100 monomers automatically becomes a pebble. Pebble formation
-                via the standard seven-aggregate path is disabled in this mode.
-                The orbit flash HUD (if active) shows the two parent
-                orbits fading out in orange and the new merged orbit
-                brightening in cyan.</li>
-              <li><em>Red (Off)</em> — all growth beyond aggregate formation
-                is disabled. Aggregates accumulate indefinitely.</li>
+              <li><em>Green (Pebble)</em> — normal operation: seven levitated aggregates
+                merge into a pebble after holding for the required revolutions.</li>
+              <li><em>Amber (Grow)</em> — aggregate-aggregate collision growth is active.
+                Aggregates undergo Brownian motion and merge on contact using the
+                mass-weighted <em>v<sub>t</sub></em>. An aggregate reaching 100 monomers
+                automatically becomes a pebble. The orbit flash HUD (if active) shows
+                parent orbits fading in orange and the new merged orbit brightening in
+                cyan.</li>
+              <li><em>Red (Off)</em> — all growth beyond aggregate formation is disabled.
+                Aggregates accumulate indefinitely.</li>
             </ul>
           </li>
-          <li><strong>Slow-motion during merging</strong> — when armed, the
-            simulation runs at one-fifth speed during all merge animations
-            (aggregate formation, aggregate growth, pebble formation),
-            so you can watch them happen in detail.</li>
-          <li><strong>Fast chain</strong> — accelerated synthesis with
-            lower thresholds. Only for the game designer as it
-            bypasses the discovery arc of the game.</li>
+          <li><strong>Slow-motion during merging</strong> — when armed, the simulation
+            runs at one-fifth speed during all merge animations so you can watch them
+            in detail. Long press (2 s) enables fast-chain mode, which lowers all
+            formation thresholds to accelerate the full growth sequence.</li>
         </ul>
 
         <h3>System — simulation-wide settings</h3>
         <ul>
-          <li><strong>Injection profile</strong> — opens a panel to configure
-            the particle <em>v<sub>t</sub></em> distribution: the standard
-            Gaussian (driven by the wing sliders), a bi-disperse mixture
-            with two independently configurable groups and a mixing ratio, or
-            a power-law distribution between <em>v<sub>min</sub></em> and
-            <em>v<sub>max</sub></em> with index <em>q</em>. New profiles apply
-            to the next injection event. The VT and Spread displays on the
-            left wing show a coloured label when a custom profile is
-            active and can be clicked to get to the panel again.</li>
-          <li><strong>Auto-omega</strong> — continuously sets the drum
-            speed so that the full range of orbit centres for the
-            current <em>v<sub>t</sub></em> injection distribution is centred
-            inside the levitation zone. Updates in real time as you
-            change <em>v<sub>t</sub></em>, spread, or injection
-            profile. Pairs well with the orbit centre projection
-            overlay to verify the centring visually.</li>
-          <li><strong>Collect</strong> — arms the collection
-            tray. When armed, the tray waits until the slot marker on
-            the rim reaches the top of the drum, then slides a metal
-            blade across the interior, scooping up everything floating
-            inside (particles, aggregates, and pebbles) onto the
-            blade. The drum decelerates to a stop with the blade
-            resting horizontally. Press again before insertion begins
-            to disarm.</li>
-          <li><strong>Simulation speed</strong> — a multi-position gearbox
-          ranging from 1/64× up to 8×. The middle button shows the current
-          speed with a tightened letter-spacing for legibility, and snaps back
-          to 1× when pressed. Speed affects all physics including drum decay
-          and particle injection timing.</li>
-          <li><strong>Stroboscopic mode</strong> — the canvas repaints only
-            once per full drum revolution rather than every frame.</li>
+          <li><strong>Injection profile</strong> — configure the particle
+            <em>v<sub>t</sub></em> distribution: the standard Gaussian (driven by
+            the wing sliders), a bi-disperse mixture with two independently
+            configurable groups and a mixing ratio, or a power-law distribution
+            between <em>v<sub>min</sub></em> and <em>v<sub>max</sub></em> with
+            index <em>q</em>. New profiles apply to the next injection event. The
+            VT and Spread displays on the left wing show a coloured label when a
+            custom profile is active and can be clicked to reopen the panel.</li>
+          <li><strong>Auto-omega</strong> — continuously sets the drum speed so that
+            the full range of orbit centres for the current <em>v<sub>t</sub></em>
+            distribution is centred inside the levitation zone. Updates in real time
+            as you change <em>v<sub>t</sub></em>, spread, or injection profile. Pairs
+            well with the orbit centre projection overlay to verify the centring
+            visually.</li>
+          <li><strong>Simulation speed</strong> — a multi-position gearbox ranging
+            from 1/64× up to 8×. The middle button shows the current speed and snaps
+            back to 1× when pressed. Speed affects all physics including drum decay
+            and particle injection timing.</li>
+          <li><strong>Stroboscopic mode</strong> — the canvas repaints only once per
+            full drum revolution rather than every frame. Levitated particles appear
+            frozen; drifting ones reveal their inter-flash motion.</li>
         </ul>
 
         <h3>Keyboard shortcuts</h3>
         <ul>
-          <li><kbd>Space</kbd> — pause and resume the simulation. The drum
-            rotation, all physics, and the motor sound freeze together.
-            The canvas continues to render the frozen state.</li>
-          <li><kbd>?</kbd> — toggle the hint system. When on, brief contextual
-            observations appear inside the drum — noting when orbits are
-            crossing, when the spread is too low for aggregate or pebble
-            formation, when a pebble is imminent, and so on. Hints are
-            suppressed during Game and Challenge modes and during merge
+          <li><kbd>Space</kbd> — pause and resume. All physics and motor sound freeze
+            together; a timeline scrubber appears showing up to 200 seconds of history
+            in 10-second steps.</li>
+          <li><kbd>←</kbd> <kbd>→</kbd> — while paused, step backward or forward
+            through the snapshot history. The drum updates immediately to show the
+            state at each step. Pressing <kbd>Space</kbd> to resume from a past
+            snapshot discards the intermediate future and branches the simulation
+            forward from there.</li>
+          <li><kbd>?</kbd> — toggle the hint system. Contextual observations appear
+            inside the drum noting when orbits are crossing, when spread is too low
+            for aggregate or pebble formation, when a pebble is imminent, and so on.
+            Hints are suppressed during Game and Challenge modes and during merge
             animations.</li>
         </ul>
 
-        <h3>URL shortcuts</h3>
+        <h3>URL flags</h3>
         <ul>
-          <li><kbd>?expert</kbd> — open the expert door automatically
-          and activates the Ω lock for quick, deep testing during
-          development.</li>
-          <li><kbd>?game</kbd> — start Game Mode at level 1, skipping the
-            splash. Append a level number (e.g. <kbd>?game=3</kbd>) to start
-            at that level.</li>
+          <li><kbd>?expert</kbd> — open the expert door and activate Ω lock.</li>
+          <li><kbd>?game</kbd> — start Game Mode at level 1, skipping the splash.
+            Append a level number (e.g. <kbd>?game=3</kbd>) to start at that
+            level.</li>
           <li><kbd>?challenge</kbd> — start Challenge Mode with the built-in
-            challenge parameters (300 particles, 30% spread). Override
-            selectively with <kbd>?challenge&amp;np=1000</kbd>,
-            <kbd>&amp;vt=40</kbd>, <kbd>&amp;spread=0.20</kbd>,
-            <kbd>&amp;dt=5</kbd>, or <kbd>&amp;time=90</kbd> (run length
-            in seconds; default 60).</li>
+            parameters (300 particles, 30% spread). Override selectively with
+            <kbd>&amp;np=</kbd>, <kbd>&amp;vt=</kbd>, <kbd>&amp;spread=</kbd>,
+            <kbd>&amp;dt=</kbd>, or <kbd>&amp;time=</kbd> (run length in
+            seconds; default 60).</li>
           <li><kbd>?modern</kbd> — apply the clinical lab visual theme.</li>
-          <li><kbd>?pfeiffer</kbd> — apply the clinical lab visual
-          theme with red support structures pointing to the Pfeiffer
-          company building the real world setup.</li>
-          <li><kbd>?verify</kbd> — developer smoke-test mode: 3000 particles,
-            30% spread, no Ω decay.</li>
+          <li><kbd>?pfeiffer</kbd> — clinical lab theme with red support
+            structures.</li>
+          <li><kbd>?verify</kbd> — developer smoke-test: 3 000 particles, 30%
+            spread, no Ω decay.</li>
         </ul>
         <p style="font-size: 11px; color: #888; margin-top: 12px;">
           The expert door can also be opened by triple-tapping the title plate.
@@ -869,6 +862,7 @@
 <script src="js/game.js"></script>
 <script src="js/viewport.js"></script>
 <script src="js/hints.js"></script>
+<script src="js/timeline.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>
 </body>
