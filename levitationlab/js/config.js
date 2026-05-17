@@ -67,7 +67,7 @@
       sizeMax:          1.8,   // drum-units — maximum rendered particle radius
       collisionR:       0.5,   // drum-units — collision radius for particle-particle interaction
       invincible:       false, // bool       — if true, particles cannot be lost from the drum
-      showVtProjection: false, // bool       — if true, show the Vt projection indicator
+      showVtProjection: 0,    // 0=off  1=predicted (from selectors)  2=live (KDE of particles)
     },
 
     // --- Aggregate formation ---

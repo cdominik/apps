@@ -1914,108 +1914,164 @@ function drawRepresentativeOrbits() {
         }
       }
     }
-
-
-
-
     ctxOv.restore();
   }
 
+   /**
+   * Computes a normalised 1-D Gaussian KDE over nGrid evenly-spaced points
+   * in [xMin, xMax]. Returns a Float32Array of values in [0, 1].
+   *
+   * @param {number[]} samples - Input values (drum units).
+   * @param {number}   xMin    - Left edge of the evaluation domain.
+   * @param {number}   xMax    - Right edge of the evaluation domain.
+   * @param {number}   nGrid   - Number of evaluation points.
+   * @returns {Float32Array}
+   */
+  function _kde1D(samples, xMin, xMax, nGrid) {
+    const n    = samples.length;
+    const mean = samples.reduce((a, b) => a + b, 0) / n;
+    const sig  = Math.sqrt(Math.max(0.1, samples.reduce((s, v) => s + (v - mean) ** 2, 0) / n));
+    const bw   = Math.max(0.5, 1.06 * sig * Math.pow(n, -0.2));
+    const vals = new Float32Array(nGrid);
+    let maxVal = 0;
+    for (let i = 0; i < nGrid; i++) {
+      const x = xMin + (i / (nGrid - 1)) * (xMax - xMin);
+      let sum = 0;
+      for (const s of samples) { const z = (x - s) / bw; sum += Math.exp(-0.5 * z * z); }
+      vals[i] = sum;
+      if (sum > maxVal) maxVal = sum;
+    }
+    if (maxVal > 0) for (let i = 0; i < nGrid; i++) vals[i] /= maxVal;
+    return vals;
+  }
+
+  /**
+   * Draws a KDE strip centred on pyCentre, one column per grid point.
+   * Alpha at each column is kde[i] * maxAlpha.
+   *
+   * @param {Float32Array} kde      - Normalised KDE values from _kde1D.
+   * @param {number}       x0drum  - Left domain edge in drum units.
+   * @param {number}       x1drum  - Right domain edge in drum units.
+   * @param {number}       nGrid   - Number of grid points.
+   * @param {number}       pyCentre - Canvas y of the strip centre (pixels).
+   * @param {number}       stripH  - Strip height in pixels.
+   * @param {string}       rgb     - Colour as 'R,G,B' string.
+   * @param {number}       maxAlpha - Maximum alpha at peak density.
+   */
+  function _drawKDEStrip(kde, x0drum, x1drum, nGrid, pyCentre, stripH, rgb, maxAlpha) {
+    const pxStep = (X2px(x1drum) - X2px(x0drum)) / nGrid;
+    const pxOrig = X2px(x0drum);
+    for (let i = 0; i < nGrid; i++) {
+      const alpha = kde[i] * maxAlpha;
+      if (alpha < 0.01) continue;
+      ctxOv.fillStyle = `rgba(${rgb},${alpha.toFixed(3)})`;
+      ctxOv.fillRect(pxOrig + i * pxStep, pyCentre - stripH * 0.5, pxStep + 0.5, stripH);
+    }
+  }
+
+
   function drawVtProjection() {
-    if (!TUNING.particle.showVtProjection) return;
-  
+    const mode = TUNING.particle.showVtProjection;
+    if (!mode) return;
+
     const absOm = Math.abs(state.omega);
-    // Ensure we have a valid rotation and the state exists
-    if (absOm < 0.01 || !state.distParams) return;
-  
+    if (absOm < 0.01) return;
+
     const py0 = Y2px(0);
-    const dist = state.distMode;
-    const p = state.distParams;
-  
-    ctxOv.save();
-    ctxOv.strokeStyle = 'rgba(0, 255, 255, 0.5)';
-    ctxOv.fillStyle = 'rgba(0, 255, 255, 0.7)';
-    ctxOv.lineWidth = 1.2;
-  
-    if (dist === 'bi') {
-      // MODE: BI-MONODISPERSE
-      // Safety check: ensure both groups have defined values
-      const groups = [
-        { vt: p.bi.vt1 || 10, s: p.bi.s1 ?? 0 },
-        { vt: p.bi.vt2 || 40, s: p.bi.s2 ?? 0 }
-      ];
-  
-      groups.forEach(group => {
-        const delta = group.vt * group.s;
-        const vts = [group.vt - delta, group.vt, group.vt + delta];
-        // Convert velocities to screen coordinates
-        const points = vts.map(v => X2px(v / state.omega));
-  
-        // Draw the horizontal dashed line for the spread
+
+    // ── MODE 1: PREDICTED — orbit centres implied by the current selector values ──
+    if (mode === 1) {
+      if (!state.distParams) return;
+      const dist = state.distMode;
+      const p    = state.distParams;
+
+      ctxOv.save();
+      ctxOv.strokeStyle = 'rgba(0, 255, 255, 0.5)';
+      ctxOv.fillStyle   = 'rgba(0, 255, 255, 0.7)';
+      ctxOv.lineWidth   = 1.2;
+
+      if (dist === 'bi') {
+        const groups = [
+          { vt: p.bi.vt1 || 10, s: p.bi.s1 ?? 0 },
+          { vt: p.bi.vt2 || 40, s: p.bi.s2 ?? 0 },
+        ];
+        groups.forEach(group => {
+          const delta  = group.vt * group.s;
+          const points = [group.vt - delta, group.vt, group.vt + delta].map(v => X2px(v / state.omega));
+          ctxOv.setLineDash([4, 4]);
+          ctxOv.beginPath(); ctxOv.moveTo(points[0], py0); ctxOv.lineTo(points[2], py0); ctxOv.stroke();
+          ctxOv.setLineDash([]);
+          points.forEach((px, i) => {
+            ctxOv.beginPath();
+            ctxOv.arc(px, py0, i === 1 ? 4.5 : 2.2, 0, Math.PI * 2);
+            if (i === 1) ctxOv.fill(); else ctxOv.stroke();
+          });
+        });
+
+      } else if (dist === 'power') {
+        const vMin   = p.power.vtMin || 5;
+        const vMax   = p.power.vtMax || 50;
+        const points = [vMin, vMax].map(v => X2px(v / state.omega));
         ctxOv.setLineDash([4, 4]);
-        ctxOv.beginPath(); 
-        ctxOv.moveTo(points[0], py0); 
-        ctxOv.lineTo(points[2], py0); 
-        ctxOv.stroke();
-  
-        // Draw the three indicator points
+        ctxOv.beginPath(); ctxOv.moveTo(points[0], py0); ctxOv.lineTo(points[1], py0); ctxOv.stroke();
+        ctxOv.setLineDash([]);
+        points.forEach(px => { ctxOv.beginPath(); ctxOv.arc(px, py0, 2.5, 0, Math.PI * 2); ctxOv.stroke(); });
+
+      } else {
+        const vtBase = CFG.V_T;
+        const delta  = vtBase * CFG.VT_SPREAD;
+        const points = [vtBase - delta, vtBase, vtBase + delta].map(v => X2px(v / state.omega));
+        ctxOv.setLineDash([4, 4]);
+        ctxOv.beginPath(); ctxOv.moveTo(points[0], py0); ctxOv.lineTo(points[2], py0); ctxOv.stroke();
         ctxOv.setLineDash([]);
         points.forEach((px, i) => {
           ctxOv.beginPath();
-          // Central point is a filled circle, outer points are rings
-          const radius = (i === 1) ? 4.5 : 2.2; 
-          ctxOv.arc(px, py0, radius, 0, Math.PI * 2);
+          ctxOv.arc(px, py0, i === 1 ? 5 : 2.5, 0, Math.PI * 2);
           if (i === 1) ctxOv.fill(); else ctxOv.stroke();
         });
-      });
-  
-    } else if (dist === 'power') {
-      // MODE: POWERLAW
-      // Safety check: ensure min and max are valid numbers
-      const vMin = p.power.vtMin || 5;
-      const vMax = p.power.vtMax || 50;
-      const points = [vMin, vMax].map(v => X2px(v / state.omega));
-  
-      // Draw the range bar
-      ctxOv.setLineDash([4, 4]);
-      ctxOv.beginPath(); 
-      ctxOv.moveTo(points[0], py0); 
-      ctxOv.lineTo(points[1], py0); 
-      ctxOv.stroke();
-  
-      // Draw only the outer limit rings (no center)
-      ctxOv.setLineDash([]);
-      points.forEach(px => {
-        ctxOv.beginPath();
-        ctxOv.arc(px, py0, 2.5, 0, Math.PI * 2);
-        ctxOv.stroke();
-      });
-  
+      }
+      ctxOv.restore();
+
+    // ── MODE 2: LIVE — KDE band from particles and aggregates in the drum ────────
     } else {
-      // DEFAULT GAUSSIAN (Standard behavior)
-      const vtBase = CFG.V_T;
-      const delta = vtBase * CFG.VT_SPREAD;
-      const velocities = [vtBase - delta, vtBase, vtBase + delta];
-      const points = velocities.map(v => X2px(v / state.omega));
-  
-      ctxOv.setLineDash([4, 4]);
-      ctxOv.beginPath(); 
-      ctxOv.moveTo(points[0], py0); 
-      ctxOv.lineTo(points[2], py0); 
-      ctxOv.stroke();
-  
-      ctxOv.setLineDash([]);
-      points.forEach((px, i) => {
-        ctxOv.beginPath();
-        const radius = (i === 1) ? 5 : 2.5;
-        ctxOv.arc(px, py0, radius, 0, Math.PI * 2);
-        if (i === 1) ctxOv.fill(); else ctxOv.stroke();
-      });
+      // Collect orbit centres of live free-floating particles
+      const xcParts = [];
+      for (const pt of state.particles) {
+        if (!pt.alive || pt.stuck || pt.onTray || !pt.insideOnce) continue;
+        xcParts.push(pt.vt / state.omega);
+      }
+      // Collect orbit centres of live free-floating aggregates
+      const xcAggs = [];
+      for (const agg of state.aggregates) {
+        if (!agg.alive || agg.stuck || agg.onTray || agg.merging) continue;
+        xcAggs.push(agg.vt / state.omega);
+      }
+
+      if (xcParts.length === 0 && xcAggs.length === 0) return;
+
+      const nGrid  = 200;
+      const stripH = pxDist(4); // 4 drum-units tall, centred on the equator
+
+      ctxOv.save();
+      ctxOv.beginPath();
+      ctxOv.arc(CX, CY, pxDist(CFG.R_DRUM), 0, Math.PI * 2);
+      ctxOv.clip();
+
+      const hasAggs = xcAggs.length > 0;
+      if (xcParts.length > 0) {
+        const kde      = _kde1D(xcParts, 0, CFG.R_DRUM, nGrid);
+        const pyCentre = hasAggs ? py0 + stripH * 0.25 : py0;
+        const height   = hasAggs ? stripH * 0.5 : stripH;
+        _drawKDEStrip(kde, 0, CFG.R_DRUM, nGrid, pyCentre, height, '0,220,255', 0.65);
+      }
+      if (hasAggs) {
+        const kde = _kde1D(xcAggs, 0, CFG.R_DRUM, nGrid);
+        _drawKDEStrip(kde, 0, CFG.R_DRUM, nGrid, py0 - stripH * 0.25, stripH * 0.5, '255,200,60', 0.65);
+      }
+      ctxOv.restore();
     }
-  
-    ctxOv.restore();
   }
-  
+
   /**
    * Draws an aggregate size distribution histogram on the left side of the drum.
    * 11 bins: monomer counts 10-100 (step 10) plus pebbles.

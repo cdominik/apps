@@ -558,10 +558,12 @@
 
   // SECTION: EXPERT PANEL — HUD BUTTONS
   // ============================================================
-  // HUD 1. Aggregate orbit flash
+  // HUD 1. Vt orbit center projection
   document.getElementById('btnVtProj').addEventListener('click', function() {
-    TUNING.particle.showVtProjection = !TUNING.particle.showVtProjection;
-    this.classList.toggle('on', TUNING.particle.showVtProjection);
+    TUNING.particle.showVtProjection = (TUNING.particle.showVtProjection + 1) % 3;
+    const mode = TUNING.particle.showVtProjection;
+    this.classList.toggle('cheat', mode === 1); // amber — predicted (it's an estimate)
+    this.classList.toggle('on',    mode === 2); // green  — live (real data)
   });
 
   // HUD 2. Aggregate orbit flash
