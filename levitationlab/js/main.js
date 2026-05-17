@@ -130,9 +130,12 @@
       updateGlobe(dt); 
       updateSolar();
       if (_strobeShouldDraw) drawGlobes();
+      if (window.drawHints) drawHints();
+
       updateGauge();
       updateGame();
       updateChallenge();
+      if (window.updateHints) updateHints();
 
       // --- UNIVERSAL SUCCESS CHECK ---
       // Delay the "End of Game" overlay to allow viewing the final system

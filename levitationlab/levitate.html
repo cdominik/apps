@@ -547,23 +547,30 @@
 
         <h3>HUD — visualisation overlays</h3>
         <ul>
-          <li><strong>Orbit centre projection</strong> — overlays the range of
-            orbit centres implied by the current particle <em>v<sub>t</sub></em>
-            distribution and drum rotation. Shows where particles
-            <em>should</em> be circling given the current settings. Updates
-            live as you change <em>v<sub>t</sub></em>, spread, drum speed,
-            or injection size distribution profile.</li>
+          <li><strong>Orbit centre projection</strong> — three-state button.
+          First press (<em>amber</em>): overlays the predicted range of orbit
+          centres from the current parameter selectors as a dashed line on the
+          equator, with dots at the endpoints and centre.
+          Second press (<em>green</em>): switches to a live KDE band computed
+          from particles and aggregates currently in the drum — cyan for
+          particles, amber for aggregates, brightness proportional to local
+          population density. When aggregates are present the band splits:
+          particles in the lower half, aggregates in the upper half.
+          Third press: off.</li>
           <li><strong>Flash orbit of new aggregates</strong> — when an
             aggregate forms from particles, briefly draws its orbit ring
             alongside the mean-<em>v<sub>t</sub></em> orbit of the levitated
             population. Useful for seeing the small Stokes-number bump
             aggregates inherit from their <em>v<sub>t</sub></em> factor.</li>
-          <li><strong>Aggregate encounter projections</strong> — for every pair
-            of live aggregates, computes the closest approach
-            position during the next orbit and draws the two aggregates at
-            those positions with their collisional cross-sections. Brownian
-            perturbations cause the projections to shift until a collision
-            occurs.</li>
+          <li><strong>Aggregate encounter projections</strong> — for each tracked
+          aggregate pair, predicts the closest approach position during the next
+          orbit. Colour encodes the prediction: <em>green</em> if the pair will
+          touch this orbit, <em>amber</em> for the top tracked pairs that are
+          not yet colliding, <em>gray-purple</em> for the rest. For the top
+          pairs, an arc is drawn on each aggregate's orbit from its current
+          position to the closest-approach point, in the direction of motion.
+          The number of pairs shown and the number with arcs are tunable in
+          <code>TUNING.encounters</code>.</li>
           <li><strong>v<sub>t</sub> distribution</strong> — draws two
             kernel-density curves inside the drum: a yellow curve for all
             floating particles currently inside the drum (not yet levitated),
@@ -669,10 +676,11 @@
             blade. The drum decelerates to a stop with the blade
             resting horizontally. Press again before insertion begins
             to disarm.</li>
-          <li><strong>Simulation speed</strong> — a five-position gearbox
-            (¼× / ½× / 1× / 2× / 4×). The middle button shows the current
-            gear and snaps back to 1× when pressed. Speed affects all physics
-            including drum decay and particle injection timing.</li>
+          <li><strong>Simulation speed</strong> — a multi-position gearbox
+          ranging from 1/64× up to 8×. The middle button shows the current
+          speed with a tightened letter-spacing for legibility, and snaps back
+          to 1× when pressed. Speed affects all physics including drum decay
+          and particle injection timing.</li>
           <li><strong>Stroboscopic mode</strong> — the canvas repaints only
             once per full drum revolution rather than every frame.</li>
         </ul>
@@ -682,6 +690,12 @@
           <li><kbd>Space</kbd> — pause and resume the simulation. The drum
             rotation, all physics, and the motor sound freeze together.
             The canvas continues to render the frozen state.</li>
+          <li><kbd>?</kbd> — toggle the hint system. When on, brief contextual
+            observations appear inside the drum — noting when orbits are
+            crossing, when the spread is too low for aggregate or pebble
+            formation, when a pebble is imminent, and so on. Hints are
+            suppressed during Game and Challenge modes and during merge
+            animations.</li>
         </ul>
 
         <h3>URL shortcuts</h3>
@@ -854,6 +868,7 @@
 <script src="js/gauge.js"></script>
 <script src="js/game.js"></script>
 <script src="js/viewport.js"></script>
+<script src="js/hints.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>
 </body>
