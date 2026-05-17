@@ -288,6 +288,7 @@
         const nx = p.x * c - p.y * s, ny = p.x * s + p.y * c;
         p.x = nx; p.y = ny;
         p.vx = -omega * p.y; p.vy = omega * p.x;
+        p.inHighlightSince = null;  // prevent stale levitation timestamp
         continue;
       }
 
@@ -485,7 +486,7 @@
   function eggLevitatedParticles() {
     const out = [];
     for (const p of state.particles) {
-      if (!p.alive || p.stuck || p.merging) continue;
+      if (!p.alive || p.stuck || p.onTray || p.merging) continue;
       if (state.isLevitated(p)) out.push(p);
     }
     return out;
@@ -500,7 +501,7 @@
   function eggLevitatedAggregates() {
     const out = [];
     for (const agg of state.aggregates) {
-      if (!agg.alive || agg.stuck || agg.merging) continue;
+      if (!agg.alive || agg.stuck || agg.onTray || agg.merging) continue;
       if (state.isLevitated(agg)) out.push(agg);
     }
     return out;
@@ -974,7 +975,7 @@
   function resolveAggAggCollisions() {
     if (state.aggGrowMerging) return;
     const live = state.aggregates.filter(
-      a => a.alive && !a.stuck && !a.merging
+      a => a.alive && !a.stuck && !a.onTray && !a.merging
     );
     for (let i = 0; i < live.length; i++) {
       for (let j = i + 1; j < live.length; j++) {
@@ -1689,6 +1690,7 @@
       obj.vx = 0; obj.vy = 0;
       if (obj.spinRate !== undefined) obj.spinRate = 0;
       obj.onTray = true;
+      obj.inHighlightSince = null;
       return true;
     }
     return false;
