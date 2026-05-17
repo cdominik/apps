@@ -29,6 +29,13 @@
 %    - New §16: Hint System (hints.js, ? key toggle, 11 rules)
 %    - §15 keyboard shortcuts: added ? key
 %    - Gauges: period display limited to 3 significant figures
+%    - New §10.7: Pause and Timeline system (timeline.js)
+%    - §10.5 Keyboard shortcuts: added ← → while paused
+%    - §14.2 Right Wing: added btnPause and btnCollect (moved from expert)
+%    - §15.3 System: removed btnCollect, added btnThemeStyle
+%    - §16 Hint System: rule table extended with six expert-panel-aware
+%             rules; aggregate_formed split into _no_kick / _kick variants
+%    - Appendix B removed
 % =============================================================================
 
 \documentclass[12pt, a4paper]{article}
@@ -422,8 +429,81 @@ using \texttt{parseFloat(T.toPrecision(3))}, which strips trailing zeros.
 
 \subsection{Pause}
 
-\texttt{Space} freezes all physics, drum rotation, and motor audio while
-leaving the canvas rendering active.
+\texttt{Space} (or the \textbf{Pause} button in the instrument block)
+freezes all physics, drum rotation, and motor audio while leaving the canvas
+rendering active. When paused, the timeline scrubber is revealed (see
+\S\ref{sec:timeline}).
+
+\subsection{Pause and Timeline System}
+\label{sec:timeline}
+
+The timeline system (\texttt{timeline.js}) maintains a rolling buffer of full
+simulation snapshots and allows the user to branch the simulation from any
+saved point.
+
+\subsubsection{Snapshot Recording}
+
+One snapshot is recorded every $10\,\mathrm{s}$ of wall-clock time while the
+simulation is running and not paused. A maximum of 20 snapshots are retained
+(a rolling buffer discarding the oldest), giving up to $200\,\mathrm{s}$ of
+history at all particle counts. Recording is skipped at particle counts above
+approximately 10\,000 where the per-snapshot memory cost ($\sim$12\,MB) would
+become significant; the cap ensures total buffer memory stays well below
+$25\,\mathrm{MB}$ in all practical configurations.
+
+Each snapshot is a shallow copy of the complete simulation state:
+\texttt{particles}, \texttt{aggregates}, \texttt{goldenBalls},
+\texttt{globes}, \texttt{toInject}, scalar fields (\texttt{omega},
+\texttt{drumAngle}, \texttt{t}, \texttt{lostCount}, \texttt{aggCount},
+\texttt{eggBallCount}, hold-revolution counters), \texttt{solar}, and
+\texttt{tray}. Particle trails and diagnostic-target flags are
+intentionally excluded. The heatmap accumulators are not saved and
+are not restored.
+
+\subsubsection{Pause and Scrubber Display}
+
+On pause, a \emph{frozen snapshot} of the current state is captured and stored
+separately from the rolling buffer. A timeline bar is drawn on
+\texttt{ctxOv} below the drum interior showing one dot per rolling snapshot
+plus a final dot for ``NOW'' (the frozen snapshot). The current cursor
+position is highlighted with a larger amber dot and a pulsing halo. A time
+label below the cursor shows the offset from NOW (e.g.\ $-30\,\mathrm{s}$).
+
+\subsubsection{Navigation}
+
+While paused:
+\begin{itemize}
+  \item \textbf{Keyboard}: \texttt{←} / \texttt{→} step the cursor one
+    snapshot at a time.
+  \item \textbf{Pointer}: tapping or clicking any dot (22\,px hit radius)
+    jumps to that snapshot directly.
+\end{itemize}
+At each step the full simulation state is immediately restored from the
+corresponding snapshot, updating the canvas.
+
+\subsubsection{Branching on Resume}
+
+When the user resumes (via \texttt{Space} or the Pause button):
+\begin{itemize}
+  \item If the cursor is at NOW, the simulation resumes from the frozen state
+    with no history change.
+  \item If the cursor is in the past, the rolling buffer is truncated to
+    include only snapshots up to and including the cursor position. All
+    snapshot \texttt{wallT} timestamps are then shifted forward by
+    $(t_{\mathrm{now}} - t_{\mathrm{cursor}})$ so that the branch point reads
+    as ``just now'' and older snapshots retain their correct relative spacing.
+    \texttt{lastSnapWallT} is set to the current wall time. The simulation then
+    runs forward from the branched state, overwriting history from that point.
+\end{itemize}
+
+\subsubsection{Merge State on Restore}
+
+Any in-progress merge animation (\texttt{aggMerging}, \texttt{eggMerging},
+\texttt{globeMerging}, \texttt{aggGrowMerging}) is set to \texttt{null} on
+restore, and all objects have their \texttt{merging} flag cleared. Since the
+conditions that triggered the original merge are preserved in the restored
+state (levitated count, spread, hold counters), the merge will re-trigger
+naturally within the next few revolutions.
 
 % =============================================================================
 \section{Heatmap and Analytical Overlays}
@@ -501,14 +581,7 @@ The orbit centre projection button (\btnicon{btnVtProj}) has three states:
     half, aggregates the upper half.
     Bandwidth uses Silverman's rule:
     $h = \max(0.5,\; 1.06\,\hat\sigma\,n^{-0.2})$ drum units.
-    Colour at position $x$ is drawn as a column of height equal to the strip
-    half-height, with alpha $\propto \mathrm{KDE}(x) \times 0.65$.
 \end{enumerate}
-
-The live band makes the drum's aerodynamic selection effect directly
-visible: the band narrows as the drum retains only particles near the
-optimal orbit radius, and an aggregate sub-band (if present) shows any
-Stokes-number offset relative to the monomers.
 
 % =============================================================================
 \section{Collection Tray}
@@ -533,7 +606,7 @@ already \texttt{onTray}. All levitation-querying functions
 explicitly exclude \texttt{onTray} objects.
 
 % =============================================================================
-\section{Slice Widening (Doubling)}
+\section{Slice Widening (Duplication)}
 % =============================================================================
 
 Pressing \btnicon{btnProcDouble} duplicates all levitated particles and
@@ -578,15 +651,21 @@ opens the distribution overlay directly.
   \btnicon{btnSound}    & \textbf{Sound}       & Toggle audio. \\
   \btnicon{btnOmegaCtl} & \textbf{$\Omega$}    & Lock drum rotation rate. \\
   \btnicon{btnTrails}   & \textbf{Trails}      & Particle trail rendering ($N_P < 300$). \\
-  \btnicon{btnLaser}    & \textbf{Lidar}       & Lidar mode; laser at $\omg_{\mathrm{laser}} = 2\pi/1.2\,\mathrm{rad\,s^{-1}}$. \\
+  \btnicon{btnLaser}    & \textbf{Lidar}       &
+    Lidar mode; laser at $\omg_{\mathrm{laser}} = 2\pi/1.2\,\mathrm{rad\,s^{-1}}$. \\
   \btnicon{btnMicro}    & \textbf{Microscope}  & Slide viewport down — microscope channel. \\
   \btnicon{btnChart}    & \textbf{Chart}       & Slide viewport down — chart channel. \\
+  \btnicon{btnPause}    & \textbf{Pause}       &
+    Freeze simulation; reveal timeline scrubber (see \S\ref{sec:timeline}).
+    Also toggled by \texttt{Space}. \\
+  \btnicon{btnCollect}  & \textbf{Collect}     &
+    Arm collection tray (see \S12). Pulses amber while inserting. \\
   \btnicon{btnTheme}    & \textbf{Lighting}    & Dark / light lab background. \\
   \btnicon{btnGameMode} & \textbf{Game}        & 8-level progressive game mode. \\
   \btnicon{btnChallenge}& \textbf{Challenge}   & Timed challenge with leaderboard. \\
   \btnicon{btnManual}   & \textbf{Info}        & Open user manual. \\
-  \btnicon{btnReset}    & \textbf{Reset}       & Clear all objects; reset to clean state.
-                                                 Also disables zoom mode if active. \\
+  \btnicon{btnReset}    & \textbf{Reset}       &
+    Clear all objects; reset to clean state. Also disables zoom mode if active. \\
   \bottomrule
 \end{longtable}
 
@@ -606,7 +685,7 @@ Opened by triple-tapping the title plate or appending \texttt{?expert}.
     Three-state button.
     \emph{Amber} (state 1): predicted dashed line on the equator spanning
     $[\vt^{\min}/\omg,\; \vt^{\max}/\omg]$ from the parameter selectors.
-    \emph{Green} (state 2): live KDE band — cyan for particles, amber for
+    \emph{Green} (state 2): live KDE band --- cyan for particles, amber for
     aggregates, alpha proportional to local orbit-centre density. When
     aggregates are present the band splits: particles below, aggregates above
     the equator. Off by default. \\
@@ -643,7 +722,7 @@ Opened by triple-tapping the title plate or appending \texttt{?expert}.
   \midrule
   \btnicon{btnProcInvinc} & \textbf{Nanocoating} & No wall losses. \\
   \btnicon{btnProcPeb}    & \textbf{Sweep}        & Remove non-levitated particles instantly. \\
-  \btnicon{btnProcDouble} & \textbf{Widen slice}  & Duplicate levitated objects $90°$ ahead. \\
+  \btnicon{btnProcDouble} & \textbf{Duplicate}    & Duplicate levitated objects $90°$ ahead. \\
   \btnicon{btnProcPureV}  & \textbf{Stokes kick}  & $\times 1.2$ $\vt$ at formation, $\times 1.05$ per growth merge. \\
   \btnicon{btnProcAgg}    & \textbf{Aggregate formation} & Green = on; red = disabled. \\
   \btnicon{btnProcGrowth} & \textbf{Growth mode}  &
@@ -657,19 +736,27 @@ Opened by triple-tapping the title plate or appending \texttt{?expert}.
   \toprule
   Icon & Name & Description \\
   \midrule
-  \btnicon{btnDistMenu}      & \textbf{Distribution}  & Gaussian / bi-disperse / power-law profile. \\
-  \btnicon{btnSysAutoOmega}  & \textbf{Auto-omega}     & Off / auto / launch. \\
-  \btnicon{btnCollect}       & \textbf{Collect}        & Arm collection tray. \\
-  $\blacktriangleleft$       & \textbf{Speed down}     & Reduce simulation speed one gear. \\
-  \btnicon{btnSpeedReset}    & \textbf{Speed}          &
-    Current gear label (letter-spacing tightened for sub-unity speeds);
-    press to reset to $1\times$. \\
-  $\blacktriangleright$      & \textbf{Speed up}       & Increase simulation speed one gear. \\
-  \btnicon{btnSysStrobe}     & \textbf{Strobe}         & Redraw once per drum revolution. \\
-  \btnicon{btnProcSlowMo}    & \textbf{Slow motion}    &
+  \btnicon{btnDistMenu}      & \textbf{Distribution}    & Gaussian / bi-disperse / power-law profile. \\
+  \btnicon{btnSysAutoOmega}  & \textbf{Cruise / Autopilot} &
+    Three-state button. \emph{Off}: manual control.
+    \emph{Green (auto)}: live orbit-centring via Eq.~\ref{eq:auto_omega}.
+    \emph{Amber (launch)}: waits for injection, spins up at peak flux, then
+    transitions to auto tracking. \\
+  \btnicon{btnThemeStyle}    & \textbf{Visual theme}    &
+    Cycles: default brass-and-dark $\to$ clinical \emph{modern} (green) $\to$
+    \emph{Pfeiffer} red-structures variant (orange) $\to$ default.
+    The same themes can be selected at startup via \texttt{?modern} and
+    \texttt{?pfeiffer} URL flags. \\
+  $\blacktriangleleft$       & \textbf{Speed down}      & Reduce simulation speed one gear. \\
+  \btnicon{btnSpeedReset}    & \textbf{Speed}           &
+    Current gear label; press to reset to $1\times$. \\
+  $\blacktriangleright$      & \textbf{Speed up}        & Increase simulation speed one gear. \\
+  \btnicon{btnSysStrobe}     & \textbf{Strobe}          & Redraw once per drum revolution. \\
+  \btnicon{btnProcSlowMo}    & \textbf{Slow motion}     &
     Short press: $5\times$ slow during merges.
-    Long press ($>2\,\mathrm{s}$): Fast Chain mode. \\
-  \btnicon{btnProcFast}      & \textbf{Zoom}           & Levitation zone fills drum area. \\
+    Long press ($>2\,\mathrm{s}$): Fast Chain mode --- all formation thresholds
+    lowered for rapid testing. \\
+  \btnicon{btnProcFast}      & \textbf{Zoom}            & Levitation zone fills drum area. \\
   \bottomrule
 \end{longtable}
 
@@ -681,9 +768,13 @@ Opened by triple-tapping the title plate or appending \texttt{?expert}.
   \midrule
   \texttt{Space} &
     Pause and resume the simulation. Drum rotation, all physics, and motor
-    audio freeze; canvas continues to render the frozen state. \\
+    audio freeze; the timeline scrubber appears (see \S\ref{sec:timeline}). \\
+  \texttt{←} / \texttt{→} &
+    While paused: step the timeline cursor one snapshot backward or forward.
+    The canvas updates immediately. On resume from a past snapshot the future
+    history is discarded and the simulation branches forward. \\
   \texttt{?} &
-    Toggle the hint system (see §\ref{sec:hints}). When on, contextual
+    Toggle the hint system (see \S\ref{sec:hints}). When on, contextual
     observations appear inside the drum. Suppressed during Game and Challenge
     modes and during merge animations. \\
   \bottomrule
@@ -723,6 +814,12 @@ Each rule is a plain object:
 }
 \end{lstlisting}
 
+Rules that reference expert-panel buttons are gated on the helper
+\texttt{\_expertOpen()}, which checks whether \texttt{expertContainer} carries
+the \texttt{open} CSS class. These rules only fire when the expert door is
+open, ensuring hints about expert controls are never shown to users who have
+not discovered the panel.
+
 The context object \texttt{ctx} passed to each \texttt{when} function exposes:
 \texttt{particles.\{floating, levitated, lost, total, pending\}},
 \texttt{aggregates.\{active, levitated, count\}},
@@ -733,54 +830,56 @@ The context object \texttt{ctx} passed to each \texttt{when} function exposes:
 
 \subsection{Rule Set}
 
-\begin{longtable}{@{}p{4cm}rp{4cm}p{4.5cm}@{}}
+Rules are listed in descending priority order. The ``Expert only'' column
+marks rules gated on \texttt{\_expertOpen()}.
+
+\begin{longtable}{@{}p{3.8cm}rcp{5.2cm}@{}}
   \toprule
-  Rule id & Pri. & Condition & Message \\
+  Rule id & Pri. & Expert & Message \\
   \midrule
-  \texttt{pebble\_formed}           & 100 &
-    $\geq 1$ pebble, $\leq 2$ pebbles &
-    ``A pebble has formed --- seven aggregates compressed into one.'' \\
-  \texttt{aggregate\_formed\_no\_kick} & 90 &
-    $\geq 1$ aggregate, Stokes kick off &
+  \texttt{pebble\_formed}              & 100 & --- &
+    ``A pebble has formed — seven aggregates compressed into one.'' \\
+  \texttt{aggregate\_formed\_no\_kick} & 90  & --- &
     ``Aggregate formed. It orbits at the mean $v_t$ of its constituents.'' \\
-  \texttt{aggregate\_formed\_kick}  & 90 &
-    $\geq 1$ aggregate, Stokes kick on &
+  \texttt{aggregate\_formed\_kick}     & 90  & --- &
     ``Aggregate formed. Its higher Stokes number shifts its orbit outward.'' \\
-  \texttt{pebble\_imminent}         & 85 &
-    $\geq 7$ aggregates levitated &
+  \texttt{pebble\_imminent}            & 85  & --- &
     ``Seven aggregates levitated. A pebble should form soon.'' \\
-  \texttt{spread\_low\_for\_pebble} & 75 &
-    $\geq 3$ aggregates, spread $< 0.30$ &
+  \texttt{agg\_size\_dist}             & 82  & \checkmark &
+    ``A spread of aggregate sizes has formed. Try the size histogram in the HUD.'' \\
+  \texttt{suggest\_slow\_mo}           & 76  & \checkmark &
+    ``A merge is building — enable slow motion to watch it form.'' \\
+  \texttt{spread\_low\_for\_pebble}    & 75  & --- &
     ``Pebble formation needs a $v_t$ spread of at least 30\%.'' \\
-  \texttt{orbits\_crossing}         & 65 &
-    $\geq 10$ levitated, spread $\geq 0.20$, $t > 5\,\mathrm{s}$ &
+  \texttt{suggest\_encounters}         & 63  & \checkmark &
+    ``Aggregates drifting together — try the encounter projection HUD.'' \\
+  \texttt{orbits\_crossing}            & 65  & --- &
     ``Orbits are crossing. Keep particles levitated and aggregates will form.'' \\
-  \texttt{spread\_low\_for\_agg}    & 60 &
-    $\geq 5$ levitated, $0 <$ spread $< 0.20$ &
+  \texttt{suggest\_vt\_dist}           & 53  & \checkmark &
+    ``Particles sorting by size — try the $v_t$ distribution HUD.'' \\
+  \texttt{spread\_low\_for\_agg}       & 60  & --- &
     ``Aggregate formation needs a $v_t$ spread of at least 20\%.'' \\
-  \texttt{monodisperse}             & 55 &
-    $\geq 3$ levitated, spread $= 0$ &
-    ``Same $v_t$ for all --- orbits never cross. Increase spread for collisions.'' \\
-  \texttt{too\_many\_losses}        & 50 &
-    $> 5$ lost, $< 3$ levitated, spinning, $t > 4\,\mathrm{s}$ &
+  \texttt{monodisperse}                & 55  & --- &
+    ``Same $v_t$ for all — orbits never cross. Increase spread for collisions.'' \\
+  \texttt{suggest\_orbit\_proj}        & 47  & \checkmark &
+    ``Try the orbit projection button to see each size's orbit.'' \\
+  \texttt{suggest\_auto\_omega}        & 44  & \checkmark &
+    ``Auto-omega can centre the orbits automatically.'' \\
+  \texttt{too\_many\_losses}           & 50  & --- &
     ``Too many wall losses. Try adjusting drum speed to centre the orbits.'' \\
-  \texttt{spinning\_no\_particles}  & 40 &
-    Spinning, no particles, none pending &
+  \texttt{spinning\_no\_particles}     & 40  & --- &
     ``Drum is spinning. Press Inject to release particles.'' \\
-  \texttt{particles\_not\_spinning} & 35 &
-    Not spinning, particles floating &
+  \texttt{particles\_not\_spinning}    & 35  & --- &
     ``Particles are falling. Swipe the drum to spin it.'' \\
-  \texttt{expert\_panel}            & 10 &
-    $\geq 5$ levitated, expert door closed &
+  \texttt{expert\_panel}              & 10  & --- &
     ``Expert controls are behind the locked door, bottom left.'' \\
   \bottomrule
 \end{longtable}
 
 The two aggregate-formation rules (\texttt{aggregate\_formed\_no\_kick} and
 \texttt{aggregate\_formed\_kick}) share priority 90 but are mutually
-exclusive by their Stokes-kick condition, so only one fires at a time.
-This ensures the message is physically accurate: without the kick the orbit
-centre does not shift; with it, the Stokes number increase is the cause.
+exclusive by their \texttt{window.stokesKickOn} condition, so only one fires
+at a time. This ensures the message is physically accurate.
 
 % =============================================================================
 \section{Game Mode}
@@ -909,6 +1008,10 @@ over $50\,\mathrm{ms}$. Tab hide/show mutes and unmutes smoothly.
     particle counts.
   \item Hint system: context snapshot built at most once per $12\,\mathrm{s}$
     (global cooldown), not every frame.
+  \item Timeline snapshots: one per $10\,\mathrm{s}$ wall-clock time, max 20
+    retained. Particle trails and diagnostic flags excluded. Total buffer
+    memory $\ll 25\,\mathrm{MB}$ at $N_P \leq 3000$; recording disabled at
+    higher counts.
 \end{itemize}
 
 % =============================================================================
@@ -993,6 +1096,10 @@ over $50\,\mathrm{ms}$. Tab hide/show mutes and unmutes smoothly.
   \texttt{encounters.showPairs}  & 10     & Total pairs tracked and drawn \\
   \texttt{encounters.arcPairs}   & 2      & Top-$N$ pairs that show orbit arcs \\
   \midrule
+  \multicolumn{3}{l}{\textit{Timeline}} \\
+  \texttt{MAX\_SNAPS}            & 20     & Rolling buffer capacity (snapshots) \\
+  \texttt{SNAP\_INTERVAL}        & 10     & Wall-clock seconds between snapshots \\
+  \midrule
   \multicolumn{3}{l}{\textit{Audio}} \\
   \texttt{audio.masterGain}      & 0.6    & Master volume (0--1) \\
   \texttt{audio.millBlade}       & 0.085  & Mill blade level \\
@@ -1003,7 +1110,6 @@ over $50\,\mathrm{ms}$. Tab hide/show mutes and unmutes smoothly.
   \texttt{audio.aggMerge}        & 0.4    & Aggregate merge sound level \\
   \bottomrule
 \end{longtable}
-
 
 \end{document}
 %%% Local Variables:
