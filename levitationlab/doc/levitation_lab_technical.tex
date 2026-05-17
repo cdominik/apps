@@ -1010,8 +1010,8 @@ over $50\,\mathrm{ms}$. Tab hide/show mutes and unmutes smoothly.
     (global cooldown), not every frame.
   \item Timeline snapshots: one per $10\,\mathrm{s}$ wall-clock time, max 20
     retained. Particle trails and diagnostic flags excluded. Total buffer
-    memory $\ll 25\,\mathrm{MB}$ at $N_P \leq 3000$; recording disabled at
-    higher counts.
+    memory $\ll 20\,\mathrm{MB}$, snapshots are pruned when necessary
+    to stay within this limit.
 \end{itemize}
 
 % =============================================================================

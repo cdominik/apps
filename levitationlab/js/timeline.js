@@ -25,7 +25,7 @@
 
   const MAX_SNAPS     = 20;          // hard cap on snapshot count
   const SNAP_INTERVAL = 10;          // wall-clock seconds between automatic snapshots
-  const MAX_BYTES     = 20_000_000;  // ~20 MB proxy budget (JSON char count × 2)
+  const MAX_BYTES     = 20_000_000;  // ~20 MB proxy budget (JSON charcnt × 2)
 
   // ── MODULE STATE ──────────────────────────────────────────────────────────
   const TIMELINE = {
