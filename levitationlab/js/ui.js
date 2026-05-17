@@ -1126,6 +1126,28 @@
     };
   }
 
+// SYSTEM: Theme style cycle — normal / modern / pfeiffer
+  const STYLE_CYCLE = ['normal', 'modern', 'pfeiffer'];
+  let currentStyleIdx = 0;
+
+  function applyThemeStyle(name) {
+    document.body.classList.remove('theme-modern', 'theme-pfeiffer');
+    const btn = document.getElementById('btnThemeStyle');
+    if (btn) btn.classList.remove('on', 'cheat');
+    if (name === 'modern') {
+      document.body.classList.add('theme-modern');
+      if (btn) btn.classList.add('on');
+    } else if (name === 'pfeiffer') {
+      document.body.classList.add('theme-modern', 'theme-pfeiffer');
+      if (btn) btn.classList.add('cheat');
+    }
+  }
+
+  document.getElementById('btnThemeStyle')?.addEventListener('click', () => {
+    currentStyleIdx = (currentStyleIdx + 1) % STYLE_CYCLE.length;
+    applyThemeStyle(STYLE_CYCLE[currentStyleIdx]);
+  });
+
   const btnTheme = document.getElementById('btnTheme');
   function applyTheme(name) {
     if (name === 'light') {
@@ -1287,15 +1309,19 @@
   // reading the URL directly — see the SPLASH SCREEN section above.
   const expertContainer = document.getElementById('expertContainer');
   const titlePlateLink = document.getElementById('titlePlate');
+ 
   const uP = new URLSearchParams(window.location.search);
   isExpertURL = uP.has('expert');
-  // Apply themes based on URL
+  
+  // Honour URL theme flags at startup
   if (uP.has('pfeiffer')) {
-    document.body.classList.add('theme-modern', 'theme-pfeiffer');
+    currentStyleIdx = 2;
+    applyThemeStyle('pfeiffer');
   } else if (uP.has('modern')) {
-    document.body.classList.add('theme-modern');
+    currentStyleIdx = 1;
+    applyThemeStyle('modern');
   }
-
+  
   const expertDoor = document.getElementById('expertDoor');
 
   // 1. PHYSICAL DOOR INTERACTION (Sound & Rattle)

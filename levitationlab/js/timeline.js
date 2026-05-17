@@ -9,6 +9,12 @@
  *   Pressing Space (or the pause button) resumes from the current position,
  *   discarding any "future" snapshots and branching the simulation forward.
  *
+ *   Memory is managed dynamically: each snapshot is measured by JSON proxy
+ *   size and the oldest snapshots are discarded when the rolling total exceeds
+ *   MAX_BYTES. This means fewer snapshots are kept at high particle counts,
+ *   but in practice counts drop quickly due to wall losses and aggregate
+ *   formation, so the full 20-snapshot history is available in most sessions.
+ *
  * Exposes globals: TIMELINE, togglePause, takeSnapshot, drawTimeline,
  *                  resetTimeline, handleTimelineClick
  * Reads globals:   state, CFG, AUDIO, CX, CY, W, SCALE, REGIME,
@@ -17,8 +23,9 @@
 (() => {
   'use strict';
 
-  const MAX_SNAPS     = 20;  // rolling cap — 200 s of history at 10 s/snap
-  const SNAP_INTERVAL = 10;  // wall-clock seconds between automatic snapshots
+  const MAX_SNAPS     = 20;          // hard cap on snapshot count
+  const SNAP_INTERVAL = 10;          // wall-clock seconds between automatic snapshots
+  const MAX_BYTES     = 20_000_000;  // ~20 MB proxy budget (JSON char count × 2)
 
   // ── MODULE STATE ──────────────────────────────────────────────────────────
   const TIMELINE = {
@@ -105,11 +112,11 @@
       return c;
     };
 
-    state.particles  = snap.particles.map(cleanObj);
-    state.aggregates = snap.aggregates.map(cleanObj);
+    state.particles   = snap.particles.map(cleanObj);
+    state.aggregates  = snap.aggregates.map(cleanObj);
     state.goldenBalls = snap.goldenBalls.map(cleanObj);
-    state.globes     = snap.globes.map(g => Object.assign({}, g));
-    state.toInject   = snap.toInject.map(i => Object.assign({}, i));
+    state.globes      = snap.globes.map(g => Object.assign({}, g));
+    state.toInject    = snap.toInject.map(i => Object.assign({}, i));
 
     // Solar system — deep copy and re-anchor to current wall time so the
     // phase machine doesn't see a time-jump on the first frame after restore.
@@ -142,14 +149,30 @@
   /**
    * Called every frame from main.js; records at most once per SNAP_INTERVAL
    * wall-clock seconds. No-ops while paused or the simulation is not running.
+   * Snapshot size is measured as a JSON proxy and the oldest snapshots are
+   * discarded when the rolling total exceeds MAX_BYTES.
    */
   function takeSnapshot() {
     if (!state.running || state.paused) return;
     const now = performance.now() / 1000;
     if (now - TIMELINE.lastSnapWallT < SNAP_INTERVAL) return;
     TIMELINE.lastSnapWallT = now;
-    TIMELINE.snapshots.push(_capture());
+
+    const snap     = _capture();
+    const snapSize = JSON.stringify(snap).length * 2; // bytes proxy
+    snap._bytes    = snapSize;
+
+    TIMELINE.snapshots.push(snap);
+
+    // Enforce count cap first.
     if (TIMELINE.snapshots.length > MAX_SNAPS) TIMELINE.snapshots.shift();
+
+    // Then enforce memory budget: drop oldest until we fit.
+    let total = TIMELINE.snapshots.reduce((s, sn) => s + (sn._bytes || 0), 0);
+    while (total > MAX_BYTES && TIMELINE.snapshots.length > 1) {
+      total -= TIMELINE.snapshots[0]._bytes || 0;
+      TIMELINE.snapshots.shift();
+    }
   }
 
   // ── PUBLIC: PAUSE / RESUME ────────────────────────────────────────────────
