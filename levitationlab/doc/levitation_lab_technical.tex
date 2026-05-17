@@ -518,8 +518,10 @@ Golden balls obey Newtonian dynamics, not the kinematic drag model:
   \ddot{y} &= -g = -200\,\mathrm{du\,s^{-2}}.
 \end{align}
 
-They bounce off the drum wall with restitution coefficient
-$e_w = 0.85$ (normal) and tangential friction $\mu_w = 0.92$:
+This is not the real value of gravity, we want to slow down the
+dynamics for visual effect here. The balls bounce off the drum wall with
+restitution coefficient $e_w = 0.85$ (normal) and tangential friction
+$\mu_w = 0.92$:
 \begin{align}
   v_n^+ &= -e_w v_n^-, \\
   v_t^+ &= \mu_w v_t^-,
@@ -804,7 +806,9 @@ versions:
   \item \textbf{Cyan dashed}: gas-only co-rotation (no settling, i.e.\
     $\vt = 0$).
   \item \textbf{Purple dashed}: free-fall vacuum trajectory
-    (no drag, only gravity $g = 200\,\mathrm{du\,s^{-2}}$ downward).
+    (no drag, only gravity $g = 200\,\mathrm{du\,s^{-2}}$
+    downward). We use a lower gravity here so that the ballistic
+    orbits become more parabola-like.
 \end{itemize}
 The comparison between the three paths makes the role of aerodynamic drag
 and the settling velocity physically intuitive.
