@@ -3,15 +3,85 @@
   dominated lines, so it would not be instructive. Need to document
   this. Maybe reduce it even more?
 
-- Ghostmode should go into the HUD sequence to free up a spot for
-  this.  Unless we make the aggregate random walk also part of the HUD
-  sequence?
-  
-  When we switch to Ghostmode, is should attatch itself to a random particle,
-  preferably a levitated one. We then activate the mouse to switch.
+* Levitation Lab Ideas
 
+** HIGH — Deepen the core physics loop
 
-thud make go away
+*** TODO Live orbit centre dot on the equator per levitated particle
+A single glowing dot at x_c = v_t/omega per levitated particle, visible
+without enabling the full encounter overlay. Makes the fundamental equation
+tangible for casual players, not just experts.
 
-* 
-* 
+*** TODO Visual flash when a particle first enters the levitation zone
+Currently there is a chime but no visual cue on the drum itself. A brief
+ring flash at the particle's orbit radius would make the "aha" moment much
+clearer for new players.
+
+*** TODO Shaded band on the equator showing the spread of orbit centres
+A semi-transparent band from v_t,min/omega to v_t,max/omega when spread > 0.
+Makes it immediately obvious why spread is needed for aggregate formation —
+particles need to cross each other's orbits.
+
+** HIGH — Game completeness
+
+*** TODO Hint system for post-game free sandbox
+After completing the game, players are dropped into free play with no
+guidance. A lightweight hint system — a small text ticker that notices
+what is happening and comments on it — would bridge the gap between
+game and expert mode.
+
+*** TODO Replay / slow-motion moment capture
+When something dramatic happens (aggregate forms, pebble spawns), save
+the last 3 seconds of physics state and offer to replay it in slow motion.
+Scientifically meaningful — these events are rare and fast.
+
+** MEDIUM — Expert tools
+
+*** TODO Stokes number live readout
+A live readout of St = v_t * omega / g or similar, showing where particles
+sit in the aerodynamic regime. Connects the expert panel directly to the
+published literature.
+
+*** TODO Collision rate history chart in viewport
+A rolling time series of aggregate-aggregate close approaches per revolution.
+Makes the connection between spread, drum speed, and collision frequency
+visible as a graph rather than just a heatmap.
+
+*** TODO Freeze-and-inspect mode
+Pause and tap any particle to see its v_t, orbit centre, orbit radius, and
+levitation status in a small tooltip. Most of the data is already computed.
+
+*** TODO Export current state as JSON snapshot
+Positions, velocities, v_t values. Allows researchers to hand off interesting
+configurations to other simulation tools or share them.
+
+** MEDIUM — Presentation and outreach
+
+*** TODO Real microscope image / video in viewport triggered by aggregate formation
+The rule engine is already built for exactly this. Infrastructure is in place;
+needs lab content.
+
+*** TODO Animated v_t distribution narrowing over time
+A slow animated overlay showing the v_t distribution narrowing as the drum
+selects for a particular size range. This is the core physical message of
+the experiment and is not currently shown dynamically.
+
+*** TODO Network leaderboard for challenge mode
+Even a simple read/write to a public JSON endpoint would make outreach events
+far more engaging — visitors competing against each other on a shared screen.
+Currently scores are localStorage only.
+
+** LOW — Polish and feel
+
+*** TODO Haptic feedback on mobile
+A short vibration pulse when a particle is lost or levitated. Almost free
+to implement, adds physical presence on mobile devices.
+
+*** TODO Tray collection as a scored challenge outcome
+Currently the tray is a neutral collection tool. Giving it a challenge score
+(particles collected × size bonus) would give it game relevance.
+
+*** TODO Wind-down animation when drum stops
+Particles slowly settling to the bottom, aggregates sliding down the wall.
+Currently everything freezes. A few seconds of graceful settling would make
+the physics feel complete.

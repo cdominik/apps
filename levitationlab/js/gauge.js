@@ -36,7 +36,7 @@
    */
   function updateGauge() {
     const T = state.period();
-    elPeriod.textContent = isFinite(T) ? T.toFixed(2) : '∞';
+    elPeriod.textContent = isFinite(T) ? parseFloat(T.toPrecision(3)) : '∞';
     let floating = 0, levitated = 0;
   
     for (const p of state.particles) {

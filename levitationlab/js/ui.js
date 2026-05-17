@@ -1144,8 +1144,8 @@
 
   // SYSTEM 4-6. Simulation speed
 
-  const speedGears   = [0.25, 0.5, 1.0, 2.0, 4.0];
-  let currentGearIdx = 2; // Default to 1.0x
+  const speedGears   = [0.015625, 0.03125, 0.0625, 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0];
+  let currentGearIdx = 6; // Default to 1.0x
   
   /**
    * Applies the current speed gear to state.simSpeed and updates the speed display label.
@@ -1153,14 +1153,11 @@
   function updateSpeedUI() {
     const speed = speedGears[currentGearIdx];
     state.simSpeed = speed;
+    const label = speed < 1.0 ? '/' + Math.round(1 / speed) : speed + 'x';
     
-    // Use single-character Unicode fractions for better fit
-    let label;
-    if (speed === 0.5) label = "½x";
-    else if (speed === 0.25) label = "¼x";
-    else label = speed + 'x';
-    
-    document.getElementById('speedDisp').textContent = label;
+    const dispEl = document.getElementById('speedDisp');
+    dispEl.textContent = label;
+    dispEl.style.letterSpacing = speed < 1.0 ? '-1px' : '0px';
     
     // Visual feedback: Glow the middle button if not at standard 1x
     document.getElementById('btnSpeedReset').classList.toggle('on', speed !== 1.0);
@@ -1179,7 +1176,7 @@
     }
   });
   function resetSimSpeed() {
-    currentGearIdx = 2; // Snap back to 1.0x
+    currentGearIdx = 6; // Snap back to 1.0x
     updateSpeedUI();
   }
   document.getElementById('btnSpeedReset').addEventListener('click', resetSimSpeed);

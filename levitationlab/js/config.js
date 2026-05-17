@@ -122,6 +122,12 @@
       limit:         7,      // count      — maximum number of simultaneous globes
     },
 
+    // --- Aggregate encounter overlay ---
+    encounters: {
+      showPairs: 5,  // total pairs tracked, drawn with lines and circles
+      arcPairs:  2,   // how many of those (top N by closest approach) get orbit arcs
+    },
+
     // --- Audio levels ---
     audio: {
       masterGain: 0.6,   // 0-1 — overall output volume

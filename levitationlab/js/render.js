@@ -2426,7 +2426,7 @@ function drawRepresentativeOrbits() {
     const omega = state.omega;
     if (Math.abs(omega) < 1e-3) { _encCache = []; return; }
 
-    const live = state.aggregates.filter(a => a.alive && !a.stuck && !a.merging);
+    const live = state.aggregates.filter(a => a.alive && !a.stuck && !a.merging && !a.onTray);
     const n = live.length;
     if (n < 2) { _encCache = []; return; }
 
@@ -2487,9 +2487,9 @@ function drawRepresentativeOrbits() {
       }
     }
 
-    // Keep top 7 shortest
+    // Keep top shortest
     pairs.sort((a, b) => a.dist - b.dist);
-    _encCache = pairs.slice(0, 7);
+    _encCache = pairs.slice(0, TUNING.encounters.showPairs);
   }
 
   function drawAggregateEncounters() {
@@ -2526,8 +2526,8 @@ function drawRepresentativeOrbits() {
     ctxOv.clip();
 
     const omega = state.omega;
-    let topPairColor = 'rgba(180,180,200,0.35)'; // fallback, matches the "far apart" colour
-
+    const arcPairColors = []; // one entry per arc pair, filled during the k-loop
+    
     for (let k = 0; k < _encCache.length; k++) {
       const enc = _encCache[k];
       const { ai, aj, xi, yi, xj, yj, dist, bestTheta, xci, xcj, Ri, Rj, phi_i, phi_j } = enc;
@@ -2545,23 +2545,33 @@ function drawRepresentativeOrbits() {
       // --- COLOUR ---
       const sumR = ai.r + aj.r;
       let lineColor, circleColor;
+      // Green = collision predicted (dist < sumR), takes precedence at any rank.
+      // Amber = in the top arcPairs but not colliding.
+      // Gray-purple = all others.
+      const isColliding = dist < sumR;
+      const isArcPair   = k < TUNING.encounters.arcPairs;
       if (flash > 0) {
-        // Flashing white regardless of distance
-        const a1 = (0.6 + 0.4 * flash).toFixed(2);
-        const a2 = (0.3 + 0.4 * flash).toFixed(2);
-        lineColor   = `rgba(255,255,255,${a1})`;
-        circleColor = `rgba(255,255,255,${a2})`;
-      } else if (dist < sumR) {
+        if (isColliding) {
+          lineColor   = `rgba(64,255,112,${(0.85 + 0.15 * flash).toFixed(2)})`;
+          circleColor = `rgba(64,255,112,${(0.55 + 0.45 * flash).toFixed(2)})`;
+        } else if (isArcPair) {
+          lineColor   = `rgba(255,200,60,${(0.75 + 0.10 * flash).toFixed(2)})`;
+          circleColor = `rgba(255,200,60,${(0.40 + 0.15 * flash).toFixed(2)})`;
+        } else {
+          lineColor   = `rgba(180,180,200,${(0.35 + 0.15 * flash).toFixed(2)})`;
+          circleColor = `rgba(180,180,200,${(0.18 + 0.10 * flash).toFixed(2)})`;
+        }
+      } else if (isColliding) {
         lineColor   = 'rgba(64,255,112,0.85)';
         circleColor = 'rgba(64,255,112,0.55)';
-      } else if (dist < sumR * 2.5) {
+      } else if (isArcPair) {
         lineColor   = 'rgba(255,200,60,0.75)';
         circleColor = 'rgba(255,200,60,0.40)';
       } else {
         lineColor   = 'rgba(180,180,200,0.35)';
         circleColor = 'rgba(180,180,200,0.18)';
       }
-      if (k === 0) topPairColor = lineColor;
+      if (k < TUNING.encounters.arcPairs) arcPairColors[k] = lineColor;
 
       const pxi = X2px(xi), pyi = Y2px(yi);
       const pxj = X2px(xj), pyj = Y2px(yj);
@@ -2603,16 +2613,24 @@ function drawRepresentativeOrbits() {
         }
     }
 
-    // Full orbits of the top pair — the most likely candidates to merge next.
-    if (_encCache.length > 0 && Math.abs(omega) > 1e-3) {
-      const enc = _encCache[0];
-      const py0  = Y2px(0);
-      ctxOv.strokeStyle = topPairColor;
+    // Arc from current position to closest approach for the top arcPairs pairs.
+    const arcCount = Math.min(TUNING.encounters.arcPairs, _encCache.length);
+    for (let ka = 0; ka < arcCount; ka++) {
+      const enc = _encCache[ka];
+      if (Math.abs(omega) < 1e-3) break;
+      const py0 = Y2px(0);
+      ctxOv.strokeStyle = arcPairColors[ka] || 'rgba(180,180,200,0.35)';
       ctxOv.lineWidth   = 1.5;
       ctxOv.setLineDash([]);
-      for (const [xc, r] of [[enc.xci, enc.Ri], [enc.xcj, enc.Rj]]) {
+      for (const [agg, xc, r, phi] of [
+        [enc.ai, enc.xci, enc.Ri, enc.phi_i],
+        [enc.aj, enc.xcj, enc.Rj, enc.phi_j],
+      ]) {
+        const curPhi = Math.atan2(agg.y, agg.x - xc);
+        const endPhi = phi + enc.bestTheta;
+        const ccw    = omega > 0;
         ctxOv.beginPath();
-        ctxOv.arc(X2px(xc), py0, pxDist(r), 0, Math.PI * 2);
+        ctxOv.arc(X2px(xc), py0, pxDist(r), -curPhi, -endPhi, ccw);
         ctxOv.stroke();
       }
     }
