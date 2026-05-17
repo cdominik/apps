@@ -30,6 +30,18 @@
 %    - Appendix A: added tray.* constants; added ball.bumpStrength,
 %                  ball.settleVel, ball.contactDrag; added note on
 %                  tray.brakeDur being a vestigial config value
+%    - §11.3: aggregate encounter overlay updated — tunable showPairs /
+%             arcPairs, new three-tier colour scheme (green / amber /
+%             gray-purple), orbit arcs from current position to closest
+%             approach for top arcPairs pairs, subtler flash behaviour
+%    - §12: inHighlightSince cleared on tray capture (tryCatchOnTray and
+%           particle onTray branch in step()); onTray guard added to
+%           eggLevitatedParticles, eggLevitatedAggregates,
+%           resolveAggAggCollisions, and _updateEncounterCache to prevent
+%           spurious growth and encounter tracking of collected objects
+%    - §13 (Reset): Reset now also disables zoom mode
+%    - §14 (Expert HUD): updated btnAggEncounters description
+%    - Appendix A: added encounters.* tuning section
 % =============================================================================
 
 \documentclass[12pt, a4paper]{article}
@@ -658,11 +670,12 @@ advance between flashes, revealing their motion.
 
 \subsection{Simulation Speed Gears}
 
-Five speed gears are available: $\{0.25\times, 0.5\times, 1\times, 2\times,
-4\times\}$. The multiplier applies to $\Delta t$ before substep splitting.
-The drum decay, injection timing, particle injection, and all physics scale
-with the simulation clock, so all processes are accelerated or decelerated
-uniformly.
+Ten speed gears are available:
+$\{1/64, 1/32, 1/16, 1/8, 1/4, 1/2, 1\times,
+2\times, 4\times\, 8\times\}$. The multiplier applies to $\Delta t$
+before substep splitting.  The drum decay, injection timing, particle
+injection, and all physics scale with the simulation clock, so all
+processes are accelerated or decelerated uniformly.
 
 \subsection{Pause}
 
@@ -725,9 +738,9 @@ range.
 
 \subsection{Aggregate Encounter Prediction}
 
-For each pair of live aggregates, the simulation analytically computes the
-\emph{closest approach} position during the next orbit. Each aggregate
-follows a circular orbit:
+For each pair of live, free-floating (non-tray) aggregates, the simulation
+analytically computes the \emph{closest approach} position during the next
+orbit. Each aggregate follows a circular orbit:
 \begin{align}
   x_i(\theta) &= \xc^{(i)} + R_i \cos(\phi_i + \theta), \\
   y_i(\theta) &= R_i \sin(\phi_i + \theta),
@@ -744,9 +757,41 @@ $\Delta\xc = \xc^{(i)} - \xc^{(j)}$.
 The minimum is at $\theta^* = \arctan(-Q, P)$; both $\theta^*$ and
 $\theta^* + \pi$ are evaluated and the smaller $d^2$ is taken.
 
-The top 10 closest-approach pairs are shown with connecting lines. When a
-pair is within $\Delta\theta \approx 0.15\,\mathrm{rad}$ of their closest
-approach, the display flashes white.
+The number of pairs tracked is controlled by \texttt{TUNING.encounters.showPairs}
+(default 10). All tracked pairs are drawn with a connecting line between their
+closest-approach positions and labelled with their separation distance (top 3
+only). The colour of each pair's indicator encodes how close the predicted
+collision actually is, using a three-tier scheme that takes effect at any rank:
+
+\begin{itemize}
+  \item \textbf{Green} --- collision predicted: $d < r_i + r_j$, i.e.\ the
+    closest approach point lies inside the combined radii.  The two aggregates
+    will touch on the next orbit.
+  \item \textbf{Amber} --- in the top \texttt{TUNING.encounters.arcPairs}
+    pairs (default 2) by closest-approach distance, but not colliding.
+  \item \textbf{Gray-purple} --- all remaining tracked pairs.
+\end{itemize}
+
+Green takes precedence regardless of rank: a pair ranked fifth that is
+predicted to collide still shows green.
+
+When a pair passes within $\Delta\theta \approx 0.15\,\mathrm{rad}$ of their
+closest approach, the indicator brightens subtly in its own hue (alpha ramps
+up by $\approx 0.1$--$0.15$) rather than flashing white, keeping the
+contextual colour readable.
+
+\paragraph{Orbit arcs.}
+For the top \texttt{arcPairs} pairs, an arc is drawn on each aggregate's orbit
+circle from the aggregate's current position forward to the predicted closest
+approach point, in the direction of orbital motion. The arc colour matches the
+pair's indicator colour (green, amber, or gray-purple). This makes it
+immediately clear which aggregates are about to meet and how far they have yet
+to travel.
+
+The cache of closest-approach pairs is recomputed at approximately
+$5\,\mathrm{Hz}$ (every 12 frames at $60\,\mathrm{fps}$) to limit the
+$O(n^2)$ cost. The arc direction is recomputed every render frame from live
+aggregate positions so it tracks smoothly even between cache updates.
 
 \subsection{Ghost Paths}
 
@@ -833,6 +878,25 @@ divided into two phases:
 Particles and aggregates within $2 \times \tau_{\mathrm{thick}}$ of the tray
 line are captured and pinned to the upper blade surface, then co-rotate with
 the drum until insertion is complete.
+
+\subsection{Levitation State Invariant on Capture}
+
+When any object (particle, aggregate, or pebble) is pinned to the tray by
+\texttt{tryCatchOnTray}, its \texttt{inHighlightSince} timestamp is immediately
+set to \texttt{null}. Without this, an object that was levitated at the moment
+of capture would retain a non-null timestamp and would continue to be counted
+as levitated indefinitely, since the tray's co-rotation branch skips all
+highlight-zone tracking. Similarly, the per-frame particle update in
+\texttt{step()} clears \texttt{inHighlightSince} each frame for any particle
+already marked \texttt{onTray}.
+
+As a consequence, all functions that query levitation state
+(\texttt{eggLevitatedParticles}, \texttt{eggLevitatedAggregates}) and all
+collision-detection functions that operate on free aggregates
+(\texttt{resolveAggAggCollisions}, \texttt{\_updateEncounterCache}) explicitly
+exclude \texttt{onTray} objects. This prevents tray-collected aggregates from
+participating in further growth merges or encounter tracking while resting on
+the blade.
 
 % =============================================================================
 \section{Slice Widening (Doubling)}
@@ -942,7 +1006,8 @@ value. The display shows the profile name in orange.
     Opens the user manual overlay. \\
   \btnicon{btnReset}   & \textbf{Reset} &
     Clears all particles, aggregates, pebbles, and globes; resets the
-    simulation to a clean state ready for a new injection. \\
+    simulation to a clean state ready for a new injection. Also disables
+    zoom mode if it is active. \\
   \bottomrule
 \end{longtable}
 
@@ -975,8 +1040,17 @@ The panel is divided into three sections: HUD, Processes, and System.
     the mean-$\vt$ orbit of the levitated population (amber), connected by a
     line showing the offset due to the Stokes kick. \\
   \btnicon{btnAggEncounters} & \textbf{Encounter projections} &
-    Shows the closest-approach positions and separation distance for the
-    top-10 aggregate pairs (§9.2). Flashes white when a pair is near approach. \\
+    Shows the closest-approach positions for the top
+    \texttt{TUNING.encounters.showPairs} aggregate pairs (default 10),
+    coloured by collision prediction: green if the pair will touch on the
+    next orbit ($d < r_i + r_j$), amber for the top
+    \texttt{TUNING.encounters.arcPairs} pairs (default 2) that are not
+    colliding, and gray-purple for all others. Green takes precedence at
+    any rank. For the top \texttt{arcPairs} pairs, an arc is drawn on each
+    aggregate's orbit circle from its current position to the predicted
+    closest-approach point, in the direction of motion. When a pair nears
+    its closest approach ($\Delta\theta < 0.15\,\mathrm{rad}$), the
+    indicator brightens subtly in its own hue. \\
   \btnicon{btnVtDist} & \textbf{$v_t$ distribution} &
     Live KDE of levitated (green) and floating (yellow) particles, plus
     amber histogram of aggregate $\vt$ values. \\
@@ -1315,7 +1389,8 @@ Multiple parameters can be combined: e.g.\ \texttt{?expert\&game=3} or
 
   \item \textbf{Encounter prediction} updates its cache at $\approx 5\,\mathrm{Hz}$
     (every 12 frames at 60 fps) to keep the $O(n^2)$ pairwise computation
-    from dominating each frame.
+    from dominating each frame. The arc direction is recomputed every render
+    frame from live positions and is therefore cheap.
 
   \item \textbf{Heatmap} finalisation runs once per full drum revolution,
     not every frame; the per-frame cost is only the accumulation of one
@@ -1405,6 +1480,11 @@ object and backed up in \texttt{TUNING\_DEFAULT} for restoration after overrides
                                            Actual brake duration is computed dynamically
                                            from drum speed at fire time. \\
   \midrule
+  \multicolumn{3}{l}{\textit{Encounter overlay}} \\
+  \texttt{encounters.showPairs}  & 10    & Total aggregate pairs tracked and drawn \\
+  \texttt{encounters.arcPairs}   & 2     & Top-$N$ pairs that additionally show
+                                           orbit arcs and amber colouring \\
+  \midrule
   \multicolumn{3}{l}{\textit{Audio}} \\
   \texttt{audio.masterGain}      & 0.6   & Master volume (0--1) \\
   \texttt{audio.millBlade}       & 0.085 & Mill blade component level \\
@@ -1415,6 +1495,7 @@ object and backed up in \texttt{TUNING\_DEFAULT} for restoration after overrides
   \texttt{audio.aggMerge}        & 0.4   & Aggregate merge sound level \\
   \bottomrule
 \end{longtable}
+
 
 \end{document}
 %%% Local Variables:
