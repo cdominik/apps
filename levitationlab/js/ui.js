@@ -407,6 +407,7 @@
       btnCollect.classList.remove('on', 'cheat');
       btnCollect.disabled = false;
     }
+    if (window.zoomOn) document.getElementById('btnProcFast').click();
     btnReset.classList.add('flash');
     setTimeout(() => btnReset.classList.remove('flash'), 200);
     

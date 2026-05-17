@@ -2487,9 +2487,9 @@ function drawRepresentativeOrbits() {
       }
     }
 
-    // Keep top 10 shortest
+    // Keep top 7 shortest
     pairs.sort((a, b) => a.dist - b.dist);
-    _encCache = pairs.slice(0, 10);
+    _encCache = pairs.slice(0, 7);
   }
 
   function drawAggregateEncounters() {
@@ -2499,7 +2499,21 @@ function drawRepresentativeOrbits() {
     _encFrameCount++;
     if (_encFrameCount % 12 === 0) _updateEncounterCache();
     if (_encCache.length === 0 && state.aggregates.length >= 2) _updateEncounterCache();
-
+    
+    // Compute phase remaining to closest approach for the top pair.
+    // Runs every render frame so main.js can use it for slow-mo gating.
+    if (_encCache.length > 0 && Math.abs(state.omega) > 1e-3) {
+      const enc = _encCache[0];
+      if (enc.ai.alive && enc.aj.alive) {
+        const curPhiI = Math.atan2(enc.ai.y, enc.ai.x - enc.xci);
+        const advance  = ((curPhiI - enc.phi_i) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+        window._nearestEncounterPhase =
+          Math.abs(((enc.bestTheta - advance + Math.PI) % (2 * Math.PI)) - Math.PI);
+      }
+    } else {
+      window._nearestEncounterPhase = Infinity;
+    }
+    
     if (_encCache.length === 0) return;
 
     const NEAR_THRESHOLD = 0.15; // rad — within this of bestTheta counts as "at closest approach"
@@ -2512,6 +2526,7 @@ function drawRepresentativeOrbits() {
     ctxOv.clip();
 
     const omega = state.omega;
+    let topPairColor = 'rgba(180,180,200,0.35)'; // fallback, matches the "far apart" colour
 
     for (let k = 0; k < _encCache.length; k++) {
       const enc = _encCache[k];
@@ -2546,6 +2561,7 @@ function drawRepresentativeOrbits() {
         lineColor   = 'rgba(180,180,200,0.35)';
         circleColor = 'rgba(180,180,200,0.18)';
       }
+      if (k === 0) topPairColor = lineColor;
 
       const pxi = X2px(xi), pyi = Y2px(yi);
       const pxj = X2px(xj), pyj = Y2px(yj);
@@ -2584,9 +2600,22 @@ function drawRepresentativeOrbits() {
         ctxOv.textAlign = 'center';
         ctxOv.fillStyle = lineColor;
         ctxOv.fillText(dist.toFixed(1), mx, my - 3);
-      }
+        }
     }
 
+    // Full orbits of the top pair — the most likely candidates to merge next.
+    if (_encCache.length > 0 && Math.abs(omega) > 1e-3) {
+      const enc = _encCache[0];
+      const py0  = Y2px(0);
+      ctxOv.strokeStyle = topPairColor;
+      ctxOv.lineWidth   = 1.5;
+      ctxOv.setLineDash([]);
+      for (const [xc, r] of [[enc.xci, enc.Ri], [enc.xcj, enc.Rj]]) {
+        ctxOv.beginPath();
+        ctxOv.arc(X2px(xc), py0, pxDist(r), 0, Math.PI * 2);
+        ctxOv.stroke();
+      }
+    }
     ctxOv.restore();
   }
 
