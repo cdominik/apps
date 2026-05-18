@@ -1126,29 +1126,9 @@
     };
   }
 
-// SYSTEM: Theme style cycle — normal / modern / pfeiffer
-  const STYLE_CYCLE = ['normal', 'modern', 'pfeiffer'];
-  let currentStyleIdx = 0;
-
-  function applyThemeStyle(name) {
-    document.body.classList.remove('theme-modern', 'theme-pfeiffer');
-    const btn = document.getElementById('btnThemeStyle');
-    if (btn) btn.classList.remove('on', 'cheat');
-    if (name === 'modern') {
-      document.body.classList.add('theme-modern');
-      if (btn) btn.classList.add('on');
-    } else if (name === 'pfeiffer') {
-      document.body.classList.add('theme-modern', 'theme-pfeiffer');
-      if (btn) btn.classList.add('cheat');
-    }
-  }
-
-  document.getElementById('btnThemeStyle')?.addEventListener('click', () => {
-    currentStyleIdx = (currentStyleIdx + 1) % STYLE_CYCLE.length;
-    applyThemeStyle(STYLE_CYCLE[currentStyleIdx]);
-  });
 
   const btnTheme = document.getElementById('btnTheme');
+
   function applyTheme(name) {
     if (name === 'light') {
       document.body.classList.add('theme-light');
@@ -1160,9 +1140,47 @@
       btnTheme.classList.remove('on');
     }
   }
-  btnTheme.addEventListener('click', () => {
-    applyTheme(PAL.name === 'dark' ? 'light' : 'dark');
+
+  // Cycles: normal → modern → pfeiffer → normal
+  const STYLE_CYCLE = ['normal', 'modern', 'pfeiffer'];
+  let currentStyleIdx = 0;
+
+  function applyThemeStyle(name) {
+    document.body.classList.remove('theme-modern', 'theme-pfeiffer');
+    btnTheme.classList.remove('cheat');
+    if (name === 'modern') {
+      document.body.classList.add('theme-modern');
+      btnTheme.classList.add('cheat');
+    } else if (name === 'pfeiffer') {
+      document.body.classList.add('theme-modern', 'theme-pfeiffer');
+      btnTheme.classList.add('cheat');
+    }
+  }
+
+  // Short press: toggle lights. Long press: cycle visual theme.
+  let _themePressTimer = null;
+  let _themeLongFired  = false;
+
+  btnTheme.addEventListener('pointerdown', () => {
+    _themeLongFired  = false;
+    _themePressTimer = setTimeout(() => {
+      _themeLongFired = true;
+      currentStyleIdx = (currentStyleIdx + 1) % STYLE_CYCLE.length;
+      applyThemeStyle(STYLE_CYCLE[currentStyleIdx]);
+    }, 600);
   });
+
+  const _cancelThemePress = () => {
+    if (_themePressTimer) { clearTimeout(_themePressTimer); _themePressTimer = null; }
+  };
+
+  btnTheme.addEventListener('pointerup', () => {
+    _cancelThemePress();
+    if (!_themeLongFired) applyTheme(PAL.name === 'dark' ? 'light' : 'dark');
+  });
+
+  btnTheme.addEventListener('pointerleave',  _cancelThemePress);
+  btnTheme.addEventListener('pointercancel', _cancelThemePress);
 
 
   // SYSTEM 4-6. Simulation speed
