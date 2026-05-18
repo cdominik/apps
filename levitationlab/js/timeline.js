@@ -9,11 +9,11 @@
  *   Pressing Space (or the pause button) resumes from the current position,
  *   discarding any "future" snapshots and branching the simulation forward.
  *
- *   Memory is managed dynamically: each snapshot is measured by JSON proxy
- *   size and the oldest snapshots are discarded when the rolling total exceeds
- *   MAX_BYTES. This means fewer snapshots are kept at high particle counts,
- *   but in practice counts drop quickly due to wall losses and aggregate
- *   formation, so the full 20-snapshot history is available in most sessions.
+ *   Memory is managed dynamically with logarithmic thinning: when the buffer
+ *   exceeds MAX_BYTES, snapshots are removed from the middle outward (index 1,
+ *   then 2, then 3 …) rather than always from the oldest end. This preserves
+ *   the full temporal span of history at the cost of increasing gaps between
+ *   points — the oldest and most recent snapshots are always kept the longest.
  *
  * Exposes globals: TIMELINE, togglePause, takeSnapshot, drawTimeline,
  *                  resetTimeline, handleTimelineClick
@@ -23,9 +23,9 @@
 (() => {
   'use strict';
 
-  const MAX_SNAPS     = 20;          // hard cap on snapshot count
+  const MAX_SNAPS     = 30;          // hard cap on snapshot count
   const SNAP_INTERVAL = 10;          // wall-clock seconds between automatic snapshots
-  const MAX_BYTES     = 20_000_000;  // ~20 MB proxy budget (JSON charcnt × 2)
+  const MAX_BYTES     = 20_000_000;  // ~20 MB proxy budget (JSON char count × 2)
 
   // ── MODULE STATE ──────────────────────────────────────────────────────────
   const TIMELINE = {
@@ -35,6 +35,12 @@
     frozenSnap:    null,    // full state captured at the moment of pause
     _dotPositions: [],      // cached {x, y, idx} for pointer hit-testing
   };
+
+  // _prunePtr tracks the next interior index to remove during thinning.
+  // It advances from 1 toward the end on each prune, then resets to 1,
+  // producing logarithmic spacing: first pass keeps every other snapshot,
+  // second pass keeps every fourth, etc.
+  let _prunePtr = 1;
 
   // ── CAPTURE ───────────────────────────────────────────────────────────────
   function _capture() {
@@ -79,9 +85,32 @@
     };
   }
 
+  // ── LOGARITHMIC PRUNING ───────────────────────────────────────────────────
+  /**
+   * Removes one interior snapshot, advancing _prunePtr from 1 toward the end.
+   * The last snapshot (most recent) is never pruned — it anchors "NOW".
+   * When _prunePtr reaches the end, it resets to 1 for the next thinning pass.
+   *
+   * Example with 10 snapshots [s0..s9]:
+   *   Pass 1 removes s1, s3, s5, s7, s9→reset → leaves [s0,s2,s4,s6,s8]
+   *   Pass 2 removes s2, s6           → reset → leaves [s0,s4,s8]
+   *   Pass 3 removes s4               → reset → leaves [s0,s8]
+   */
+  function _pruneOne() {
+    const n = TIMELINE.snapshots.length;
+    if (n <= 1) return;
+    if (n === 2) { TIMELINE.snapshots.shift(); _prunePtr = 1; return; }
+    // Clamp to interior range [1, n-2] — never touch index 0 (oldest) or
+    // index n-1 (most recent) until no interior candidates remain.
+    if (_prunePtr <= 0 || _prunePtr >= n - 1) _prunePtr = 1;
+    TIMELINE.snapshots.splice(_prunePtr, 1);
+    // Advance; if we've exhausted interior positions, restart from 1.
+    if (_prunePtr >= TIMELINE.snapshots.length - 1) _prunePtr = 1;
+    else _prunePtr++;
+  }
+
   // ── RESTORE ───────────────────────────────────────────────────────────────
   function _restore(snap) {
-    // Scalar fields
     state.t              = snap.simT;
     state.omega          = snap.omega;
     state.omegaTarget    = snap.omegaTarget;
@@ -97,9 +126,8 @@
     state.renderN        = snap.renderN;
     state.puffs          = [];
 
-    // Null out all in-progress merge animations.
-    // Constituent objects have merging=false restored below so they don't
-    // remain invisible or skipped by the physics loops.
+    // Null out all in-progress merge animations. Constituent objects have
+    // merging=false restored below so they are not skipped by physics loops.
     state.aggMerging     = null;
     state.eggMerging     = null;
     state.globeMerging   = null;
@@ -125,7 +153,6 @@
 
     Object.assign(state.tray, snap.tray);
 
-    // Gauge visibility
     const ga = document.getElementById('gaugeAgg');
     const gp = document.getElementById('gaugePebble');
     if (ga) ga.style.display = snap.gaugeAggVisible    ? 'flex' : 'none';
@@ -134,8 +161,15 @@
     if (window.updateGauge) window.updateGauge();
   }
 
+  // ── HELPERS ───────────────────────────────────────────────────────────────
+  function _inCompetitiveMode() {
+    return (typeof GAME      !== 'undefined' && GAME.on) ||
+           (typeof CHALLENGE !== 'undefined' && CHALLENGE.on && CHALLENGE.phase === 'playing');
+  }
+
   // ── NAVIGATION ────────────────────────────────────────────────────────────
   function _navigateTo(idx) {
+    if (_inCompetitiveMode()) return; // no scrubbing in game / challenge
     const n = TIMELINE.snapshots.length;
     TIMELINE.cursorIdx = Math.max(0, Math.min(n, idx));
     if (TIMELINE.cursorIdx < n) {
@@ -149,8 +183,7 @@
   /**
    * Called every frame from main.js; records at most once per SNAP_INTERVAL
    * wall-clock seconds. No-ops while paused or the simulation is not running.
-   * Snapshot size is measured as a JSON proxy and the oldest snapshots are
-   * discarded when the rolling total exceeds MAX_BYTES.
+   * Uses logarithmic thinning to stay within MAX_SNAPS and MAX_BYTES.
    */
   function takeSnapshot() {
     if (!state.running || state.paused) return;
@@ -159,19 +192,17 @@
     TIMELINE.lastSnapWallT = now;
 
     const snap     = _capture();
-    const snapSize = JSON.stringify(snap).length * 2; // bytes proxy
-    snap._bytes    = snapSize;
+    snap._bytes    = JSON.stringify(snap).length * 2; // bytes proxy
 
     TIMELINE.snapshots.push(snap);
 
-    // Enforce count cap first.
-    if (TIMELINE.snapshots.length > MAX_SNAPS) TIMELINE.snapshots.shift();
+    // Enforce hard count cap with logarithmic thinning.
+    if (TIMELINE.snapshots.length > MAX_SNAPS) _pruneOne();
 
-    // Then enforce memory budget: drop oldest until we fit.
-    let total = TIMELINE.snapshots.reduce((s, sn) => s + (sn._bytes || 0), 0);
-    while (total > MAX_BYTES && TIMELINE.snapshots.length > 1) {
-      total -= TIMELINE.snapshots[0]._bytes || 0;
-      TIMELINE.snapshots.shift();
+    // Enforce memory budget with logarithmic thinning.
+    while (TIMELINE.snapshots.length > 1 &&
+           TIMELINE.snapshots.reduce((s, sn) => s + (sn._bytes || 0), 0) > MAX_BYTES) {
+      _pruneOne();
     }
   }
 
@@ -185,7 +216,7 @@
       TIMELINE.frozenSnap = _capture();
       TIMELINE.cursorIdx  = TIMELINE.snapshots.length; // start cursor at "NOW"
 
-      // Silence motor hum immediately
+      // Silence motor hum immediately.
       if (AUDIO.ctx && AUDIO.motor.started) {
         const t = AUDIO.ctx.currentTime;
         AUDIO.motor.gainOsc.gain.cancelScheduledValues(t);
@@ -198,13 +229,13 @@
 
     } else {
       // ── RESUME ───────────────────────────────────────────────────────────
-      const cur = TIMELINE.cursorIdx;
+      const cur = _inCompetitiveMode()
+        ? TIMELINE.snapshots.length   // force to NOW in game / challenge
+        : TIMELINE.cursorIdx;
       const n   = TIMELINE.snapshots.length;
 
       if (cur < n) {
-        // Branching from a historical point.
-        // State is already restored to snapshots[cur] (done during navigation).
-        // Keep history up to and including the branch point; discard the future.
+        // Branching from a historical point — discard future snapshots.
         TIMELINE.snapshots = TIMELINE.snapshots.slice(0, cur + 1);
         // Re-normalise wallT so the branch point reads as "just now" and
         // older snapshots retain their correct relative spacing.
@@ -212,12 +243,11 @@
         const delta = now - TIMELINE.snapshots[cur].wallT;
         for (const snap of TIMELINE.snapshots) snap.wallT += delta;
         TIMELINE.lastSnapWallT = now;
+        _prunePtr = 1; // reset thinning pointer for the new forward branch
       }
-      // If cur === n we are at "NOW"; live state is already the frozen snap.
 
       TIMELINE.frozenSnap = null;
       state.paused        = false;
-
       if (btn) btn.classList.remove('on');
     }
   }
@@ -230,6 +260,7 @@
     TIMELINE.frozenSnap    = null;
     TIMELINE.cursorIdx     = 0;
     TIMELINE._dotPositions = [];
+    _prunePtr              = 1;
   }
 
   // ── PUBLIC: POINTER HANDLER (routed from ui.js onDown while paused) ──────
@@ -268,14 +299,13 @@
     const n   = TIMELINE.snapshots.length;
     const rPx = pxDist(CFG.R_DRUM);
 
-    // Vertical position: just below the steel band in wide mode (plenty of
-    // room in the feet zone); lower drum interior in compact/portrait so it
-    // doesn't collide with the gauge bar.
+    // Vertical position: just below the steel band in wide mode;
+    // lower drum interior in compact/portrait to avoid the gauge bar.
     const dotY = REGIME === 'wide'
-      ? CY + rPx + 32 + 35       // wide: centre of the feet zone
-      : CY + rPx * 0.82;         // compact / portrait: lower drum interior
+      ? CY + rPx + 32 + 35
+      : CY + rPx * 0.82;
 
-    // Horizontal span: 68% of canvas width, centred
+    // Horizontal span: 68% of canvas width, centred.
     const tlW = Math.min(W * 0.68, 520);
     const x0  = CX - tlW * 0.5;
     const x1  = CX + tlW * 0.5;
@@ -317,13 +347,14 @@
     ctxOv.lineTo(x1, dotY);
     ctxOv.stroke();
 
-    // ── DOTS ──────────────────────────────────────────────────────────────
-    // n snapshot dots  +  1 "NOW" dot  =  n+1 positions
+    // ── DOTS ─────────────────────────────────────────────────────────────
+    // n snapshot dots + 1 "NOW" dot = n+1 positions
     const total   = n + 1;
     const spacing = total > 1 ? (x1 - x0) / (total - 1) : 0;
     const nowWallT = TIMELINE.frozenSnap
       ? TIMELINE.frozenSnap.wallT
       : performance.now() / 1000;
+    const competitive = _inCompetitiveMode();
 
     const newDots = [];
     for (let i = 0; i <= n; i++) {
@@ -331,9 +362,10 @@
       const isNow = i === n;
       const isCur = i === TIMELINE.cursorIdx;
       const r     = isCur ? 8 : isNow ? 5.5 : 4;
-      const fill  = isCur ? '#ffcc55'
-                  : isNow ? '#60ff90'
-                  :          'rgba(200,160,80,0.65)';
+      const fill  = (competitive && !isNow) ? 'rgba(120,110,90,0.30)'
+                  : isCur                   ? '#ffcc55'
+                  : isNow                   ? '#60ff90'
+                  :                           'rgba(200,160,80,0.65)';
 
       if (isCur) {
         ctxOv.beginPath();
@@ -357,7 +389,7 @@
     }
     TIMELINE._dotPositions = newDots;
 
-    // ── TIME LABEL (under cursor dot) ─────────────────────────────────────
+    // ── TIME LABEL (under cursor dot) ────────────────────────────────────
     const curX  = x0 + TIMELINE.cursorIdx * spacing;
     const label = TIMELINE.cursorIdx === n
       ? 'NOW'
@@ -369,10 +401,12 @@
     ctxOv.textBaseline = 'top';
     ctxOv.fillText(label, curX, dotY + 11);
 
-    // ── HINT TEXT (above dots) ─────────────────────────────────────────────
-    const hint = TIMELINE.cursorIdx < n
-      ? '← → to scrub  •  SPACE to branch here'
-      : '← to step back  •  SPACE to resume';
+    // ── HINT TEXT (above dots) ────────────────────────────────────────────
+    const hint = competitive
+      ? 'SPACE to resume'
+      : TIMELINE.cursorIdx < n
+        ? '← → to scrub  •  SPACE to branch here'
+        : '← to step back  •  SPACE to resume';
     ctxOv.fillStyle    = 'rgba(180,170,150,0.65)';
     ctxOv.font         = '9px "Courier New", monospace';
     ctxOv.textAlign    = 'center';
@@ -382,7 +416,7 @@
     ctxOv.restore();
   }
 
-  // ── KEYBOARD NAVIGATION (active only while paused) ────────────────────────
+  // ── KEYBOARD NAVIGATION (active only while paused) ───────────────────────
   document.addEventListener('keydown', e => {
     if (!state.paused) return;
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
