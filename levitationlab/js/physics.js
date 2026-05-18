@@ -593,7 +593,8 @@
     const lev = eggLevitatedAggregates();
     const T   = state.period();
 
-    if (lev.length >= TUNING.egg.nCrit && isFinite(T) && CFG.VT_SPREAD >= TUNING.egg.minSpread) {
+    if (lev.length >= TUNING.egg.nCrit && isFinite(T) && _levitatedSpread(lev) >= TUNING.egg.minSpread) {
+
       state.eggHoldRevs += dt / T;
       if (state.eggHoldRevs >= target) {
         startMerge(lev);
@@ -1015,6 +1016,21 @@
     else                 return TUNING.aggregate.subseqHoldRevs;
   }
 
+  /**
+   * Returns the relative spread (coefficient of variation) of vt among
+   * a list of particle or aggregate objects. Returns 0 for fewer than 2.
+   *
+   * @param {object[]} list - Array of objects with a .vt property.
+   * @returns {number} Relative spread: stddev(vt) / mean(vt).
+ */
+  function _levitatedSpread(list) {
+    if (list.length < 2) return 0;
+    const mean = list.reduce((s, p) => s + p.vt, 0) / list.length;
+    if (mean < 1e-6) return 0;
+    const variance = list.reduce((s, p) => s + (p.vt - mean) ** 2, 0) / list.length;
+    return Math.sqrt(variance) / mean;
+  }
+
   function updateAggregates(dt) {
     // Advance an in-progress aggregate merge animation.
     if (state.aggMerging) {
@@ -1080,7 +1096,7 @@
       
       if (lev.length >= TUNING.aggregate.minLevitated &&
           isFinite(T) &&
-          CFG.VT_SPREAD >= TUNING.aggregate.minSpread) {
+          _levitatedSpread(lev) >= TUNING.aggregate.minSpread) {
         state.aggHoldRevs += dt / T;
         const target = state.aggCount === 0
           ? TUNING.aggregate.initialHoldRevs

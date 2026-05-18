@@ -2241,6 +2241,18 @@ function drawRepresentativeOrbits() {
   }
 
   /**
+   * Computes relative spread (coefficient of variation) of vt for a list
+   * of objects with a .vt property. Returns 0 for fewer than 2 items.
+   */
+  function _vtSpread(list) {
+    if (list.length < 2) return 0;
+    const mean = list.reduce((s, p) => s + p.vt, 0) / list.length;
+    if (mean < 1e-6) return 0;
+    const variance = list.reduce((s, p) => s + (p.vt - mean) ** 2, 0) / list.length;
+    return Math.sqrt(variance) / mean;
+  }
+
+  /**
    * Draws the v_t distribution of levitated particles (KDE, green) and
    * live aggregates (histogram bins, amber) in the upper-left drum area.
    */
@@ -2376,6 +2388,88 @@ function drawRepresentativeOrbits() {
     ctxOv.font = `${fs}px monospace`;
     ctxOv.textAlign = 'center';
     ctxOv.fillText('v_t dist.', X2px((X0 + X1) / 2), Y2px(Y1) - fs);
+
+    // ── SPREAD READOUT (right side of drum, mirroring the vt plot) ───────
+    const RX0 = 8, RX1 = 48;
+    const RY0 = 58, RY1 = 72;
+    const rxCentre = (RX0 + RX1) / 2;
+
+    // Collect populations
+    const floatVtsR = [], levVtsR = [];
+    for (const p of state.particles) {
+      if (!p.alive || p.stuck || p.merging || !p.insideOnce) continue;
+      if (state.isLevitated(p)) levVtsR.push(p.vt);
+      else floatVtsR.push(p.vt);
+    }
+    const aggVtsR = [];
+    for (const a of state.aggregates) {
+      if (!a.alive || a.merging) continue;
+      aggVtsR.push(a.vt);
+    }
+
+    const rows = [
+      {
+        label: 'particles',
+        spread: _vtSpread(floatVtsR.concat(levVtsR)),
+        threshold: null,
+        color: 'rgba(255,238,51,0.85)',
+      },
+      {
+        label: 'levitated',
+        spread: _vtSpread(levVtsR),
+        threshold: TUNING.aggregate.minSpread,
+        color: 'rgba(64,255,112,0.85)',
+      },
+      {
+        label: 'aggregates',
+        spread: _vtSpread(aggVtsR),
+        threshold: TUNING.egg.minSpread,
+        color: 'rgba(230,160,50,0.90)',
+      },
+    ];
+
+    const rfs  = 9;  // fixed px size — consistent across screen sizes
+    const rowH = rfs * 1.4;
+    const readoutH = rows.length * rowH;
+    const startY = RY0;
+
+    ctxOv.save();
+    ctxOv.beginPath();
+    ctxOv.arc(CX, CY, pxDist(CFG.R_DRUM), 0, Math.PI * 2);
+    ctxOv.clip();
+
+    // Title
+    ctxOv.fillStyle = 'rgba(180,180,160,0.7)';
+    ctxOv.font = `${rfs}px monospace`;
+    ctxOv.textAlign = 'center';
+    ctxOv.textBaseline = 'middle';
+    ctxOv.fillText('σ/μ', X2px(rxCentre), Y2px(RY1) - rfs * 0.5);
+
+    for (let i = 0; i < rows.length; i++) {
+      const row   = rows[i];
+      const rowY  = Y2px(RY0) + i * rowH + rowH * 0.5;
+      const hasSpread = row.spread > 0;
+      const meets = row.threshold !== null && row.spread >= row.threshold;
+      const fails = row.threshold !== null && hasSpread && !meets;
+
+      // Label
+      ctxOv.fillStyle = 'rgba(180,180,160,0.65)';
+      ctxOv.font = `${rfs}px monospace`;
+      ctxOv.textAlign = 'left';
+      ctxOv.textBaseline = 'middle';
+      ctxOv.fillText(row.label, X2px(RX0), rowY);
+
+      // Value + threshold as one right-aligned string
+      const valStr = hasSpread ? row.spread.toFixed(2) : '—';
+      const thrStr = row.threshold !== null ? `/${row.threshold.toFixed(2)}` : '';
+      ctxOv.font = `bold ${rfs}px monospace`;
+      ctxOv.textAlign = 'right';
+      ctxOv.fillStyle = meets  ? '#60ff90'
+        : fails  ? '#ff7a5a'
+        :           row.color;
+      const fullStr = thrStr ? `${valStr} ${thrStr}` : valStr;
+      ctxOv.fillText(fullStr, X2px(RX1), rowY);      }
+    }
 
     ctxOv.restore();
   }
