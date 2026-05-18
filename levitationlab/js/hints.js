@@ -333,7 +333,7 @@
 
     const msg      = hs.current.message;
     const fontSize = Math.max(10, Math.min(13, pxDist(5)));
-    const cx       = CX;        // drum centre x
+    const cx       = CX;
     const cy       = Y2px(78);  // near top of drum, above levitation zone
 
     ctxOv.save();
@@ -342,14 +342,42 @@
     ctxOv.textAlign    = 'center';
     ctxOv.textBaseline = 'middle';
 
-    // Rounded-rect backdrop
-    const tw  = ctxOv.measureText(msg).width;
-    const pad = 7;
-    const bx  = cx - tw * 0.5 - pad;
-    const by  = cy - fontSize * 0.5 - pad * 0.5;
-    const bw  = tw + pad * 2;
-    const bh  = fontSize + pad;
-    const br  = 4;
+    // ── WORD-WRAP into two lines ──────────────────────────────────────────
+    // Target max width: 55% of drum diameter in pixels, giving comfortable
+    // margins inside the drum on all screen sizes.
+    const maxW   = pxDist(CFG.R_DRUM) * 1.1;
+    const words  = msg.split(' ');
+    let line1 = '', line2 = '';
+
+    // Greedy fill: add words to line1 until it would exceed maxW, then
+    // put the remainder on line2.
+    let built = '';
+    let splitAt = words.length; // default: everything on line1
+    for (let i = 0; i < words.length; i++) {
+      const test = built ? built + ' ' + words[i] : words[i];
+      if (ctxOv.measureText(test).width > maxW && built) {
+        splitAt = i;
+        break;
+      }
+      built = test;
+    }
+    line1 = words.slice(0, splitAt).join(' ');
+    line2 = words.slice(splitAt).join(' ');
+
+    const hasTwo = line2.length > 0;
+    const tw1    = ctxOv.measureText(line1).width;
+    const tw2    = hasTwo ? ctxOv.measureText(line2).width : 0;
+    const tw     = Math.max(tw1, tw2);
+
+    // ── BACKDROP ─────────────────────────────────────────────────────────
+    const pad    = 7;
+    const lineH  = fontSize * 1.35;
+    const bh     = (hasTwo ? lineH * 2 : lineH) + pad;
+    const bw     = tw + pad * 2;
+    const bx     = cx - tw * 0.5 - pad;
+    const by     = cy - bh * 0.5;
+    const br     = 4;
+
     ctxOv.fillStyle = 'rgba(8,8,12,0.80)';
     ctxOv.beginPath();
     ctxOv.moveTo(bx + br, by);
@@ -364,9 +392,15 @@
     ctxOv.closePath();
     ctxOv.fill();
 
-    // Text in brass tone to match the lab aesthetic
+    // ── TEXT ─────────────────────────────────────────────────────────────
     ctxOv.fillStyle = '#d8c18a';
-    ctxOv.fillText(msg, cx, cy);
+    if (hasTwo) {
+      ctxOv.fillText(line1, cx, cy - lineH * 0.5);
+      ctxOv.fillText(line2, cx, cy + lineH * 0.5);
+    } else {
+      ctxOv.fillText(line1, cx, cy);
+    }
+
     ctxOv.restore();
   }
 
