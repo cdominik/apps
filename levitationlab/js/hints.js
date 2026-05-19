@@ -5,6 +5,9 @@
  *   drum when the player could benefit from a nudge. Toggle with the ? key.
  *   Suppressed during Game and Challenge modes.
  *
+ *   On/off transitions show an immediate acknowledgement message that
+ *   bypasses the normal rule system and cooldowns.
+ *
  * Exposes globals: updateHints, drawHints
  * Reads globals:   TUNING, CFG, state, GAME, CHALLENGE,
  *                  CX, CY, ctxOv, Y2px, pxDist
@@ -29,25 +32,66 @@
     current:     null,   // { message, startedAt (wall s) } | null
     lastFiredAt: -999,   // wall time of last hint fired
     cooldowns:   {},     // rule id → wall time last fired
+    forceDraw:   false,  // true while the farewell hint is showing after hints turned off
   };
 
   // ── HELPERS ───────────────────────────────────────────────────────────────
   const _expertOpen = () => _expertEl.classList.contains('open');
 
+  /**
+   * Returns the 95.45% percentile range of vt for all floating particles,
+   * plus their mean. Returns null if fewer than 2 samples.
+   */
+  function _floatVtRange() {
+    const vts = state.particles
+      .filter(p => p.alive && !p.stuck && !p.merging && p.insideOnce)
+      .map(p => p.vt);
+    if (vts.length < 2) return null;
+    const sorted = [...vts].sort((a, b) => a - b);
+    const n    = sorted.length;
+    const lo   = sorted[Math.floor(0.02275 * (n - 1))];
+    const hi   = sorted[Math.ceil(0.97725  * (n - 1))];
+    const mean = vts.reduce((s, v) => s + v, 0) / n;
+    return { lo, hi, mean, range: hi - lo };
+  }
+
+  /**
+   * Returns the empirical min-to-max vt range of live aggregates, plus mean.
+   * Returns null if fewer than 2 aggregates.
+   */
+  function _aggVtRange() {
+    const vts = state.aggregates
+      .filter(a => a.alive && !a.stuck && !a.merging && !a.onTray)
+      .map(a => a.vt);
+    if (vts.length < 2) return null;
+    const vtMin  = Math.min(...vts);
+    const vtMax  = Math.max(...vts);
+    const vtMean = vts.reduce((s, v) => s + v, 0) / vts.length;
+    return { vtMin, vtMax, vtMean, range: vtMax - vtMin };
+  }
+
   // ── RULES ─────────────────────────────────────────────────────────────────
   // Priority: higher fires first when multiple rules match simultaneously.
   // Cooldown: seconds before this individual rule can fire again.
-  // Rules pointing at expert buttons are gated on _expertOpen().
   const RULES = [
 
     // ── DRAMATIC EVENTS ───────────────────────────────────────────────────
 
     {
-      id: 'pebble_formed',
+      id: 'pebble_formed_normal',
       priority: 100,
       cooldown: 120,
-      when: c => c.pebbles.count >= 1 && c.pebbles.count <= 2,
+      when: c => !window.aggGrowthOn &&
+                 c.pebbles.count >= 1 && c.pebbles.count <= 2,
       message: 'A pebble has formed — seven aggregates compressed into one.',
+    },
+    {
+      id: 'pebble_formed_grow',
+      priority: 100,
+      cooldown: 120,
+      when: c => window.aggGrowthOn &&
+                 c.pebbles.count >= 1 && c.pebbles.count <= 2,
+      message: 'A pebble has formed from the grown aggregate population.',
     },
     {
       id: 'aggregate_formed_no_kick',
@@ -67,12 +111,32 @@
                  window.stokesKickOn,
       message: 'Aggregate formed. Its higher Stokes number shifts its orbit outward.',
     },
+
+    // ── PEBBLE IMMINENCE — mode-specific ──────────────────────────────────
+
     {
-      id: 'pebble_imminent',
+      id: 'pebble_imminent_normal',
       priority: 85,
       cooldown: 30,
-      when: c => c.aggregates.levitated >= 7 && c.pebbles.count === 0,
-      message: 'Seven aggregates levitated. A pebble should form soon.',
+      when: c => !window.aggGrowthOn &&
+                 c.aggregates.levitated >= 7 &&
+                 c.params.VT_SPREAD >= TUNING.egg.minSpread &&
+                 c.pebbles.count === 0,
+      message: 'Seven aggregates levitated with sufficient spread. A pebble should form soon.',
+    },
+    {
+      id: 'pebble_imminent_grow',
+      priority: 85,
+      cooldown: 30,
+      when: c => {
+        if (!window.aggGrowthOn) return false;
+        if (c.pebbles.count > 0) return false;
+        if (state.eggHoldRevs < 0.3) return false;
+        const r = _aggVtRange();
+        return r !== null && r.vtMean > 0 &&
+               r.range >= TUNING.egg.widthThresh * r.vtMean;
+      },
+      message: 'Aggregate range is wide — pebble forming. Keep the drum spinning.',
     },
 
     // ── EXPERT BUTTON SUGGESTIONS (require expert door open) ──────────────
@@ -102,16 +166,34 @@
       message: 'A merge is building — enable slow motion to watch it form.',
     },
 
-    // ── FORMATION CONDITIONS ──────────────────────────────────────────────
+    // ── FORMATION CONDITIONS — normal pebble path ─────────────────────────
 
     {
-      id: 'spread_low_for_pebble',
+      id: 'spread_low_for_pebble_normal',
       priority: 75,
       cooldown: 60,
-      when: c => c.aggregates.count >= 3 &&
-                 c.params.VT_SPREAD < 0.30 &&
+      when: c => !window.aggGrowthOn &&
+                 c.aggregates.count >= 3 &&
+                 c.params.VT_SPREAD < TUNING.egg.minSpread &&
                  c.pebbles.count === 0,
-      message: 'Pebble formation needs a v_t spread of at least 30%.',
+      message: 'Pebble formation needs an injection spread of at least 30%. Increase v_t spread.',
+    },
+
+    // ── FORMATION CONDITIONS — grow pebble path ───────────────────────────
+
+    {
+      id: 'grow_range_narrow',
+      priority: 75,
+      cooldown: 60,
+      when: c => {
+        if (!window.aggGrowthOn) return false;
+        if (c.aggregates.count < 2) return false;
+        if (c.pebbles.count > 0) return false;
+        const r = _aggVtRange();
+        return r !== null && r.vtMean > 0 &&
+               r.range < TUNING.egg.widthThresh * r.vtMean;
+      },
+      message: 'Aggregate v_t range has collapsed — pebble formation paused. A wider injection spread would help.',
     },
 
     // ── MORE EXPERT BUTTON SUGGESTIONS ────────────────────────────────────
@@ -155,11 +237,15 @@
       id: 'spread_low_for_aggregates',
       priority: 60,
       cooldown: 60,
-      when: c => c.particles.levitated >= 5 &&
-                 c.params.VT_SPREAD > 0 &&
-                 c.params.VT_SPREAD < 0.20 &&
-                 c.aggregates.count === 0,
-      message: 'Aggregate formation needs a v_t spread of at least 20%.',
+      when: c => {
+        if (c.particles.levitated < 5) return false;
+        if (c.params.VT_SPREAD === 0) return false; // monodisperse rule handles this
+        if (c.aggregates.count > 0) return false;
+        const r = _floatVtRange();
+        if (!r) return false;
+        return r.mean > 0 && r.range < TUNING.aggregate.spreadThresh * r.mean;
+      },
+      message: 'Particle size range too narrow for aggregates. Increase v_t spread.',
     },
     {
       id: 'monodisperse',
@@ -317,11 +403,17 @@
 
   // ── DRAW (called each render frame from main.js, draws on ctxOv) ─────────
   function drawHints() {
-    if (!window.hintsOn || !hs.current) return;
+    if (!hs.current) return;
+    // Allow the farewell hint to render even though hintsOn is now false.
+    if (!window.hintsOn && !hs.forceDraw) return;
 
     const now = performance.now() / 1000;
     const age = now - hs.current.startedAt;
-    if (age >= TOTAL_DUR) { hs.current = null; return; }
+    if (age >= TOTAL_DUR) {
+      hs.current   = null;
+      hs.forceDraw = false;
+      return;
+    }
 
     // Alpha envelope: fade in → hold → fade out
     let alpha;
@@ -343,16 +435,11 @@
     ctxOv.textBaseline = 'middle';
 
     // ── WORD-WRAP into two lines ──────────────────────────────────────────
-    // Target max width: 55% of drum diameter in pixels, giving comfortable
-    // margins inside the drum on all screen sizes.
-    const maxW   = pxDist(CFG.R_DRUM) * 1.1;
-    const words  = msg.split(' ');
-    let line1 = '', line2 = '';
+    const maxW  = pxDist(CFG.R_DRUM) * 1.1;
+    const words = msg.split(' ');
 
-    // Greedy fill: add words to line1 until it would exceed maxW, then
-    // put the remainder on line2.
     let built = '';
-    let splitAt = words.length; // default: everything on line1
+    let splitAt = words.length;
     for (let i = 0; i < words.length; i++) {
       const test = built ? built + ' ' + words[i] : words[i];
       if (ctxOv.measureText(test).width > maxW && built) {
@@ -361,8 +448,8 @@
       }
       built = test;
     }
-    line1 = words.slice(0, splitAt).join(' ');
-    line2 = words.slice(splitAt).join(' ');
+    const line1 = words.slice(0, splitAt).join(' ');
+    const line2 = words.slice(splitAt).join(' ');
 
     const hasTwo = line2.length > 0;
     const tw1    = ctxOv.measureText(line1).width;
@@ -370,13 +457,13 @@
     const tw     = Math.max(tw1, tw2);
 
     // ── BACKDROP ─────────────────────────────────────────────────────────
-    const pad    = 7;
-    const lineH  = fontSize * 1.35;
-    const bh     = (hasTwo ? lineH * 2 : lineH) + pad;
-    const bw     = tw + pad * 2;
-    const bx     = cx - tw * 0.5 - pad;
-    const by     = cy - bh * 0.5;
-    const br     = 4;
+    const pad = 7;
+    const lineH = fontSize * 1.35;
+    const bh  = (hasTwo ? lineH * 2 : lineH) + pad;
+    const bw  = tw + pad * 2;
+    const bx  = cx - tw * 0.5 - pad;
+    const by  = cy - bh * 0.5;
+    const br  = 4;
 
     ctxOv.fillStyle = 'rgba(8,8,12,0.80)';
     ctxOv.beginPath();
@@ -388,7 +475,7 @@
     ctxOv.lineTo(bx + br, by + bh);
     ctxOv.arcTo(bx, by + bh,      bx, by + bh - br,      br);
     ctxOv.lineTo(bx, by + br);
-    ctxOv.arcTo(bx, by,            bx + br, by,           br);
+    ctxOv.arcTo(bx, by,           bx + br, by,            br);
     ctxOv.closePath();
     ctxOv.fill();
 
@@ -409,8 +496,20 @@
     if (e.key !== '?') return;
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     e.preventDefault();
+
     window.hintsOn = !window.hintsOn;
-    if (!window.hintsOn) hs.current = null;
+    const now = performance.now() / 1000;
+
+    if (window.hintsOn) {
+      // Welcome hint — bypasses cooldown and rules, shows immediately.
+      hs.current     = { message: 'Hint system on. Watch this space for tips and information.', startedAt: now };
+      hs.lastFiredAt = now;
+      hs.forceDraw   = false;
+    } else {
+      // Farewell hint — must render even though hintsOn is now false.
+      hs.current   = { message: 'Hint system turned off.', startedAt: now };
+      hs.forceDraw = true;
+    }
   });
 
   window.updateHints = updateHints;

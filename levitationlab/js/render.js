@@ -2179,14 +2179,37 @@ function drawRepresentativeOrbits() {
     ctxOv.restore();
   }
 
-  /**
-   * Draws one Gaussian-KDE curve (filled area + stroked outline) for a v_t
-   * sample, normalised to its own peak. Shared by the floating-particle and
-   * levitated-particle curves in drawVtDistribution (previously duplicated).
+/**
+   * Returns the peak KDE density for vts over [xMin, xMax] using Silverman's
+   * bandwidth — identical formula to drawKDE so peak values are directly
+   * comparable and can be used as a shared normMax.
    *
-   * Uses Silverman's rule for bandwidth and a fixed 60-point grid over
-   * [xMin, xMax]. No-ops if the sample is empty or degenerate (kMax === 0).
-   * Caller owns clipping and draw order.
+   * @param {number[]} vts  - Terminal-velocity samples.
+   * @param {number} xMin   - Left edge of the evaluation domain.
+   * @param {number} xMax   - Right edge of the evaluation domain.
+   * @returns {number} Peak density, or 0 for empty / degenerate input.
+   */
+  function computeKDEPeak(vts, xMin, xMax) {
+    if (!vts || vts.length === 0) return 0;
+    const n    = vts.length;
+    const mean = vts.reduce((a, b) => a + b, 0) / n;
+    const sig  = Math.sqrt(Math.max(0.1, vts.reduce((s, v) => s + (v - mean) ** 2, 0) / n));
+    const bw   = Math.max(0.5, 1.06 * sig * Math.pow(n, -0.2));
+    const nGrid = 60;
+    let peak = 0;
+    for (let i = 0; i < nGrid; i++) {
+      const vt = xMin + (i / (nGrid - 1)) * (xMax - xMin);
+      let sum = 0;
+      for (const v of vts) { const z = (vt - v) / bw; sum += Math.exp(-0.5 * z * z); }
+      if (sum > peak) peak = sum;
+    }
+    return peak;
+  }
+
+  /**
+   * Draws a Gaussian-KDE curve (filled area + stroked outline) for a v_t
+   * sample. Uses Silverman's rule for bandwidth and a fixed 60-point grid
+   * over [xMin, xMax].
    *
    * @param {number[]} vts    - Terminal-velocity samples.
    * @param {string}   fill   - Fill style for the area under the curve.
@@ -2197,13 +2220,16 @@ function drawRepresentativeOrbits() {
    * @param {number}   totalW - Plot width in drum-units.
    * @param {number}   baseY  - Baseline y in drum-units.
    * @param {number}   plotH  - Plot height in drum-units.
+   * @param {number}  [normMax=0] - When > 0, normalise to this peak instead
+   *                               of the curve's own maximum. Pass the same
+   *                               value to two calls to co-normalise them.
    */
-  function drawKDE(vts, fill, stroke, xMin, xMax, X0, totalW, baseY, plotH) {
+  function drawKDE(vts, fill, stroke, xMin, xMax, X0, totalW, baseY, plotH, normMax = 0) {
     if (!vts || vts.length === 0) return;
     const n    = vts.length;
     const mean = vts.reduce((a, b) => a + b, 0) / n;
     const sig  = Math.sqrt(Math.max(0.1, vts.reduce((s, v) => s + (v - mean) ** 2, 0) / n));
-    const bw   = 1.06 * sig * Math.pow(n, -0.2);
+    const bw   = Math.max(0.5, 1.06 * sig * Math.pow(n, -0.2));
 
     const nGrid = 60;
     const ky = new Array(nGrid);
@@ -2212,16 +2238,17 @@ function drawRepresentativeOrbits() {
       const vt = xMin + (i / (nGrid - 1)) * (xMax - xMin);
       let sum = 0;
       for (const v of vts) { const z = (vt - v) / bw; sum += Math.exp(-0.5 * z * z); }
-      ky[i] = sum / (n * bw * Math.sqrt(2 * Math.PI));
+      ky[i] = sum;
       if (ky[i] > kMax) kMax = ky[i];
     }
 
-    if (kMax > 0) {
+    const effectiveMax = normMax > 0 ? normMax : kMax;
+    if (effectiveMax > 0) {
       ctxOv.beginPath();
       ctxOv.moveTo(X2px(X0), Y2px(baseY));
       for (let i = 0; i < nGrid; i++) {
         const x = X0 + (i / (nGrid - 1)) * totalW;
-        ctxOv.lineTo(X2px(x), Y2px(baseY + plotH * (ky[i] / kMax)));
+        ctxOv.lineTo(X2px(x), Y2px(baseY + plotH * (ky[i] / effectiveMax)));
       }
       ctxOv.lineTo(X2px(X0 + totalW), Y2px(baseY));
       ctxOv.closePath();
@@ -2231,7 +2258,7 @@ function drawRepresentativeOrbits() {
       ctxOv.beginPath();
       for (let i = 0; i < nGrid; i++) {
         const x = X0 + (i / (nGrid - 1)) * totalW;
-        const y = baseY + plotH * (ky[i] / kMax);
+        const y = baseY + plotH * (ky[i] / effectiveMax);
         i === 0 ? ctxOv.moveTo(X2px(x), Y2px(y)) : ctxOv.lineTo(X2px(x), Y2px(y));
       }
       ctxOv.strokeStyle = stroke;
@@ -2239,6 +2266,7 @@ function drawRepresentativeOrbits() {
       ctxOv.stroke();
     }
   }
+
 
   /**
    * Computes relative spread (coefficient of variation) of vt for a list
@@ -2252,9 +2280,20 @@ function drawRepresentativeOrbits() {
     return Math.sqrt(variance) / mean;
   }
 
+  
   /**
-   * Draws the v_t distribution of levitated particles (KDE, green) and
-   * live aggregates (histogram bins, amber) in the upper-left drum area.
+   * Draws the v_t distribution of all floating particles (KDE, yellow),
+   * levitated particles (KDE, green), and live aggregates (histogram, amber)
+   * in the upper-left drum area, plus two spread bars below the x-axis:
+   *   Lime bar  — all floating particles: width = 2σ, threshold line = 2·minSpread.
+   *   Amber bar — live aggregates:        width = 2σ, threshold line = 2·minSpread.
+   *
+   * The yellow and green KDE curves are co-normalised to the same peak so
+   * that their relative heights reflect relative population sizes.
+   *
+   * The number row and both spread bars are anchored in pixels relative to
+   * the baseline so the below-axis cluster stays tight and cohesive at any
+   * zoom level.
    */
   function drawVtDistribution() {
     if (!window.vtDistOn) return;
@@ -2267,6 +2306,7 @@ function drawRepresentativeOrbits() {
       if (state.isLevitated(p)) levVts.push(p.vt);
       else                      floatVts.push(p.vt);
     }
+    const allFloatVts = floatVts.concat(levVts); // all floating for spread bar
     const aggVts = [];
     for (const agg of state.aggregates) {
       if (!agg.alive || agg.merging) continue;
@@ -2289,61 +2329,102 @@ function drawRepresentativeOrbits() {
       ctxOv.beginPath();
       ctxOv.arc(CX, CY, pxDist(CFG.R_DRUM), 0, Math.PI * 2);
       ctxOv.clip();
-
       ctxOv.strokeStyle = 'rgba(180,180,160,0.4)';
       ctxOv.lineWidth = 1;
       ctxOv.beginPath();
       ctxOv.moveTo(X2px(X0), Y2px(baseY));
       ctxOv.lineTo(X2px(X1), Y2px(baseY));
       ctxOv.stroke();
-
       ctxOv.fillStyle = 'rgba(180,180,160,0.7)';
       ctxOv.font = `${fs}px monospace`;
       ctxOv.textAlign = 'center';
       ctxOv.fillText('v_t dist.', X2px((X0 + X1) / 2), Y2px(Y1) - fs);
-
       ctxOv.restore();
       return;
     }
 
-    // --- X-AXIS RANGE from current injection profile ---
-    const dist = state.distMode;
-    const dp   = state.distParams;
+    // --- X-AXIS RANGE from actual data only ---
+    // Derived entirely from particles and aggregates currently in the drum so
+    // that changing the wing selectors mid-run never shifts the axis.
+    // Falls back to a CFG snapshot only when the drum is empty.
+    const allData = allFloatVts.concat(aggVts);
     let xMin, xMax;
-    if (dist === 'bi') {
-      xMin = Math.min(dp.bi.vt1, dp.bi.vt2) * 0.7;
-      xMax = Math.max(dp.bi.vt1, dp.bi.vt2) * 1.3;
-    } else if (dist === 'power') {
-      xMin = dp.power.vtMin * 0.8;
-      xMax = dp.power.vtMax * 1.2;
+    if (allData.length >= 2) {
+      const dataMin = Math.min(...allData);
+      const dataMax = Math.max(...allData);
+      const pad = (dataMax - dataMin) * 0.15 || dataMin * 0.15 || 1;
+      xMin = Math.max(0.1, dataMin - pad);
+      xMax = dataMax + pad;
     } else {
-      const sp = CFG.VT_SPREAD;
-      xMin = Math.max(0.5, CFG.V_T * (1 - sp * 2.5));
-      xMax = CFG.V_T * (1 + sp * 2.5);
+      // Empty drum — one-time CFG snapshot, not continuously tracked.
+      xMin = Math.max(0.1, CFG.V_T * 0.5);
+      xMax = CFG.V_T * 1.5;
     }
-    // Expand to contain actual data
-    if (levVts.length)   { xMin = Math.min(xMin, Math.min(...levVts)   * 0.9); xMax = Math.max(xMax, Math.max(...levVts)   * 1.1); }
-    if (floatVts.length) { xMin = Math.min(xMin, Math.min(...floatVts) * 0.9); xMax = Math.max(xMax, Math.max(...floatVts) * 1.1); }
-    if (aggVts.length)   { xMin = Math.min(xMin, Math.min(...aggVts)   * 0.9); xMax = Math.max(xMax, Math.max(...aggVts)   * 1.1); }
     if (xMax <= xMin) return;
 
     const vtToX = vt => X0 + ((vt - xMin) / (xMax - xMin)) * totalW;
+
+    // --- SPREAD-BAR GEOMETRY (drum-units) ---
+    const barThick = 2.8;
+    const barGap   = 1.5;
+
+    // --- SPREAD-BAR HELPERS ---
+    const _stats = (vts) => {
+      if (vts.length < 2) return null;
+      const mean = vts.reduce((s, v) => s + v, 0) / vts.length;
+      const sig  = Math.sqrt(
+        vts.reduce((s, v) => s + (v - mean) ** 2, 0) / vts.length
+      );
+      return { mean, sig };
+    };
+
+    // barTopPx is the bar's TOP edge in canvas pixels.
+    // loVt / hiVt  — bar edges in vt space (cm/s).
+    // threshFrac   — if > 0, draws a centred threshold line of half-width
+    //                threshFrac × mean; pass 0 to suppress the line.
+    // mean         — centre for the threshold line (ignored when threshFrac=0).
+    const _drawSpreadBar = (barTopPx, loVt, hiVt, threshFrac, mean, fillCol, lineCol) => {
+      const barHpx   = pxDist(barThick);
+      const barMidPx = barTopPx + barHpx * 0.5;
+
+      const barW = vtToX(hiVt) - vtToX(loVt);
+      if (barW > 0) {
+        ctxOv.fillStyle = fillCol;
+        ctxOv.fillRect(X2px(vtToX(loVt)), barTopPx, pxDist(barW), barHpx);
+      }
+
+      if (threshFrac > 0 && mean > 0) {
+        const threshAbs = threshFrac * mean;
+        const lineLeft  = vtToX(mean - threshAbs);
+        const lineRight = vtToX(mean + threshAbs);
+        const lineW     = lineRight - lineLeft;
+        if (lineW > 0) {
+          ctxOv.strokeStyle = lineCol;
+          ctxOv.lineWidth   = 1.5;
+          ctxOv.beginPath();
+          ctxOv.moveTo(X2px(lineLeft),  barMidPx);
+          ctxOv.lineTo(X2px(lineRight), barMidPx);
+          ctxOv.stroke();
+        }
+      }
+    };
 
     ctxOv.save();
     ctxOv.beginPath();
     ctxOv.arc(CX, CY, pxDist(CFG.R_DRUM), 0, Math.PI * 2);
     ctxOv.clip();
 
-    // --- KDE FOR FLOATING PARTICLES (yellow, drawn first) ---
-    // --- KDE FOR LEVITATED PARTICLES (green, drawn on top) ---
-    // Order matters: floating must draw before levitated so the green curve
-    // sits on top, exactly as before.
+    // --- KDE CURVES (co-normalised: levitated and floating share the same peak) ---
+    const sharedKMax = Math.max(
+      computeKDEPeak(floatVts, xMin, xMax),
+      computeKDEPeak(levVts,   xMin, xMax)
+    );
     drawKDE(floatVts, 'rgba(255,238,51,0.10)', 'rgba(255,238,51,0.75)',
-            xMin, xMax, X0, totalW, baseY, plotH);
-    drawKDE(levVts, 'rgba(64,255,112,0.15)', 'rgba(64,255,112,0.85)',
-            xMin, xMax, X0, totalW, baseY, plotH);
+            xMin, xMax, X0, totalW, baseY, plotH, sharedKMax);
+    drawKDE(levVts,   'rgba(64,255,112,0.15)', 'rgba(64,255,112,0.85)',
+            xMin, xMax, X0, totalW, baseY, plotH, sharedKMax);
 
-    // --- HISTOGRAM BINS FOR AGGREGATES (amber) ---
+    // --- AGGREGATE HISTOGRAM ---
     if (aggVts.length > 0) {
       const nBins = 8;
       const bins  = new Array(nBins).fill(0);
@@ -2356,7 +2437,6 @@ function drawRepresentativeOrbits() {
       const bSlotW = totalW / nBins;
       const bBarW  = bSlotW * 0.65;
       const bPadX  = bSlotW * 0.175;
-
       for (let i = 0; i < nBins; i++) {
         if (bins[i] === 0) continue;
         const bx = X0 + i * bSlotW + bPadX;
@@ -2374,13 +2454,15 @@ function drawRepresentativeOrbits() {
     ctxOv.lineTo(X2px(X1), Y2px(baseY));
     ctxOv.stroke();
 
-    // --- X-AXIS LABELS (min, mid, max) ---
-    const fs = Math.max(7, Math.min(9, pxDist(3.5)));
+    // --- X-AXIS LABELS (number row tucked just under the baseline) ---
+    const fs      = Math.max(7, Math.min(9, pxDist(3.5)));
+    const axisPy  = Y2px(baseY);
+    const labelPy = axisPy + fs * 1.3;
     ctxOv.fillStyle = 'rgba(180,180,160,0.8)';
     ctxOv.font = `${fs}px monospace`;
     ctxOv.textAlign = 'center';
     for (const vt of [xMin, (xMin + xMax) / 2, xMax]) {
-      ctxOv.fillText(Math.round(vt), X2px(vtToX(vt)), Y2px(Y0) + fs * 0.5 + 1);
+      ctxOv.fillText(Math.round(vt), X2px(vtToX(vt)), labelPy);
     }
 
     // --- TITLE ---
@@ -2389,88 +2471,51 @@ function drawRepresentativeOrbits() {
     ctxOv.textAlign = 'center';
     ctxOv.fillText('v_t dist.', X2px((X0 + X1) / 2), Y2px(Y1) - fs);
 
-    // ── SPREAD READOUT (right side of drum, mirroring the vt plot) ───────
-    const RX0 = 8, RX1 = 48;
-    const RY0 = 58, RY1 = 72;
-    const rxCentre = (RX0 + RX1) / 2;
+    // --- SPREAD BARS ---
+    const partStats = _stats(allFloatVts);
+    const aggStats  = aggVts.length >= 2 ? _stats(aggVts) : null;
 
-    // Collect populations
-    const floatVtsR = [], levVtsR = [];
-    for (const p of state.particles) {
-      if (!p.alive || p.stuck || p.merging || !p.insideOnce) continue;
-      if (state.isLevitated(p)) levVtsR.push(p.vt);
-      else floatVtsR.push(p.vt);
-    }
-    const aggVtsR = [];
-    for (const a of state.aggregates) {
-      if (!a.alive || a.merging) continue;
-      aggVtsR.push(a.vt);
-    }
+    const barHpx    = pxDist(barThick);
+    const bar1TopPx = labelPy + fs * 0.5;
+    const bar2TopPx = bar1TopPx + barHpx + pxDist(barGap);
 
-    const rows = [
-      {
-        label: 'particles',
-        spread: _vtSpread(floatVtsR.concat(levVtsR)),
-        threshold: null,
-        color: 'rgba(255,238,51,0.85)',
-      },
-      {
-        label: 'levitated',
-        spread: _vtSpread(levVtsR),
-        threshold: TUNING.aggregate.minSpread,
-        color: 'rgba(64,255,112,0.85)',
-      },
-      {
-        label: 'aggregates',
-        spread: _vtSpread(aggVtsR),
-        threshold: TUNING.egg.minSpread,
-        color: 'rgba(230,160,50,0.90)',
-      },
-    ];
-
-    const rfs  = 9;  // fixed px size — consistent across screen sizes
-    const rowH = rfs * 1.4;
-    const readoutH = rows.length * rowH;
-    const startY = RY0;
-
-    ctxOv.save();
-    ctxOv.beginPath();
-    ctxOv.arc(CX, CY, pxDist(CFG.R_DRUM), 0, Math.PI * 2);
-    ctxOv.clip();
-
-    // Title
-    ctxOv.fillStyle = 'rgba(180,180,160,0.7)';
-    ctxOv.font = `${rfs}px monospace`;
-    ctxOv.textAlign = 'center';
-    ctxOv.textBaseline = 'middle';
-    ctxOv.fillText('σ/μ', X2px(rxCentre), Y2px(RY1) - rfs * 0.5);
-
-    for (let i = 0; i < rows.length; i++) {
-      const row   = rows[i];
-      const rowY  = Y2px(RY0) + i * rowH + rowH * 0.5;
-      const hasSpread = row.spread > 0;
-      const meets = row.threshold !== null && row.spread >= row.threshold;
-      const fails = row.threshold !== null && hasSpread && !meets;
-
-      // Label
-      ctxOv.fillStyle = 'rgba(180,180,160,0.65)';
-      ctxOv.font = `${rfs}px monospace`;
-      ctxOv.textAlign = 'left';
-      ctxOv.textBaseline = 'middle';
-      ctxOv.fillText(row.label, X2px(RX0), rowY);
-
-      // Value + threshold as one right-aligned string
-      const valStr = hasSpread ? row.spread.toFixed(2) : '—';
-      const thrStr = row.threshold !== null ? `/${row.threshold.toFixed(2)}` : '';
-      ctxOv.font = `bold ${rfs}px monospace`;
-      ctxOv.textAlign = 'right';
-      ctxOv.fillStyle = meets  ? '#60ff90'
-        : fails  ? '#ff7a5a'
-        :           row.color;
-      const fullStr = thrStr ? `${valStr} ${thrStr}` : valStr;
-      ctxOv.fillText(fullStr, X2px(RX1), rowY);      }
+    // Particle bar (lime) — empirical 95.45% range via 2.275th/97.725th
+    // percentiles. Threshold line shows 50% of mean — the aggregate
+    // formation criterion: (hi - lo) >= 0.5 * mean, centred on mean.
+    if (allFloatVts.length >= 2) {
+      const sorted = [...allFloatVts].sort((a, b) => a - b);
+      const n      = sorted.length;
+      const loVt   = sorted[Math.floor(0.02275 * (n - 1))];
+      const hiVt   = sorted[Math.ceil(0.97725  * (n - 1))];
+      const mean   = allFloatVts.reduce((s, v) => s + v, 0) / n;
+      // Threshold line spans ±25% of mean, giving a total width of 50% of mean.
+      _drawSpreadBar(
+        bar1TopPx,
+        loVt, hiVt,
+        TUNING.aggregate.spreadThresh * 0.5,
+        mean,
+        'rgba(210,255,20,0.50)',
+        'rgba(210,255,20,0.95)' 
+      );
     }
 
+    // Aggregate bar (amber) — full empirical min-to-max range of live aggregate vt.
+    // Threshold line shows collapseThresh × mean — the grow-mode pebble criterion:
+    // when the bar shrinks inside the line, a pebble will form.
+    if (aggVts.length >= 2) {
+      const aggMin  = Math.min(...aggVts);
+      const aggMax  = Math.max(...aggVts);
+      const aggMid  = (aggMin + aggMax) * 0.5;
+      const aggMean = aggVts.reduce((s, v) => s + v, 0) / aggVts.length;
+      _drawSpreadBar(
+        bar2TopPx,
+        aggMin, aggMax,
+        TUNING.egg.widthThresh * 0.5,
+        aggMid,
+        'rgba(230,160,50,0.45)',
+        'rgba(230,160,50,0.90)'
+      );
+    }
     ctxOv.restore();
   }
 
@@ -2926,8 +2971,15 @@ function drawRepresentativeOrbits() {
     drawMergeStreaks();
     drawGoldenBalls();
 
-    // --- ANALYTICS BACKDROP ---
-    drawAnalyticalBackdrop();
+    // --- ANALYTICS BACKDROP & OVERLAYS ---
+    // All HUD overlays are suppressed during the solar system finale so
+    // nothing competes with the rising system view.
+    const _solarFinal = state.solar.phase === 'final_move' ||
+                        state.solar.phase === 'final_view';
+    if (_solarFinal) {
+      ctxOv.clearRect(0, 0, W, H);
+    }
+    if (!_solarFinal) drawAnalyticalBackdrop();
 
     // --- GLARE & BOLT RING (suppressed in zoom) ---
     if (!inZoom) {
@@ -2939,7 +2991,7 @@ function drawRepresentativeOrbits() {
     drawViewport();
 
     // --- EXPERT HUD OVERLAY (Heatmap & Captions) ---
-    if (heatmap.enabled || state.showVectors) {
+    if (!_solarFinal && (heatmap.enabled || state.showVectors)) {
       if (heatmap.enabled && heatmap.ready && !state.showVectors && (heatmap.maxSigma > 0 || heatmap.maxDensity > 0 || heatmap.maxProduct > 0)) {
         const res = heatmap.resolution;
         const cellW = pxDist(200 / res);
@@ -3051,15 +3103,16 @@ function drawRepresentativeOrbits() {
     }
 
     // --- OVERLAY LINE-ART ---
-    drawVectorField();
-    drawRepresentativeOrbits();
-    drawAggregateOrbits();
-    drawVtProjection();
-    drawAggSizeHist();
-    drawVtDistribution();
-    drawGhostOverlay();
-    drawAggregateEncounters();
-
+    if (!_solarFinal) {
+      drawVectorField();
+      drawRepresentativeOrbits();
+      drawAggregateOrbits();
+      drawVtProjection();
+      drawAggSizeHist();
+      drawVtDistribution();
+      drawGhostOverlay();
+      drawAggregateEncounters();
+    }
   }
   
   

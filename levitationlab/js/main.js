@@ -130,8 +130,10 @@
       updateGlobe(dt); 
       updateSolar();
       if (_strobeShouldDraw) drawGlobes();
-      if (window.drawHints) drawHints();
-      if (window.drawTimeline) window.drawTimeline();
+      const _solarFinal = state.solar.phase === 'final_move' ||
+            state.solar.phase === 'final_view';
+      if (!_solarFinal && window.drawHints) drawHints();
+      if (!_solarFinal && window.drawTimeline) window.drawTimeline();
 
       updateGauge();
       updateGame();
