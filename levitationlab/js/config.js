@@ -214,6 +214,11 @@
     // Physics
     BRAKE_DAMP: 1.2,  // coefficient — extra velocity damping applied while the drum is braking
 
+    // Injection nozzle focus width per nozzle in cm.
+    // 18 = full slot width (uniform distribution across injector bar).
+    // 1  = tightest beam. Applies to the next injection event.
+    NOZZLE_FOCUS: 18,
+
     // Maximum physics timestep before simSpeed scaling.
     // Must remain above DT_SUBSTEP (computed in main.js from omegaMax)
     // to avoid the substep count growing unboundedly at high simSpeed.

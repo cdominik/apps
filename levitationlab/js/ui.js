@@ -479,6 +479,38 @@
   function closeManual() { manualOverlay.hidden = true; }
   btnManual.addEventListener('click', openManual);
 
+  btnManual.addEventListener('click', openManual);
+
+  // ── SETTINGS OVERLAY ──────────────────────────────────────────────────────
+  const settingsOverlay     = document.getElementById('settingsOverlay');
+  const settingsClose       = document.getElementById('settingsClose');
+  const nozzleFocusSlider   = document.getElementById('nozzleFocusSlider');
+  const nozzleFocusVal      = document.getElementById('nozzleFocusVal');
+  const btnSettings         = document.getElementById('btnSettings');
+
+  function openSettings() { settingsOverlay.hidden = false; }
+  function closeSettings() { settingsOverlay.hidden = true; }
+
+  btnSettings.addEventListener('click', openSettings);
+  settingsClose.addEventListener('click', closeSettings);
+  settingsOverlay.addEventListener('click', (e) => {
+    if (e.target === settingsOverlay) closeSettings();
+  });
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !settingsOverlay.hidden) closeSettings();
+  });
+
+  nozzleFocusSlider.addEventListener('input', () => {
+    const v = parseFloat(nozzleFocusSlider.value);
+    CFG.NOZZLE_FOCUS = v;
+    nozzleFocusVal.textContent = v.toFixed(1) + ' cm';
+  });
+  // Sync display to initial CFG value (in case config.js changes the default).
+  nozzleFocusSlider.value        = CFG.NOZZLE_FOCUS;
+  nozzleFocusVal.textContent     = CFG.NOZZLE_FOCUS.toFixed(1) + ' cm';
+
+
+
   const btnHints = document.getElementById('btnHints');
   if (btnHints) {
     btnHints.addEventListener('click', () => {

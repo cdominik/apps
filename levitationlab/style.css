@@ -943,6 +943,42 @@ body.theme-light .sel .chev { color: #1a1006; }
 }
 .dist-input:focus { outline: none; border-color: #ffcc55; box-shadow: 0 0 8px rgba(255,204,85,0.4); }
 
+/* Settings overlay — slider row */
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0 6px;
+}
+.settings-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #d8c18a;
+  white-space: nowrap;
+  min-width: 48px;
+}
+.settings-label:last-child { text-align: right; }
+.settings-row input[type="range"] {
+  flex: 1;
+  accent-color: #d9b76a;
+  cursor: pointer;
+  height: 4px;
+}
+.settings-val {
+  text-align: center;
+  color: #6fff8a;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  font-weight: bold;
+  text-shadow: 0 0 4px rgba(111,255,138,0.5);
+  margin-bottom: 8px;
+}
+
+/* Allow touch scrolling inside settings overlay */
+#settingsOverlay .manual-box,
+#settingsOverlay .manual-box * { touch-action: pan-y; }
+
 .dist-section {
   padding: 8px;
   border-radius: 4px;

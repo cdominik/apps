@@ -327,8 +327,17 @@
           </span>
         </button>
 
-        <button class="btnind btnsq disabled" id="btnExpertSlot" title="">
-          <span class="cap"></span>
+<button class="btnind btnsq" id="btnSettings" title="Machine settings — nozzle focus and other physical parameters">
+          <span class="cap"><span class="cap-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <line x1="3"  y1="6"  x2="21" y2="6"  stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="3"  y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="3"  y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="8"  cy="6"  r="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="16" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="10" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+          </span></span>
         </button>
         
         <!-- Row 2: Speed Gear Shifter -->
@@ -722,6 +731,28 @@
       </div>
 
       <p class="manual-footer">Press <kbd>Esc</kbd> or × to close.</p>
+    </div>
+  </div>
+
+<!-- SETTINGS OVERLAY -->
+  <div class="manual-overlay" id="settingsOverlay" hidden>
+    <div class="manual-box" style="max-width: 400px;">
+      <button class="manual-close" id="settingsClose">×</button>
+      <h2>Machine Settings</h2>
+
+      <h3>Injection Nozzles</h3>
+      <p>
+        The injector bar has 5 nozzles. This slider controls how tightly each
+        nozzle focuses its beam. At full width each nozzle covers its slot and
+        together they tile the whole bar. At minimum the beam is 1 cm wide,
+        producing five sharp streams.
+      </p>
+      <div class="settings-row">
+        <span class="settings-label">Focused</span>
+        <input type="range" id="nozzleFocusSlider" min="1" max="18" step="0.5" value="18">
+        <span class="settings-label">Broad</span>
+      </div>
+      <div class="settings-val" id="nozzleFocusVal">18.0 cm</div>
     </div>
   </div>
 
