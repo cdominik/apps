@@ -15,7 +15,7 @@
 (() => {
   'use strict';
 
-  window.hintsOn = false;
+  window.hintsOn = true;   // on by default outside Game/Challenge (item 1)
 
   // Cached DOM reference — avoids repeated getElementById in rule conditions.
   const _expertEl = document.getElementById('expertContainer');
@@ -491,16 +491,11 @@
     ctxOv.restore();
   }
 
-  // ── KEY TOGGLE ────────────────────────────────────────────────────────────
-  document.addEventListener('keydown', e => {
-    if (e.key !== '?') return;
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-    e.preventDefault();
-
-    window.hintsOn = !window.hintsOn;
+  // ── TOGGLE (shared by the ? key and the wing button) ──────────────────────
+  function setHints(on) {
+    window.hintsOn = on;
     const now = performance.now() / 1000;
-
-    if (window.hintsOn) {
+    if (on) {
       // Welcome hint — bypasses cooldown and rules, shows immediately.
       hs.current     = { message: 'Hint system on. Watch this space for tips and information.', startedAt: now };
       hs.lastFiredAt = now;
@@ -510,8 +505,25 @@
       hs.current   = { message: 'Hint system turned off.', startedAt: now };
       hs.forceDraw = true;
     }
+    const btn = document.getElementById('btnHints');
+    if (btn) btn.classList.toggle('on', on);
+  }
+  function toggleHints() { setHints(!window.hintsOn); }
+  
+  document.addEventListener('keydown', e => {
+    if (e.key !== '?') return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    e.preventDefault();
+    toggleHints();
   });
-
+  
+  // Reflect the initial (possibly default-on) state on the button without
+  // firing the welcome banner — silent on load, banner only on explicit toggle.
+  const _hintBtnInit = document.getElementById('btnHints');
+  if (_hintBtnInit) _hintBtnInit.classList.toggle('on', window.hintsOn);
+  
+  window.toggleHints = toggleHints;
+  window.setHints    = setHints;
   window.updateHints = updateHints;
   window.drawHints   = drawHints;
 })();

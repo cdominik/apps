@@ -478,6 +478,13 @@
   }
   function closeManual() { manualOverlay.hidden = true; }
   btnManual.addEventListener('click', openManual);
+
+  const btnHints = document.getElementById('btnHints');
+  if (btnHints) {
+    btnHints.addEventListener('click', () => {
+      if (window.toggleHints) window.toggleHints();
+    });
+  }
   manualClose.addEventListener('click', closeManual);
   manualOverlay.addEventListener('click', (e) => {
     if (e.target === manualOverlay) closeManual();
