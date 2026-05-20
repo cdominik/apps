@@ -65,7 +65,6 @@
 </div>
 
 <script>
-// Global Error Catcher
 window.onerror = function(message, source, lineno, colno, error) {
   const errBar = document.getElementById('debug-error');
   errBar.innerText = `Crash: ${message} (Line ${lineno})`;
@@ -84,8 +83,8 @@ const trainRoutes = {
     { from: 'vst', to: 'asa', label: 'Vst → Sci Park', fromName: 'Voorschoten', toName: 'Amsterdam Science Park' }
   ],
   AMS: [
-    { from: 'asa', to: 'vst', label: 'Sci Park → Vst', fromName: 'Amsterdam Science Park', toName: 'Voorschoten' },
-    { from: 'dvd', to: 'vst', label: 'Dvd → Vst', fromName: 'Duivendrecht', toName: 'Voorschoten' }
+    { from: 'dvd', to: 'vst', label: 'Dvd → Vst', fromName: 'Duivendrecht', toName: 'Voorschoten' },
+    { from: 'asa', to: 'vst', label: 'Sci Park → Vst', fromName: 'Amsterdam Science Park', toName: 'Voorschoten' }
   ]
 };
 
@@ -326,7 +325,6 @@ try {
     if(savedKey) updateApp(); 
   }
 
-  // Safely listen for theme changes
   if (window.matchMedia) {
     const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
     if (colorSchemeQuery.addEventListener) {
@@ -334,7 +332,6 @@ try {
         if (document.getElementById('rain-bars').innerHTML !== '') fetchRain();
       });
     } else if (colorSchemeQuery.addListener) {
-      // Fallback for older Safari versions
       colorSchemeQuery.addListener(() => {
         if (document.getElementById('rain-bars').innerHTML !== '') fetchRain();
       });
