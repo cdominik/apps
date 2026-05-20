@@ -278,9 +278,17 @@ async function fetchTrains() {
         html += `<div class="text-sm text-gray-500 dark:text-gray-400 px-1.5">No trips found</div>`;
       } else {
         html += `<ul class="space-y-0 px-1">`;
+
+
         validTrips.forEach(t => {
-          const dep = new Date(t.legs[0].origin.plannedDateTime).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
-          const arr = new Date(t.legs[t.legs.length - 1].destination.plannedDateTime).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+          const depTime = new Date(t.legs[0].origin.plannedDateTime);
+          const arrTime = new Date(t.legs[t.legs.length - 1].destination.plannedDateTime);
+          
+          const dep = depTime.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+          const arr = arrTime.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+          
+          // Calculate duration in minutes
+          const durationMins = Math.round((arrTime - depTime) / 60000);
           
           let rawStatus = t.status;
           if (rawStatus === 'ALTERNATIVE_TRANSPORT') rawStatus = 'ALT';
@@ -296,7 +304,10 @@ async function fetchTrains() {
 
           html += `<li class="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-700 py-1 ${rowTextClass}">
             <span><strong>${dep}</strong> &rarr; <strong>${arr}</strong>${status}</span>
-            <span class="${badgeClass}" title="Stepovers">${transfers}</span>
+            <span class="flex gap-2">
+              <span class="text-gray-500 dark:text-gray-400 text-xs">${durationMins}m</span>
+              <span class="${badgeClass}" title="Stepovers">${transfers}</span>
+            </span>
           </li>`;
         });
         html += `</ul>`;
