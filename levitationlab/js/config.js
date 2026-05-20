@@ -311,7 +311,16 @@
     highlightFill:  '#16161e',
   };
 
-
+// ============================================================
+  // SECTION: POWERLAW PRESETS
+  // ============================================================
+  const POWERLAW_PRESETS = [
+    { name: 'C1 scaled', vMin: 2.33, vMax: 100., index: -0.53 },
+    { name: 'C2 scaled', vMin: 4.00, vMax: 100., index: -2.32 },
+    { name: 'C3 scaled', vMin: 0.08, vMax: 100., index: -1.90 },
+    { name: 'C4 scaled', vMin: 0.33, vMax: 100., index: -1.85 }
+  ];
+  
   // ============================================================
   // EXPORTS
   // ============================================================
@@ -324,4 +333,5 @@
   window.PAL_DARK       = PAL_DARK;
   window.PAL_LIGHT      = PAL_LIGHT;
   window.PAL            = PAL_DARK;
+  window.POWERLAW_PRESETS = POWERLAW_PRESETS;
 })();

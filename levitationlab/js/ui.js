@@ -1005,6 +1005,39 @@
   const distClose   = document.getElementById('distClose');
   const distForm    = document.getElementById('distForm');
 
+  const powPreset = document.getElementById('powPreset');
+  const powMin = document.getElementById('powMin');
+  const powMax = document.getElementById('powMax');
+  const powIndex = document.getElementById('powIndex');
+
+  if (powPreset && typeof POWERLAW_PRESETS !== 'undefined') {
+    // Populate the dropdown
+    POWERLAW_PRESETS.forEach((preset, idx) => {
+      const opt = document.createElement('option');
+      opt.value = idx;
+      opt.textContent = preset.name;
+      powPreset.appendChild(opt);
+    });
+
+    // Handle preset selection
+    powPreset.addEventListener('change', (e) => {
+      const preset = POWERLAW_PRESETS[e.target.value];
+      if (preset) {
+        powMin.value = preset.vMin;
+        powMax.value = preset.vMax;
+        powIndex.value = preset.index;
+        // Force the form to update state immediately
+        distForm.dispatchEvent(new Event('change'));
+      }
+    });
+
+    // Reset to "Custom" if the user manually overrides a value
+    const setCustomPreset = () => { powPreset.value = 0; };
+    powMin.addEventListener('input', setCustomPreset);
+    powMax.addEventListener('input', setCustomPreset);
+    powIndex.addEventListener('input', setCustomPreset);
+  }
+
   btnDistMenu.addEventListener('click', () => { distOverlay.hidden = false; });
   distClose.addEventListener('click', () => { distOverlay.hidden = true; });
   document.addEventListener('keydown', (e) => {
