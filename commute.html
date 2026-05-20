@@ -152,7 +152,6 @@ async function updateApp() {
 
 async function fetchRain() {
   const c = coords[currentLoc];
-  // Bust cache safely for open-meteo
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&minutely_15=precipitation&timeformat=unixtime&timezone=auto&forecast_days=1&_=${Date.now()}`;
   
   try {
@@ -230,9 +229,10 @@ async function fetchTrains() {
   let html = '';
 
   for (const route of routes) {
-    // We use the official NS parameter `dateTime` instead of an arbitrary parameter to break the proxy cache safely.
-    const nowIso = new Date().toISOString();
-    const baseUrl = `https://gateway.apiportal.ns.nl/reisinformatie-api/api/v3/trips?fromStation=${route.from}&toStation=${route.to}&nextAdvises=10&subscription-key=${apiKey}&dateTime=${nowIso}`;
+    // Generate ISO string, but remove fractional milliseconds to prevent API Bad Request errors
+    const nowIsoSafe = new Date().toISOString().split('.')[0] + 'Z';
+    
+    const baseUrl = `https://gateway.apiportal.ns.nl/reisinformatie-api/api/v3/trips?fromStation=${route.from}&toStation=${route.to}&nextAdvises=6&subscription-key=${apiKey}&dateTime=${nowIsoSafe}`;
     const url = `https://corsproxy.io/?${encodeURIComponent(baseUrl)}`;
     
     try {
@@ -245,21 +245,8 @@ async function fetchTrains() {
           throw new Error(data.message || `API Error ${data.statusCode}`);
       }
 
-      const now = new Date();
-      // Relaxed bounds: Show trains from 15 minutes ago, up to 2.5 hours into the future
-      const windowStart = new Date(now.getTime() - 15 * 60 * 1000); 
-      const windowEnd = new Date(now.getTime() + 2.5 * 60 * 60 * 1000);
-      
-      let validTrips = (data.trips || []).filter(t => {
-        if (!t.legs || !t.legs.length) return false;
-        const depTime = new Date(t.legs[0].origin.plannedDateTime);
-        return depTime >= windowStart && depTime <= windowEnd;
-      });
-
-      // Fallback: If the time filter is too aggressive but the API sent data, show the first 5 trains
-      if (validTrips.length === 0 && data.trips && data.trips.length > 0) {
-          validTrips = data.trips.slice(0, 5);
-      }
+      // We no longer filter by time locally. The API guarantees these are the next 6 trains.
+      const validTrips = data.trips || [];
 
       html += `<div class="mb-1.5">
         <h3 class="font-bold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded text-sm mb-0.5">${route.label}</h3>`;
