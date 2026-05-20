@@ -152,7 +152,7 @@ async function updateApp() {
 
 async function fetchRain() {
   const c = coords[currentLoc];
-  // Added cache buster to rain fetch
+  // Bust cache safely for open-meteo
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&minutely_15=precipitation&timeformat=unixtime&timezone=auto&forecast_days=1&_=${Date.now()}`;
   
   try {
@@ -224,14 +224,15 @@ async function fetchTrains() {
   }
 
   localStorage.setItem('nsApiKey', apiKey);
-
   container.innerHTML = '<div class="text-sm text-gray-500">Fetching...</div>';
+  
   const routes = trainRoutes[currentLoc];
   let html = '';
 
   for (const route of routes) {
-    // Increased nextAdvises to 15 and added cache-buster `_=${Date.now()}` to force fresh data
-    const baseUrl = `https://gateway.apiportal.ns.nl/reisinformatie-api/api/v3/trips?fromStation=${route.from}&toStation=${route.to}&nextAdvises=15&subscription-key=${apiKey}&_=${Date.now()}`;
+    // We use the official NS parameter `dateTime` instead of an arbitrary parameter to break the proxy cache safely.
+    const nowIso = new Date().toISOString();
+    const baseUrl = `https://gateway.apiportal.ns.nl/reisinformatie-api/api/v3/trips?fromStation=${route.from}&toStation=${route.to}&nextAdvises=10&subscription-key=${apiKey}&dateTime=${nowIso}`;
     const url = `https://corsproxy.io/?${encodeURIComponent(baseUrl)}`;
     
     try {
@@ -245,19 +246,26 @@ async function fetchTrains() {
       }
 
       const now = new Date();
-      const twoHoursLater = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+      // Relaxed bounds: Show trains from 15 minutes ago, up to 2.5 hours into the future
+      const windowStart = new Date(now.getTime() - 15 * 60 * 1000); 
+      const windowEnd = new Date(now.getTime() + 2.5 * 60 * 60 * 1000);
       
-      const validTrips = (data.trips || []).filter(t => {
+      let validTrips = (data.trips || []).filter(t => {
         if (!t.legs || !t.legs.length) return false;
         const depTime = new Date(t.legs[0].origin.plannedDateTime);
-        return depTime >= now && depTime <= twoHoursLater;
+        return depTime >= windowStart && depTime <= windowEnd;
       });
+
+      // Fallback: If the time filter is too aggressive but the API sent data, show the first 5 trains
+      if (validTrips.length === 0 && data.trips && data.trips.length > 0) {
+          validTrips = data.trips.slice(0, 5);
+      }
 
       html += `<div class="mb-1.5">
         <h3 class="font-bold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded text-sm mb-0.5">${route.label}</h3>`;
       
       if (validTrips.length === 0) {
-        html += `<div class="text-sm text-gray-500 px-1.5">No trips next 2h</div>`;
+        html += `<div class="text-sm text-gray-500 px-1.5">No trips found</div>`;
       } else {
         html += `<ul class="space-y-0 px-1">`;
         validTrips.forEach(t => {
