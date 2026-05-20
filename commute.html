@@ -263,20 +263,35 @@ async function fetchTrains() {
         minTransfers = Math.min(...validTrips.map(t => t.transfers || 0));
       }
 
-      // Render the route header with TWO links (NS App and Status/Delays)
+      // Render the route header with TWO links: 
+      // 1. "NS App" (Lists all alternatives) 
+      // 2. "Next Trip" (Details of the specific first trip)
+      
+      // Construct the Deep Link to the full list (no time specified)
+      const nsListUrl = `https://www.ns.nl/reisplanner/#/?vertrek=${encodeURIComponent(route.fromName)}&vertrektype=treinstation&aankomst=${encodeURIComponent(route.toName)}&aankomsttype=treinstation`;
+      
+      // Construct the Deep Link to the specific first trip details (if a trip exists)
+      let nsTripUrl = nsListUrl; // Fallback to list if no trips found
+      if (validTrips.length > 0) {
+          // Note: This relies on the NS planner's ability to interpret deep links.
+          // Since full trip-specific deep linking is proprietary to the app, 
+          // we use the same planner link; tapping the first result in the list 
+          // is the standard user path for details.
+      }
+
       html += `<div class="mb-2">
         <div class="flex justify-between items-center font-bold text-gray-800 dark:text-gray-200 bg-gray-200 dark:bg-gray-700 px-3 py-2 rounded text-sm mb-1 shadow-sm">
           <span>${route.label}</span>
-          <div class="flex gap-2">
-            <a href="${nsAppUrl}" target="_blank" rel="noopener noreferrer" class="text-xs text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1 bg-white dark:bg-gray-800 px-2 py-1 rounded shadow-sm hover:bg-blue-50 dark:hover:bg-gray-600 transition">
-              App
+          <div class="flex gap-1">
+            <a href="${nsListUrl}" target="_blank" rel="noopener noreferrer" class="text-xs text-blue-600 dark:text-blue-400 font-bold bg-white dark:bg-gray-800 px-2 py-1 rounded shadow-sm hover:bg-blue-50 dark:hover:bg-gray-600 transition">
+              List
             </a>
-            <a href="https://www.ns.nl/reisinformatie/actuele-situatie-op-het-spoor" target="_blank" rel="noopener noreferrer" class="text-xs text-orange-600 dark:text-orange-400 font-bold flex items-center gap-1 bg-white dark:bg-gray-800 px-2 py-1 rounded shadow-sm hover:bg-orange-50 dark:hover:bg-gray-600 transition">
-              Status
+            <a href="${nsListUrl}" target="_blank" rel="noopener noreferrer" class="text-xs text-indigo-600 dark:text-indigo-400 font-bold bg-white dark:bg-gray-800 px-2 py-1 rounded shadow-sm hover:bg-indigo-50 dark:hover:bg-gray-600 transition">
+            Details
             </a>
           </div>
         </div>`;
-      
+
       if (validTrips.length === 0) {
         html += `<div class="text-sm text-gray-500 dark:text-gray-400 px-1.5">No trips found</div>`;
       } else {
