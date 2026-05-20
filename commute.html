@@ -87,7 +87,7 @@ function setLocation(loc, userAction = false) {
   
   if (userAction) {
     localStorage.setItem('locationPref', loc);
-    document.getElementById('location-status').innerText = ''; // Clear auto-detect text if user manually clicks
+    document.getElementById('location-status').innerText = ''; 
   }
 
   document.getElementById('btn-voorschoten').className = loc === 'Voorschoten' 
@@ -114,11 +114,10 @@ function autoLocate(userAction = false) {
       const distA = Math.hypot(latitude - coords.Amsterdam.lat, longitude - coords.Amsterdam.lon);
       
       const detected = distA < distV ? 'Amsterdam' : 'Voorschoten';
-      setLocation(detected, false); // Don't override the 'auto' preference
+      setLocation(detected, false); 
       document.getElementById('location-status').innerText = `Detected nearest: ${detected}`;
     }, err => {
       document.getElementById('location-status').innerText = 'Location access denied.';
-      // Fallback to Voorschoten if location fails
       setLocation('Voorschoten', false); 
     });
   } else {
@@ -212,19 +211,15 @@ async function fetchTrains() {
 
   for (const route of routes) {
     const baseUrl = `https://gateway.apiportal.ns.nl/reisinformatie-api/api/v3/trips?fromStation=${route.from}&toStation=${route.to}&nextAdvises=8&subscription-key=${apiKey}`;
-    const url = `https://api.allorigins.win/get?url=${encodeURIComponent(baseUrl)}`;
+    const url = `https://corsproxy.io/?${encodeURIComponent(baseUrl)}`;
     
     try {
+      // No custom headers to bypass the OPTIONS preflight check
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       
-      const wrapperData = await res.json();
-      
-      if (!wrapperData.contents) {
-        throw new Error("Proxy failed to fetch data.");
-      }
-      
-      const data = JSON.parse(wrapperData.contents);
+      // Directly parse JSON (corsproxy passes the response through without wrapping it)
+      const data = await res.json();
       
       if (data.statusCode && data.statusCode !== 200) {
           throw new Error(data.message || `API Error ${data.statusCode}`);
@@ -279,7 +274,6 @@ if (savedLocPref === 'auto') {
 } else if (savedLocPref) {
   setLocation(savedLocPref, false);
 } else {
-  // Default if nothing is saved
   setLocation('Voorschoten', false); 
 }
 </script>
