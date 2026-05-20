@@ -1153,41 +1153,51 @@
   window._resetLaunchState = _resetLaunchState;
 
   // SYSTEM 3. COLLECTION TRAY
-  const btnCollect = document.getElementById('btnCollect');
+const btnCollect = document.getElementById('btnCollect');
 
-  if (btnCollect) {
-    btnCollect.addEventListener('click', () => {
-      const tray = state.tray;
+if (btnCollect) {
+  btnCollect.addEventListener('click', () => {
+    const tray = state.tray;
 
-      // Second press while armed → disarm
-      if (tray.phase === 'armed') {
-        tray.phase = 'idle';
-        return;
-      }
+    // Second press while armed → disarm
+    if (tray.phase === 'armed') {
+      tray.phase = 'idle';
+      return;
+    }
 
-      // Only arm from idle; drum must be spinning
-      if (tray.phase !== 'idle') return;
-      if (Math.abs(state.omega) < 0.1) {
-        btnCollect.classList.add('flash');
-        setTimeout(() => btnCollect.classList.remove('flash'), 220);
-        return;
-      }
+    // Only arm from idle; drum must be spinning
+    if (tray.phase !== 'idle') return;
+    if (Math.abs(state.omega) < 0.1) {
+      btnCollect.classList.add('flash');
+      setTimeout(() => btnCollect.classList.remove('flash'), 220);
+      return;
+    }
 
-      // Compute next time the slot marker crosses 12 o'clock on screen.
-      // Canvas angle of slot = slotAngle − drumAngle.
-      // 12 o'clock on screen = −π/2  (sin = −1 → topmost pixel).
-      const slotCanvas = tray.slotAngle - state.drumAngle;
-      const target     = -Math.PI / 2;
-      let delta = ((slotCanvas - target) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
-      if (delta < 0.2) delta += 2 * Math.PI;        // too close — wait one full turn
-      if (state.omega < 0) delta = delta - 2 * Math.PI; // reverse drum direction
+    // Compute next time the slot marker crosses 12 o'clock on screen.
+    const slotCanvas = tray.slotAngle - state.drumAngle;
+    const target     = -Math.PI / 2;
+    let delta = ((slotCanvas - target) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+    if (delta < 0.2) delta += 2 * Math.PI;        
+    if (state.omega < 0) delta = delta - 2 * Math.PI; 
 
-      tray.triggerAtAngle = state.drumAngle + delta;
-      tray.phase          = 'armed';
-      ensureAudio();
-    });
+    tray.triggerAtAngle = state.drumAngle + delta;
+    tray.phase          = 'armed';
+    ensureAudio();
 
-    // Sync button appearance to tray phase every HUD tick
+    // Disable slow motion when tray is activated
+    if (slowMoArmed) {
+      slowMoArmed = false;
+      window.slowMoArmed = false;
+      const btnSlowMo = document.getElementById('btnProcSlowMo');
+      if (btnSlowMo) btnSlowMo.classList.remove('on');
+      
+      CFG.MAX_DT = 0.033;
+      TUNING.egg.mergeDur       = TUNING_DEFAULT.egg.mergeDur;
+      TUNING.aggregate.mergeDur = TUNING_DEFAULT.aggregate.mergeDur;
+      TUNING.globe.mergeDur     = TUNING_DEFAULT.globe.mergeDur;
+    }
+  });
+  // Sync button appearance to tray phase every HUD tick
     const _origUpdateGauge = window.updateGauge;
     window.updateGauge = function () {
       _origUpdateGauge();
