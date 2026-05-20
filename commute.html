@@ -79,6 +79,7 @@ const trainRoutes = {
 };
 
 let currentLoc = 'Voorschoten';
+let geoWatchId = null;
 
 const savedKey = localStorage.getItem('nsApiKey');
 if (savedKey) {
@@ -86,11 +87,17 @@ if (savedKey) {
 }
 
 function setLocation(loc, userAction = false) {
+  const previousLoc = currentLoc;
   currentLoc = loc;
   
   if (userAction) {
     localStorage.setItem('locationPref', loc);
     document.getElementById('location-status').innerText = ''; 
+    
+    if (geoWatchId) {
+      navigator.geolocation.clearWatch(geoWatchId);
+      geoWatchId = null;
+    }
   }
 
   document.getElementById('btn-voorschoten').className = loc === 'Voorschoten' 
@@ -101,7 +108,10 @@ function setLocation(loc, userAction = false) {
     : 'px-3 py-1.5 rounded bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm shadow transition';
   
   document.getElementById('rain-title').innerText = `Rain: ${loc}`;
-  updateApp();
+  
+  if (previousLoc !== loc || userAction) {
+    updateApp();
+  }
 }
 
 function autoLocate(userAction = false) {
@@ -110,15 +120,21 @@ function autoLocate(userAction = false) {
   }
   
   document.getElementById('location-status').innerText = 'Detecting...';
+  
   if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(pos => {
+    if (geoWatchId) navigator.geolocation.clearWatch(geoWatchId);
+    
+    geoWatchId = navigator.geolocation.watchPosition(pos => {
       const { latitude, longitude } = pos.coords;
       const distV = Math.hypot(latitude - coords.Voorschoten.lat, longitude - coords.Voorschoten.lon);
       const distA = Math.hypot(latitude - coords.AMS.lat, longitude - coords.AMS.lon);
       
       const detected = distA < distV ? 'AMS' : 'Voorschoten';
-      setLocation(detected, false); 
-      document.getElementById('location-status').innerText = `${detected}`;
+      document.getElementById('location-status').innerText = `${detected} (Live)`;
+      
+      if (currentLoc !== detected || document.getElementById('rain-bars').innerHTML === '') {
+        setLocation(detected, false); 
+      }
     }, err => {
       document.getElementById('location-status').innerText = 'Denied';
       setLocation('Voorschoten', false); 
@@ -136,7 +152,8 @@ async function updateApp() {
 
 async function fetchRain() {
   const c = coords[currentLoc];
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&minutely_15=precipitation&timeformat=unixtime&timezone=auto&forecast_days=1`;
+  // Added cache buster to rain fetch
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&minutely_15=precipitation&timeformat=unixtime&timezone=auto&forecast_days=1&_=${Date.now()}`;
   
   try {
     document.getElementById('rain-error').innerText = '';
@@ -213,7 +230,8 @@ async function fetchTrains() {
   let html = '';
 
   for (const route of routes) {
-    const baseUrl = `https://gateway.apiportal.ns.nl/reisinformatie-api/api/v3/trips?fromStation=${route.from}&toStation=${route.to}&nextAdvises=8&subscription-key=${apiKey}`;
+    // Increased nextAdvises to 15 and added cache-buster `_=${Date.now()}` to force fresh data
+    const baseUrl = `https://gateway.apiportal.ns.nl/reisinformatie-api/api/v3/trips?fromStation=${route.from}&toStation=${route.to}&nextAdvises=15&subscription-key=${apiKey}&_=${Date.now()}`;
     const url = `https://corsproxy.io/?${encodeURIComponent(baseUrl)}`;
     
     try {
@@ -279,6 +297,7 @@ if (savedLocPref === 'auto') {
   setLocation(savedLocPref, false);
 } else {
   setLocation('Voorschoten', false); 
+  if(savedKey) updateApp(); 
 }
 </script>
 </body>
