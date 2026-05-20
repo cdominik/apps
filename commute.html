@@ -16,7 +16,6 @@
 
 <div class="max-w-4xl mx-auto bg-white shadow-md rounded p-3 w-full">
   
-  <!-- Location Toolbar -->
   <div class="mb-3 flex flex-wrap gap-2 items-center">
     <button onclick="setLocation('Voorschoten', true)" id="btn-voorschoten" class="px-3 py-1.5 rounded bg-blue-600 text-white text-sm shadow transition">Voorschoten</button>
     <button onclick="setLocation('AMS', true)" id="btn-ams" class="px-3 py-1.5 rounded bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm shadow transition">AMS</button>
@@ -27,15 +26,12 @@
     
     <span id="location-status" class="text-sm text-green-600 font-medium ml-auto"></span>
     
-    <!-- Refresh Button -->
     <button onclick="updateApp()" class="w-8 h-8 rounded bg-indigo-600 hover:bg-indigo-700 text-white shadow transition flex items-center justify-center ml-auto md:ml-0 active:scale-95">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
     </button>
   </div>
 
-  <!-- Dashboard Layout -->
   <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-    <!-- Weather Panel -->
     <div class="bg-white p-2 rounded border shadow-sm">
       <h2 class="text-base font-bold border-b pb-1 mb-1" id="rain-title">Rain (2h)</h2>
       <div class="bar-container" id="rain-bars"></div>
@@ -43,7 +39,6 @@
       <div id="rain-error" class="text-sm text-red-500 mt-1"></div>
     </div>
 
-    <!-- Trains Panel -->
     <div class="bg-white p-2 rounded border shadow-sm">
       <h2 class="text-base font-bold border-b pb-1 mb-2">Trains (2h)</h2>
       <div id="train-content" class="space-y-2">
@@ -52,7 +47,6 @@
     </div>
   </div>
 
-  <!-- API Key Setup Section -->
   <div class="mt-3 flex flex-row gap-2 items-center bg-gray-50 p-2 rounded border">
     <div class="flex-1 min-w-0">
       <input type="text" id="ns-api-key" placeholder="NS API Key" class="w-full border p-1.5 text-sm rounded focus:outline-none focus:border-blue-500" />
@@ -68,14 +62,15 @@ const coords = {
   AMS: { lat: 52.3702, lon: 4.8952 }
 };
 
+// Full station names added for NS App routing
 const trainRoutes = {
   Voorschoten: [
-    { from: 'vst', to: 'dvd', label: 'Vst → Dvd' },
-    { from: 'vst', to: 'asa', label: 'Vst → Sci Park' }
+    { from: 'vst', to: 'dvd', label: 'Vst → Dvd', fromName: 'Voorschoten', toName: 'Duivendrecht' },
+    { from: 'vst', to: 'asa', label: 'Vst → Sci Park', fromName: 'Voorschoten', toName: 'Amsterdam Science Park' }
   ],
   AMS: [
-    { from: 'asa', to: 'vst', label: 'Sci Park → Vst' },
-    { from: 'dvd', to: 'vst', label: 'Dvd → Vst' }
+    { from: 'asa', to: 'vst', label: 'Sci Park → Vst', fromName: 'Amsterdam Science Park', toName: 'Voorschoten' },
+    { from: 'dvd', to: 'vst', label: 'Dvd → Vst', fromName: 'Duivendrecht', toName: 'Voorschoten' }
   ]
 };
 
@@ -157,7 +152,6 @@ async function fetchRain() {
   
   try {
     document.getElementById('rain-error').innerText = '';
-    // Force the browser to bypass its cache
     const res = await fetch(url, { cache: 'no-store' });
     const data = await res.json();
     
@@ -233,12 +227,12 @@ async function fetchTrains() {
   for (const route of routes) {
     const nowIsoSafe = new Date().toISOString().split('.')[0] + 'Z';
     const baseUrl = `https://gateway.apiportal.ns.nl/reisinformatie-api/api/v3/trips?fromStation=${route.from}&toStation=${route.to}&nextAdvises=6&subscription-key=${apiKey}&dateTime=${nowIsoSafe}`;
-    
-    // We attach `&cb=` directly to the proxy URL so the browser/proxy never caches the response
     const url = `https://corsproxy.io/?${encodeURIComponent(baseUrl)}&cb=${Date.now()}`;
     
+    // Construct the Deep Link URL to the NS App
+    const nsAppUrl = `https://www.ns.nl/reisplanner/#/?vertrek=${encodeURIComponent(route.fromName)}&vertrektype=treinstation&aankomst=${encodeURIComponent(route.toName)}&aankomsttype=treinstation`;
+    
     try {
-      // Force the browser to bypass its cache
       const res = await fetch(url, { cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       
@@ -250,8 +244,15 @@ async function fetchTrains() {
 
       const validTrips = data.trips || [];
 
+      // Link wrapper for the app redirect
       html += `<div class="mb-1.5">
-        <h3 class="font-bold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded text-sm mb-0.5">${route.label}</h3>`;
+        <a href="${nsAppUrl}" target="_blank" rel="noopener noreferrer" class="flex justify-between items-center font-bold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded text-sm mb-0.5 hover:bg-blue-50 active:bg-blue-100 transition block">
+          <span>${route.label}</span>
+          <span class="text-[10px] text-blue-500 font-normal flex items-center gap-0.5">
+            App
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+          </span>
+        </a>`;
       
       if (validTrips.length === 0) {
         html += `<div class="text-sm text-gray-500 px-1.5">No trips found</div>`;
@@ -278,7 +279,9 @@ async function fetchTrains() {
       
     } catch (e) {
       html += `<div class="mb-1.5">
-        <h3 class="font-bold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded text-sm mb-0.5">${route.label}</h3>
+        <div class="flex justify-between items-center font-bold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded text-sm mb-0.5">
+          <span>${route.label}</span>
+        </div>
         <div class="text-sm text-red-500 px-1.5">Error: ${e.message}</div>
       </div>`;
     }
