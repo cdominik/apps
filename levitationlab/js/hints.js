@@ -310,7 +310,9 @@
       cooldown: 20,
       when: c => !c.drum.spinning &&
                  c.particles.floating > 0 &&
-                 c.running,
+                 c.running &&
+                 state.tray.phase !== 'inserting' &&
+                 state.tray.phase !== 'inserted',
       message: 'Particles are falling. Swipe the drum to spin it.',
     },
     {
@@ -371,6 +373,9 @@
     if (!window.hintsOn) return;
     if (typeof GAME      !== 'undefined' && GAME.on)      return;
     if (typeof CHALLENGE !== 'undefined' && CHALLENGE.on) return;
+
+    // No hints during tray time, as the user has no control
+    if (state.tray.phase === 'inserting' || state.tray.phase === 'inserted') return;
 
     const now = performance.now() / 1000;
 
