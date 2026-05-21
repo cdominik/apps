@@ -48,7 +48,7 @@
     </div>
 
     <div class="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-700 shadow-sm transition-colors duration-200">
-      <h2 class="text-base font-bold border-b dark:border-gray-700 pb-1 mb-2">Trains (2h)</h2>
+      <h2 class="text-base font-bold border-b dark:border-gray-700 pb-1 mb-2">Trains</h2>
       <div id="train-content" class="space-y-2">
         <div class="text-sm text-gray-500 dark:text-gray-400 italic">Enter NS API key below and Load.</div>
       </div>
@@ -98,7 +98,7 @@ function autoLocate(userAction = false) {
     geoWatchId = navigator.geolocation.watchPosition(pos => {
       const {latitude: lat, longitude: lon} = pos.coords;
       const detected = Math.hypot(lat - coords.AMS.lat, lon - coords.AMS.lon) < Math.hypot(lat - coords.Voorschoten.lat, lon - coords.Voorschoten.lon) ? 'AMS' : 'Voorschoten';
-      document.getElementById('location-status').innerText = `${detected} (Live)`;
+      document.getElementById('location-status').innerText = `live`;
       if(currentLoc !== detected) setLocation(detected, false);
     }, () => { setLocation('Voorschoten', false); });
   } else setLocation('Voorschoten', false);
