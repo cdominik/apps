@@ -95,7 +95,8 @@
     }
   
     // --- CONDITIONAL DISPLAY OVERRIDE (Expert Orange) ---
-    const label = state.distLabels[state.distMode];
+    // FIX 1: Safely check if distLabels exists to prevent the crash
+    const label = state.distLabels ? state.distLabels[state.distMode] : undefined;
     const winVT = SEL_WIN.VT;
     const winSpread = SEL_WIN.SPREAD;
   
@@ -139,6 +140,11 @@
         uiCache.aggCount = activeAggs;
       }
     } else {
+      // FIX 2: Properly hide the gauge when count returns to 0 (e.g., on reset)
+      if (uiCache.aggVisible) {
+        gaugeAgg.style.display = 'none';
+        uiCache.aggVisible = false;
+      }
       if (uiCache.aggCount !== 0) {
         elAggCount.textContent = 0;
         uiCache.aggCount = 0;
@@ -156,32 +162,15 @@
         elPebbleCount.textContent = state.eggBallCount;
         uiCache.pebbleCount = state.eggBallCount;
       }
-    }
-
-    // --- CHALLENGE COUNTDOWN ---
-    if (typeof CHALLENGE !== 'undefined' && CHALLENGE.on &&
-        CHALLENGE.phase === 'playing') {
-      const baseLimit = (typeof state.challengeTimeOverride === 'number' &&
-                         isFinite(state.challengeTimeOverride) &&
-                         state.challengeTimeOverride > 0)
-        ? state.challengeTimeOverride
-        : CHALLENGE_CFG.TIME_LIMIT;
-      const limit   = baseLimit + CFG.DT_INJECT;
-      const elapsed = state.t - CHALLENGE.startTime;
-      const left    = Math.max(0, Math.ceil(limit - elapsed));
-      
-      if (!uiCache.timeVisible) {
-        gaugeTime.style.display = 'flex';
-        uiCache.timeVisible = true;
-      }
-      if (left !== uiCache.chalTimeLeft) {
-        elChalTimeLeft.textContent = left;
-        uiCache.chalTimeLeft = left;
-      }
     } else {
-      if (uiCache.timeVisible) {
-        gaugeTime.style.display = 'none';
-        uiCache.timeVisible = false;
+      // FIX 2: Properly hide the gauge when count returns to 0
+      if (uiCache.pebbleVisible) {
+        gaugePebble.style.display = 'none';
+        uiCache.pebbleVisible = false;
+      }
+      if (uiCache.pebbleCount !== 0) {
+        elPebbleCount.textContent = 0;
+        uiCache.pebbleCount = 0;
       }
     }
 
