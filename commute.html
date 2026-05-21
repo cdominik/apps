@@ -155,9 +155,9 @@ async function fetchTrains() {
         const now = new Date();
         const minutesUntilDeparture = Math.max(0, Math.round((d - now) / 60000));
         
-        // Formatting: "  in Xm" or "  in XXm" using non-breaking spaces
+        // Formatting: "in Xm" or "  in XXm" using non-breaking spaces
         const timeStr = `${minutesUntilDeparture}m`;
-        const paddedTime = '  in ' + timeStr.padStart(timeStr.length + (minutesUntilDeparture < 10 ? 0 : 1), ' ');
+        const paddedTime = '  in ' + timeStr.padStart(timeStr.length + (minutesUntilDeparture < 10 ? 1 : 2), ' ');
         const htmlSafeTime = paddedTime.replace(/ /g, '&nbsp;');
 
         const dur = Math.round((a - d)/60000);
