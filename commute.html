@@ -156,8 +156,8 @@ async function fetchTrains() {
         const minutesUntilDeparture = Math.max(0, Math.round((d - now) / 60000));
         
         // Formatting: "  in Xm" or "  in XXm" using non-breaking spaces
-        const timeStr = `in ${minutesUntilDeparture}m`;
-        const paddedTime = timeStr.padStart(timeStr.length + (minutesUntilDeparture < 10 ? 1 : 2), ' ');
+        const timeStr = `${minutesUntilDeparture}m`;
+        const paddedTime = '  ' + timeStr.padStart(timeStr.length + (minutesUntilDeparture < 10 ? 0 : 1), ' ');
         const htmlSafeTime = paddedTime.replace(/ /g, '&nbsp;');
 
         const dur = Math.round((a - d)/60000);
@@ -169,7 +169,7 @@ async function fetchTrains() {
           <span>
             <strong>${d.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}</strong> → 
             <strong>${a.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}</strong>
-            <span class="text-xs text-gray-400 font-mono">&nbsp;&nbsp;${htmlSafeTime}</span>
+            <span class="text-xs text-gray-700 font-mono">&nbsp;&nbsp;${htmlSafeTime}</span>
           </span>
           <span class="flex gap-2">
             <span class="text-xs">${dur}m</span>
