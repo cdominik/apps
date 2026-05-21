@@ -155,6 +155,11 @@ async function fetchTrains() {
         const now = new Date();
         const minutesUntilDeparture = Math.max(0, Math.round((d - now) / 60000));
         
+        // Formatting: "  in Xm" or "  in XXm" using non-breaking spaces
+        const timeStr = `in ${minutesUntilDeparture}m`;
+        const paddedTime = timeStr.padStart(timeStr.length + (minutesUntilDeparture < 10 ? 1 : 2), ' ');
+        const htmlSafeTime = paddedTime.replace(/ /g, '&nbsp;');
+
         const dur = Math.round((a - d)/60000);
         const isBest = t.transfers === minT;
         
@@ -162,9 +167,9 @@ async function fetchTrains() {
         
         html += `<li class="flex justify-between items-center text-sm border-b border-gray-100 dark:border-gray-700 py-1 ${isBest ? 'font-medium text-white' : 'text-gray-500 dark:text-gray-400'}">
           <span>
-            <strong>${d.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}</strong> 
-            <span class="text-xs text-gray-400">(${minutesUntilDeparture}m)</span> → 
+            <strong>${d.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}</strong> → 
             <strong>${a.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}</strong>
+            <span class="text-xs text-gray-400 font-mono">&nbsp;&nbsp;${htmlSafeTime}</span>
           </span>
           <span class="flex gap-2">
             <span class="text-xs">${dur}m</span>
