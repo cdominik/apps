@@ -36,6 +36,27 @@
 %    - §16 Hint System: rule table extended with six expert-panel-aware
 %             rules; aggregate_formed split into _no_kick / _kick variants
 %    - Appendix B removed
+%    - §6.1 / §7.1: formation spread checks now use live measured
+%             population spread (all floating particles for aggregates,
+%             all live aggregates for pebbles) rather than the v_t spread
+%             selector value; Appendix A: aggregate.minSpread removed
+%    - §10.7.2: Game/Challenge modes disable timeline branching;
+%             historical dots rendered greyed out
+%    - §11.5: drawVtDistribution updated — sigma/mu readout removed;
+%             two spread bars added below x-axis (green = particles,
+%             amber = aggregates) showing measured 2-sigma width with
+%             formation threshold line
+%    - §14.2 Right Wing: Info button split into Manual + Hints (two
+%             separate buttons); btnTheme updated — long press cycles
+%             visual theme (default → modern → pfeiffer)
+%    - §15.3 System: btnThemeStyle removed (theme cycling moved to
+%             long-press on right-wing btnTheme); btnSettings added
+%             (settings overlay: nozzle focus + depth effect sliders)
+%
+%  TODO (icons):
+%    - icons/btnSysAutoOmega.png may need updating if the SVG shape for
+%      mode 2 (launch/amber) differs from the original two-state design.
+%      Check getOmegaCtlIconSVG(0/1/2) in ui.js and re-rasterise if needed.
 % =============================================================================
 
 \documentclass[12pt, a4paper]{article}
@@ -317,8 +338,11 @@ before that time, then transitions to live tracking.
 
 \subsection{Formation Threshold and Trigger}
 
-Formation requires $\geq 30$ levitated particles and spread $s \geq 0.20$.
-A revolution counter accumulates at $\Delta t / T$; first aggregate forms
+Formation requires $\geq 30$ levitated particles and a measured
+$v_t$ spread of the \emph{all floating} particle population of
+$\geq 20\%$ (assessed as the 95.45th-percentile width of the live
+distribution, independent of the $v_t$ spread selector value).
+A revolution counter accumulates at $\Delta t / T$; the first aggregate forms
 after 3 revolutions, subsequent ones after 1 revolution.
 
 \subsection{Merge Animation}
@@ -363,7 +387,10 @@ it is elastically reflected instead.
 
 \subsection{Formation Threshold}
 
-7 levitated aggregates held for 3 revolutions, spread $\geq 0.30$.
+7 levitated aggregates held for 3 revolutions, with a measured $v_t$ spread
+of \emph{all live aggregates} $\geq 30\%$ (assessed as the
+95.45th-percentile width of the live aggregate distribution, independent of
+the $v_t$ spread selector value).
 The densest cluster is found by K-nearest-neighbours ($K=3$).
 
 \subsection{Golden Ball Physics}
@@ -472,7 +499,7 @@ Each snapshot is a shallow copy of the complete simulation state:
 Heatmap accumulators and process button states (\textsc{Nanocoating},
 \textsc{Growth mode}, \textsc{Stokes kick}, etc.) are intentionally omitted.
 On restore, the simulation resumes with whatever process configuration is
-currently active — branching from a past snapshot is intended as a way to
+currently active --- branching from a past snapshot is intended as a way to
 correct a mistake in process settings, not to replay the original trajectory
 faithfully.
 
@@ -484,6 +511,11 @@ separately from the rolling buffer. A timeline bar is drawn on
 plus a final dot for ``NOW'' (the frozen snapshot). The current cursor
 position is highlighted with a larger amber dot and a pulsing halo. A time
 label below the cursor shows the offset from NOW (e.g.\ $-30\,\mathrm{s}$).
+
+In \textbf{Game} and \textbf{Challenge} modes, timeline branching is
+disabled. Historical snapshot dots are rendered greyed out, and navigating to
+them is a no-op. This prevents competitive runs from being replayed or
+rewound for score advantage.
 
 \subsubsection{Navigation}
 
@@ -568,9 +600,25 @@ purple dashed (free-fall vacuum). Click any particle to select it.
 
 \subsection{\texorpdfstring{$v_t$}{vt} Distribution Display}
 
-Live KDE: yellow (floating), green (levitated), amber histogram (aggregates).
-Silverman bandwidth $h = 1.06\,\hat\sigma\,n^{-1/5}$. All normalised
-independently.
+The distribution panel shows three overlapping visualisations drawn on the
+same axes:
+\begin{itemize}
+  \item \textbf{KDE curves} --- yellow (all floating particles), green
+    (levitated particles), amber histogram (aggregates).
+    Silverman bandwidth $h = 1.06\,\hat\sigma\,n^{-1/5}$. All normalised
+    independently.
+  \item \textbf{Particle spread bar} (green, below the $x$-axis) --- shows
+    the measured $2\sigma$ width of the floating particle population as a
+    horizontal bar, with a vertical threshold line at the $20\%$ formation
+    threshold. The bar gives an immediate visual indication of whether the
+    current population is wide enough to form aggregates.
+  \item \textbf{Aggregate spread bar} (amber, below the particle bar) ---
+    shows the measured $2\sigma$ width of the live aggregate population,
+    with a threshold line at $30\%$. Indicates proximity to pebble formation.
+\end{itemize}
+Both spread bars use the same 95.45th-percentile range estimator that governs
+actual formation checks (see \S6.1 and \S7.1), so the bar reaching the
+threshold line is the exact condition that gates formation.
 
 \subsection{Aggregate Size Histogram}
 
@@ -648,7 +696,8 @@ Copies inherit \texttt{inHighlightSince} from the originals.
   \btnicon{winVT}  & \textbf{$v_t$ cm/s} &
     $\bar{\vt} \in \{2,5,10,20,30,40,50\}\,\mathrm{cm\,s^{-1}}$.\\
   \btnicon{winSpread} & \textbf{$v_t$ spread} &
-    $s \in \{0,0.01,...,0.50\}$. Min 0.20 for aggregates, 0.30 for pebbles.\\
+    $s \in \{0,0.01,...,0.50\}$. A measured population spread of at
+    least 20\% is needed for aggregates; 30\% for pebbles.\\
   \btnicon{winDT}  & \textbf{$\Delta t$ inject} &
     $\Delta t_{\mathrm{inj}} \in \{0,0.5,...,10\}\,\mathrm{s}$.\\
   \bottomrule
@@ -669,17 +718,26 @@ opens the distribution overlay directly.
   \btnicon{btnTrails}   & \textbf{Trails}      & Particle trail rendering ($N_P < 300$). \\
   \btnicon{btnLaser}    & \textbf{Lidar}       &
     Lidar mode; laser at $\omg_{\mathrm{laser}} = 2\pi/1.2\,\mathrm{rad\,s^{-1}}$. \\
-  \btnicon{btnMicro}    & \textbf{Microscope}  & Slide viewport down — microscope channel. \\
-  \btnicon{btnChart}    & \textbf{Chart}       & Slide viewport down — chart channel. \\
+  \btnicon{btnMicro}    & \textbf{Microscope}  & Slide viewport down --- microscope channel. \\
+  \btnicon{btnChart}    & \textbf{Chart}       & Slide viewport down --- chart channel. \\
   \btnicon{btnPause}    & \textbf{Pause}       &
     Freeze simulation; reveal timeline scrubber (see \S\ref{sec:timeline}).
     Also toggled by \texttt{Space}. \\
   \btnicon{btnCollect}  & \textbf{Collect}     &
-    Arm collection tray (see \S12). Pulses amber while inserting. \\
-  \btnicon{btnTheme}    & \textbf{Lighting}    & Dark / light lab background. \\
+    Arm collection tray (see \S12). Pulses amber while inserting.
+    Automatically disables auto-omega when the brake phase begins,
+    preventing the controller from fighting the tray deceleration. \\
+  \btnicon{btnTheme}    & \textbf{Lighting}    &
+    Short press: toggle dark / light lab background.
+    Long press: cycle visual theme (default brass-and-dark $\to$
+    clinical \emph{modern} $\to$ \emph{Pfeiffer} red-structures variant
+    $\to$ default). \\
   \btnicon{btnGameMode} & \textbf{Game}        & 8-level progressive game mode. \\
   \btnicon{btnChallenge}& \textbf{Challenge}   & Timed challenge with leaderboard. \\
-  \btnicon{btnManual}   & \textbf{Info}        & Open user manual. \\
+  \btnicon{btnManual}   & \textbf{Manual}      & Open user manual. \\
+  \btnicon{btnHints}    & \textbf{Hints}       &
+    Toggle the hint system (see \S\ref{sec:hints}). Equivalent to pressing
+    \texttt{?}. \\
   \btnicon{btnReset}    & \textbf{Reset}       &
     Clear all objects; reset to clean state. Also disables zoom mode if active. \\
   \bottomrule
@@ -717,7 +775,9 @@ Opened by triple-tapping the title plate or appending \texttt{?expert}.
     Green takes precedence at any rank. Top \texttt{arcPairs} pairs also
     show orbit arcs from current position to closest approach. \\
   \btnicon{btnVtDist} & \textbf{$v_t$ distribution} &
-    Live KDE: levitated (green), floating (yellow), aggregate histogram (amber). \\
+    Live KDE with spread bars: levitated (green), floating (yellow),
+    aggregate histogram (amber), particle spread bar (green, below axis),
+    aggregate spread bar (amber, below axis). \\
   \btnicon{btnAggHist} & \textbf{Size histogram} &
     Aggregate monomer count distribution + pebble bar. \\
   \btnicon{btnSysSolidMap} & \textbf{Backdrop} &
@@ -758,11 +818,11 @@ Opened by triple-tapping the title plate or appending \texttt{?expert}.
     \emph{Green (auto)}: live orbit-centring via Eq.~\ref{eq:auto_omega}.
     \emph{Amber (launch)}: waits for injection, spins up at peak flux, then
     transitions to auto tracking. \\
-  \btnicon{btnThemeStyle}    & \textbf{Visual theme}    &
-    Cycles: default brass-and-dark $\to$ clinical \emph{modern} (green) $\to$
-    \emph{Pfeiffer} red-structures variant (orange) $\to$ default.
-    The same themes can be selected at startup via \texttt{?modern} and
-    \texttt{?pfeiffer} URL flags. \\
+  \btnicon{btnSettings}      & \textbf{Settings}        &
+    Opens the settings overlay. Contains a \emph{nozzle focus} slider
+    (controls the lateral spread of the injection nozzles) and a
+    \emph{depth effect} slider (controls the intensity of the cylindrical
+    3-D rendering on the drum band; $0$ = flat, $1$ = full depth). \\
   $\blacktriangleleft$       & \textbf{Speed down}      & Reduce simulation speed one gear. \\
   \btnicon{btnSpeedReset}    & \textbf{Speed}           &
     Current gear label; press to reset to $1\times$. \\
@@ -808,10 +868,12 @@ challenge modes, which suppress it entirely.
 
 \subsection{Toggle and Display}
 
-Pressing \texttt{?} toggles \texttt{window.hintsOn}. Messages appear as
-italic brass-coloured text on a dark rounded backdrop near the top of the drum
-interior (drum coordinate $y \approx 78$), drawn on \texttt{ctxOv} each frame
-independently of strobe mode. The opacity follows a three-phase envelope:
+Pressing \texttt{?} (or the \textbf{Hints} button in the right wing) toggles
+\texttt{window.hintsOn}. Messages appear as italic brass-coloured text on a
+dark rounded backdrop near the top of the drum interior
+(drum coordinate $y \approx 78$), drawn on \texttt{ctxOv} each frame
+independently of strobe mode. Long messages are word-wrapped onto two lines.
+The opacity follows a three-phase envelope:
 fade-in $0.5\,\mathrm{s}$, hold $5.5\,\mathrm{s}$, fade-out $1.0\,\mathrm{s}$.
 
 A global cooldown of $12\,\mathrm{s}$ prevents consecutive hints from
@@ -854,7 +916,7 @@ marks rules gated on \texttt{\_expertOpen()}.
   Rule id & Pri. & Expert & Message \\
   \midrule
   \texttt{pebble\_formed}              & 100 & --- &
-    ``A pebble has formed — seven aggregates compressed into one.'' \\
+    ``A pebble has formed --- seven aggregates compressed into one.'' \\
   \texttt{aggregate\_formed\_no\_kick} & 90  & --- &
     ``Aggregate formed. It orbits at the mean $v_t$ of its constituents.'' \\
   \texttt{aggregate\_formed\_kick}     & 90  & --- &
@@ -864,19 +926,19 @@ marks rules gated on \texttt{\_expertOpen()}.
   \texttt{agg\_size\_dist}             & 82  & \checkmark &
     ``A spread of aggregate sizes has formed. Try the size histogram in the HUD.'' \\
   \texttt{suggest\_slow\_mo}           & 76  & \checkmark &
-    ``A merge is building — enable slow motion to watch it form.'' \\
+    ``A merge is building --- enable slow motion to watch it form.'' \\
   \texttt{spread\_low\_for\_pebble}    & 75  & --- &
     ``Pebble formation needs a $v_t$ spread of at least 30\%.'' \\
   \texttt{suggest\_encounters}         & 63  & \checkmark &
-    ``Aggregates drifting together — try the encounter projection HUD.'' \\
+    ``Aggregates drifting together --- try the encounter projection HUD.'' \\
   \texttt{orbits\_crossing}            & 65  & --- &
     ``Orbits are crossing. Keep particles levitated and aggregates will form.'' \\
   \texttt{suggest\_vt\_dist}           & 53  & \checkmark &
-    ``Particles sorting by size — try the $v_t$ distribution HUD.'' \\
+    ``Particles sorting by size --- try the $v_t$ distribution HUD.'' \\
   \texttt{spread\_low\_for\_agg}       & 60  & --- &
     ``Aggregate formation needs a $v_t$ spread of at least 20\%.'' \\
   \texttt{monodisperse}                & 55  & --- &
-    ``Same $v_t$ for all — orbits never cross. Increase spread for collisions.'' \\
+    ``Same $v_t$ for all --- orbits never cross. Increase spread for collisions.'' \\
   \texttt{suggest\_orbit\_proj}        & 47  & \checkmark &
     ``Try the orbit projection button to see each size's orbit.'' \\
   \texttt{suggest\_auto\_omega}        & 44  & \checkmark &
@@ -1064,7 +1126,6 @@ over $50\,\mathrm{ms}$. Tab hide/show mutes and unmutes smoothly.
   \texttt{aggregate.subseqHoldRevs}  & 1    & Hold revs for subsequent aggregates \\
   \texttt{aggregate.sizeMult}        & 10   & Visual size multiplier \\
   \texttt{aggregate.mergeDur}        & 0.6  & Merge animation duration (s) \\
-  \texttt{aggregate.minSpread}       & 0.20 & Min spread for formation \\
   \texttt{aggregate.vtFactor}        & 1.2  & Stokes kick factor \\
   \texttt{aggregate.vtGrowFactor}    & 1.05 & Per-growth-merge kick factor \\
   \texttt{aggregate.brownian}        & 2.0  & Brownian kick ($\mathrm{cm\,s^{-1}}$) \\
@@ -1077,7 +1138,7 @@ over $50\,\mathrm{ms}$. Tab hide/show mutes and unmutes smoothly.
   \texttt{egg.holdTarget}        & 3    & Hold revs for first pebble \\
   \texttt{egg.holdSubseq}        & 3    & Hold revs for subsequent pebbles \\
   \texttt{egg.maxBalls}          & 30   & Maximum simultaneous pebbles \\
-  \texttt{egg.minSpread}         & 0.30 & Min spread for pebble formation \\
+  \texttt{egg.minSpread}         & 0.30 & Min measured aggregate spread for pebble formation \\
   \midrule
   \multicolumn{3}{l}{\textit{Golden balls}} \\
   \texttt{ball.gravity}          & 200  & Gravitational acceleration ($\mathrm{du\,s^{-2}}$) \\
