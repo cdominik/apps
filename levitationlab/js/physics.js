@@ -988,73 +988,107 @@
    * subsequent collisions are deferred until the animation completes.
    * Only runs when window.aggGrowthOn is true.
    */
+  
   function resolveAggAggCollisions() {
+    // 1. Strict filter: must be alive, not stuck, not on tray, and not currently merging.
     const live = state.aggregates.filter(a => a.alive && !a.stuck && !a.onTray && !a.merging);
+    const doBounce = (window.aggGrowthStage === 2); 
     
     for (let i = 0; i < live.length; i++) {
       for (let j = i + 1; j < live.length; j++) {
         const a = live[i], b = live[j];
+        
+        // Prevent objects currently flagged for animation from executing collisions
+        if (a.merging || b.merging) continue;
+
+        // Ensure aggregates have IDs for serialization-safe tracking
+        if (!a.id) a.id = Math.random();
+        if (!b.id) b.id = Math.random();
+
+        // Pair-specific cooldown: prevent A and B from re-colliding
+        if (a.lastBounce?.withId === b.id && state.t < a.lastBounce.until) continue;
+        if (b.lastBounce?.withId === a.id && state.t < b.lastBounce.until) continue;        
+
         const dx = b.x - a.x, dy = b.y - a.y;
         const dist = Math.hypot(dx, dy);
         const minDist = a.r + b.r;
         
         if (dist < minDist) {
-          // FUTURE PROOFING: Define your bounce condition here later.
-          // For now, it is hardcoded to always merge.
-          const shouldMerge = true; 
+          const totalCount = a.count + b.count;
 
-          if (shouldMerge) {
-            const totalCount = a.count + b.count;
+          if (totalCount >= 100) {
+            // PEBBLE FORMATION THRESHOLD CHECK
+            const meanVt = state.particles.length > 0 
+              ? state.particles.filter(p => p.insideOnce).reduce((s, p) => s + p.vt, 0) / state.particles.length 
+              : 1;
+            const threshold = (TUNING.egg.vtSpreadMult || 2.0) * meanVt;
 
-            if (totalCount >= 100) {
-              // PEBBLE FORMATION: Exceeds 100 monomers
+            if (!doBounce || (a.vt > threshold && b.vt > threshold)) {
+              // Threshold met (or Stage 1 active): Form Pebble
               a.alive = false; 
               b.alive = false;
               spawnGoldenBall((a.x + b.x) / 2, (a.y + b.y) / 2);
               state.aggCount = Math.max(0, state.aggCount - 2);
               state.eggBallCount++;
+              soundGoldenChime();
             } else {
-              // AGGREGATE GROWTH: standard collision merging
-              const smaller = a.count <= b.count ? a : b;
-              const larger  = a.count <= b.count ? b : a;
+              // Threshold failed (Stage 2 active): Billiard Bounce
+              const nx = dx / dist, ny = dy / dist;
+              const overlap = minDist - dist;
               
-              smaller.alive = false;
+              // Push apart by 51% of the overlap each (creates a 2% safety gap)
+              const push = overlap / 1.96; 
+              a.x -= nx * push; 
+              a.y -= ny * push;
+              b.x += nx * push; 
+              b.y += ny * push;
               
-              // Calculate mass-weighted vt BEFORE updating larger.count
-              const newVt = (smaller.count * smaller.vt + larger.count * larger.vt) / totalCount;
-              larger.vt = newVt * (window.stokesKickOn ? TUNING.aggregate.vtGrowFactor : 1.0);
+              // Increase terminal velocity to change their aerodynamic sorting
+              const kick = TUNING.egg.bounceKick || 1.1;
+              const oldVtA = a.vt;
+              const oldVtB = b.vt;
               
-              // Now safe to update the count
-              larger.count = totalCount;
+              a.vt *= kick;
+              b.vt *= kick;
+
+              // Half drum rotation cooldown (safeguarded against division by zero)
+              // Half drum rotation cooldown (safeguarded against division by zero)
+              const cooldownDur = Math.PI / Math.max(0.01, Math.abs(state.omega));
+              a.lastBounce = { withId: b.id, until: state.t + cooldownDur };
+              b.lastBounce = { withId: a.id, until: state.t + cooldownDur };
               
-              // Scale physical collision radius based on new volume
-              const sizeFac = window.visualSizeFactor ? window.visualSizeFactor(larger.vt) : 1;
-              larger.r = TUNING.particle.collisionR * sizeFac * TUNING.aggregate.sizeMult * Math.pow(larger.count / 10, 1/3);
-              
-              larger.orbitFlashEndsAt = state.t + TUNING.aggregate.growFlashDur;
-              state.aggCount = Math.max(0, state.aggCount - 1);
-              soundAggMerge(larger.count);
+              // Visual flash timer for debugging (0.6 seconds)
+              a.bounceFlashEndsAt = state.t + 0.6;
+              b.bounceFlashEndsAt = state.t + 0.6;
+
+              console.log(`Bounce! Agg A vt: ${oldVtA.toFixed(2)} -> ${a.vt.toFixed(2)} | Agg B vt: ${oldVtB.toFixed(2)} -> ${b.vt.toFixed(2)}`);
+
+              if (TUNING.egg.bounceSound) {
+                if (window.soundSharpPing) window.soundSharpPing();
+              }
             }
           } else {
-            // FUTURE PROOFING: Bounce Execution
-            // Pushes aggregates apart and reverses velocity
-            const overlap = minDist - dist;
-            const nx = dist > 1e-6 ? dx / dist : 1;
-            const ny = dist > 1e-6 ? dy / dist : 0;
+            // STANDARD GROWTH (< 100 monomers): Always Merge
+            const smaller = a.count <= b.count ? a : b;
+            const larger  = a.count <= b.count ? b : a;
+            smaller.merging = true;
+            smaller.mergeStart = { x: smaller.x, y: smaller.y };
             
-            a.x -= nx * (overlap / 2); a.y -= ny * (overlap / 2);
-            b.x += nx * (overlap / 2); b.y += ny * (overlap / 2);
-            
-            const bounceE = TUNING.egg.bounceE || 0.75;
-            a.vx = -a.vx * bounceE; a.vy = -a.vy * bounceE;
-            b.vx = -b.vx * bounceE; b.vy = -b.vy * bounceE;
-            if (TUNING.egg.bounceSound) soundTink();
+            state.aggGrowMerging = { 
+              smaller, 
+              larger, 
+              startedAt: state.t, 
+              dur: TUNING.aggregate.mergeDur, 
+              vtSmaller: smaller.vt, 
+              vtLarger: larger.vt 
+            };
           }
-          return; // Resolve one collision per frame
+          return; // Resolve max one collision per frame to prevent chain-reaction bugs
         }
       }
     }
   }
+
   /**
    * Returns the required hold revolutions between aggregate formations,
    * scaled down for large particle counts to maintain visual interest.
@@ -1094,9 +1128,34 @@
         state.aggCount++;
       }
     }
+    // 1b. Advance in-progress aggregate-aggregate growth merge
+    if (state.aggGrowMerging) {
+      const m = state.aggGrowMerging;
+      const u = (state.t - m.startedAt) / m.dur;
+      const ease = u * u * (3 - 2 * u);
+      
+      m.smaller.x = m.smaller.mergeStart.x + (m.larger.x - m.smaller.mergeStart.x) * ease;
+      m.smaller.y = m.smaller.mergeStart.y + (m.larger.y - m.smaller.mergeStart.y) * ease;
+      
+      if (u >= 1) {
+        m.larger.count += m.smaller.count;
+        m.larger.vt *= (TUNING.aggregate.vtGrowFactor || 1.05);
+        m.larger.imgIdx = aggImageIndex(m.larger.count);
+        
+        // Scale radius proportional to the cube root of the new mass
+        const scale = Math.pow(m.larger.count / (m.larger.count - m.smaller.count), 1/3);
+        m.larger.r *= scale;
+        
+        m.smaller.alive = false;
+        state.aggCount--;
+        state.aggGrowMerging = null;
+      }
+    }
 
-    // 2. Check for aggregate-aggregate collisions when growth mode is active.
-    if (window.aggGrowthOn && !state.aggMerging) {
+    // 2. FIXME Check for aggregate-aggregate collisions when growth mode is active.
+    // Collision gate: Run collision logic ONLY for Stage 1 and Stage 2
+    // Collision gate: Run collision logic ONLY for Stage 1 and Stage 2
+    if (window.aggGrowthStage >= 1 && window.aggGrowthStage <= 2 && !state.aggMerging && !state.aggGrowMerging) {
       resolveAggAggCollisions();
     }
 

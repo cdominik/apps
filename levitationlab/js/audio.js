@@ -106,6 +106,32 @@
   }
   let MILL_HANDLE = null;
 
+
+  function soundSharpPing() {
+    if (!AUDIO.enabled || !AUDIO.ctx) return;
+    const t = AUDIO.ctx.currentTime;
+    const osc = AUDIO.ctx.createOscillator();
+    const gain = AUDIO.ctx.createGain();
+
+    // High frequency cuts through the low rumble
+    osc.type = 'sine'; 
+    osc.frequency.setValueAtTime(3200, t); 
+    osc.frequency.exponentialRampToValueAtTime(800, t + 0.1);
+
+    // Sharp attack, fast decay
+    gain.gain.setValueAtTime(1.0, t); 
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+
+    osc.connect(gain);
+    gain.connect(AUDIO.master || AUDIO.ctx.destination);
+
+    osc.start(t);
+    osc.stop(t + 0.1);
+  }
+
+  // Ensure it is exported so physics.js can see it
+  window.soundSharpPing = soundSharpPing;
+  
   /**
    * Plays a rapid click sequence (aggregate formation).
    */

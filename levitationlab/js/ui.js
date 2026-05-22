@@ -960,29 +960,29 @@
     });
   }
 
-  // PROCESSES 6. Formation mode — three states: pebble / grow / off
-  let growthMode = 0; // 0=pebble, 1=grow, 2=off
-  window.aggGrowthOn = false;
+  // PROCESSES 6. Formation mode — four stages: systemic / grow / grow+bounce / off
+  window.aggGrowthStage = 0;
+  window.aggGrowthOn = false; // Maintained for legacy updateEgg compatibility
   
-  function applyGrowthMode(mode) {
-    growthMode = mode;
+  function applyGrowthStage(stage) {
+    window.aggGrowthStage = stage;
+    window.aggGrowthOn = (stage === 1 || stage === 2);
+    
     const btn = document.getElementById('btnProcGrowth');
     if (!btn) return;
   
     btn.classList.remove('on', 'cheat', 'warn');
-    window.aggGrowthOn = false;
   
-    if (mode === 0) {
-      // PEBBLE — normal formation
+    if (stage === 0) {
       btn.classList.add('on');
       TUNING.egg.nCrit = TUNING_DEFAULT.egg.nCrit;
-    } else if (mode === 1) {
-      // GROW — aggregate-aggregate collisions, pebble at count=100
+    } else if (stage === 1) {
       btn.classList.add('cheat');
       TUNING.egg.nCrit = 999999;
-      window.aggGrowthOn = true;
-    } else {
-      // OFF — no formation of any kind
+    } else if (stage === 2) {
+      btn.classList.add('cheat', 'warn'); // Visual indicator for Expert Bounce
+      TUNING.egg.nCrit = 999999;
+    } else if (stage === 3) {
       btn.classList.add('warn');
       TUNING.egg.nCrit = 999999;
     }
@@ -991,7 +991,7 @@
   const btnProcGrowth = document.getElementById('btnProcGrowth');
   if (btnProcGrowth) {
     btnProcGrowth.addEventListener('click', () => {
-      applyGrowthMode((growthMode + 1) % 3);
+      applyGrowthStage((window.aggGrowthStage + 1) % 4);
     });
   }
   
