@@ -964,37 +964,104 @@
   window.aggGrowthStage = 0;
   window.aggGrowthOn = false; // Maintained for legacy updateEgg compatibility
   
-  function applyGrowthStage(stage) {
+  window.applyGrowthStage = (stage) => {
     window.aggGrowthStage = stage;
     window.aggGrowthOn = (stage === 1 || stage === 2);
     
     const btn = document.getElementById('btnProcGrowth');
     if (!btn) return;
   
-    btn.classList.remove('on', 'cheat', 'warn');
-  
-    if (stage === 0) {
-      btn.classList.add('on');
-      TUNING.egg.nCrit = TUNING_DEFAULT.egg.nCrit;
-    } else if (stage === 1) {
-      btn.classList.add('cheat');
-      TUNING.egg.nCrit = 999999;
-    } else if (stage === 2) {
-      btn.classList.add('cheat', 'warn'); // Visual indicator for Expert Bounce
-      TUNING.egg.nCrit = 999999;
-    } else if (stage === 3) {
-      btn.classList.add('warn');
-      TUNING.egg.nCrit = 999999;
+    // Remove all state modifiers
+    btn.classList.remove('on', 'cheat', 'warn', 'flash');
+    
+    // Apply specific classes
+    if (stage === 0) btn.classList.add('on');
+    else if (stage === 1) btn.classList.add('cheat');
+    else if (stage === 2) btn.classList.add('cheat', 'warn');
+    
+    // For Stage 3 (Off), we leave it with no modifier classes. 
+    // This makes it look "Off" (the default button state).
+
+    const iconSpan = btn.querySelector('.cap-icon');
+    if (iconSpan) iconSpan.innerHTML = getGrowthIconSVG(stage);
+  }
+  window.getGrowthIconSVG = (stage) => {
+    switch(stage) {
+case 0: // Default: Systemic - Dimers move in, then pebble appears
+            return `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                      <circle cx="12" cy="12" r="4" opacity="0">
+                        <animate attributeName="opacity" values="0;0;1" dur="2s" repeatCount="indefinite"/>
+                      </circle>
+                      
+                      <circle cx="4" cy="4" r="1.1">
+                        <animate attributeName="cx" values="4;11;12" dur="2s" repeatCount="indefinite"/>
+                        <animate attributeName="cy" values="4;11;12" dur="2s" repeatCount="indefinite"/>
+                      </circle>
+                      <circle cx="5.5" cy="4" r="1.1">
+                        <animate attributeName="cx" values="5.5;12.5;13.5" dur="2s" repeatCount="indefinite"/>
+                        <animate attributeName="cy" values="4;11;12" dur="2s" repeatCount="indefinite"/>
+                      </circle>
+
+                      <circle cx="20" cy="4" r="1.1">
+                        <animate attributeName="cx" values="20;13;12" dur="2s" repeatCount="indefinite"/>
+                        <animate attributeName="cy" values="4;11;12" dur="2s" repeatCount="indefinite"/>
+                      </circle>
+                      <circle cx="18.5" cy="4" r="1.1">
+                        <animate attributeName="cx" values="18.5;11.5;10.5" dur="2s" repeatCount="indefinite"/>
+                        <animate attributeName="cy" values="4;11;12" dur="2s" repeatCount="indefinite"/>
+                      </circle>
+
+                      <circle cx="12" cy="20" r="1.1">
+                        <animate attributeName="cx" values="12;11.25;11.25" dur="2s" repeatCount="indefinite"/>
+                        <animate attributeName="cy" values="20;13;12" dur="2s" repeatCount="indefinite"/>
+                      </circle>
+                      <circle cx="13.5" cy="20" r="1.1">
+                        <animate attributeName="cx" values="13.5;12.75;12.75" dur="2s" repeatCount="indefinite"/>
+                        <animate attributeName="cy" values="20;13;12" dur="2s" repeatCount="indefinite"/>
+                      </circle>
+                    </svg>`;
+        case 1: // Standard Growth: Merge
+      return `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                      <circle cx="12" cy="12" r="1.5">
+                        <animate attributeName="r" values="1.5;3;5;1.5" dur="2s" repeatCount="indefinite"/>
+                        <animate attributeName="opacity" values="1;1;0;0" dur="2s" repeatCount="indefinite"/>
+                      </circle>
+                      <circle cx="12" cy="12" r="1.5" opacity="0">
+                        <animate attributeName="r" values="1.5;3;5" dur="2s" repeatCount="indefinite"/>
+                        <animate attributeName="opacity" values="0;0;1;0" dur="2s" repeatCount="indefinite"/>
+                      </circle>
+                    </svg>`;
+        case 2: // Growth + Bounce: Deflect
+return `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                      <circle cx="7" cy="12" r="2">
+                        <animate attributeName="cx" 
+                                 values="7;11;11;7" 
+                                 keyTimes="0;0.4;0.6;1" 
+                                 dur="2s" repeatCount="indefinite"/>
+                      </circle>
+                      <circle cx="17" cy="12" r="2">
+                        <animate attributeName="cx" 
+                                 values="17;13;13;17" 
+                                 keyTimes="0;0.4;0.6;1" 
+                                 dur="2s" repeatCount="indefinite"/>
+                      </circle>
+                    </svg>`;
+        case 3: // Off: X
+// Return a clean SVG. The button container will handle the "off" look.
+            return `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none">
+                      <line x1="6" y1="6" x2="18" y2="18" stroke-width="2"/>
+                      <line x1="18" y1="6" x2="6" y2="18" stroke-width="2"/>
+                    </svg>`;
     }
   }
   
+  // This is already in your ui.js, it is the correct trigger for future clicks:
   const btnProcGrowth = document.getElementById('btnProcGrowth');
   if (btnProcGrowth) {
     btnProcGrowth.addEventListener('click', () => {
       applyGrowthStage((window.aggGrowthStage + 1) % 4);
     });
-  }
-  
+  }  
   // ============================================================
   // SECTION: EXPERT PANEL — SYSTEM
   // ============================================================
@@ -1099,21 +1166,62 @@
       btnSysAutoOmega.classList.remove('on', 'cheat');
       if (mode === 1) btnSysAutoOmega.classList.add('on');
       if (mode === 2) btnSysAutoOmega.classList.add('cheat');
+      const iconSpan = btnSysAutoOmega.querySelector('.cap-icon');
+      if (iconSpan) iconSpan.innerHTML = getOmegaCtlIconSVG(mode);
     }
 
     if (mode === 2) {
       _resetLaunchState();
-    } else {
+      // Undo any omega that mode 1 may have set — let the drum coast to rest.
+      state.omegaTarget = 0;
+      if (window.omegaDecayOff) setOmegaDecay(false);
+    } else if (mode !== 1) {
       window.launchState = 'waiting';
     }
   }
+
+  function getOmegaCtlIconSVG(mode) {
+  switch (mode) {
+    case 0: // OFF — target dot only
+      return `<svg viewBox="0 0 24 24" width="20" height="20">
+                <circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-dasharray="2,2"/>
+                <circle cx="12" cy="12" r="2.2" fill="currentColor"/>
+              </svg>`;
+
+    case 1: // AUTO — circular arrow tracking the target
+      return `<svg viewBox="0 0 24 24" width="20" height="20">
+                <path d="M 20 12 A 8 8 0 1 1 14.5 4.8"
+                      fill="none" stroke="currentColor" stroke-width="1.6"
+                      stroke-linecap="round"/>
+                <polyline points="13,2 14.5,5 18,4"
+                          fill="none" stroke="currentColor" stroke-width="1.6"
+                          stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="12" cy="12" r="2.2" fill="currentColor"/>
+              </svg>`;
+
+    case 2: // LAUNCH — rocket approaching the target from below
+      return `<svg viewBox="0 0 24 24" width="20" height="20">
+                <!-- Target -->
+                <circle cx="12" cy="9" r="2.2" fill="currentColor"/>
+                <circle cx="12" cy="9" r="4.5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2,2"/>
+                <!-- Rocket body, pointing up toward target -->
+                <path d="M 10 22 L 10 17 Q 12 14 14 17 L 14 22 Z"
+                      fill="currentColor"/>
+                <!-- Fins -->
+                <path d="M 10 20 L 8 22 L 10 22 Z" fill="currentColor"/>
+                <path d="M 14 20 L 16 22 L 14 22 Z" fill="currentColor"/>
+                <!-- Exhaust flame -->
+                <path d="M 11 22 L 12 24 L 13 22 Z" fill="currentColor" opacity="0.7"/>
+              </svg>`;
+  }
+}
 
   function _resetLaunchState() {
     window.launchState   = 'waiting';
     window.launchT0      = null;
     window.launchSpinT0  = null;
-    const isEmpty = state.particles.length === 0 && state.toInject.length === 0;
-    if (isEmpty) state.omegaTarget = 0;
+//    const isEmpty = state.particles.length === 0 && state.toInject.length === 0;
+  //  if (isEmpty) state.omegaTarget = 0;
   }
 
   function _computeOptimalWait() {

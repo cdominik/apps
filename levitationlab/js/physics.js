@@ -210,6 +210,9 @@
 
     state.renderN = CFG.N_P;
     scheduleInjections();
+    state.injectedMeanVt = state.toInject.length > 0
+      ? state.toInject.reduce((s, p) => s + p.vt, 0) / state.toInject.length
+      : CFG.V_T;
     state.running = true;
   }
 
@@ -1018,10 +1021,8 @@
 
           if (totalCount >= 100) {
             // PEBBLE FORMATION THRESHOLD CHECK
-            const meanVt = state.particles.length > 0 
-              ? state.particles.filter(p => p.insideOnce).reduce((s, p) => s + p.vt, 0) / state.particles.length 
-              : 1;
-            const threshold = (TUNING.egg.vtSpreadMult || 2.0) * meanVt;
+            const meanVt = state.injectedMeanVt || CFG.V_T;
+            const threshold = TUNING.egg.vtSpreadMult * meanVt;
 
             if (!doBounce || (a.vt > threshold && b.vt > threshold)) {
               // Threshold met (or Stage 1 active): Form Pebble
@@ -1044,7 +1045,7 @@
               b.y += ny * push;
               
               // Increase terminal velocity to change their aerodynamic sorting
-              const kick = TUNING.egg.bounceKick || 1.1;
+              const kick = TUNING.egg.bounceKick;
               const oldVtA = a.vt;
               const oldVtB = b.vt;
               

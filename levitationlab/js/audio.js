@@ -110,23 +110,45 @@
   function soundSharpPing() {
     if (!AUDIO.enabled || !AUDIO.ctx) return;
     const t = AUDIO.ctx.currentTime;
-    const osc = AUDIO.ctx.createOscillator();
-    const gain = AUDIO.ctx.createGain();
+    const decayTime = 0.5;
 
-    // High frequency cuts through the low rumble
-    osc.type = 'sine'; 
-    osc.frequency.setValueAtTime(3200, t); 
-    osc.frequency.exponentialRampToValueAtTime(800, t + 0.1);
+    // 1. Master Envelope: Sharp attack, 0.5s exponential decay
+    const masterGain = AUDIO.ctx.createGain();
+    masterGain.gain.setValueAtTime(0, t);
+    masterGain.gain.linearRampToValueAtTime(0.5, t + 0.01);
+    masterGain.gain.exponentialRampToValueAtTime(0.001, t + decayTime);
 
-    // Sharp attack, fast decay
-    gain.gain.setValueAtTime(1.0, t); 
-    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+    // 2. The Metallic Body (Inharmonic overtones)
+    const frequencies = [3100, 4200, 5450, 6800]; 
+    frequencies.forEach(freq => {
+      const osc = AUDIO.ctx.createOscillator();
+      osc.type = 'sine'; 
+      osc.frequency.setValueAtTime(freq, t);
+      
+      osc.connect(masterGain);
+      osc.start(t);
+      osc.stop(t + decayTime + 0.1);
+    });
 
-    osc.connect(gain);
-    gain.connect(AUDIO.master || AUDIO.ctx.destination);
+    // 3. The "Strike" (The impact of the collision)
+    const strikeOsc = AUDIO.ctx.createOscillator();
+    const strikeGain = AUDIO.ctx.createGain();
+    
+    strikeOsc.type = 'triangle';
+    strikeOsc.frequency.setValueAtTime(8000, t);
+    strikeOsc.frequency.exponentialRampToValueAtTime(500, t + 0.05);
+    
+    strikeGain.gain.setValueAtTime(0.3, t);
+    strikeGain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+    
+    strikeOsc.connect(strikeGain);
+    strikeGain.connect(masterGain);
+    
+    strikeOsc.start(t);
+    strikeOsc.stop(t + 0.1);
 
-    osc.start(t);
-    osc.stop(t + 0.1);
+    // Connect to output routing
+    masterGain.connect(AUDIO.master || AUDIO.ctx.destination);
   }
 
   // Ensure it is exported so physics.js can see it

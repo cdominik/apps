@@ -93,33 +93,32 @@
 
       } else if (window.omegaCtlMode === 2) {
         const ls = window.launchState;
-
         if (ls === 'waiting') {
           const hasParticles = state.particles.length > 0 || state.toInject.length > 0;
           if (hasParticles && state.toInject.length === 0) {
-            // Particles already in drum, skip countdown and track
-            window.launchState = 'tracking';
+            // Particles already in drum before launch armed — skip straight to spinup
+            window.launchOmegaTgt = computeAutoOmega();
+            window.launchState    = 'spinup';
           } else if (state.toInject.length > 0 && window.launchT0 === null) {
             window.launchTWait = window._computeOptimalWait();
             window.launchT0    = state.t;
             window.launchState = 'countdown';
           }
         } else if (ls === 'countdown') {
-          // Wait until simulation time reaches the optimal arrival time
           if (state.t >= window.launchTWait) {
             window.launchOmegaTgt = computeAutoOmega();
             window.launchState    = 'spinup';
           }
-
         } else if (ls === 'spinup') {
-          // Set target immediately — drum slipRate provides natural smooth ramp
+          // Commit to this omega — do not track further
           state.omegaTarget  = window.launchOmegaTgt;
-          window.launchState = 'tracking';
-
-        } else if (ls === 'tracking') {
-          // Live tracking — same as mode 1
-          state.omegaTarget = computeAutoOmega();
+          // Spin-up is complete once omega is close enough to target
+          if (Math.abs(state.omega - window.launchOmegaTgt) < window.launchOmegaTgt * 0.05) {
+            setOmegaDecay(true);       // activate Ω lock — button turns on
+            window.launchState = 'done';
+          }
         }
+        // 'done': fully hands-off, Ω lock is in control, nothing to do here
       }
       if (window.ghostModeOn) _ghostEnsureTarget();
       recordTrails();
@@ -150,6 +149,15 @@
     requestAnimationFrame(loop);
   }
   loop();
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (typeof window.applyGrowthStage === 'function') {
+      window.applyGrowthStage(0);
+    } else {
+      console.error('applyGrowthStage not found. Check if ui.js is loaded.');
+    }
+  });
+
   window.cancelEndingSequence = () => {
     if (endingTimeout) { clearTimeout(endingTimeout); endingTimeout = null; }
     state._endingSequenceTriggered = false;
