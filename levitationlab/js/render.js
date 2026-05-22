@@ -2395,7 +2395,7 @@ function drawRepresentativeOrbits() {
     // threshFrac   — if > 0, draws a centred threshold line of half-width
     //                threshFrac × mean; pass 0 to suppress the line.
     // mean         — centre for the threshold line (ignored when threshFrac=0).
-    const _drawSpreadBar = (barTopPx, loVt, hiVt, lineLeftVt, lineRightVt, fillCol, lineCol) => {
+    const _drawSpreadBar = (barTopPx, loVt, hiVt, lineLeftVt, lineRightVt, fillCol, lineCol, showTick = true) => {
       const barHpx   = pxDist(barThick);
       const barMidPx = barTopPx + barHpx * 0.5;
 
@@ -2422,7 +2422,7 @@ function drawRepresentativeOrbits() {
           ctxOv.stroke();
           
           // Draw a small vertical tick at the start of the threshold
-          if (lineLeft >= X0 && lineLeft <= X1) {
+          if (showTick && lineLeft >= X0 && lineLeft <= X1) {
             ctxOv.beginPath();
             ctxOv.moveTo(X2px(lineLeft), barMidPx - barHpx * 0.8);
             ctxOv.lineTo(X2px(lineLeft), barMidPx + barHpx * 0.8);
@@ -2508,17 +2508,20 @@ function drawRepresentativeOrbits() {
       const n      = sorted.length;
       const loVt   = sorted[Math.floor(0.02275 * (n - 1))];
       const hiVt   = sorted[Math.ceil(0.97725  * (n - 1))];
-      
+      const mean   = allFloatVts.reduce((s, v) => s + v, 0) / allFloatVts.length;
+      const threshHalf = TUNING.aggregate.spreadThresh * mean * 0.5;
+
+
       _drawSpreadBar(
         bar1TopPx,
         loVt, hiVt,
-        null, // No threshold line for particles
-        null, // No threshold line for particles
+        mean - threshHalf,  // threshold line centred on mean, half-width = spreadThresh*mean/2
+        mean + threshHalf,
         'rgba(210,255,20,0.50)',
-        'rgba(210,255,20,0.95)' 
+        'rgba(210,255,20,0.95)',
+        false
       );
     }
-
     // Aggregate bar (amber) — full min-to-max range
     if (aggVts.length >= 2) {
       const aggMin  = Math.min(...aggVts);
@@ -2542,8 +2545,10 @@ function drawRepresentativeOrbits() {
       } else {
         // Stages 0, 1, 3: Draw a centered threshold width
         const threshAbs = TUNING.egg.widthThresh * 0.5 * aggMid;
-        lineLeftVt = aggMid - threshAbs;
-        lineRightVt = aggMid + threshAbs;
+        // lineLeftVt = aggMid - threshAbs;
+        // lineRightVt = aggMid + threshAbs;
+        lineLeftVt = null;
+        lineRightVt = null;
       }
 
       _drawSpreadBar(
@@ -2552,7 +2557,8 @@ function drawRepresentativeOrbits() {
         lineLeftVt,
         lineRightVt,
         'rgba(230,160,50,0.45)',
-        'rgba(230,160,50,0.90)'
+        'rgba(230,160,50,0.90)',
+        (window.aggGrowthStage === 2)
       );
     }
 
