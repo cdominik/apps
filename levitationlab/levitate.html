@@ -327,8 +327,17 @@
           </span>
         </button>
 
-        <button class="btnind btnsq disabled" id="btnExpertSlot" title="">
-          <span class="cap"></span>
+<button class="btnind btnsq" id="btnSettings" title="Machine settings — nozzle focus and other physical parameters">
+          <span class="cap"><span class="cap-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <line x1="3"  y1="6"  x2="21" y2="6"  stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="3"  y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="3"  y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="8"  cy="6"  r="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="16" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="10" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+          </span></span>
         </button>
         
         <!-- Row 2: Speed Gear Shifter -->
@@ -440,7 +449,24 @@
     <button class="btnind btn-mode" id="btnGameMode" title="Start 7-level game at level 1 - the game will lead you to the more interesting corners of the simulation."><span class="cap"><span class="cap-label">Game</span></span></button>
     <button class="btnind btn-mode" id="btnChallenge" title="Start challenge with scoreboard, using current settings."><span class="cap"><span class="cap-label">Challenge</span></span></button>
 
-    <button class="btnind btn-info" id="btnManual" title="Compact manual of the simulation"><span class="cap"><span class="cap-label">Info</span></span></button>
+    <div class="btn-row2" id="infoRow">
+      <button class="btnind btnsq btn-info" id="btnManual" title="Compact manual of the simulation">
+        <span class="cap"><span class="cap-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20">
+            <path d="M3 5 C 6 3.6, 9 3.6, 12 5 C 15 3.6, 18 3.6, 21 5 L 21 18 C 18 16.6, 15 16.6, 12 18 C 9 16.6, 6 16.6, 3 18 Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            <line x1="12" y1="5" x2="12" y2="18" stroke="currentColor" stroke-width="1.3"/>
+          </svg>
+        </span></span>
+      </button>
+      <button class="btnind btnsq btn-info" id="btnHints" title="Toggle the contextual hint system (or press ?)">
+        <span class="cap"><span class="cap-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20">
+            <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            <text x="12" y="17" text-anchor="middle" font-family="serif" font-size="13" font-weight="bold" fill="currentColor">?</text>
+          </svg>
+        </span></span>
+      </button>
+    </div>
     <button class="btnind btn-emergency" id="btnReset" title="Reset - returns the drum to a state ready for a new injection"><span class="cap"><span class="cap-label">Reset</span></span></button>
   </div>
 
@@ -708,6 +734,28 @@
     </div>
   </div>
 
+<!-- SETTINGS OVERLAY -->
+  <div class="manual-overlay" id="settingsOverlay" hidden>
+    <div class="manual-box" style="max-width: 400px;">
+      <button class="manual-close" id="settingsClose">×</button>
+      <h2>Machine Settings</h2>
+
+      <h3>Injection Nozzles</h3>
+      <p>
+        The injector bar has 5 nozzles. This slider controls how tightly each
+        nozzle focuses its beam. At full width each nozzle covers its slot and
+        together they tile the whole bar. At minimum the beam is 1 cm wide,
+        producing five sharp streams.
+      </p>
+      <div class="settings-row">
+        <span class="settings-label">Focused</span>
+        <input type="range" id="nozzleFocusSlider" min="1" max="18" step="0.5" value="18">
+        <span class="settings-label">Broad</span>
+      </div>
+      <div class="settings-val" id="nozzleFocusVal">18.0 cm</div>
+    </div>
+  </div>
+
   <!-- DISTRIBUTION OVERLAY -->
   <div class="manual-overlay" id="distOverlay" hidden>
     <div class="manual-box" style="max-width: 420px;">
@@ -759,6 +807,11 @@
             <span class="dist-label">Powerlaw Distribution</span>
           </label>
           <div style="margin-left: 24px; display: flex; flex-direction: column; gap: 6px;">
+            <div class="dist-row">
+              <span class="dist-label" style="color:#d8d0c0">Preset</span>
+              <select id="powPreset" class="dist-input" style="width: 140px; background: #1a1a22; color: #d8c18a; border: 1px solid #5a4418; border-radius: 4px; padding: 2px;">
+              </select>
+            </div>
             <div class="dist-row">
               <span class="dist-label" style="color:#d8d0c0">v_min (cm/s)</span>
               <input type="number" id="powMin" class="dist-input" value="5" step="1">

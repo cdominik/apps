@@ -383,6 +383,15 @@ body.theme-light .sel .chev { color: #1a1006; }
   width: 96px;
 }
 
+/* Info row — manual + hints, two square buttons side by side */
+.btn-row2 {
+  display: grid;
+  grid-template-columns: 46px 46px;
+  grid-auto-rows: 46px;
+  gap: 4px;
+  width: 96px;
+}
+
 /* Game and Challenge buttons use orange ON state to signal active mode */
 #btnGameMode.on .cap,
 #btnChallenge.on .cap {
@@ -418,6 +427,20 @@ body.theme-light .sel .chev { color: #1a1006; }
 .btnind.btn-info:hover .cap { background: radial-gradient(ellipse at 50% 30%, #2a6a9a 0%, #144466 70%, #0a243a 100%); }
 .btnind.btn-info .cap-label { color: #80cfff; text-shadow: 0 1px 0 #000, 0 0 4px rgba(128,207,255,0.35); }
 .btnind.btn-info:hover .cap-label { color: #aae0ff; text-shadow: 0 1px 0 #000, 0 0 6px rgba(170,224,255,0.6); }
+.btnind.btn-info .cap-icon { color: #80cfff; filter: drop-shadow(0 1px 0 #000); }
+.btnind.btn-info:hover .cap-icon { color: #aae0ff; filter: drop-shadow(0 1px 0 #000) drop-shadow(0 0 4px rgba(170,224,255,0.6)); }
+
+/* Hints toggle ON — green state; higher specificity so it beats the blue
+   btn-info cap (which is declared later in the cascade than .btnind.on). */
+.btnind.btn-info.on .cap {
+  background: radial-gradient(ellipse at 50% 35%, #c0ffd4 0%, #50e080 40%, #1a6028 85%, #082c10 100%);
+  box-shadow:
+    inset 0 1px 1px rgba(255,255,255,0.5),
+    inset 0 -1px 0 rgba(0,0,0,0.4),
+    inset 0 0 10px rgba(120,255,160,0.6),
+    0 0 8px rgba(80,255,130,0.45);
+}
+.btnind.btn-info.on .cap-icon { color: #0a3018; filter: drop-shadow(0 1px 0 rgba(255,255,255,0.4)); }
 
 /* Mode (Game/Challenge) — amber cap */
 .btnind.btn-mode .cap {
@@ -920,6 +943,42 @@ body.theme-light .sel .chev { color: #1a1006; }
 }
 .dist-input:focus { outline: none; border-color: #ffcc55; box-shadow: 0 0 8px rgba(255,204,85,0.4); }
 
+/* Settings overlay — slider row */
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0 6px;
+}
+.settings-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #d8c18a;
+  white-space: nowrap;
+  min-width: 48px;
+}
+.settings-label:last-child { text-align: right; }
+.settings-row input[type="range"] {
+  flex: 1;
+  accent-color: #d9b76a;
+  cursor: pointer;
+  height: 4px;
+}
+.settings-val {
+  text-align: center;
+  color: #6fff8a;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  font-weight: bold;
+  text-shadow: 0 0 4px rgba(111,255,138,0.5);
+  margin-bottom: 8px;
+}
+
+/* Allow touch scrolling inside settings overlay */
+#settingsOverlay .manual-box,
+#settingsOverlay .manual-box * { touch-action: pan-y; }
+
 .dist-section {
   padding: 8px;
   border-radius: 4px;
@@ -1111,6 +1170,7 @@ body.regime-compact .btnind.inject { width: 84px; height: 84px; }
 body.regime-compact .btnind .cap-label { font-size: 11px; letter-spacing: 1.2px; }
 body.regime-compact .btnind.btnsq { width: 40px; height: 40px; }
 body.regime-compact .btn-grid2x2  { grid-template-columns: 40px 40px; grid-auto-rows: 40px; width: 84px; }
+body.regime-compact .btn-row2     { grid-template-columns: 40px 40px; grid-auto-rows: 40px; width: 84px; }
 body.regime-compact .sel          { width: 84px; }
 body.regime-compact .sel .sel-body { height: 26px; }
 body.regime-compact .sel .win     { font-size: 12px; }
@@ -1149,6 +1209,7 @@ body.regime-portrait .btnind.btnsq { width: 38px; height: 38px; }
 body.regime-portrait .btnind.btnsq .cap { left: 4px; right: 4px; top: 4px; bottom: 4px; }
 body.regime-portrait .btnind.btnsq svg  { width: 18px; height: 18px; }
 body.regime-portrait .btn-grid2x2  { grid-template-columns: repeat(7, 38px); grid-auto-rows: 38px; width: auto; gap: 4px; }
+body.regime-portrait .btn-row2     { grid-template-columns: 38px 38px; grid-auto-rows: 38px; width: auto; gap: 4px; }
 
 /* Expert panel and logo hidden in portrait */
 body.regime-portrait #expertContainer { display: none !important; }

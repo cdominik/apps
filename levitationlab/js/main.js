@@ -130,14 +130,16 @@
       updateGlobe(dt); 
       updateSolar();
       if (_strobeShouldDraw) drawGlobes();
-      if (window.drawHints) drawHints();
-      if (window.drawTimeline) window.drawTimeline();
+      const _solarFinal = state.solar.phase === 'final_move' ||
+            state.solar.phase === 'final_view';
+      if (!_solarFinal && window.drawHints) drawHints();
+      if (!_solarFinal && window.drawTimeline) window.drawTimeline();
 
       updateGauge();
       updateGame();
       updateChallenge();
       if (window.takeSnapshot) window.takeSnapshot();
-      if (window.updateHints) updateHints();
+      if (window.updateHints && Math.floor(state.t * 4) !== Math.floor((state.t - dt) * 4)) updateHints(); // cooled to a 4 Hz update.
 
       // --- UNIVERSAL SUCCESS CHECK ---
       // Delay the "End of Game" overlay to allow viewing the final system

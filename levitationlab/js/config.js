@@ -78,7 +78,7 @@
       subseqHoldRevs:  1,     // rev        — revolutions required for each subsequent aggregate
       sizeMult:        10,    // multiplier — visual radius of aggregate relative to one particle
       mergeDur:        0.6,   // s          — duration of the aggregate merge animation
-      minSpread:       0.20,  // fraction   — minimum vt spread required to trigger aggregate formation
+      spreadThresh:    0.50,  // 95.45% range must exceed this fraction of mean for aggregate formation
       vtFactor:        1.2,   // multiplier — Vt threshold multiplier during aggregate levitation check
       vtGrowFactor:    1.05,  // multiplier — Vt kick per growth merge step
       brownian:        2.0,   // cm/s — random velocity kick applied each frame
@@ -97,6 +97,8 @@
       maxBalls:   30,   // count    — maximum golden pebbles allowed simultaneously
       mergeDur:   0.6,  // s        — duration of the pebble merge animation
       minSpread:  0.30, // fraction — minimum vt spread required to allow pebble formation
+      widthThresh: 0.20,  // aggregate vt range must exceed this fraction of mean for pebble formation (grow mode)
+      nCritCollapse:  3,     // minimum levitated aggregates required for collapse-triggered pebble
     },
 
     // --- Golden ball physics ---
@@ -212,6 +214,11 @@
     // Physics
     BRAKE_DAMP: 1.2,  // coefficient — extra velocity damping applied while the drum is braking
 
+    // Injection nozzle focus width per nozzle in cm.
+    // 18 = full slot width (uniform distribution across injector bar).
+    // 1  = tightest beam. Applies to the next injection event.
+    NOZZLE_FOCUS: 18,
+
     // Maximum physics timestep before simSpeed scaling.
     // Must remain above DT_SUBSTEP (computed in main.js from omegaMax)
     // to avoid the substep count growing unboundedly at high simSpeed.
@@ -304,7 +311,16 @@
     highlightFill:  '#16161e',
   };
 
-
+// ============================================================
+  // SECTION: POWERLAW PRESETS
+  // ============================================================
+  const POWERLAW_PRESETS = [
+    { name: 'C1 scaled', vMin: 2.33, vMax: 100., index: -0.53 },
+    { name: 'C2 scaled', vMin: 4.00, vMax: 100., index: -2.32 },
+    { name: 'C3 scaled', vMin: 0.08, vMax: 100., index: -1.90 },
+    { name: 'C4 scaled', vMin: 0.33, vMax: 100., index: -1.85 }
+  ];
+  
   // ============================================================
   // EXPORTS
   // ============================================================
@@ -317,4 +333,5 @@
   window.PAL_DARK       = PAL_DARK;
   window.PAL_LIGHT      = PAL_LIGHT;
   window.PAL            = PAL_DARK;
+  window.POWERLAW_PRESETS = POWERLAW_PRESETS;
 })();

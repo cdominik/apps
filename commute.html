@@ -132,6 +132,197 @@ function renderRain(times, precip) {
     const l = document.createElement('div'); l.className = 'bar-label flex-1'; l.innerText = new Date(times[i] * 1000).toLocaleTimeString('nl-NL', {hour:'2-digit', minute:'2-digit'});
     labels.appendChild(l);
   });
+=======
+<title>Commute & Weather App</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  .bar-container { display: flex; align-items: flex-end; height: 120px; gap: 4px; margin-top: 16px; }
+  .bar { background-color: #3b82f6; width: 100%; border-radius: 2px 2px 0 0; transition: height 0.3s; position: relative; }
+  .bar-label { font-size: 0.65rem; text-align: center; color: #6b7280; overflow: hidden; }
+  .bar-value { font-size: 0.65rem; text-align: center; position: absolute; top: -16px; left: 0; right: 0; color: #1d4ed8; font-weight: bold; }
+</style>
+</head>
+<body class="bg-gray-100 text-gray-800 p-4 font-sans h-screen">
+
+<div class="max-w-4xl mx-auto bg-white shadow-md rounded-lg p-6">
+  <div class="mb-6 flex flex-col md:flex-row gap-4 items-end bg-gray-50 p-4 rounded border">
+    <div class="flex-1 w-full">
+      <label class="block text-sm font-medium mb-1">NS API Key (Primary)</label>
+      <input type="text" id="ns-api-key" placeholder="Enter your NS Portal API Key" class="w-full border p-2 rounded focus:outline-none focus:border-blue-500" />
+    </div>
+    <button onclick="updateApp()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded shadow transition">Load Data</button>
+  </div>
+  
+  <div class="mb-6 flex flex-wrap gap-3 items-center">
+    <span class="font-medium text-sm">Location Context:</span>
+    <button onclick="setLocation('Voorschoten', true)" id="btn-voorschoten" class="px-4 py-1.5 rounded bg-blue-600 text-white text-sm shadow transition">Voorschoten</button>
+    <button onclick="setLocation('Amsterdam', true)" id="btn-amsterdam" class="px-4 py-1.5 rounded bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm shadow transition">Amsterdam</button>
+    <button onclick="autoLocate(true)" class="px-4 py-1.5 rounded bg-gray-800 hover:bg-gray-900 text-white text-sm shadow transition flex items-center gap-2">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+      Auto-Detect
+    </button>
+    
+    <span id="location-status" class="text-sm text-green-600 font-medium ml-auto"></span>
+    
+    <button onclick="updateApp()" class="px-4 py-1.5 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-sm shadow transition flex items-center gap-2 ml-auto md:ml-0">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+      Refresh
+    </button>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="bg-white p-4 rounded border shadow-sm">
+      <h2 class="text-lg font-bold border-b pb-2 mb-2" id="rain-title">Rain Forecast (Next 2 Hours)</h2>
+      <div class="bar-container" id="rain-bars"></div>
+      <div class="flex mt-1 gap-1" id="rain-labels"></div>
+      <div id="rain-error" class="text-sm text-red-500 mt-2"></div>
+    </div>
+
+    <div class="bg-white p-4 rounded border shadow-sm">
+      <h2 class="text-lg font-bold border-b pb-2 mb-4">Train Connections (Next 2 Hours)</h2>
+      <div id="train-content" class="space-y-4">
+        <div class="text-sm text-gray-500 italic">Enter your NS API key and click Load Data.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const coords = {
+  Voorschoten: { lat: 52.1258, lon: 4.4447 },
+  Amsterdam: { lat: 52.3702, lon: 4.8952 }
+};
+
+const trainRoutes = {
+  Voorschoten: [
+    { from: 'vst', to: 'dvd', label: 'Voorschoten → Duivendrecht' },
+    { from: 'vst', to: 'asa', label: 'Voorschoten → Science Park' }
+  ],
+  Amsterdam: [
+    { from: 'asa', to: 'vst', label: 'Science Park → Voorschoten' },
+    { from: 'dvd', to: 'vst', label: 'Duivendrecht → Voorschoten' }
+  ]
+};
+
+let currentLoc = 'Voorschoten';
+
+// Load saved API key
+const savedKey = localStorage.getItem('nsApiKey');
+if (savedKey) {
+  document.getElementById('ns-api-key').value = savedKey;
+}
+
+function setLocation(loc, userAction = false) {
+  currentLoc = loc;
+  
+  if (userAction) {
+    localStorage.setItem('locationPref', loc);
+    document.getElementById('location-status').innerText = ''; // Clear auto-detect text if user manually clicks
+  }
+
+  document.getElementById('btn-voorschoten').className = loc === 'Voorschoten' 
+    ? 'px-4 py-1.5 rounded bg-blue-600 text-white text-sm shadow transition' 
+    : 'px-4 py-1.5 rounded bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm shadow transition';
+  document.getElementById('btn-amsterdam').className = loc === 'Amsterdam' 
+    ? 'px-4 py-1.5 rounded bg-blue-600 text-white text-sm shadow transition' 
+    : 'px-4 py-1.5 rounded bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm shadow transition';
+  
+  document.getElementById('rain-title').innerText = `Rain Forecast (${loc})`;
+  updateApp();
+}
+
+function autoLocate(userAction = false) {
+  if (userAction) {
+    localStorage.setItem('locationPref', 'auto');
+  }
+  
+  document.getElementById('location-status').innerText = 'Detecting...';
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      const { latitude, longitude } = pos.coords;
+      const distV = Math.hypot(latitude - coords.Voorschoten.lat, longitude - coords.Voorschoten.lon);
+      const distA = Math.hypot(latitude - coords.Amsterdam.lat, longitude - coords.Amsterdam.lon);
+      
+      const detected = distA < distV ? 'Amsterdam' : 'Voorschoten';
+      setLocation(detected, false); // Don't override the 'auto' preference
+      document.getElementById('location-status').innerText = `Detected nearest: ${detected}`;
+    }, err => {
+      document.getElementById('location-status').innerText = 'Location access denied.';
+      // Fallback to Voorschoten if location fails
+      setLocation('Voorschoten', false); 
+    });
+  } else {
+    document.getElementById('location-status').innerText = 'Geolocation not supported.';
+    setLocation('Voorschoten', false);
+  }
+}
+
+async function updateApp() {
+  fetchRain();
+  fetchTrains();
+}
+
+async function fetchRain() {
+  const c = coords[currentLoc];
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&minutely_15=precipitation&timeformat=unixtime&timezone=auto&forecast_days=1`;
+  
+  try {
+    document.getElementById('rain-error').innerText = '';
+    const res = await fetch(url);
+    const data = await res.json();
+    
+    const now = Math.floor(Date.now() / 1000);
+    const times = data.minutely_15.time;
+    const precip = data.minutely_15.precipitation;
+    
+    let startIdx = times.findIndex(t => t >= now - 900);
+    if (startIdx === -1) startIdx = 0;
+    
+    const sliceTimes = times.slice(startIdx, startIdx + 8);
+    const slicePrecip = precip.slice(startIdx, startIdx + 8);
+    
+    renderRain(sliceTimes, slicePrecip);
+  } catch (e) {
+    document.getElementById('rain-error').innerText = 'Failed to load rain data.';
+  }
+}
+
+function renderRain(times, precip) {
+  const bars = document.getElementById('rain-bars');
+  const labels = document.getElementById('rain-labels');
+  bars.innerHTML = '';
+  labels.innerHTML = '';
+  
+  const maxPrecip = Math.max(0.5, ...precip); 
+  
+  for(let i=0; i < precip.length; i++) {
+    const val = precip[i];
+    const timeLabel = new Date(times[i] * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const heightPct = (val / maxPrecip) * 100;
+    
+    const col = document.createElement('div');
+    col.className = 'flex-1 flex flex-col justify-end relative group';
+    
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    bar.style.height = val === 0 ? '2px' : `${heightPct}%`;
+    bar.style.backgroundColor = val === 0 ? '#e5e7eb' : '#3b82f6';
+    
+    if(val > 0) {
+      const vText = document.createElement('div');
+      vText.className = 'bar-value';
+      vText.innerText = val.toFixed(1) + 'mm';
+      col.appendChild(vText);
+    }
+    
+    const label = document.createElement('div');
+    label.className = 'bar-label flex-1';
+    label.innerText = timeLabel;
+    
+    col.appendChild(bar);
+    bars.appendChild(col);
+    labels.appendChild(label);
+  }
 }
 
 async function fetchTrains() {
@@ -179,6 +370,77 @@ async function fetchTrains() {
       });
       html += `</ul></div>`;
     } catch(e) { html += `<div class="mb-2"><div class="px-3 py-2 bg-gray-200 rounded text-sm">${route.label}</div><div class="text-red-500 text-sm">Error</div></div>`; }
+=======
+  
+  if (!apiKey) {
+    container.innerHTML = '<div class="text-red-500 text-sm">Please provide an NS API key to view connections.</div>';
+    return;
+  }
+
+  localStorage.setItem('nsApiKey', apiKey);
+
+  container.innerHTML = '<div class="text-sm text-gray-500">Fetching live train data...</div>';
+  const routes = trainRoutes[currentLoc];
+  let html = '';
+
+  for (const route of routes) {
+    const baseUrl = `https://gateway.apiportal.ns.nl/reisinformatie-api/api/v3/trips?fromStation=${route.from}&toStation=${route.to}&nextAdvises=8&subscription-key=${apiKey}`;
+    const url = `https://api.allorigins.win/get?url=${encodeURIComponent(baseUrl)}`;
+    
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      
+      const wrapperData = await res.json();
+      
+      if (!wrapperData.contents) {
+        throw new Error("Proxy failed to fetch data.");
+      }
+      
+      const data = JSON.parse(wrapperData.contents);
+      
+      if (data.statusCode && data.statusCode !== 200) {
+          throw new Error(data.message || `API Error ${data.statusCode}`);
+      }
+
+      const now = new Date();
+      const twoHoursLater = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+      
+      const validTrips = (data.trips || []).filter(t => {
+        if (!t.legs || !t.legs.length) return false;
+        const depTime = new Date(t.legs[0].origin.plannedDateTime);
+        return depTime >= now && depTime <= twoHoursLater;
+      });
+
+      html += `<div class="mb-4">
+        <h3 class="font-bold text-gray-700 bg-gray-100 px-2 py-1 rounded text-sm mb-2">${route.label}</h3>`;
+      
+      if (validTrips.length === 0) {
+        html += `<div class="text-sm text-gray-500 px-2">No trips found in the next 2 hours.</div>`;
+      } else {
+        html += `<ul class="space-y-2 px-2">`;
+        validTrips.forEach(t => {
+          const dep = new Date(t.legs[0].origin.plannedDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const arr = new Date(t.legs[t.legs.length - 1].destination.plannedDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const status = t.status !== 'NORMAL' ? `<span class="text-red-500 font-bold ml-2 text-xs uppercase">${t.status}</span>` : '';
+          const transfers = t.transfers || 0;
+          const transferText = transfers === 1 ? '1 stepover' : `${transfers} stepovers`;
+          
+          html += `<li class="flex justify-between items-center text-sm border-b border-gray-100 pb-1">
+            <span><strong>${dep}</strong> &rarr; <strong>${arr}</strong> ${status}</span>
+            <span class="text-gray-500 text-xs bg-gray-100 px-2 py-0.5 rounded">${transferText}</span>
+          </li>`;
+        });
+        html += `</ul>`;
+      }
+      html += `</div>`;
+      
+    } catch (e) {
+      html += `<div class="mb-4">
+        <h3 class="font-bold text-gray-700 bg-gray-100 px-2 py-1 rounded text-sm mb-1">${route.label}</h3>
+        <div class="text-sm text-red-500 px-2">Error: ${e.message}</div>
+      </div>`;
+    }
   }
   container.innerHTML = html;
 }
@@ -189,6 +451,17 @@ try {
   if(p === 'auto') autoLocate(false); else if(p) setLocation(p, false); else setLocation('Voorschoten', false);
   if(k) updateApp();
 } catch(e) { console.error(e); }
+=======
+// Startup Logic
+const savedLocPref = localStorage.getItem('locationPref');
+if (savedLocPref === 'auto') {
+  autoLocate(false);
+} else if (savedLocPref) {
+  setLocation(savedLocPref, false);
+} else {
+  // Default if nothing is saved
+  setLocation('Voorschoten', false); 
+}
 </script>
 </body>
 </html>

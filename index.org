@@ -9,5 +9,3 @@ This repo serves some simple apps.
 - [[file:planet_visibility.html][Planet Sky Visibility]]
 
 - [[file:commute.html][Commute]]
-- [[file:commute1.html][Commute1]]
-

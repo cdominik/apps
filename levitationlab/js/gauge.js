@@ -29,16 +29,38 @@
   const gaugePebble = document.getElementById('gaugePebble');
   const gaugeTime = document.getElementById('gaugeTime');
   const elChalTimeLeft = document.getElementById('chalTimeLeft');
+
+  // NEW: UI Cache for dirty-checking DOM updates
+  const uiCache = {
+    periodStr: null,
+    floating: null,
+    captured: null,
+    remaining: null,
+    aggCount: null,
+    pebbleCount: null,
+    chalTimeLeft: null,
+    aggVisible: false,
+    pebbleVisible: false,
+    timeVisible: false,
+    distLabelMode: null // Tracks if standard or custom labels are applied
+  };
+
   /**
    * Reads simulation state and updates the period, floating, levitated, and
    * captured counters in the HUD; reveals the aggregate and pebble gauges on
    * their first non-zero appearance.
    */
   function updateGauge() {
+    // --- PERIOD ---
     const T = state.period();
-    elPeriod.textContent = isFinite(T) ? parseFloat(T.toPrecision(3)) : '∞';
-    let floating = 0, levitated = 0;
+    const periodStr = isFinite(T) ? parseFloat(T.toPrecision(3)) : '∞';
+    if (periodStr !== uiCache.periodStr) {
+      elPeriod.textContent = periodStr;
+      uiCache.periodStr = periodStr;
+    }
   
+    // --- LEVITATION LOGIC (unchanged to preserve chime sounds) ---
+    let floating = 0, levitated = 0;
     for (const p of state.particles) {
       if (!p.alive) continue;
       if (p.stuck || p.onTray) { p.wasLevitated = false; continue; }
@@ -58,67 +80,85 @@
       }
     }
   
-    elFloating.textContent = floating;
-    elCaptured.textContent = state.lostCount;
-    elRemaining.textContent = levitated;
+    // --- BASIC COUNTERS ---
+    if (floating !== uiCache.floating) {
+      elFloating.textContent = floating;
+      uiCache.floating = floating;
+    }
+    if (state.lostCount !== uiCache.captured) {
+      elCaptured.textContent = state.lostCount;
+      uiCache.captured = state.lostCount;
+    }
+    if (levitated !== uiCache.remaining) {
+      elRemaining.textContent = levitated;
+      uiCache.remaining = levitated;
+    }
   
-    // --- CONDITIONAL DISPLAY OVERRIDE ---
+    // --- CONDITIONAL DISPLAY OVERRIDE (Expert Orange) ---
     const label = state.distLabels[state.distMode];
     const winVT = SEL_WIN.VT;
     const winSpread = SEL_WIN.SPREAD;
   
     if (label) {
-      // A custom label exists, apply the Expert Orange override
-      winVT.textContent = label;
-      winVT.style.color = "#ff8c30";
-      winVT.style.fontSize = "10px";
-      
-      winSpread.textContent = label;
-      winSpread.style.color = "#ff8c30";
-      winSpread.style.fontSize = "10px";
+      if (uiCache.distLabelMode !== state.distMode) {
+        winVT.textContent = label;
+        winVT.style.color = "#ff8c30";
+        winVT.style.fontSize = "10px";
+        
+        winSpread.textContent = label;
+        winSpread.style.color = "#ff8c30";
+        winSpread.style.fontSize = "10px";
+        uiCache.distLabelMode = state.distMode;
+      }
     } else {
-      // No custom label (default mode), restore Standard SETTINGS
-      const sVT = SETTINGS.VT;
-      const sSpread = SETTINGS.SPREAD;
-      
-      winVT.textContent = sVT.label(sVT.values[sVT.idx]);
-      winVT.style.color = ""; 
-      winVT.style.fontSize = ""; 
-  
-      winSpread.textContent = sSpread.label(sSpread.values[sSpread.idx]);
-      winSpread.style.color = "";
-      winSpread.style.fontSize = "";
+      if (uiCache.distLabelMode !== 'default') {
+        const sVT = SETTINGS.VT;
+        const sSpread = SETTINGS.SPREAD;
+        
+        winVT.textContent = sVT.label(sVT.values[sVT.idx]);
+        winVT.style.color = ""; 
+        winVT.style.fontSize = ""; 
+    
+        winSpread.textContent = sSpread.label(sSpread.values[sSpread.idx]);
+        winSpread.style.color = "";
+        winSpread.style.fontSize = "";
+        uiCache.distLabelMode = 'default';
+      }
     }
 
-    // Dynamic Aggregate Gauge
+    // --- AGGREGATE GAUGE ---
     const activeAggs = state.aggCount;
     if (activeAggs > 0) {
-      if (gaugeAgg.style.display === 'none') {
+      if (!uiCache.aggVisible) {
         gaugeAgg.style.display = 'flex';
         soundGoldenChime();
+        uiCache.aggVisible = true;
       }
-      elAggCount.textContent = activeAggs;
+      if (activeAggs !== uiCache.aggCount) {
+        elAggCount.textContent = activeAggs;
+        uiCache.aggCount = activeAggs;
+      }
     } else {
-      elAggCount.textContent = 0;
+      if (uiCache.aggCount !== 0) {
+        elAggCount.textContent = 0;
+        uiCache.aggCount = 0;
+      }
     }
   
-    // Dynamic Pebble Gauge
+    // --- PEBBLE GAUGE ---
     if (state.eggBallCount > 0) {
-      if (gaugePebble.style.display === 'none') {
+      if (!uiCache.pebbleVisible) {
         gaugePebble.style.display = 'flex';
         soundGoldenChime();
+        uiCache.pebbleVisible = true;
+      }
+      if (state.eggBallCount !== uiCache.pebbleCount) {
+        elPebbleCount.textContent = state.eggBallCount;
+        uiCache.pebbleCount = state.eggBallCount;
       }
     }
-    if (gaugePebble.style.display !== 'none') {
-      elPebbleCount.textContent = state.eggBallCount;
-    }
-    if (gaugePebble.style.display !== 'none') {
-      elPebbleCount.textContent = state.eggBallCount;
-    }
 
-    // Challenge countdown — visible only during an active challenge run.
-    // Limit expression MUST match updateChallenge() so it honors ?time
-    // and never drifts: (override || CHALLENGE_CFG.TIME_LIMIT) + DT_INJECT.
+    // --- CHALLENGE COUNTDOWN ---
     if (typeof CHALLENGE !== 'undefined' && CHALLENGE.on &&
         CHALLENGE.phase === 'playing') {
       const baseLimit = (typeof state.challengeTimeOverride === 'number' &&
@@ -129,13 +169,23 @@
       const limit   = baseLimit + CFG.DT_INJECT;
       const elapsed = state.t - CHALLENGE.startTime;
       const left    = Math.max(0, Math.ceil(limit - elapsed));
-      if (gaugeTime.style.display === 'none') gaugeTime.style.display = 'flex';
-      elChalTimeLeft.textContent = left;
-    } else if (gaugeTime.style.display !== 'none') {
-      gaugeTime.style.display = 'none';
+      
+      if (!uiCache.timeVisible) {
+        gaugeTime.style.display = 'flex';
+        uiCache.timeVisible = true;
+      }
+      if (left !== uiCache.chalTimeLeft) {
+        elChalTimeLeft.textContent = left;
+        uiCache.chalTimeLeft = left;
+      }
+    } else {
+      if (uiCache.timeVisible) {
+        gaugeTime.style.display = 'none';
+        uiCache.timeVisible = false;
+      }
     }
 
-    // Tray arming beep
+    // --- TRAY ARMING BEEP ---
     const BEEP_INTERVAL = 1.0;
     if (state.tray.phase === 'armed' || state.tray.phase === 'inserting') {
       if (!updateGauge._lastBeep ||

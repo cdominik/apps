@@ -119,7 +119,15 @@
     for (let i = 0; i < N; i++) {
       // Spread injection events evenly across the DT_INJECT window.
       const t = (N === 1 || CFG.DT_INJECT === 0) ? 0 : (i / (N - 1)) * CFG.DT_INJECT;
-      const x = CFG.RELEASE_X_MIN + Math.random() * (CFG.RELEASE_X_MAX - CFG.RELEASE_X_MIN);
+      // Assign particle to one of 5 nozzles round-robin, then sample within
+      // the focus beam centred on that nozzle. Matches drawInjector() geometry.
+      const _nN       = 5;
+      const _nX0      = CFG.RELEASE_X_MIN + 5;          // 5 cm
+      const _nX1      = CFG.RELEASE_X_MAX - 5;          // 95 cm
+      const _slotW    = (_nX1 - _nX0) / _nN;            // 18 cm per slot
+      const _focus    = Math.min(Math.max(1, CFG.NOZZLE_FOCUS), _slotW);
+      const _nCentre  = _nX0 + (i % _nN + 0.5) * _slotW;
+      const x         = _nCentre + (Math.random() - 0.5) * _focus;
       let vt;
 
       if (dist === 'bi') {
@@ -583,7 +591,7 @@
       return; // block new merges while one is running
     }
 
-    if (state.eggBallCount >= TUNING.egg.maxBalls) return;
+if (state.eggBallCount >= TUNING.egg.maxBalls) return;
 
     // 6. Check whether enough aggregates are levitated to start a new merge.
     const target = (state.eggBallCount === 0)
@@ -593,14 +601,44 @@
     const lev = eggLevitatedAggregates();
     const T   = state.period();
 
-    if (lev.length >= TUNING.egg.nCrit && isFinite(T) && CFG.VT_SPREAD >= TUNING.egg.minSpread) {
-      state.eggHoldRevs += dt / T;
-      if (state.eggHoldRevs >= target) {
-        startMerge(lev);
+    if (window.aggGrowthOn) {
+      // Grow-mode pebble path: fires when the aggregate vt range has collapsed
+      // below TUNING.egg.collapseThresh × mean, indicating merging has
+      // homogenised the population. Requires nCritCollapse levitated aggregates
+      // and holds for holdTarget revolutions before triggering.
+      const liveAggs = state.aggregates.filter(
+        a => a.alive && !a.stuck && !a.merging && !a.onTray
+      );
+      let collapseMet = false;
+      if (lev.length >= TUNING.egg.nCritCollapse && liveAggs.length >= 2 && isFinite(T)) {
+        const vtVals = liveAggs.map(a => a.vt);
+        const vtMin  = Math.min(...vtVals);
+        const vtMax  = Math.max(...vtVals);
+        const vtMean = vtVals.reduce((s, v) => s + v, 0) / vtVals.length;
+        collapseMet  = vtMean > 0 && (vtMax - vtMin) >= TUNING.egg.widthThresh * vtMean;
+      }
+      if (collapseMet) {
+        state.eggHoldRevs += dt / T;
+        if (state.eggHoldRevs >= target) {
+          startMerge(lev);
+          state.eggHoldRevs = 0;
+        }
+      } else {
         state.eggHoldRevs = 0;
       }
     } else {
-      state.eggHoldRevs = 0;
+      // Normal pebble path: nCrit levitated aggregates held for holdTarget revs,
+      // gated on injection spread.
+      if (lev.length >= TUNING.egg.nCrit && isFinite(T) &&
+          CFG.VT_SPREAD >= TUNING.egg.minSpread) {
+        state.eggHoldRevs += dt / T;
+        if (state.eggHoldRevs >= target) {
+          startMerge(lev);
+          state.eggHoldRevs = 0;
+        }
+      } else {
+        state.eggHoldRevs = 0;
+      }
     }
   }
 
@@ -1015,6 +1053,21 @@
     else                 return TUNING.aggregate.subseqHoldRevs;
   }
 
+  /**
+   * Returns the relative spread (coefficient of variation) of vt among
+   * a list of particle or aggregate objects. Returns 0 for fewer than 2.
+   *
+   * @param {object[]} list - Array of objects with a .vt property.
+   * @returns {number} Relative spread: stddev(vt) / mean(vt).
+ */
+  function _levitatedSpread(list) {
+    if (list.length < 2) return 0;
+    const mean = list.reduce((s, p) => s + p.vt, 0) / list.length;
+    if (mean < 1e-6) return 0;
+    const variance = list.reduce((s, p) => s + (p.vt - mean) ** 2, 0) / list.length;
+    return Math.sqrt(variance) / mean;
+  }
+
   function updateAggregates(dt) {
     // Advance an in-progress aggregate merge animation.
     if (state.aggMerging) {
@@ -1078,9 +1131,23 @@
       const lev = eggLevitatedParticles();
       const T   = state.period();
       
+      // Criterion: the empirical 95.45% range (2.275th–97.725th percentile)
+      // of floating particle vt must exceed 50% of the mean vt.
+      const _floatingVts = state.particles
+            .filter(p => p.alive && !p.stuck && !p.merging && p.insideOnce)
+            .map(p => p.vt);
+      const _aggCanForm = (() => {
+        if (_floatingVts.length < 2) return false;
+        const sorted = [..._floatingVts].sort((a, b) => a - b);
+        const n      = sorted.length;
+        const lo     = sorted[Math.floor(0.02275 * (n - 1))];
+        const hi     = sorted[Math.ceil(0.97725  * (n - 1))];
+        const mean   = _floatingVts.reduce((s, v) => s + v, 0) / n;
+        return mean > 0 && (hi - lo) >= TUNING.aggregate.spreadThresh * mean;
+      })();
       if (lev.length >= TUNING.aggregate.minLevitated &&
           isFinite(T) &&
-          CFG.VT_SPREAD >= TUNING.aggregate.minSpread) {
+          _aggCanForm) {
         state.aggHoldRevs += dt / T;
         const target = state.aggCount === 0
           ? TUNING.aggregate.initialHoldRevs
