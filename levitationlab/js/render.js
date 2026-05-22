@@ -732,6 +732,18 @@
         ctx.shadowBlur = 15 * flash;
         ctx.shadowColor = 'rgba(60, 255, 120, 0.8)';
       }
+
+      // --- BOUNCE FLASH VISUALIZER ---
+      if (agg.bounceFlashEndsAt && state.t < agg.bounceFlashEndsAt) {
+        const bounceAlpha = (agg.bounceFlashEndsAt - state.t) / 0.6;
+        ctx.shadowBlur = 20 * bounceAlpha;
+        ctx.shadowColor = `rgba(255, 60, 60, ${bounceAlpha})`;
+        ctx.strokeStyle = `rgba(255, 60, 60, ${bounceAlpha})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, ar + 1.5, 0, Math.PI * 2);
+        ctx.stroke();
+      }
   
       const imgIdx = (typeof aggImageIndex === 'function' && agg.count)
           ? aggImageIndex(agg.count)
@@ -2383,7 +2395,7 @@ function drawRepresentativeOrbits() {
     // threshFrac   — if > 0, draws a centred threshold line of half-width
     //                threshFrac × mean; pass 0 to suppress the line.
     // mean         — centre for the threshold line (ignored when threshFrac=0).
-    const _drawSpreadBar = (barTopPx, loVt, hiVt, threshFrac, mean, fillCol, lineCol) => {
+    const _drawSpreadBar = (barTopPx, loVt, hiVt, lineLeftVt, lineRightVt, fillCol, lineCol) => {
       const barHpx   = pxDist(barThick);
       const barMidPx = barTopPx + barHpx * 0.5;
 
@@ -2393,18 +2405,29 @@ function drawRepresentativeOrbits() {
         ctxOv.fillRect(X2px(vtToX(loVt)), barTopPx, pxDist(barW), barHpx);
       }
 
-      if (threshFrac > 0 && mean > 0) {
-        const threshAbs = threshFrac * mean;
-        const lineLeft  = vtToX(mean - threshAbs);
-        const lineRight = vtToX(mean + threshAbs);
-        const lineW     = lineRight - lineLeft;
-        if (lineW > 0) {
+      if (lineLeftVt !== null && lineRightVt !== null) {
+        const lineLeft  = vtToX(lineLeftVt);
+        const lineRight = vtToX(lineRightVt);
+        
+        // Clamp line to plot boundaries
+        const drawLeft  = Math.max(X0, Math.min(X1, lineLeft));
+        const drawRight = Math.max(X0, Math.min(X1, lineRight));
+
+        if (drawRight >= drawLeft) {
           ctxOv.strokeStyle = lineCol;
           ctxOv.lineWidth   = 1.5;
           ctxOv.beginPath();
-          ctxOv.moveTo(X2px(lineLeft),  barMidPx);
-          ctxOv.lineTo(X2px(lineRight), barMidPx);
+          ctxOv.moveTo(X2px(drawLeft),  barMidPx);
+          ctxOv.lineTo(X2px(drawRight), barMidPx);
           ctxOv.stroke();
+          
+          // Draw a small vertical tick at the start of the threshold
+          if (lineLeft >= X0 && lineLeft <= X1) {
+            ctxOv.beginPath();
+            ctxOv.moveTo(X2px(lineLeft), barMidPx - barHpx * 0.8);
+            ctxOv.lineTo(X2px(lineLeft), barMidPx + barHpx * 0.8);
+            ctxOv.stroke();
+          }
         }
       }
     };
@@ -2426,7 +2449,7 @@ function drawRepresentativeOrbits() {
 
     // --- AGGREGATE HISTOGRAM ---
     if (aggVts.length > 0) {
-      const nBins = 8;
+      const nBins = 24;
       const bins  = new Array(nBins).fill(0);
       const binW  = (xMax - xMin) / nBins;
       for (const vt of aggVts) {
@@ -2479,43 +2502,60 @@ function drawRepresentativeOrbits() {
     const bar1TopPx = labelPy + fs * 0.5;
     const bar2TopPx = bar1TopPx + barHpx + pxDist(barGap);
 
-    // Particle bar (lime) — empirical 95.45% range via 2.275th/97.725th
-    // percentiles. Threshold line shows 50% of mean — the aggregate
-    // formation criterion: (hi - lo) >= 0.5 * mean, centred on mean.
+    // Particle bar (lime) — empirical 95.45% range
     if (allFloatVts.length >= 2) {
       const sorted = [...allFloatVts].sort((a, b) => a - b);
       const n      = sorted.length;
       const loVt   = sorted[Math.floor(0.02275 * (n - 1))];
       const hiVt   = sorted[Math.ceil(0.97725  * (n - 1))];
-      const mean   = allFloatVts.reduce((s, v) => s + v, 0) / n;
-      // Threshold line spans ±25% of mean, giving a total width of 50% of mean.
+      
       _drawSpreadBar(
         bar1TopPx,
         loVt, hiVt,
-        TUNING.aggregate.spreadThresh * 0.5,
-        mean,
+        null, // No threshold line for particles
+        null, // No threshold line for particles
         'rgba(210,255,20,0.50)',
         'rgba(210,255,20,0.95)' 
       );
     }
 
-    // Aggregate bar (amber) — full empirical min-to-max range of live aggregate vt.
-    // Threshold line shows collapseThresh × mean — the grow-mode pebble criterion:
-    // when the bar shrinks inside the line, a pebble will form.
+    // Aggregate bar (amber) — full min-to-max range
     if (aggVts.length >= 2) {
       const aggMin  = Math.min(...aggVts);
       const aggMax  = Math.max(...aggVts);
       const aggMid  = (aggMin + aggMax) * 0.5;
-      const aggMean = aggVts.reduce((s, v) => s + v, 0) / aggVts.length;
+      
+      let lineLeftVt = null;
+      let lineRightVt = null;
+
+      if (window.aggGrowthStage === 2) {
+        // Stage 2 (Bouncing): Draw target line from the spread threshold to the right edge
+        let sumVt = 0, count = 0;
+        for (const p of state.particles) {
+          if (p.insideOnce) { sumVt += p.vt; count++; }
+        }
+        const meanVt = count > 0 ? sumVt / count : 1;
+        const threshold = (TUNING.egg.vtSpreadMult || 2.0) * meanVt;
+        
+        lineLeftVt = threshold;
+        lineRightVt = xMax;
+      } else {
+        // Stages 0, 1, 3: Draw a centered threshold width
+        const threshAbs = TUNING.egg.widthThresh * 0.5 * aggMid;
+        lineLeftVt = aggMid - threshAbs;
+        lineRightVt = aggMid + threshAbs;
+      }
+
       _drawSpreadBar(
         bar2TopPx,
         aggMin, aggMax,
-        TUNING.egg.widthThresh * 0.5,
-        aggMid,
+        lineLeftVt,
+        lineRightVt,
         'rgba(230,160,50,0.45)',
         'rgba(230,160,50,0.90)'
       );
     }
+
     ctxOv.restore();
   }
 

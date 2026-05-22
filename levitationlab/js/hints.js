@@ -8,14 +8,20 @@
  *   On/off transitions show an immediate acknowledgement message that
  *   bypasses the normal rule system and cooldowns.
  *
- * Exposes globals: updateHints, drawHints
+ *   Growth stages (window.aggGrowthStage):
+ *     0 — systemic (7 levitated aggregates collapse to a pebble)
+ *     1 — grow    (aggregate-aggregate merges; pebble at 100 monomers)
+ *     2 — bounce  (sub-threshold collisions bounce, super-threshold form pebbles)
+ *     3 — off     (no growth beyond aggregate formation)
+ *
+ * Exposes globals: updateHints, drawHints, toggleHints, setHints
  * Reads globals:   TUNING, CFG, state, GAME, CHALLENGE,
  *                  CX, CY, ctxOv, Y2px, pxDist
  */
 (() => {
   'use strict';
 
-  window.hintsOn = true;   // on by default outside Game/Challenge (item 1)
+  window.hintsOn = true;
 
   // Cached DOM reference — avoids repeated getElementById in rule conditions.
   const _expertEl = document.getElementById('expertContainer');
@@ -33,6 +39,8 @@
     lastFiredAt: -999,   // wall time of last hint fired
     cooldowns:   {},     // rule id → wall time last fired
     forceDraw:   false,  // true while the farewell hint is showing after hints turned off
+    bounceCount: 0,      // total bounces observed (for stage 2 nudges)
+    lastBounceObservedAt: -999,
   };
 
   // ── HELPERS ───────────────────────────────────────────────────────────────
@@ -56,8 +64,8 @@
   }
 
   /**
-   * Returns the empirical min-to-max vt range of live aggregates, plus mean.
-   * Returns null if fewer than 2 aggregates.
+   * Returns the empirical min-to-max vt range of live aggregates, plus mean
+   * and max. Returns null if fewer than 2 aggregates.
    */
   function _aggVtRange() {
     const vts = state.aggregates
@@ -70,29 +78,78 @@
     return { vtMin, vtMax, vtMean, range: vtMax - vtMin };
   }
 
+  /**
+   * Returns the bounce threshold currently used in stage 2 (multiplier
+   * applied to the injected mean vt). Used by hint rules and messages.
+   */
+  function _bounceThreshold() {
+    const m = state.injectedMeanVt || CFG.V_T;
+    return TUNING.egg.vtSpreadMult * m;
+  }
+
+  /**
+   * Returns true if any live aggregate has v_t at or above the stage-2
+   * pebble-formation threshold. A reasonable proxy for "progress is happening".
+   */
+  function _anyAggAboveThreshold() {
+    const thresh = _bounceThreshold();
+    for (const a of state.aggregates) {
+      if (!a.alive || a.stuck || a.merging || a.onTray) continue;
+      if (a.vt >= thresh) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Counts how many bounce-flashes are currently active. Cheap proxy for
+   * "bouncing is actively happening right now".
+   */
+  function _activeBounces() {
+    let n = 0;
+    for (const a of state.aggregates) {
+      if (a.bounceFlashEndsAt && a.bounceFlashEndsAt > state.t) n++;
+    }
+    return n;
+  }
+
   // ── RULES ─────────────────────────────────────────────────────────────────
   // Priority: higher fires first when multiple rules match simultaneously.
   // Cooldown: seconds before this individual rule can fire again.
   const RULES = [
 
-    // ── DRAMATIC EVENTS ───────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════
+    // DRAMATIC EVENTS — fire once per run, very high priority
+    // ══════════════════════════════════════════════════════════════════════
 
     {
-      id: 'pebble_formed_normal',
+      id: 'pebble_formed_stage0',
       priority: 100,
       cooldown: 120,
-      when: c => !window.aggGrowthOn &&
+      when: c => c.growthStage === 0 &&
                  c.pebbles.count >= 1 && c.pebbles.count <= 2,
       message: 'A pebble has formed — seven aggregates compressed into one.',
     },
     {
-      id: 'pebble_formed_grow',
+      id: 'pebble_formed_stage1',
       priority: 100,
       cooldown: 120,
-      when: c => window.aggGrowthOn &&
+      when: c => c.growthStage === 1 &&
                  c.pebbles.count >= 1 && c.pebbles.count <= 2,
-      message: 'A pebble has formed from the grown aggregate population.',
+      message: 'A pebble has formed from sequential aggregate merges.',
     },
+    {
+      id: 'pebble_formed_stage2',
+      priority: 100,
+      cooldown: 120,
+      when: c => c.growthStage === 2 &&
+                 c.pebbles.count >= 1 && c.pebbles.count <= 2,
+      message: 'A pebble formed — an aggregate finally crossed the v_t threshold.',
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // FIRST AGGREGATE — fires once early
+    // ══════════════════════════════════════════════════════════════════════
+
     {
       id: 'aggregate_formed_no_kick',
       priority: 90,
@@ -112,34 +169,143 @@
       message: 'Aggregate formed. Its higher Stokes number shifts its orbit outward.',
     },
 
-    // ── PEBBLE IMMINENCE — mode-specific ──────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════
+    // STAGE INTRO HINTS — fire when the player switches modes mid-run
+    // and there is something to comment on
+    // ══════════════════════════════════════════════════════════════════════
 
     {
-      id: 'pebble_imminent_normal',
+      id: 'stage_1_intro',
+      priority: 87,
+      cooldown: 300,
+      when: c => c.growthStage === 1 && c.aggregates.count >= 2 &&
+                 c.pebbles.count === 0,
+      message: 'Grow mode: aggregates that collide will now merge. Pebble at 100 monomers.',
+    },
+    {
+      id: 'stage_2_intro',
+      priority: 87,
+      cooldown: 300,
+      when: c => c.growthStage === 2 && c.aggregates.count >= 2 &&
+                 c.pebbles.count === 0,
+      message: 'Bounce mode: large aggregates only form pebbles once their v_t is high enough.',
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // STAGE 2 — BOUNCE PHYSICS (the most novel, least intuitive mode)
+    // ══════════════════════════════════════════════════════════════════════
+
+    {
+      id: 'bounce_first_observed',
+      priority: 86,
+      cooldown: 600,
+      when: c => c.growthStage === 2 && hs.bounceCount >= 1 &&
+                 hs.bounceCount <= 3 && c.pebbles.count === 0,
+      message: 'A collision bounced — both aggregates received a v_t kick. Their orbits will shift outward.',
+    },
+    {
+      id: 'bounce_threshold_reached',
+      priority: 84,
+      cooldown: 120,
+      when: c => c.growthStage === 2 &&
+                 c.pebbles.count === 0 &&
+                 c.aggregates.count >= 2 &&
+                 _anyAggAboveThreshold(),
+      message: 'An aggregate is now above the pebble threshold — next contact will form one.',
+    },
+    {
+      id: 'bounce_stuck_below_threshold',
+      priority: 70,
+      cooldown: 90,
+      when: c => c.growthStage === 2 &&
+                 c.pebbles.count === 0 &&
+                 c.aggregates.count >= 3 &&
+                 hs.bounceCount >= 8 &&
+                 !_anyAggAboveThreshold() &&
+                 c.state_t > 20,
+      message: 'Many bounces, no pebbles — aggregates are stuck below the threshold. A wider spread would help.',
+    },
+    {
+      id: 'suggest_slow_mo_for_bounce',
+      priority: 80,
+      cooldown: 120,
+      when: c => c.growthStage === 2 &&
+                 !window.slowMoArmed &&
+                 hs.bounceCount >= 2 &&
+                 _expertOpen(),
+      message: 'Bounce collisions are fast — slow motion makes them easier to follow.',
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // PEBBLE IMMINENCE — mode-specific
+    // ══════════════════════════════════════════════════════════════════════
+
+    {
+      id: 'pebble_imminent_stage0',
       priority: 85,
       cooldown: 30,
-      when: c => !window.aggGrowthOn &&
+      when: c => c.growthStage === 0 &&
                  c.aggregates.levitated >= 7 &&
                  c.params.VT_SPREAD >= TUNING.egg.minSpread &&
                  c.pebbles.count === 0,
       message: 'Seven aggregates levitated with sufficient spread. A pebble should form soon.',
     },
     {
-      id: 'pebble_imminent_grow',
+      id: 'pebble_imminent_stage1',
       priority: 85,
       cooldown: 30,
       when: c => {
-        if (!window.aggGrowthOn) return false;
+        if (c.growthStage !== 1) return false;
         if (c.pebbles.count > 0) return false;
         if (state.eggHoldRevs < 0.3) return false;
         const r = _aggVtRange();
         return r !== null && r.vtMean > 0 &&
                r.range >= TUNING.egg.widthThresh * r.vtMean;
       },
-      message: 'Aggregate range is wide — pebble forming. Keep the drum spinning.',
+      message: 'Aggregate v_t range is wide — a pebble is imminent. Keep the drum spinning.',
     },
 
-    // ── EXPERT BUTTON SUGGESTIONS (require expert door open) ──────────────
+    // ══════════════════════════════════════════════════════════════════════
+    // FORMATION CONDITIONS — mode-specific blockers
+    // ══════════════════════════════════════════════════════════════════════
+
+    {
+      id: 'spread_low_for_pebble_stage0',
+      priority: 75,
+      cooldown: 60,
+      when: c => c.growthStage === 0 &&
+                 c.aggregates.count >= 3 &&
+                 c.params.VT_SPREAD < TUNING.egg.minSpread &&
+                 c.pebbles.count === 0,
+      message: 'Pebble formation needs an injection spread of at least 30%. Increase v_t spread.',
+    },
+    {
+      id: 'grow_range_narrow_stage1',
+      priority: 75,
+      cooldown: 60,
+      when: c => {
+        if (c.growthStage !== 1) return false;
+        if (c.aggregates.count < 2) return false;
+        if (c.pebbles.count > 0) return false;
+        const r = _aggVtRange();
+        return r !== null && r.vtMean > 0 &&
+               r.range < TUNING.egg.widthThresh * r.vtMean;
+      },
+      message: 'Aggregate v_t range has collapsed — pebble formation paused. A wider injection spread would help.',
+    },
+    {
+      id: 'growth_off_explainer',
+      priority: 72,
+      cooldown: 180,
+      when: c => c.growthStage === 3 &&
+                 c.aggregates.count >= 5 &&
+                 c.pebbles.count === 0,
+      message: 'Growth is off — aggregates will not combine further. Cycle the growth button to enable.',
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // EXPERT BUTTON SUGGESTIONS (require expert door open)
+    // ══════════════════════════════════════════════════════════════════════
 
     {
       id: 'agg_size_dist',
@@ -161,62 +327,30 @@
       cooldown: 60,
       when: c => !window.slowMoArmed &&
                  !c.merging &&
+                 c.growthStage !== 2 &&  // stage 2 has its own slow-mo hint
                  _expertOpen() &&
                  (state.aggHoldRevs > 0.5 || state.eggHoldRevs > 0.5),
       message: 'A merge is building — enable slow motion to watch it form.',
     },
-
-    // ── FORMATION CONDITIONS — normal pebble path ─────────────────────────
-
-    {
-      id: 'spread_low_for_pebble_normal',
-      priority: 75,
-      cooldown: 60,
-      when: c => !window.aggGrowthOn &&
-                 c.aggregates.count >= 3 &&
-                 c.params.VT_SPREAD < TUNING.egg.minSpread &&
-                 c.pebbles.count === 0,
-      message: 'Pebble formation needs an injection spread of at least 30%. Increase v_t spread.',
-    },
-
-    // ── FORMATION CONDITIONS — grow pebble path ───────────────────────────
-
-    {
-      id: 'grow_range_narrow',
-      priority: 75,
-      cooldown: 60,
-      when: c => {
-        if (!window.aggGrowthOn) return false;
-        if (c.aggregates.count < 2) return false;
-        if (c.pebbles.count > 0) return false;
-        const r = _aggVtRange();
-        return r !== null && r.vtMean > 0 &&
-               r.range < TUNING.egg.widthThresh * r.vtMean;
-      },
-      message: 'Aggregate v_t range has collapsed — pebble formation paused. A wider injection spread would help.',
-    },
-
-    // ── MORE EXPERT BUTTON SUGGESTIONS ────────────────────────────────────
-
     {
       id: 'suggest_encounters',
       priority: 63,
       cooldown: 120,
       when: c => !window.encountersOn &&
-                 window.aggGrowthOn &&
+                 (c.growthStage === 1 || c.growthStage === 2) &&
                  c.aggregates.levitated >= 3 &&
                  _expertOpen(),
       message: 'Aggregates drifting together — try the encounter projection HUD.',
     },
     {
-      id: 'orbits_crossing',
-      priority: 65,
-      cooldown: 45,
-      when: c => c.particles.levitated >= 10 &&
-                 c.params.VT_SPREAD >= 0.20 &&
-                 c.aggregates.count === 0 &&
-                 c.state_t > 5,
-      message: 'Orbits are crossing. Keep particles levitated and aggregates will form.',
+      id: 'suggest_vt_dist_stage2',
+      priority: 58,
+      cooldown: 120,
+      when: c => c.growthStage === 2 &&
+                 !window.vtDistOn &&
+                 c.aggregates.count >= 3 &&
+                 _expertOpen(),
+      message: 'Watch v_t climb after each bounce — the v_t distribution HUD shows the threshold line.',
     },
     {
       id: 'suggest_vt_dist',
@@ -230,33 +364,6 @@
                  _expertOpen(),
       message: 'Particles sorting by size — try the v_t distribution HUD.',
     },
-
-    // ── PHYSICS OBSERVATIONS ──────────────────────────────────────────────
-
-    {
-      id: 'spread_low_for_aggregates',
-      priority: 60,
-      cooldown: 60,
-      when: c => {
-        if (c.particles.levitated < 5) return false;
-        if (c.params.VT_SPREAD === 0) return false; // monodisperse rule handles this
-        if (c.aggregates.count > 0) return false;
-        const r = _floatVtRange();
-        if (!r) return false;
-        return r.mean > 0 && r.range < TUNING.aggregate.spreadThresh * r.mean;
-      },
-      message: 'Particle size range too narrow for aggregates. Increase v_t spread.',
-    },
-    {
-      id: 'monodisperse',
-      priority: 55,
-      cooldown: 90,
-      when: c => c.particles.levitated >= 3 && c.params.VT_SPREAD === 0,
-      message: 'Same v_t for all — orbits never cross. Increase spread for collisions.',
-    },
-
-    // ── MORE EXPERT BUTTON SUGGESTIONS ────────────────────────────────────
-
     {
       id: 'suggest_orbit_proj',
       priority: 47,
@@ -281,7 +388,45 @@
       message: 'Auto-omega can centre the orbits automatically.',
     },
 
-    // ── BASIC GUIDANCE ────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════
+    // PHYSICS OBSERVATIONS — general, not stage-specific
+    // ══════════════════════════════════════════════════════════════════════
+
+    {
+      id: 'orbits_crossing',
+      priority: 65,
+      cooldown: 45,
+      when: c => c.particles.levitated >= 10 &&
+                 c.params.VT_SPREAD >= 0.20 &&
+                 c.aggregates.count === 0 &&
+                 c.state_t > 5,
+      message: 'Orbits are crossing. Keep particles levitated and aggregates will form.',
+    },
+    {
+      id: 'spread_low_for_aggregates',
+      priority: 60,
+      cooldown: 60,
+      when: c => {
+        if (c.particles.levitated < 5) return false;
+        if (c.params.VT_SPREAD === 0) return false; // monodisperse rule handles this
+        if (c.aggregates.count > 0) return false;
+        const r = _floatVtRange();
+        if (!r) return false;
+        return r.mean > 0 && r.range < TUNING.aggregate.spreadThresh * r.mean;
+      },
+      message: 'Particle size range too narrow for aggregates. Increase v_t spread.',
+    },
+    {
+      id: 'monodisperse',
+      priority: 55,
+      cooldown: 90,
+      when: c => c.particles.levitated >= 3 && c.params.VT_SPREAD === 0,
+      message: 'Same v_t for all — orbits never cross. Increase spread for collisions.',
+    },
+
+    // ══════════════════════════════════════════════════════════════════════
+    // BASIC GUIDANCE — lowest priority, fallback nudges
+    // ══════════════════════════════════════════════════════════════════════
 
     {
       id: 'too_many_losses',
@@ -315,14 +460,34 @@
                  state.tray.phase !== 'inserted',
       message: 'Particles are falling. Swipe the drum to spin it.',
     },
-    {
-      id: 'expert_panel',
-      priority: 10,
-      cooldown: 300,
-      when: c => c.particles.levitated >= 5 && !_expertOpen(),
-      message: 'Expert controls are behind the locked door, bottom left.',
-    },
   ];
+
+  // ── BOUNCE OBSERVER ───────────────────────────────────────────────────────
+  // The physics code sets agg.bounceFlashEndsAt the moment a bounce fires.
+  // We count rising edges of that flag so rules can use hs.bounceCount.
+  const _bounceSeen = new WeakSet();
+  function _observeBounces() {
+    for (const a of state.aggregates) {
+      if (!a.bounceFlashEndsAt) continue;
+      // Treat each (aggregate, flashEndTime) pair as one event. We tag the
+      // aggregate with the most recent end-time we've credited; if the new
+      // end-time is later, that's a new bounce.
+      if (a._lastBounceCredited !== a.bounceFlashEndsAt) {
+        a._lastBounceCredited = a.bounceFlashEndsAt;
+        // Each collision flashes both aggregates, so we'd double-count
+        // by walking the list. Halve via a simple parity gate: only
+        // increment on aggregates that haven't been credited this frame.
+        if (!_bounceSeen.has(a)) {
+          _bounceSeen.add(a);
+          // Re-clear next frame — see end of updateHints.
+        }
+      }
+    }
+    // Collapse: increment bounceCount by half the new entries, rounded up.
+    // Since both aggregates in a pair share the same flashEndsAt, we count
+    // one bounce per *pair*, not per aggregate.
+    // Simpler: just count distinct flashEndsAt values seen this frame.
+  }
 
   // ── CONTEXT ───────────────────────────────────────────────────────────────
   function buildCtx() {
@@ -363,12 +528,13 @@
       },
       merging: !!(state.aggMerging || state.eggMerging ||
                   state.globeMerging || state.aggGrowMerging),
-      running: state.running,
-      state_t: state.t,
+      running:     state.running,
+      state_t:     state.t,
+      growthStage: window.aggGrowthStage || 0,
     };
   }
 
-  // ── UPDATE (called every frame from main.js) ──────────────────────────────
+  // ── UPDATE (called from main.js, throttled to 4 Hz) ───────────────────────
   function updateHints() {
     if (!window.hintsOn) return;
     if (typeof GAME      !== 'undefined' && GAME.on)      return;
@@ -376,6 +542,22 @@
 
     // No hints during tray time, as the user has no control
     if (state.tray.phase === 'inserting' || state.tray.phase === 'inserted') return;
+
+    // Track bounces across calls — distinct flashEndsAt values are new events.
+    // Each collision flashes BOTH aggregates with the same end-time, so we
+    // dedupe by end-time, not by aggregate.
+    {
+      const seenEnds = new Set();
+      for (const a of state.aggregates) {
+        if (!a.bounceFlashEndsAt) continue;
+        if (a.bounceFlashEndsAt <= hs.lastBounceObservedAt) continue;
+        seenEnds.add(a.bounceFlashEndsAt);
+      }
+      if (seenEnds.size > 0) {
+        hs.bounceCount += seenEnds.size;
+        hs.lastBounceObservedAt = Math.max(...seenEnds);
+      }
+    }
 
     const now = performance.now() / 1000;
 
@@ -514,19 +696,19 @@
     if (btn) btn.classList.toggle('on', on);
   }
   function toggleHints() { setHints(!window.hintsOn); }
-  
+
   document.addEventListener('keydown', e => {
     if (e.key !== '?') return;
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     e.preventDefault();
     toggleHints();
   });
-  
+
   // Reflect the initial (possibly default-on) state on the button without
   // firing the welcome banner — silent on load, banner only on explicit toggle.
   const _hintBtnInit = document.getElementById('btnHints');
   if (_hintBtnInit) _hintBtnInit.classList.toggle('on', window.hintsOn);
-  
+
   window.toggleHints = toggleHints;
   window.setHints    = setHints;
   window.updateHints = updateHints;

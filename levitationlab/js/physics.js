@@ -210,6 +210,9 @@
 
     state.renderN = CFG.N_P;
     scheduleInjections();
+    state.injectedMeanVt = state.toInject.length > 0
+      ? state.toInject.reduce((s, p) => s + p.vt, 0) / state.toInject.length
+      : CFG.V_T;
     state.running = true;
   }
 
@@ -565,8 +568,6 @@
     }
 
     // 4. Tray catch — pin pebbles to the upper surface of the blade.
-    // ep fetched once per frame (unchanged); helper zeroes spinRate because
-    // golden balls carry a spinRate field.
     if (state.tray.phase === 'inserting' || state.tray.phase === 'inserted') {
       const ep = trayEndpoints();
       if (ep) {
@@ -591,7 +592,7 @@
       return; // block new merges while one is running
     }
 
-if (state.eggBallCount >= TUNING.egg.maxBalls) return;
+    if (state.eggBallCount >= TUNING.egg.maxBalls) return;
 
     // 6. Check whether enough aggregates are levitated to start a new merge.
     const target = (state.eggBallCount === 0)
@@ -601,34 +602,9 @@ if (state.eggBallCount >= TUNING.egg.maxBalls) return;
     const lev = eggLevitatedAggregates();
     const T   = state.period();
 
-    if (window.aggGrowthOn) {
-      // Grow-mode pebble path: fires when the aggregate vt range has collapsed
-      // below TUNING.egg.collapseThresh × mean, indicating merging has
-      // homogenised the population. Requires nCritCollapse levitated aggregates
-      // and holds for holdTarget revolutions before triggering.
-      const liveAggs = state.aggregates.filter(
-        a => a.alive && !a.stuck && !a.merging && !a.onTray
-      );
-      let collapseMet = false;
-      if (lev.length >= TUNING.egg.nCritCollapse && liveAggs.length >= 2 && isFinite(T)) {
-        const vtVals = liveAggs.map(a => a.vt);
-        const vtMin  = Math.min(...vtVals);
-        const vtMax  = Math.max(...vtVals);
-        const vtMean = vtVals.reduce((s, v) => s + v, 0) / vtVals.length;
-        collapseMet  = vtMean > 0 && (vtMax - vtMin) >= TUNING.egg.widthThresh * vtMean;
-      }
-      if (collapseMet) {
-        state.eggHoldRevs += dt / T;
-        if (state.eggHoldRevs >= target) {
-          startMerge(lev);
-          state.eggHoldRevs = 0;
-        }
-      } else {
-        state.eggHoldRevs = 0;
-      }
-    } else {
-      // Normal pebble path: nCrit levitated aggregates held for holdTarget revs,
-      // gated on injection spread.
+    if (!window.aggGrowthOn) {
+      // SIMPLE MODE: nCrit levitated aggregates held for holdTarget revs,
+      // gated on injection spread. Uses the animated startMerge().
       if (lev.length >= TUNING.egg.nCrit && isFinite(T) &&
           CFG.VT_SPREAD >= TUNING.egg.minSpread) {
         state.eggHoldRevs += dt / T;
@@ -639,6 +615,10 @@ if (state.eggBallCount >= TUNING.egg.maxBalls) return;
       } else {
         state.eggHoldRevs = 0;
       }
+    } else {
+      // GROWTH MODE: Systemic pebble formation is disabled.
+      // Pebble formation is handled entirely by resolveAggAggCollisions.
+      state.eggHoldRevs = 0;
     }
   }
 
@@ -1011,31 +991,100 @@ if (state.eggBallCount >= TUNING.egg.maxBalls) return;
    * subsequent collisions are deferred until the animation completes.
    * Only runs when window.aggGrowthOn is true.
    */
+  
   function resolveAggAggCollisions() {
-    if (state.aggGrowMerging) return;
-    const live = state.aggregates.filter(
-      a => a.alive && !a.stuck && !a.onTray && !a.merging
-    );
+    // 1. Strict filter: must be alive, not stuck, not on tray, and not currently merging.
+    const live = state.aggregates.filter(a => a.alive && !a.stuck && !a.onTray && !a.merging);
+    const doBounce = (window.aggGrowthStage === 2); 
+    
     for (let i = 0; i < live.length; i++) {
       for (let j = i + 1; j < live.length; j++) {
         const a = live[i], b = live[j];
+        
+        // Prevent objects currently flagged for animation from executing collisions
+        if (a.merging || b.merging) continue;
+
+        // Ensure aggregates have IDs for serialization-safe tracking
+        if (!a.id) a.id = Math.random();
+        if (!b.id) b.id = Math.random();
+
+        // Pair-specific cooldown: prevent A and B from re-colliding
+        if (a.lastBounce?.withId === b.id && state.t < a.lastBounce.until) continue;
+        if (b.lastBounce?.withId === a.id && state.t < b.lastBounce.until) continue;        
+
         const dx = b.x - a.x, dy = b.y - a.y;
         const dist = Math.hypot(dx, dy);
-        if (dist < a.r + b.r) {
-          // Smaller merges into larger
-          const smaller = a.count <= b.count ? a : b;
-          const larger  = a.count <= b.count ? b : a;
-          smaller.merging   = true;
-          smaller.mergeStart = { x: smaller.x, y: smaller.y };
-          state.aggGrowMerging = {
-            smaller,
-            larger,
-            startedAt: state.t,
-            dur: TUNING.aggregate.mergeDur,
-            vtSmaller: smaller.vt,
-            vtLarger:  larger.vt,
-          };
-          return;
+        const minDist = a.r + b.r;
+        
+        if (dist < minDist) {
+          const totalCount = a.count + b.count;
+
+          if (totalCount >= 100) {
+            // PEBBLE FORMATION THRESHOLD CHECK
+            const meanVt = state.injectedMeanVt || CFG.V_T;
+            const threshold = TUNING.egg.vtSpreadMult * meanVt;
+
+            if (!doBounce || (a.vt > threshold && b.vt > threshold)) {
+              // Threshold met (or Stage 1 active): Form Pebble
+              a.alive = false; 
+              b.alive = false;
+              spawnGoldenBall((a.x + b.x) / 2, (a.y + b.y) / 2);
+              state.aggCount = Math.max(0, state.aggCount - 2);
+              state.eggBallCount++;
+              soundGoldenChime();
+            } else {
+              // Threshold failed (Stage 2 active): Billiard Bounce
+              const nx = dx / dist, ny = dy / dist;
+              const overlap = minDist - dist;
+              
+              // Push apart by 51% of the overlap each (creates a 2% safety gap)
+              const push = overlap / 1.96; 
+              a.x -= nx * push; 
+              a.y -= ny * push;
+              b.x += nx * push; 
+              b.y += ny * push;
+              
+              // Increase terminal velocity to change their aerodynamic sorting
+              const kick = TUNING.egg.bounceKick;
+              const oldVtA = a.vt;
+              const oldVtB = b.vt;
+              
+              a.vt *= kick;
+              b.vt *= kick;
+
+              // Half drum rotation cooldown (safeguarded against division by zero)
+              // Half drum rotation cooldown (safeguarded against division by zero)
+              const cooldownDur = Math.PI / Math.max(0.01, Math.abs(state.omega));
+              a.lastBounce = { withId: b.id, until: state.t + cooldownDur };
+              b.lastBounce = { withId: a.id, until: state.t + cooldownDur };
+              
+              // Visual flash timer for debugging (0.6 seconds)
+              a.bounceFlashEndsAt = state.t + 0.6;
+              b.bounceFlashEndsAt = state.t + 0.6;
+
+              console.log(`Bounce! Agg A vt: ${oldVtA.toFixed(2)} -> ${a.vt.toFixed(2)} | Agg B vt: ${oldVtB.toFixed(2)} -> ${b.vt.toFixed(2)}`);
+
+              if (TUNING.egg.bounceSound) {
+                if (window.soundSharpPing) window.soundSharpPing();
+              }
+            }
+          } else {
+            // STANDARD GROWTH (< 100 monomers): Always Merge
+            const smaller = a.count <= b.count ? a : b;
+            const larger  = a.count <= b.count ? b : a;
+            smaller.merging = true;
+            smaller.mergeStart = { x: smaller.x, y: smaller.y };
+            
+            state.aggGrowMerging = { 
+              smaller, 
+              larger, 
+              startedAt: state.t, 
+              dur: TUNING.aggregate.mergeDur, 
+              vtSmaller: smaller.vt, 
+              vtLarger: larger.vt 
+            };
+          }
+          return; // Resolve max one collision per frame to prevent chain-reaction bugs
         }
       }
     }
@@ -1069,7 +1118,7 @@ if (state.eggBallCount >= TUNING.egg.maxBalls) return;
   }
 
   function updateAggregates(dt) {
-    // Advance an in-progress aggregate merge animation.
+    // 1. Advance an in-progress aggregate merge animation (initial 10-monomer formation).
     if (state.aggMerging) {
       const m = state.aggMerging;
       const u = (state.t - m.startedAt) / m.dur;
@@ -1080,53 +1129,38 @@ if (state.eggBallCount >= TUNING.egg.maxBalls) return;
         state.aggCount++;
       }
     }
-
-    // Advance an in-progress aggregate-growth merge animation.
+    // 1b. Advance in-progress aggregate-aggregate growth merge
     if (state.aggGrowMerging) {
       const m = state.aggGrowMerging;
-      const u    = Math.min(1, (state.t - m.startedAt) / m.dur);
+      const u = (state.t - m.startedAt) / m.dur;
       const ease = u * u * (3 - 2 * u);
-    
-      // Smaller tracks larger's current position
+      
       m.smaller.x = m.smaller.mergeStart.x + (m.larger.x - m.smaller.mergeStart.x) * ease;
       m.smaller.y = m.smaller.mergeStart.y + (m.larger.y - m.smaller.mergeStart.y) * ease;
-    
+      
       if (u >= 1) {
-        const newCount = m.smaller.count + m.larger.count;
-        const newVt    = (m.smaller.count * m.smaller.vt +
-                          m.larger.count  * m.larger.vt) / newCount;
-        const sF       = visualSizeFactor(newVt);
-        const newR     = TUNING.particle.collisionR *
-                         sF *
-                         TUNING.aggregate.sizeMult *
-                         Math.sqrt(newCount / 10);
-    
-        m.smaller.alive   = false;
-        m.larger.count    = newCount;
-        m.larger.vt       = newVt * (window.stokesKickOn ? TUNING.aggregate.vtGrowFactor : 1.0);
-        m.larger.r        = newR;
-        m.larger.merging  = false;
-        m.larger.orbitFlashEndsAt = state.t + TUNING.aggregate.growFlashDur;
-        state.aggCount    = Math.max(0, state.aggCount - 1);
+        m.larger.count += m.smaller.count;
+        m.larger.vt *= (TUNING.aggregate.vtGrowFactor || 1.05);
+        m.larger.imgIdx = aggImageIndex(m.larger.count);
+        
+        // Scale radius proportional to the cube root of the new mass
+        const scale = Math.pow(m.larger.count / (m.larger.count - m.smaller.count), 1/3);
+        m.larger.r *= scale;
+        
+        m.smaller.alive = false;
+        state.aggCount--;
         state.aggGrowMerging = null;
-        soundAggMerge(m.larger.count);
-    
-        // Pebble transition at count >= 100
-        if (newCount >= 100) {
-          m.larger.alive = false;
-          spawnGoldenBall(m.larger.x, m.larger.y);
-          state.aggCount    = Math.max(0, state.aggCount - 1);
-          state.eggBallCount++;
-        }
       }
     }
-    
-    // Check for aggregate-aggregate collisions when growth mode is active.
-    if (window.aggGrowthOn && !state.aggMerging) {
+
+    // 2. FIXME Check for aggregate-aggregate collisions when growth mode is active.
+    // Collision gate: Run collision logic ONLY for Stage 1 and Stage 2
+    // Collision gate: Run collision logic ONLY for Stage 1 and Stage 2
+    if (window.aggGrowthStage >= 1 && window.aggGrowthStage <= 2 && !state.aggMerging && !state.aggGrowMerging) {
       resolveAggAggCollisions();
     }
 
-    // Check whether enough particles are levitated to start a new aggregate merge.
+    // 3. Check whether enough particles are levitated to start a new 10-monomer aggregate merge.
     if (!state.aggMerging) {
       const lev = eggLevitatedParticles();
       const T   = state.period();
@@ -1166,6 +1200,7 @@ if (state.eggBallCount >= TUNING.egg.maxBalls) return;
       }
     }
 
+    // 4. Main physics loop for all active aggregates
     const HX  = TUNING.highlight.cx;
     const HY  = TUNING.highlight.cy;
     const HR2 = TUNING.highlight.radius * TUNING.highlight.radius;
@@ -1201,7 +1236,6 @@ if (state.eggBallCount >= TUNING.egg.maxBalls) return;
 
         // Turbulent perturbation — models gas velocity fluctuations.
         // Only applied when aggregate growth mode is active.
-
         if (window.aggGrowthOn && Math.abs(state.omega) > 1e-3) {
           const turb    = TUNING.aggregate.brownian;
           const kR      = TUNING.aggregate.restoreK;
@@ -1284,6 +1318,7 @@ if (state.eggBallCount >= TUNING.egg.maxBalls) return;
       if (agg.y < -CFG.R_DRUM * 1.5) agg.alive = false;
     }
 
+    // 5. Cleanup
     if (state.aggregates.length > 0) {
       state.aggregates = state.aggregates.filter(a => a.alive);
     }
