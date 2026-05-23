@@ -19,9 +19,6 @@
 (() => {
   'use strict';
 
-  // Pre-computed grid size; mirrors heatmap.resolution² from state.js.
-  const gridSize = heatmap.resolution * heatmap.resolution;
-
   function _ssOmega(r)    { return TUNING.solar.omegaBase / Math.pow(r, 0.75); }
   function _ssFitScale(n) {
     return TUNING.solar.maxR / (TUNING.solar.baseRadii[n-1] + TUNING.solar.orbitSize);
@@ -443,6 +440,7 @@
 
       if (heatmap.angleProgress >= 2 * Math.PI) {
         // One full revolution complete — finalise the heatmap arrays.
+        const gridSize = heatmap.resolution * heatmap.resolution;
         let curMaxSigma = 0, curMaxDensity = 0, curMaxProduct = 0;
         const totalTicks = Math.max(1, heatmap.tickCount);
 

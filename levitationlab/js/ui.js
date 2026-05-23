@@ -500,17 +500,55 @@
     if (e.key === 'Escape' && !settingsOverlay.hidden) closeSettings();
   });
 
-  nozzleFocusSlider.addEventListener('input', () => {
-    const v = parseFloat(nozzleFocusSlider.value);
-    CFG.NOZZLE_FOCUS = v;
+  const trailLengthSlider = document.getElementById('trailLengthSlider');
+  const trailLengthVal    = document.getElementById('trailLengthVal');
+  const heatmapResSlider  = document.getElementById('heatmapResSlider');
+  const heatmapResVal     = document.getElementById('heatmapResVal');
+  
+  const DEFAULT_NOZZLE_FOCUS   = CFG.NOZZLE_FOCUS;
+  const DEFAULT_TRAIL_DURATION = TUNING.trails.durationS;
+  const DEFAULT_HEATMAP_RES    = heatmap.resolution;
+  
+  function syncNozzle(v) {
+    CFG.NOZZLE_FOCUS           = v;
+    nozzleFocusSlider.value    = v;
     nozzleFocusVal.textContent = v.toFixed(1) + ' cm';
+  }
+  function syncTrail(v) {
+    TUNING.trails.durationS    = v;
+    trailLengthSlider.value    = v;
+    trailLengthVal.textContent = v.toFixed(1) + ' s';
+  }
+  function syncRes(v) {
+    const n = v * v;
+    heatmap.resolution  = v;
+    heatmap.accN  = new Int32Array(n);
+    heatmap.accV  = new Float32Array(n);
+    heatmap.accV2 = new Float32Array(n);
+    heatmap.data      = new Float32Array(n);
+    heatmap.densData  = new Float32Array(n);
+    heatmap.prodData  = new Float32Array(n);
+    heatmap.ready         = false;
+    heatmap.angleProgress = 0;
+    heatmap.tickCount     = 0;
+    heatmapResSlider.value    = v;
+    heatmapResVal.textContent = v + ' × ' + v;
+  }
+  
+  nozzleFocusSlider.addEventListener('input', () => syncNozzle(parseFloat(nozzleFocusSlider.value)));
+  trailLengthSlider.addEventListener('input', () => syncTrail(parseFloat(trailLengthSlider.value)));
+  heatmapResSlider.addEventListener('input',  () => syncRes(parseInt(heatmapResSlider.value, 10)));
+  
+  document.getElementById('btnSettingsReset').addEventListener('click', () => {
+    syncNozzle(DEFAULT_NOZZLE_FOCUS);
+    syncTrail(DEFAULT_TRAIL_DURATION);
+    syncRes(DEFAULT_HEATMAP_RES);
   });
-  // Sync display to initial CFG value (in case config.js changes the default).
-  nozzleFocusSlider.value        = CFG.NOZZLE_FOCUS;
-  nozzleFocusVal.textContent     = CFG.NOZZLE_FOCUS.toFixed(1) + ' cm';
-
-
-
+  
+  syncNozzle(CFG.NOZZLE_FOCUS);
+  syncTrail(TUNING.trails.durationS);
+  syncRes(heatmap.resolution);
+  
   const btnHints = document.getElementById('btnHints');
   if (btnHints) {
     btnHints.addEventListener('click', () => {
