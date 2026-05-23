@@ -1,5 +1,6 @@
 
 #+HTML_HEAD: <body style="font-size: 150%;">
+#+HTML_HEAD: <link rel="icon" type="image/png" href="favicon.png" sizes="96x96">
 This repo serves some simple apps.
 
 - [[file:Badminton/sj.html][Badminton scoring]]
