@@ -11,3 +11,4 @@ This repo serves some simple apps.
 - [[file:planet_visibility.html][Planet Sky Visibility]]
 
 - [[file:commute.html][Commute]]
+- [[file:levitationlab/levitate.html][Levitation Lab]]
