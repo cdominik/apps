@@ -192,7 +192,7 @@
     },
 
     // ══════════════════════════════════════════════════════════════════════
-    // STAGE 2 — BOUNCE PHYSICS (the most novel, least intuitive mode)
+    // STAGE 2 — BOUNCE PHYSICS (the most novel, most physical mode)
     // ══════════════════════════════════════════════════════════════════════
 
     {
@@ -224,16 +224,6 @@
                  !_anyAggAboveThreshold() &&
                  c.state_t > 20,
       message: 'Many bounces, no pebbles — aggregates are stuck below the threshold. A wider spread would help.',
-    },
-    {
-      id: 'suggest_slow_mo_for_bounce',
-      priority: 80,
-      cooldown: 120,
-      when: c => c.growthStage === 2 &&
-                 !window.slowMoArmed &&
-                 hs.bounceCount >= 2 &&
-                 _expertOpen(),
-      message: 'Bounce collisions are fast — slow motion makes them easier to follow.',
     },
 
     // ══════════════════════════════════════════════════════════════════════
@@ -278,20 +268,6 @@
                  c.params.VT_SPREAD < TUNING.egg.minSpread &&
                  c.pebbles.count === 0,
       message: 'Pebble formation needs an injection spread of at least 30%. Increase v_t spread.',
-    },
-    {
-      id: 'grow_range_narrow_stage1',
-      priority: 75,
-      cooldown: 60,
-      when: c => {
-        if (c.growthStage !== 1) return false;
-        if (c.aggregates.count < 2) return false;
-        if (c.pebbles.count > 0) return false;
-        const r = _aggVtRange();
-        return r !== null && r.vtMean > 0 &&
-               r.range < TUNING.egg.widthThresh * r.vtMean;
-      },
-      message: 'Aggregate v_t range has collapsed — pebble formation paused. A wider injection spread would help.',
     },
     {
       id: 'growth_off_explainer',
@@ -437,7 +413,7 @@
                  c.drum.spinning &&
                  c.particles.floating > 0 &&
                  c.state_t > 4,
-      message: 'Too many wall losses. Try adjusting drum speed to centre the orbits.',
+      message: 'Many wall losses. Try adjusting drum speed.',
     },
     {
       id: 'spinning_no_particles',

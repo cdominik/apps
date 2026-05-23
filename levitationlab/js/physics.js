@@ -1359,7 +1359,7 @@
       particles:    chosen,
       target:       { x: cx / chosen.length, y: cy / chosen.length },
       // vtFactor gives the aggregate a slightly higher Stokes number than
-      // the pure mean, modelling the increased inertia of the merged body.
+      // the pure mean
       meanVt:       sumVt / chosen.length,
       vtFactor:     window.stokesKickOn ? TUNING.aggregate.vtFactor : 1.0,
       sizeFac:      sumSizeFac / chosen.length,
