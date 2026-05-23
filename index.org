@@ -1,11 +1,10 @@
-
+#+OPTIONS: html-postamble:nil
 #+HTML_HEAD: <body style="font-size: 150%;">
-#+HTML_HEAD: <link rel="icon" type="image/png" href="favicon.png" sizes="96x96">
-This repo serves some simple apps.
+#+HTML_HEAD: <link rel="icon" type="image/png" href="/favicon.png" sizes="96x96">
 
 - [[file:Badminton/sj.html][Badminton scoring]]
 
-- [[file:draw_aggregate.html][Drawing an aggregate]] in a web interface
+- [[file:draw_aggregate.html][Drawing an aggregate]]
 
 - [[file:coag_gallery/gallery.html][Aggregation Webapp gallery]]
 
