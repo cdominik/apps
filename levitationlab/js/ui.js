@@ -1558,7 +1558,7 @@ if (btnCollect) {
  
   const uP = new URLSearchParams(window.location.search);
   isExpertURL = uP.has('expert');
-  
+
   // Honour URL theme flags at startup
   if (uP.has('pfeiffer')) {
     currentStyleIdx = 2;
@@ -1604,6 +1604,17 @@ if (btnCollect) {
     SETTINGS.SPREAD.idx = SETTINGS.SPREAD.values.indexOf(0.30);
     SETTINGS.DT.idx     = SETTINGS.DT.values.indexOf(2);
     applyInitialSettings();
+    setOmegaDecay(true);
+  }
+
+  // ?verify — rapid full-test mode: floods the drum quickly with high spread and no decay
+  if (uP.has('xx')) {
+    SETTINGS.NP.idx     = SETTINGS.NP.values.indexOf(10000);
+    SETTINGS.VT.idx     = SETTINGS.VT.values.indexOf(30);
+    SETTINGS.SPREAD.idx = SETTINGS.SPREAD.values.indexOf(0.30);
+    SETTINGS.DT.idx     = SETTINGS.DT.values.indexOf(1);
+    applyInitialSettings();
+    expertContainer.classList.add('open');
     setOmegaDecay(true);
   }
 
