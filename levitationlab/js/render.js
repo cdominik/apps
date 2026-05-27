@@ -1314,6 +1314,10 @@
     g.addColorStop(1,   mixHex(PAL.backplateOuter, '#000000', 1 - dim));
     ctx.fillStyle = g;
     ctx.beginPath(); ctx.arc(CX, CY, r, 0, Math.PI * 2); ctx.fill();
+    // Skip the levitation-zone highlight once the shutdown/rise sequence
+    // has begun — the zone is irrelevant from spindown onward.
+    const phase = state.solar.phase;
+    if (phase === 'spindown' || phase === 'final_move' || phase === 'final_view') return;
     const hx = X2px(TUNING.highlight.cx);
     const hy = Y2px(TUNING.highlight.cy);
     const hr = Math.max(1, pxDist(TUNING.highlight.radius));

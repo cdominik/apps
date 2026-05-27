@@ -1439,13 +1439,19 @@
   }
   
   /**
-   * Drives the solar system state machine on real wall time (unaffected by simSpeed).
-   * Called from main.js after updateGlobe().
+   * Advances one Voyager-style probe along a prograde spiral arc.
+   *
+   * Each leg is set up once (when probe.legInit is false): the probe's
+   * current polar position around the sun is recorded, the target planet's
+   * future position is predicted, and a prograde angular sweep is locked in.
+   * During the leg, the radius smoothsteps outward and phi advances linearly
+   * in the prograde direction — never reversing — producing a spiral arc
+   * that catches up to the next planet from behind.
    */
   function _probeUpdate(probe, dt) {
     probe.trail.push({ x: probe.x, y: probe.y });
     if (probe.trail.length > 120) probe.trail.shift();
-  
+
     if (probe.escaping) {
       probe.escapeFrac += dt / 5.0;
       if (probe.escapeFrac >= 1) { probe.escapeFrac = 1; probe.done = true; }
@@ -1454,18 +1460,85 @@
       probe.y = probe.escapeStartY + (probe.escapeEndY - probe.escapeStartY) * e;
       return;
     }
-  
+
     if (probe.legIdx >= state.globes.length) return;
-    const tg  = state.globes[probe.legIdx];  // track planet's CURRENT position
-    const dx  = tg.x - probe.x;
-    const dy  = tg.y - probe.y;
-    const dist = Math.hypot(dx, dy);
-    const speed = 28.0; // drum-units per second
-  
-    if (dist < speed * dt * 4.5) {
-      probe.x = tg.x;
-      probe.y = tg.y;
+
+    const s       = state.solar;
+    const SS      = TUNING.solar;
+    const cx      = s.centerX;
+    const cy      = s.centerY;
+    const inclCos = SS.inclCos;
+
+    // ── LEG INITIALISATION ───────────────────────────────────────────────
+    // Solve the intercept directly: pick a probe angular speed of 1.2× the
+    // source planet's, then find the smallest positive time T at which the
+    // probe's phi equals the target planet's theta. That guarantees a
+    // direct catch-up with no extra revolutions.
+    if (!probe.legInit) {
+      const orbA = s.orbits[probe.legIdx - 1];
+      const orbB = s.orbits[probe.legIdx];
+      if (!orbA || !orbB) return;
+
+      // Un-project the on-screen y-compression so we work in true polar.
+      const dx  = probe.x - cx;
+      const dyu = (probe.y - cy) / inclCos;
+      probe.phiStart = Math.atan2(dyu, dx);
+      probe.rStart   = Math.hypot(dx, dyu);
+      probe.rEnd     = orbB.r * s.scale;
+
+      // Probe angular speed: locked in on the first leg at 1.5× the launch
+      // planet's, in the prograde direction, then kept constant for every
+      // subsequent encounter. Since planets get slower with radius
+      // (omega ∝ r^-0.75), omegaP > orbB.omega is always satisfied →
+      // probe always catches up.
+      if (probe.omegaP === undefined) {
+        const initProgr = (orbA.omega >= 0) ? 1 : -1;
+        probe.omegaP    = 1.5 * Math.abs(orbA.omega) * initProgr;
+      }
+      const omegaP   = probe.omegaP;
+      const prograde = (omegaP >= 0) ? 1 : -1;
+      const relOm    = omegaP - orbB.omega;     // same sign as prograde
+
+      // Smallest prograde angular gap from probe to planet B, in (0, 2π].
+      // If the gap is under 20° we add a full revolution so the probe loops
+      // around once before intercepting — otherwise the leg degenerates into
+      // a sharp tangent flick.
+      const TAU     = 2 * Math.PI;
+      const MIN_GAP = Math.PI / 9;              // 20°
+      let gap = orbB.theta - probe.phiStart;
+      if (prograde > 0) {
+        gap = ((gap % TAU) + TAU) % TAU;        // [0, 2π)
+        if (gap < MIN_GAP) gap += TAU;          // too tight → take an extra orbit
+      } else {
+        gap = ((gap % TAU) - TAU) % TAU;        // (-2π, 0]
+        if (gap > -MIN_GAP) gap -= TAU;
+      }
+
+      probe.legDur     = Math.max(0.5, gap / relOm);
+      probe.dTheta     = omegaP * probe.legDur; // natural sweep, no floor
+      probe.legElapsed = 0;
+      probe.legInit    = true;
+    }
+
+    // ── ADVANCE ALONG LEG ────────────────────────────────────────────────
+    probe.legElapsed += dt;
+    const u = Math.min(1, probe.legElapsed / probe.legDur);
+
+    // Radius: smoothstep for a graceful outward arc.
+    // Angle:  linear in u — constant prograde angular speed.
+    const eR  = u * u * (3 - 2 * u);
+    const r   = probe.rStart + (probe.rEnd - probe.rStart) * eR;
+    const phi = probe.phiStart + probe.dTheta * u;
+
+    probe.x = cx + r * Math.cos(phi);
+    probe.y = cy + r * Math.sin(phi) * inclCos;
+
+    // ── LEG COMPLETE — snap to planet, queue next leg ────────────────────
+    if (u >= 1) {
+      const tg = state.globes[probe.legIdx];
+      if (tg) { probe.x = tg.x; probe.y = tg.y; }
       probe.legIdx++;
+      probe.legInit = false;
       if (probe.legIdx >= state.globes.length) {
         probe.escaping     = true;
         probe.escapeFrac   = 0;
@@ -1474,9 +1547,6 @@
         probe.escapeEndX   = probe.x * 0.05;
         probe.escapeEndY   = probe.escapeDir * CFG.R_DRUM * 0.88;
       }
-    } else {
-      probe.x += (dx / dist) * speed * dt;
-      probe.y += (dy / dist) * speed * dt;
     }
   }
 
@@ -1554,10 +1624,27 @@
         s.phase      = isLast ? 'spindown' : 'orbiting';
         s.phaseStart  = s.wallT;
         if (isLast) {
-          state.omegaTarget = 0;
+            state.omegaTarget = 0;
           window.autoOmegaOn = false;
           if (window.setOmegaCtlMode) window.setOmegaCtlMode(0);
           if (window.setOmegaDecay) window.setOmegaDecay(false);
+          
+          // Clear HUDs and reset sim speed so the drum settles cleanly before
+          // the planetary system rises into view.
+          if (window.resetSimSpeed) window.resetSimSpeed();
+          if (window.resetExpertUI) window.resetExpertUI();
+          state.showVectors = false;
+          state.laserOn     = false;
+          heatmap.enabled   = false;
+          window.zoomOn     = false;
+          // Clear residual pebbles and cancel any in-flight pebble merge so
+          // nothing lingers in the drum during the finale.
+          state.goldenBalls  = [];
+          state.eggBallCount = 0;
+          if (state.eggMerging) {
+            for (const a of state.eggMerging.particles) a.merging = false;
+            state.eggMerging = null;
+          }
         }
       }
   
@@ -1602,7 +1689,7 @@
         });
         s.probes = [
           mkProbe(+1, 0.0),
-          mkProbe(-1, 2.4),
+          mkProbe(-1, 5.0),
         ];
       }
     

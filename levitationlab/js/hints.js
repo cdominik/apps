@@ -516,6 +516,16 @@
     if (typeof GAME      !== 'undefined' && GAME.on)      return;
     if (typeof CHALLENGE !== 'undefined' && CHALLENGE.on) return;
 
+    // No hints during the planetary finale. Clear any in-flight hint
+    // so the rise gets an empty canvas, but don't touch window.hintsOn —
+    // the user's preference is preserved for the next run.
+    const sp = state.solar.phase;
+    if (sp === 'spindown' || sp === 'final_move' || sp === 'final_view') {
+      hs.current   = null;
+      hs.forceDraw = false;
+      return;
+    }
+
     // No hints during tray time, as the user has no control
     if (state.tray.phase === 'inserting' || state.tray.phase === 'inserted') return;
 
