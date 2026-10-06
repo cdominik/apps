@@ -1484,9 +1484,3 @@ body.theme-pfeiffer #gauges .lbl {
   color: #ffffff !important;
   text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.8) !important;
 }
-
-/* Light-bulb button: long press cycles themes — keep touch long-press clean */
-#btnTheme {
-  touch-action: none;
-  -webkit-touch-callout: none;
-}

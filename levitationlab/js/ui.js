@@ -1389,7 +1389,9 @@ if (btnCollect) {
   let _themePressTimer = null;
   let _themeLongFired  = false;
 
-  btnTheme.addEventListener('pointerdown', () => {
+  btnTheme.addEventListener('pointerdown', (e) => {
+    // Capture the pointer so small finger movements don't cancel the press
+    try { btnTheme.setPointerCapture(e.pointerId); } catch (_) {}
     _themeLongFired  = false;
     _themePressTimer = setTimeout(() => {
       _themeLongFired = true;
@@ -1409,6 +1411,8 @@ if (btnCollect) {
 
   btnTheme.addEventListener('pointerleave',  _cancelThemePress);
   btnTheme.addEventListener('pointercancel', _cancelThemePress);
+  // Suppress the touch long-press context menu / callout
+  btnTheme.addEventListener('contextmenu', (e) => e.preventDefault());
 
 
   // SYSTEM 4-6. Simulation speed

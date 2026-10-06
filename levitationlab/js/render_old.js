@@ -1161,10 +1161,15 @@
     const xBotInner = GEO.footBotHalfW * 0.55;
     const xBotOuter = GEO.footBotHalfW;
     
-    if (isPfeifferTheme()) { drawPfeifferBase(); return; }
     const sg = ctx.createLinearGradient(0, yTop, 0, yBot);
+    const isPfeiffer = document.body.classList.contains('theme-pfeiffer');
 
-    if (PAL.name === 'light') {
+    if (isPfeiffer) {
+      sg.addColorStop(0.00, '#ff9999');
+      sg.addColorStop(0.25, '#d5001c');
+      sg.addColorStop(0.55, '#800011');
+      sg.addColorStop(1.00, '#4d000a');
+    } else if (PAL.name === 'light') {
       sg.addColorStop(0.00, '#d0ccbc');
       sg.addColorStop(0.25, '#b0ac9c');
       sg.addColorStop(0.55, '#8a8678');
@@ -1247,11 +1252,6 @@
   function drawSteelBand() {
     const rInner = Math.max(1, pxDist(CFG.R_DRUM));
     const rOuter = rInner + (REGIME === 'wide' ? 32 : (REGIME === 'compact' ? 18 : 14));
-    if (isPfeifferTheme()) {
-      // Support structure is drawn earlier (see drawPfeifferSupport)
-      drawPfeifferBand(rInner, rOuter);
-      return;
-    }
     if (GEO.drawFeet) drawOmegaFeet();
     const g = ctx.createRadialGradient(CX, CY, rInner, CX, CY, rOuter);
     g.addColorStop(0, PAL.bandInner);
@@ -1273,14 +1273,10 @@
   function drawBoltRing() {
     const bandPad = (REGIME === 'wide' ? 16 : (REGIME === 'compact' ? 9 : 7));
     const r = pxDist(CFG.R_DRUM) + bandPad;
-    if (isPfeifferTheme()) {
-      drawPfeifferBolts();
-    } else {
-      const N = REGIME === 'portrait' ? 16 : 24;
-      for (let i = 0; i < N; i++) {
-        const a = (i / N) * Math.PI * 2 - state.drumAngle;
-        rivet(CX + r * Math.cos(a), CY + r * Math.sin(a), REGIME === 'wide' ? 4 : 3);
-      }
+    const N = REGIME === 'portrait' ? 16 : 24;
+    for (let i = 0; i < N; i++) {
+      const a = (i / N) * Math.PI * 2 - state.drumAngle;
+      rivet(CX + r * Math.cos(a), CY + r * Math.sin(a), REGIME === 'wide' ? 4 : 3);
     }
 
     // Gold collection slot marker — rotates with drum, pulses when armed
@@ -1331,405 +1327,6 @@
     ctx.fillStyle = mixHex(PAL.highlightFill, '#000000', 1 - hDim);
     ctx.beginPath(); ctx.arc(hx, hy, hr, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
-  }
-
-  // ============================================================
-  // SECTION: RENDER — PFEIFFER CHAMBER
-  // ============================================================
-  // The Pfeiffer theme mimics the real vacuum chamber: a machined
-  // aluminium flange ring with a dense bolt circle and face holes,
-  // radial CF ports and feedthrough boxes around the rim, and a light
-  // saddle cradle sitting on the red base frame.
-
-  /** True when the Pfeiffer visual theme is active. */
-  function isPfeifferTheme() {
-    return document.body.classList.contains('theme-pfeiffer');
-  }
-
-  /** Band width (px) outside the drum radius for the current regime. */
-  function bandOutside() {
-    return REGIME === 'wide' ? 32 : (REGIME === 'compact' ? 18 : 14);
-  }
-
-  // Rim ports in drum-fixed angles (deg, canvas convention: -90 = top).
-  // len / hw are fractions of the drum radius. The arc from -110 to -25
-  // is kept free so that at drumAngle = 0 (launch and every reset) the
-  // clean part of the rim sits top-right and the injector is unobstructed.
-  const PF_PORTS = [
-    { a:  -14, type: 'tube', len: 0.17, hw: 0.085 },
-    { a:    4, type: 'feed', len: 0.30, hw: 0.070 },
-    { a:   21, type: 'tube', len: 0.12, hw: 0.055 },
-    { a:   38, type: 'tube', len: 0.17, hw: 0.080 },
-    { a:   58, type: 'tube', len: 0.12, hw: 0.055 },
-    { a:   80, type: 'tube', len: 0.14, hw: 0.060 },
-    { a:  102, type: 'tube', len: 0.12, hw: 0.050 },
-    { a:  126, type: 'tube', len: 0.12, hw: 0.050 },
-    { a:  150, type: 'tube', len: 0.10, hw: 0.048 },
-    { a:  172, type: 'tube', len: 0.11, hw: 0.050 },
-    { a:  194, type: 'tube', len: 0.16, hw: 0.065 },
-    { a:  216, type: 'box',  len: 0.24, hw: 0.090 },
-    { a:  240, type: 'tube', len: 0.13, hw: 0.050 },
-  ];
-
-  // Face holes on the flange ring: [angle deg, size class 0/1].
-  const PF_HOLES = [
-    [-150, 1], [-112, 0], [-80, 1], [-52, 0], [-18, 1], [12, 0],
-    [40, 1], [68, 0], [102, 1], [138, 0], [172, 1], [210, 0], [244, 1],
-  ];
-
-  /**
-   * Fills a rectangle (in the current local frame) with a cylindrical
-   * aluminium gradient running across y, then darkens it by `shade`.
-   */
-  function pfPart(x, y, w, h, stops, shade) {
-    const g = ctx.createLinearGradient(0, y, 0, y + h);
-    for (const [pos, col] of stops) g.addColorStop(pos, col);
-    ctx.fillStyle = g;
-    ctx.fillRect(x, y, w, h);
-    if (shade > 0.005) {
-      ctx.fillStyle = `rgba(0,0,0,${shade.toFixed(3)})`;
-      ctx.fillRect(x, y, w, h);
-    }
-    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-    ctx.lineWidth = 0.8;
-    ctx.strokeRect(x, y, w, h);
-  }
-
-  const PF_TUBE = [[0, '#5d6267'], [0.22, '#eef1f3'], [0.5, '#c4c9ce'], [0.85, '#868c92'], [1, '#4a4f54']];
-  const PF_FLANGE = [[0, '#6c7176'], [0.2, '#f6f8f9'], [0.55, '#d3d7db'], [0.9, '#8f959a'], [1, '#55595e']];
-  const PF_BOX = [[0, '#9da2a7'], [0.08, '#e9ecee'], [0.5, '#d4d8db'], [0.92, '#a9aeb3'], [1, '#6e7378']];
-
-  /** Small bright hex-head bolt. */
-  function pfBolt(x, y, r) {
-    const rr = Math.max(0.8, r);
-    const g = ctx.createRadialGradient(x - rr * 0.35, y - rr * 0.35, 0, x, y, rr);
-    g.addColorStop(0, '#ffffff');
-    g.addColorStop(0.55, '#b9bec3');
-    g.addColorStop(1, '#5b6065');
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(x, y, rr, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 0.6;
-    ctx.stroke();
-  }
-
-  /**
-   * Draws the radial ports, boxes and feedthroughs on the chamber rim.
-   * They rotate with the drum and are drawn before the injector and
-   * cradle so those structures sit in front of them.
-   */
-  function drawPfeifferPorts() {
-    const R = pxDist(CFG.R_DRUM);
-    const rOuter = R + bandOutside();
-    const lightA = -135 * Math.PI / 180;
-    for (const p of PF_PORTS) {
-      const a = p.a * Math.PI / 180 - state.drumAngle;
-      // Ports facing away from the light get darker
-      const shade = 0.30 * (1 - Math.cos(a - lightA)) * 0.5;
-      const hw = Math.max(3, p.hw * R);
-      const len = Math.max(8, p.len * R);
-      const ft = Math.max(2.5, 0.032 * R);
-      const x0 = rOuter - 3;
-
-      ctx.save();
-      ctx.translate(CX, CY);
-      ctx.rotate(a);
-
-      // Soft contact shadow on the ring
-      ctx.fillStyle = 'rgba(0,0,0,0.25)';
-      ctx.fillRect(x0 - 2, -hw * 1.35, 6, hw * 2.7);
-
-      if (p.type === 'tube') {
-        const xF = x0 + len - ft * 1.7;
-        pfPart(x0, -hw * 1.18, ft * 0.9, hw * 2.36, PF_FLANGE, shade);       // weld collar
-        pfPart(x0 + ft * 0.9, -hw, xF - x0 - ft * 0.9, hw * 2, PF_TUBE, shade); // tube
-        pfPart(xF, -hw * 1.6, ft, hw * 3.2, PF_FLANGE, shade);              // CF flange
-        pfPart(xF + ft, -hw * 1.6, ft * 0.7, hw * 3.2, PF_FLANGE, shade + 0.06); // blank
-        ctx.fillStyle = 'rgba(0,0,0,0.55)';
-        ctx.fillRect(xF + ft - 0.4, -hw * 1.6, 0.8, hw * 3.2);
-        const br = Math.max(0.8, ft * 0.28);
-        pfBolt(xF + ft * 0.85, -hw * 1.32, br);
-        pfBolt(xF + ft * 0.85,  hw * 1.32, br);
-      } else if (p.type === 'box') {
-        const neck = len * 0.22;
-        pfPart(x0, -hw * 0.55, neck, hw * 1.1, PF_TUBE, shade);
-        pfPart(x0 + neck - ft, -hw * 0.8, ft, hw * 1.6, PF_FLANGE, shade);
-        const bx = x0 + neck, bw = len - neck;
-        pfPart(bx, -hw, bw, hw * 2, PF_BOX, shade);
-        // Cover plate inset
-        ctx.strokeStyle = 'rgba(0,0,0,0.28)'; ctx.lineWidth = 0.8;
-        ctx.strokeRect(bx + ft, -hw + ft, bw - 2 * ft, hw * 2 - 2 * ft);
-        const br = Math.max(0.8, ft * 0.3);
-        for (const [u, v] of [[0.5, 0.5], [0.5, -0.5], [-0.5, 0.5], [-0.5, -0.5]]) {
-          pfBolt(bx + bw * 0.5 + u * (bw - 3 * ft), v * (hw * 2 - 3 * ft), br);
-        }
-      } else if (p.type === 'feed') {
-        const neck = len * 0.18;
-        pfPart(x0, -hw * 0.6, neck, hw * 1.2, PF_TUBE, shade);
-        pfPart(x0 + neck - ft, -hw * 0.95, ft, hw * 1.9, PF_FLANGE, shade);
-        const bx = x0 + neck, bw = len * 0.55;
-        pfPart(bx, -hw * 1.25, bw, hw * 2.5, PF_BOX, shade);
-        ctx.strokeStyle = 'rgba(0,0,0,0.28)'; ctx.lineWidth = 0.8;
-        ctx.beginPath();
-        ctx.moveTo(bx + bw * 0.33, -hw * 1.25); ctx.lineTo(bx + bw * 0.33, hw * 1.25);
-        ctx.moveTo(bx + bw * 0.66, -hw * 1.25); ctx.lineTo(bx + bw * 0.66, hw * 1.25);
-        ctx.stroke();
-        // Electrical feedthrough pins sticking out of the side face
-        const pinL = len - neck - bw;
-        ctx.lineCap = 'round';
-        for (let i = 0; i < 4; i++) {
-          const px = bx + bw * (0.18 + 0.22 * i);
-          ctx.strokeStyle = '#8b9095'; ctx.lineWidth = Math.max(1, hw * 0.16);
-          ctx.beginPath(); ctx.moveTo(px, hw * 1.25); ctx.lineTo(px, hw * 1.25 + pinL * 0.55); ctx.stroke();
-          pfBolt(px, hw * 1.25 + pinL * 0.55, Math.max(1, hw * 0.16));
-        }
-        // End connector block
-        pfPart(bx + bw, -hw * 0.7, pinL * 0.45, hw * 1.4, PF_FLANGE, shade);
-      }
-      ctx.restore();
-    }
-  }
-
-  /**
-   * Draws the machined aluminium flange ring that replaces the steel
-   * band in the Pfeiffer theme, including the rotating face holes.
-   */
-  function drawPfeifferBand(rInner, rOuter) {
-    const bw = rOuter - rInner;
-    const ring = () => {
-      ctx.beginPath();
-      ctx.arc(CX, CY, rOuter, 0, Math.PI * 2);
-      ctx.arc(CX, CY, rInner, 0, Math.PI * 2, true);
-    };
-    const g = ctx.createRadialGradient(CX, CY, rInner, CX, CY, rOuter);
-    g.addColorStop(0.00, '#4e5358');
-    g.addColorStop(0.08, '#b9bec3');
-    g.addColorStop(0.40, '#e2e5e8');
-    g.addColorStop(0.72, '#c3c8cc');
-    g.addColorStop(0.86, '#e9ecee');
-    g.addColorStop(1.00, '#73787d');
-    ctx.fillStyle = g; ring(); ctx.fill();
-
-    // Anisotropic sheen of turned aluminium (fixed relative to the light)
-    if (ctx.createConicGradient) {
-      const s = ctx.createConicGradient(-Math.PI / 4, CX, CY);
-      const L = 'rgba(255,255,255,0.22)', D = 'rgba(0,0,0,0.16)', N = 'rgba(0,0,0,0)';
-      s.addColorStop(0.00, L); s.addColorStop(0.12, N); s.addColorStop(0.25, D);
-      s.addColorStop(0.38, N); s.addColorStop(0.50, L); s.addColorStop(0.62, N);
-      s.addColorStop(0.75, D); s.addColorStop(0.88, N); s.addColorStop(1.00, L);
-      ctx.fillStyle = s; ring(); ctx.fill();
-    }
-
-    // Concentric turning marks
-    const nMarks = Math.max(3, Math.round(bw / 3));
-    for (let k = 1; k <= nMarks; k++) {
-      ctx.strokeStyle = (k % 2) ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.06)';
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.arc(CX, CY, rInner + bw * k / (nMarks + 1), 0, Math.PI * 2); ctx.stroke();
-    }
-
-    // Dim slightly in the dark lab so the ring doesn't glare
-    if (PAL.name !== 'light') { ctx.fillStyle = 'rgba(8,10,14,0.18)'; ring(); ctx.fill(); }
-
-    ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(CX, CY, rInner, 0, Math.PI * 2); ctx.stroke();
-    ctx.strokeStyle = 'rgba(30,32,36,0.8)'; ctx.lineWidth = 1.2;
-    ctx.beginPath(); ctx.arc(CX, CY, rOuter - 0.6, 0, Math.PI * 2); ctx.stroke();
-
-    // Face holes, rotating with the drum
-    if (bw >= 16) {
-      const rH = rInner + bw * 0.42;
-      for (const [deg, big] of PF_HOLES) {
-        const a = deg * Math.PI / 180 - state.drumAngle;
-        const hx = CX + rH * Math.cos(a), hy = CY + rH * Math.sin(a);
-        const hr = bw * (big ? 0.17 : 0.10);
-        ctx.fillStyle = '#121418';
-        ctx.beginPath(); ctx.arc(hx, hy, hr, 0, Math.PI * 2); ctx.fill();
-        // Lit lower-right chamfer, shadowed upper-left
-        ctx.lineWidth = Math.max(0.8, hr * 0.25);
-        ctx.strokeStyle = 'rgba(255,255,255,0.65)';
-        ctx.beginPath(); ctx.arc(hx, hy, hr, -0.2, Math.PI * 0.8); ctx.stroke();
-        ctx.strokeStyle = 'rgba(0,0,0,0.45)';
-        ctx.beginPath(); ctx.arc(hx, hy, hr, Math.PI * 0.8, Math.PI * 1.8); ctx.stroke();
-      }
-    }
-  }
-
-  /** Dense circle of small bright bolts on the outer edge of the ring. */
-  function drawPfeifferBolts() {
-    const rInner = pxDist(CFG.R_DRUM);
-    const bw = bandOutside();
-    const r = rInner + bw * 0.82;
-    const N = Math.max(24, Math.round(2 * Math.PI * r / 15));
-    const br = Math.max(1.1, bw * 0.075);
-    for (let i = 0; i < N; i++) {
-      const a = (i / N) * Math.PI * 2 - state.drumAngle;
-      pfBolt(CX + r * Math.cos(a), CY + r * Math.sin(a), br);
-    }
-  }
-
-  /**
-   * Fills a red box-section beam: gradient across its short side, bevelled
-   * edges and a recessed centre panel.
-   */
-  function pfRedBeam(x, y, w, h, vertical) {
-    // Soft, rounded shading of painted steel: broad highlight, gentle falloff
-    const g = vertical ? ctx.createLinearGradient(x, 0, x + w, 0)
-                       : ctx.createLinearGradient(0, y, 0, y + h);
-    g.addColorStop(0.00, '#d81e2e');
-    g.addColorStop(0.18, '#f0414b');
-    g.addColorStop(0.40, '#dc0f22');
-    g.addColorStop(0.75, '#b8061a');
-    g.addColorStop(1.00, '#8c0412');
-    const rad = Math.min(w, h) * 0.22;
-    ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(x, y, w, h, rad); else ctx.rect(x, y, w, h);
-    ctx.fillStyle = g; ctx.fill();
-    if (PAL.name !== 'light') { ctx.fillStyle = 'rgba(8,10,14,0.12)'; ctx.fill(); }
-    ctx.strokeStyle = 'rgba(60,0,8,0.25)'; ctx.lineWidth = 1;
-    ctx.stroke();
-  }
-
-
-  /**
-   * Draws the red rectangular base frame under the cradle in a slight
-   * top-down perspective: a front plinth beam on the instrument bar,
-   * side rails receding to a back beam, and a mid-depth cross beam
-   * carrying the two box-section columns under the saddle.
-   */
-  function drawPfeifferBase() {
-    const R = pxDist(CFG.R_DRUM);
-    const yTop = GEO.footTopY, yBot = GEO.footBotY;
-    const gap = yBot - yTop;
-    const beamH = Math.max(5, gap * 0.28);
-    const beamY = yBot - beamH;
-    const beamHalf = GEO.footBotHalfW;
-    const railW = beamH * 1.1;
-    const depth = gap * 0.66;  // vertical rise of the frame's far end
-    const k = 0.18;            // horizontal shrink toward the far end
-    const dim = PAL.name !== 'light' ? 0.85 : 1;
-
-    // Project a front-plane point (x, y) to depth t in [0, 1]
-    const P = (x, y, t) => [CX + (x - CX) * (1 - k * t), y - depth * t];
-    const quad = (pts, fill) => {
-      ctx.beginPath();
-      ctx.moveTo(pts[0][0], pts[0][1]);
-      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
-      ctx.closePath();
-      ctx.fillStyle = fill; ctx.fill();
-      ctx.strokeStyle = 'rgba(60,0,8,0.22)'; ctx.lineWidth = 1; ctx.stroke();
-    };
-    const shadeRed = (c) => mixHex(c, '#000000', 1 - dim);
-
-    /**
-     * Box beam spanning x0..x1, top at y (front-plane coords), height h,
-     * from depth t0 (front face) to t1. Draws the side facing the centre,
-     * the top face, then the front face.
-     */
-    const box = (x0, x1, y, h, t0, t1, frontDark) => {
-      if (x1 < CX) {
-        quad([P(x1, y, t0), P(x1, y, t1), P(x1, y + h, t1), P(x1, y + h, t0)], shadeRed('#9a0616'));
-      } else if (x0 > CX) {
-        quad([P(x0, y, t0), P(x0, y, t1), P(x0, y + h, t1), P(x0, y + h, t0)], shadeRed('#9a0616'));
-      }
-      quad([P(x0, y, t0), P(x1, y, t0), P(x1, y, t1), P(x0, y, t1)], shadeRed('#e8343f'));
-      const [fx0, fy] = P(x0, y, t0);
-      const [fx1] = P(x1, y, t0);
-      const hh = h;
-      pfRedBeam(fx0, fy, fx1 - fx0, hh, false);
-      if (frontDark > 0) { ctx.fillStyle = `rgba(0,0,0,${frontDark})`; ctx.fillRect(fx0, fy, fx1 - fx0, hh); }
-    };
-
-    const tB = 0.12; // apparent depth of a beam's own top face
-
-    // Floor shadow inside the frame
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.beginPath();
-    const s0 = P(CX - beamHalf, yBot, 0), s1 = P(CX + beamHalf, yBot, 0);
-    const s2 = P(CX + beamHalf, yBot, 1), s3 = P(CX - beamHalf, yBot, 1);
-    ctx.moveTo(s0[0], s0[1]); ctx.lineTo(s1[0], s1[1]); ctx.lineTo(s2[0], s2[1]); ctx.lineTo(s3[0], s3[1]);
-    ctx.closePath(); ctx.fill();
-
-    // Back beam (farthest), then the two side rails receding backward
-    box(CX - beamHalf, CX + beamHalf, beamY, beamH, 1 - tB, 1, 0.25);
-    box(CX - beamHalf, CX - beamHalf + railW, beamY, beamH, tB, 1 - tB, 0);
-    box(CX + beamHalf - railW, CX + beamHalf, beamY, beamH, tB, 1 - tB, 0);
-
-    // Mid-depth cross beam carrying the columns
-    const tM = 0.5;
-    box(CX - beamHalf + railW, CX + beamHalf - railW, beamY, beamH, tM - tB / 2, tM + tB / 2, 0.12);
-
-    // Columns standing on the cross beam (their tops hide behind the saddle)
-    const colHalfW = Math.max(6, R * 0.13);
-    const colBot = P(CX, beamY, tM)[1] + 1;
-    for (const sign of [-1, 1]) {
-      const cx = CX + sign * R * 0.37 * (1 - k * tM);
-      ctx.fillStyle = 'rgba(0,0,0,0.3)';
-      ctx.fillRect(cx - colHalfW + 3, yTop, colHalfW * 2, colBot - yTop);
-      pfRedBeam(cx - colHalfW, yTop, colHalfW * 2, colBot - yTop, true);
-    }
-
-    // Front plinth beam with drop shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.fillRect(CX - beamHalf + 2, beamY + 3, beamHalf * 2, beamH);
-    box(CX - beamHalf, CX + beamHalf, beamY, beamH, 0, tB, 0);
-    for (const sign of [-1, 1]) {
-      rivet(CX + sign * (beamHalf - beamH * 0.5), beamY + beamH * 0.5, Math.max(2, beamH * 0.12));
-    }
-  }
-
-  /**
-   * Draws the red saddle cradle that holds the bottom of the chamber,
-   * sitting on top of the red base frame.
-   */
-  function drawPfeifferCradle(rOuter) {
-    const yBase = GEO.footTopY + (GEO.footBotY - GEO.footTopY) * 0.08;
-    const span = 34 * Math.PI / 180;
-    const aR = Math.PI / 2 - span, aL = Math.PI / 2 + span;
-    const xL = CX + rOuter * Math.cos(aL), xR = CX + rOuter * Math.cos(aR);
-    const yEnd = CY + rOuter * Math.sin(aR);
-    const lip = Math.max(4, rOuter * 0.03);
-
-    for (const sign of [-1, 1]) {
-      // Each saddle half: an outer block whose top follows the chamber arc
-      const xo = sign < 0 ? xL - lip : xR + lip;
-      const xi = CX + sign * rOuter * 0.16;
-      ctx.beginPath();
-      ctx.moveTo(xo, yEnd - lip);
-      ctx.arc(CX, CY, rOuter, sign < 0 ? aL : aR, Math.acos((xi - CX) / rOuter), sign < 0);
-      ctx.lineTo(xi, yBase);
-      ctx.lineTo(xo + sign * lip * 2.5, yBase);
-      ctx.closePath();
-      const g = ctx.createLinearGradient(xo, 0, xi, 0);
-      g.addColorStop(0.00, '#b0081a');
-      g.addColorStop(0.15, '#ee3d48');
-      g.addColorStop(0.40, '#da0e22');
-      g.addColorStop(0.80, '#bc071b');
-      g.addColorStop(1.00, '#980515');
-      ctx.fillStyle = g; ctx.fill();
-      if (PAL.name !== 'light') { ctx.fillStyle = 'rgba(8,10,14,0.15)'; ctx.fill(); }
-      ctx.strokeStyle = 'rgba(60,0,8,0.3)'; ctx.lineWidth = 1; ctx.stroke();
-      // Box-section foot beam along the bottom of each saddle half
-      const footH = Math.max(3, lip * 1.6);
-      const fx0 = Math.min(xo + sign * lip * 2.5, xi), fx1 = Math.max(xo + sign * lip * 2.5, xi);
-      pfRedBeam(fx0, yBase - footH, fx1 - fx0, footH, false);
-      // Recessed web panel above the foot beam
-      ctx.strokeStyle = 'rgba(60,0,6,0.45)';
-      ctx.beginPath();
-      ctx.moveTo(xo + sign * lip * 2.2, yBase - footH - lip * 0.6);
-      ctx.lineTo(xi - sign * lip, yBase - footH - lip * 0.6);
-      ctx.stroke();
-      ctx.strokeStyle = 'rgba(255,150,150,0.25)';
-      ctx.beginPath();
-      ctx.moveTo(xo + sign * lip * 2.2, yBase - footH - lip * 0.6 + 1);
-      ctx.lineTo(xi - sign * lip, yBase - footH - lip * 0.6 + 1);
-      ctx.stroke();
-      const bh = Math.max(1.4, lip * 0.35);
-      pfBolt(xo + sign * lip * 0.8, yBase - footH * 0.5, bh);
-      pfBolt(xi - sign * lip * 1.6, yBase - footH * 0.5, bh);
-    }
-    // Shadow line where the cradle meets the red base
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.fillRect(xL - lip, yBase, xR - xL + 2 * lip, 2);
   }
 
   // ============================================================
@@ -3407,18 +3004,10 @@ function drawRepresentativeOrbits() {
       } else {
         drawWing(GEO.wingLeftX, GEO.wingTop, GEO.wingW, (GEO.wingBot - GEO.wingTop));
       }
-      // Pfeiffer: base, cradle and bar go first so the rim ports pass in
-      // front of them (the chamber hangs free); the injector stays on top.
-      const pf = isPfeifferTheme();
-      if (pf) {
-        if (GEO.drawFeet) { drawOmegaFeet(); drawPfeifferCradle(pxDist(CFG.R_DRUM) + bandOutside()); }
-        if (REGIME !== 'portrait') drawOmegaBar();
-        drawPfeifferPorts();
-      }
       if (REGIME !== 'portrait') drawInjector();
       drawPuffs();
       drawSteelBand();
-      if (!pf && REGIME !== 'portrait') drawOmegaBar();
+      if (REGIME !== 'portrait') drawOmegaBar();
     }
 
     // --- DRUM INTERIOR ---
