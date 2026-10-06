@@ -1551,8 +1551,10 @@ if (btnCollect) {
   //                 splash suppressed. Out-of-range or non-numeric N falls back to 1.
   //   ?challenge    Drop straight into Challenge Mode using current settings,
   //                 splash suppressed.
+  //   ?classic      Apply the classic visual theme.
   //   ?modern       Apply the clinical lab visual theme.
-  //   ?pfeiffer     Apply the Pfeiffer (red) variant of the modern theme.
+  //   ?pfeiffer     Apply the Pfeiffer (red) variant of the modern theme
+  //                 (the default; flag kept for old links).
   //
   // Flags can be combined (e.g. ?expert&game=3, ?modern&challenge).
   // Splash suppression for ?game and ?challenge happens inside initSplash by
@@ -1563,13 +1565,17 @@ if (btnCollect) {
   const uP = new URLSearchParams(window.location.search);
   isExpertURL = uP.has('expert');
 
-  // Honour URL theme flags at startup
-  if (uP.has('pfeiffer')) {
-    currentStyleIdx = 2;
-    applyThemeStyle('pfeiffer');
+  // Startup look: lights on, Pfeiffer theme unless a URL flag says otherwise
+  applyTheme('light');
+  if (uP.has('classic')) {
+    currentStyleIdx = 0;
+    applyThemeStyle('normal');
   } else if (uP.has('modern')) {
     currentStyleIdx = 1;
     applyThemeStyle('modern');
+  } else {
+    currentStyleIdx = 2;
+    applyThemeStyle('pfeiffer');
   }
   
   const expertDoor = document.getElementById('expertDoor');
