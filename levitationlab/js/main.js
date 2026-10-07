@@ -8,7 +8,7 @@
  * Exposes globals: cancelEndingSequence
  * Reads globals:   CFG, TUNING, TUNING_DEFAULT, state,
  *                  slowMoArmed, updateDrum, updateTray, step, updateEgg,
- *                  updateAggregates, updateGlobe, updateSolar,
+ *                  updateAggregates, refreshAggFormGate, updateGlobe, updateSolar,
  *                  computeAutoOmega, updateMotorSound,
  *                  recordTrails, pollAggregateCounter,
  *                  updateViewport, draw, drawGlobes,
@@ -78,6 +78,7 @@
         updateTray();   // advance armed → inserting → inserted each frame
       }
       if (state.running && !state.paused) { 
+        refreshAggFormGate();   // per-frame spread check, not per substep
         for (let i = 0; i < sub; i++) step(h); 
         for (let i = 0; i < sub; i++) updateEgg(h);
         for (let i = 0; i < sub; i++) updateAggregates(h);

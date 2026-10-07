@@ -8,6 +8,7 @@
  * Exposes globals: initLevel, randn, scheduleInjections, startRelease,
  *                  updateDrum, step, eggLevitatedParticles, aggImageIndex,
  *                  updateEgg, updateGlobe, spawnGoldenBall, updateAggregates,
+ *                  refreshAggFormGate,
  *                  updateSolar, computeAutoOmega, trayEndpoints, updateTray
  * Reads globals:   TUNING, TUNING_DEFAULT, CFG, LASER_OMEGA,
  *                  state, heatmap, aggregateImages,
@@ -286,9 +287,13 @@
     const HR2    = TUNING.highlight.radius * TUNING.highlight.radius;
     const laser1 = state.laserAngle;
     const laser0 = laser1 - LASER_OMEGA * dt;
+    // Tray line is the same for every particle this substep — compute once.
+    const trayEp = (state.tray.phase === 'inserting' || state.tray.phase === 'inserted')
+      ? trayEndpoints() : null;
+    let anyDead = false;
 
     for (const p of state.particles) {
-      if (!p.alive) continue;
+      if (!p.alive) { anyDead = true; continue; }
       if (p.onTray) {
         // Rotate exactly with the drum so the particle stays fixed in the drum frame
         const dA = omega * dt;
@@ -381,10 +386,8 @@
         // Collect particles within tray thickness of the live rotating tray line.
         // Particles: catchR = 0 (no radius added to the threshold), offsetR =
         // collisionR — the asymmetry is preserved exactly.
-        if ((state.tray.phase === 'inserting' || state.tray.phase === 'inserted')
-            && !p.onTray && p.insideOnce) {
-          const ep = trayEndpoints();
-          if (ep) tryCatchOnTray(p, ep, 0, TUNING.particle.collisionR);
+        if (trayEp && !p.onTray && p.insideOnce) {
+          tryCatchOnTray(p, trayEp, 0, TUNING.particle.collisionR);
         }
 
         // Remove particles that escaped the drum entirely.
@@ -404,13 +407,15 @@
           p.flashEndsAt = state.t + 0.40 * TUNING.lidar.flashDurMul;
         }
       }
+
+      if (!p.alive) anyDead = true;
     }
 
     // Expire old puffs and prune dead particles.
     if (state.puffs.length) {
       state.puffs = state.puffs.filter(pf => (state.t - pf.bornAt) < pf.life);
     }
-    if (state.particles.some(p => !p.alive)) {
+    if (anyDead) {
       state.particles = state.particles.filter(p => p.alive);
     }
 
@@ -1115,6 +1120,46 @@
     return Math.sqrt(variance) / mean;
   }
 
+  /**
+   * Counts levitated particles without allocating — same criterion as
+   * eggLevitatedParticles(), used for the per-substep threshold test.
+   */
+  function countLevitatedParticles() {
+    let n = 0;
+    for (const p of state.particles) {
+      if (!p.alive || p.stuck || p.onTray || p.merging) continue;
+      if (state.isLevitated(p)) n++;
+    }
+    return n;
+  }
+
+  // Cached result of the aggregate spread criterion. The vt spread of the
+  // floating population only changes as particles are injected or lost, so
+  // it is refreshed once per frame (refreshAggFormGate) rather than sorted
+  // on every physics substep.
+  let _aggCanForm = false;
+
+  /**
+   * Recomputes the aggregate spread criterion: the empirical 95.45% range
+   * (2.275th–97.725th percentile) of floating particle vt must exceed
+   * spreadThresh × mean vt. Called once per frame from main.js.
+   */
+  function refreshAggFormGate() {
+    const vts = [];
+    for (const p of state.particles) {
+      if (p.alive && !p.stuck && !p.merging && p.insideOnce) vts.push(p.vt);
+    }
+    const n = vts.length;
+    if (n < 2) { _aggCanForm = false; return; }
+    vts.sort((a, b) => a - b);
+    const lo   = vts[Math.floor(0.02275 * (n - 1))];
+    const hi   = vts[Math.ceil(0.97725  * (n - 1))];
+    let sum = 0;
+    for (let i = 0; i < n; i++) sum += vts[i];
+    const mean = sum / n;
+    _aggCanForm = mean > 0 && (hi - lo) >= TUNING.aggregate.spreadThresh * mean;
+  }
+
   function updateAggregates(dt) {
     // 1. Advance an in-progress aggregate merge animation (initial 10-monomer formation).
     if (state.aggMerging) {
@@ -1160,26 +1205,12 @@
 
     // 3. Check whether enough particles are levitated to start a new 10-monomer aggregate merge.
     if (!state.aggMerging) {
-      const lev = eggLevitatedParticles();
-      const T   = state.period();
-      
-      // Criterion: the empirical 95.45% range (2.275th–97.725th percentile)
-      // of floating particle vt must exceed 50% of the mean vt.
-      const _floatingVts = state.particles
-            .filter(p => p.alive && !p.stuck && !p.merging && p.insideOnce)
-            .map(p => p.vt);
-      const _aggCanForm = (() => {
-        if (_floatingVts.length < 2) return false;
-        const sorted = [..._floatingVts].sort((a, b) => a - b);
-        const n      = sorted.length;
-        const lo     = sorted[Math.floor(0.02275 * (n - 1))];
-        const hi     = sorted[Math.ceil(0.97725  * (n - 1))];
-        const mean   = _floatingVts.reduce((s, v) => s + v, 0) / n;
-        return mean > 0 && (hi - lo) >= TUNING.aggregate.spreadThresh * mean;
-      })();
-      if (lev.length >= TUNING.aggregate.minLevitated &&
+      const T = state.period();
+
+      // Spread criterion is cached per frame — see refreshAggFormGate().
+      if (_aggCanForm &&
           isFinite(T) &&
-          _aggCanForm) {
+          countLevitatedParticles() >= TUNING.aggregate.minLevitated) {
         state.aggHoldRevs += dt / T;
         const target = state.aggCount === 0
           ? TUNING.aggregate.initialHoldRevs
@@ -1189,7 +1220,7 @@
             p => p.alive && !p.stuck && !p.merging && p.inHighlightSince !== null
           );
           if (pool.length >= TUNING.aggregate.mergeCount) {
-            startAggregateMerge(lev, pool);
+            startAggregateMerge(eggLevitatedParticles(), pool);
           }
           state.aggHoldRevs = 0;
         }
@@ -1202,6 +1233,8 @@
     const HX  = TUNING.highlight.cx;
     const HY  = TUNING.highlight.cy;
     const HR2 = TUNING.highlight.radius * TUNING.highlight.radius;
+    const trayEp = (state.tray.phase === 'inserting' || state.tray.phase === 'inserted')
+      ? trayEndpoints() : null;
 
     for (const agg of state.aggregates) {
       if (agg.merging) continue;
@@ -1254,10 +1287,8 @@
 
         // Collect aggregates within catch distance of the live rotating tray line.
         // Aggregates use their radius for both the catch threshold and offset.
-        if ((state.tray.phase === 'inserting' || state.tray.phase === 'inserted')
-            && !agg.onTray) {
-          const ep = trayEndpoints();
-          if (ep) tryCatchOnTray(agg, ep, agg.r, agg.r);
+        if (trayEp && !agg.onTray) {
+          tryCatchOnTray(agg, trayEp, agg.r, agg.r);
         }
 
         const r2    = agg.x * agg.x + agg.y * agg.y;
@@ -2006,6 +2037,7 @@
   window.updateGlobe           = updateGlobe;
   window.spawnGoldenBall       = spawnGoldenBall;
   window.updateAggregates      = updateAggregates;
+  window.refreshAggFormGate    = refreshAggFormGate;
   window.updateSolar           = updateSolar;
   window.computeAutoOmega      = computeAutoOmega;
   window.updateTray            = updateTray;
