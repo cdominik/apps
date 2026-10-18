@@ -1,0 +1,14 @@
+{
+  "name": "AggBoard",
+  "short_name": "AggBoard",
+  "description": "Notebook whiteboard with a 3D fractal aggregate generator.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#e9e9ee",
+  "theme_color": "#e9e9ee",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

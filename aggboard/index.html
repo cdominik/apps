@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="AggBoard">
+<meta name="theme-color" content="#e9e9ee">
+<title>AggBoard</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+  :root {
+    --accent: #2a7;
+    --ui-bg: rgba(255,255,255,0.94);
+    --ui-border: #d4d4da;
+    --ui-text: #222;
+    --desk: #e9e9ee;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: var(--desk); color: var(--ui-text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    -webkit-touch-callout: none; overscroll-behavior: none;
+  }
+  #board, #overlay { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; }
+  #overlay { pointer-events: none; }
+
+  /* ---------- floating bars ---------- */
+  .bar {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px;
+    background: var(--ui-bg); border: 1px solid var(--ui-border); border-radius: 14px;
+    padding: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.10);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    max-width: calc(100% - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+    z-index: 5;
+  }
+  #toolbar { top: calc(8px + env(safe-area-inset-top, 0px)); }
+  #pagebar { bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
+  .sep { width: 1px; align-self: stretch; background: var(--ui-border); margin: 4px 3px; }
+  .group { display: flex; gap: 2px; align-items: center; }
+
+  .tbtn {
+    width: 40px; height: 40px; border-radius: 10px; border: none; background: transparent;
+    color: var(--ui-text); display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; font: inherit; font-size: 15px; text-decoration: none;
+  }
+  .tbtn svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .tbtn:active { background: #e6e6ec; }
+  .tbtn.active { background: var(--accent); color: #fff; }
+  .tbtn:disabled { opacity: 0.35; cursor: default; }
+  .tbtn:focus-visible, .swatch:focus-visible, .wbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .swatch {
+    width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; cursor: pointer;
+    background-clip: content-box; padding: 3px; background-color: transparent;
+  }
+  .swatch.active { border-color: #555; }
+  .wbtn { width: 32px; height: 32px; border-radius: 8px; border: none; background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+  .wbtn span { display: block; border-radius: 50%; background: #333; }
+  .wbtn.active { background: #e2e2e8; }
+
+  #pageLabel { min-width: 64px; text-align: center; font-size: 14px; font-variant-numeric: tabular-nums; color: #444; }
+
+  /* ---------- popup menu ---------- */
+  #menu {
+    position: absolute; z-index: 30; display: none;
+    top: calc(60px + env(safe-area-inset-top, 0px)); right: calc(10px + env(safe-area-inset-right, 0px));
+    width: min(300px, calc(100% - 20px));
+    background: #fff; border-radius: 14px; box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+    padding: 8px;
+  }
+  #menu.visible { display: block; }
+  #menu button.item {
+    display: block; width: 100%; text-align: left; border: none; background: transparent;
+    padding: 11px 10px; border-radius: 8px; font: inherit; font-size: 15px; color: #222; cursor: pointer;
+  }
+  #menu button.item:active { background: #f0f0f4; }
+  #menu button.danger { color: #b3261e; }
+  #menu hr { border: none; border-top: 1px solid #eee; margin: 6px 4px; }
+  #menu .label { font-size: 12px; color: #777; padding: 6px 10px 4px; }
+  .seg { display: flex; margin: 0 8px 6px; border: 1px solid var(--ui-border); border-radius: 9px; overflow: hidden; }
+  .seg button { flex: 1; border: none; background: #fff; padding: 8px 4px; font: inherit; font-size: 13px; cursor: pointer; color: #333; }
+  .seg button + button { border-left: 1px solid var(--ui-border); }
+  .seg button.active { background: var(--accent); color: #fff; }
+  #menuShield { position: absolute; inset: 0; z-index: 29; display: none; }
+  #menuShield.visible { display: block; }
+
+  /* ---------- selection bar ---------- */
+  #selbar {
+    position: absolute; z-index: 6; display: none; gap: 2px;
+    background: var(--ui-bg); border: 1px solid var(--ui-border); border-radius: 10px; padding: 3px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  }
+  #selbar.visible { display: flex; }
+  #selbar button {
+    border: none; background: transparent; padding: 7px 10px; border-radius: 7px;
+    font: inherit; font-size: 13px; cursor: pointer; color: #222;
+  }
+  #selbar button:active { background: #e6e6ec; }
+  #selbar button.danger { color: #b3261e; }
+
+  /* ---------- aggregate panel ---------- */
+  #aggPanel {
+    position: absolute; z-index: 20; display: none;
+    width: 290px; max-width: calc(100% - 16px);
+    background: #fff; border-radius: 14px; box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+    padding: 12px 14px 14px; font-size: 13px; color: #222;
+  }
+  #aggPanel.visible { display: block; }
+  #aggPanel header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  #aggPanel h2 { font-size: 15px; font-weight: 600; }
+  #aggPanel .close { border: none; background: transparent; font-size: 22px; line-height: 1; padding: 2px 6px; cursor: pointer; color: #666; }
+  #aggPanel .row { margin: 10px 0 2px; }
+  #aggPanel .row label { display: flex; justify-content: space-between; margin-bottom: 4px; }
+  #aggPanel .row label b { font-weight: 600; font-variant-numeric: tabular-nums; }
+  #aggPanel input[type=range] { width: 100%; accent-color: var(--accent); height: 28px; }
+  #aggPanel .readout { margin-top: 8px; padding: 7px 9px; background: #f5f5f8; border-radius: 8px; color: #444; font-variant-numeric: tabular-nums; line-height: 1.45; }
+  #aggPanel .readout .warn { color: #a5530a; }
+  #aggPanel .colors { display: flex; gap: 6px; margin-top: 10px; }
+  #aggPanel .colors .swatch { width: 28px; height: 28px; }
+  #aggPanel .actions { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+  #aggPanel .actions button {
+    flex: 1; border: 1px solid var(--ui-border); background: #fff; border-radius: 8px;
+    padding: 8px 6px; font: inherit; font-size: 13px; cursor: pointer; color: #222; white-space: nowrap;
+  }
+  #aggPanel .actions button:active { background: #f0f0f4; }
+  #aggPanel .actions button.danger { color: #b3261e; }
+  #aggPanel details { margin-top: 10px; }
+  #aggPanel summary { cursor: pointer; color: #555; }
+  #aggPanel .kfrow { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  #aggPanel .kfrow input[type=range] { flex: 1; }
+
+  /* ---------- modal ---------- */
+  .modal {
+    position: absolute; inset: 0; z-index: 40; display: none;
+    background: rgba(0,0,0,0.4); align-items: center; justify-content: center; padding: 16px;
+  }
+  .modal.visible { display: flex; }
+  .modal .panel {
+    background: #fff; border-radius: 14px; max-width: 560px; width: 100%; max-height: 100%;
+    overflow-y: auto; touch-action: pan-y; padding: 18px 20px; font-size: 14px; line-height: 1.5;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3); user-select: text; -webkit-user-select: text;
+  }
+  .modal h2 { font-size: 18px; margin-bottom: 8px; }
+  .modal h3 { font-size: 14px; color: var(--accent); margin: 14px 0 4px; }
+  .modal p { margin: 4px 0; }
+  .modal kbd { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: #f1f1f4; border: 1px solid #d8d8de; border-radius: 4px; padding: 0 4px; }
+  .modal .close-row { display: flex; justify-content: flex-end; margin-top: 14px; }
+  .modal .close-row button { background: var(--accent); color: #fff; border: none; padding: 9px 18px; border-radius: 9px; font: inherit; cursor: pointer; }
+
+  /* ---------- toast ---------- */
+  #toast {
+    position: absolute; left: 50%; bottom: calc(70px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+    background: rgba(30,30,36,0.92); color: #fff; padding: 9px 14px; border-radius: 10px; font-size: 13px;
+    z-index: 50; opacity: 0; transition: opacity 0.2s; pointer-events: none; max-width: calc(100% - 32px); text-align: center;
+  }
+  #toast.visible { opacity: 1; }
+
+  @media (max-width: 600px) {
+    .tbtn { width: 36px; height: 36px; }
+    .swatch { width: 26px; height: 26px; padding: 2px; }
+    .wbtn { width: 28px; height: 28px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="board"></canvas>
+<canvas id="overlay"></canvas>
+
+<div class="bar" id="toolbar" role="toolbar" aria-label="Tools">
+  <a class="tbtn" id="btnHome" title="Back to menu" aria-label="Back to menu" hidden>
+    <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+  </a>
+  <div class="group" id="tools">
+    <button class="tbtn" data-tool="pen" title="Pen (P)" aria-label="Pen">
+      <svg viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19z"/><path d="M14 7l3 3"/></svg>
+    </button>
+    <button class="tbtn" data-tool="eraser" title="Eraser (E)" aria-label="Eraser">
+      <svg viewBox="0 0 24 24"><path d="M8 19h12"/><path d="M5.5 14.5l8-8a2 2 0 0 1 2.8 0l2.2 2.2a2 2 0 0 1 0 2.8L12 18H9z"/><path d="M9.5 10.5l5 5"/></svg>
+    </button>
+    <button class="tbtn" data-tool="select" title="Select (S)" aria-label="Lasso select">
+      <svg viewBox="0 0 24 24"><path d="M12 4c4.4 0 8 2.4 8 5.5S16.4 15 12 15c-1 0-2-.1-2.9-.4" stroke-dasharray="2.5 2.5"/><path d="M6.2 13.4C4.8 12.4 4 11 4 9.5 4 6.4 7.6 4 12 4"/><path d="M7 13c-1.5 1-1.8 2.8-.6 3.8 1 .9 1.6 2.2 1.1 3.7"/></svg>
+    </button>
+    <button class="tbtn" data-tool="laser" title="Laser pointer (L)" aria-label="Laser pointer">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.6" fill="currentColor"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>
+    </button>
+    <button class="tbtn" data-tool="chain" title="Particle chain (C)" aria-label="Particle chain">
+      <svg viewBox="0 0 24 24"><circle cx="4.6" cy="18.2" r="2.2"/><circle cx="8.6" cy="15.6" r="2.2"/><circle cx="12.4" cy="12.6" r="2.2"/><circle cx="15.4" cy="8.9" r="2.2"/><circle cx="19.2" cy="6.6" r="2.2"/></svg>
+    </button>
+    <button class="tbtn" data-tool="aggregate" title="Aggregate in a box (A)" aria-label="Insert aggregate in a box">
+      <svg viewBox="0 0 24 24"><rect x="2.5" y="2.5" width="19" height="19" rx="2" stroke-dasharray="2.6 2.2" stroke-width="1.4"/><circle cx="9" cy="10" r="2"/><circle cx="12.6" cy="11.2" r="2"/><circle cx="15.4" cy="8.6" r="2"/><circle cx="11.6" cy="15" r="2"/><circle cx="8.4" cy="17" r="1.7"/></svg>
+    </button>
+  </div>
+  <div class="sep"></div>
+  <div class="group" id="colors"></div>
+  <div class="sep"></div>
+  <div class="group" id="widths"></div>
+  <div class="sep"></div>
+  <div class="group">
+    <button class="tbtn" id="btnUndo" title="Undo (Ctrl/⌘ Z)" aria-label="Undo">
+      <svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+    </button>
+    <button class="tbtn" id="btnRedo" title="Redo (Ctrl/⌘ Shift Z)" aria-label="Redo">
+      <svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>
+    </button>
+    <button class="tbtn" id="btnMenu" title="More" aria-label="More">
+      <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="19" cy="12" r="1.3" fill="currentColor"/></svg>
+    </button>
+  </div>
+</div>
+
+<div class="bar" id="pagebar" aria-label="Pages">
+  <button class="tbtn" id="btnPrev" title="Previous page (PgUp)" aria-label="Previous page"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+  <span id="pageLabel">1 / 1</span>
+  <button class="tbtn" id="btnNext" title="Next page (PgDn)" aria-label="Next page"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+  <div class="sep"></div>
+  <button class="tbtn" id="btnNewPage" title="New page after this one" aria-label="New page"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button class="tbtn" id="btnFit" title="Fit page (0)" aria-label="Fit page"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+</div>
+
+<div id="selbar">
+  <button id="selAdjust">Adjust</button>
+  <button id="selDuplicate">Duplicate</button>
+  <button id="selDelete" class="danger">Delete</button>
+</div>
+
+<div id="aggPanel" role="dialog" aria-label="Aggregate settings">
+  <header><h2 id="aggTitle">Aggregate</h2><button class="close" id="aggClose" aria-label="Close">&times;</button></header>
+  <div class="row">
+    <label for="aggSize"><span id="aggSizeLabel">Monomer size</span><b id="aggSizeVal"></b></label>
+    <input type="range" id="aggSize" min="1" max="120" step="0.5">
+  </div>
+  <div class="row" id="rowDf">
+    <label for="aggDf"><span>Fractal dimension D<sub>f</sub></span><b id="aggDfVal"></b></label>
+    <input type="range" id="aggDf" min="1" max="3" step="0.02">
+  </div>
+  <div class="row" id="rowTemp">
+    <label for="aggTemp"><span>Temperature</span><b id="aggTempVal"></b></label>
+    <input type="range" id="aggTemp" min="0" max="1" step="0.01">
+  </div>
+  <div class="readout" id="aggReadout"></div>
+  <div class="colors" id="aggColors"></div>
+  <details id="aggAdvanced">
+    <summary>Advanced</summary>
+    <div class="kfrow">
+      <label><input type="checkbox" id="aggKfAuto" checked> Auto k<sub>f</sub></label>
+      <input type="range" id="aggKf" min="0.5" max="2.5" step="0.05">
+      <b id="aggKfVal"></b>
+    </div>
+  </details>
+  <div class="actions">
+    <button id="aggRandom">New random</button>
+    <button id="aggRegen">Regenerate…</button>
+    <button id="aggDuplicate">Duplicate</button>
+    <button id="aggDelete" class="danger">Delete</button>
+  </div>
+</div>
+
+<div id="menuShield"></div>
+<div id="menu" role="menu">
+  <button class="item" id="mExport">Save notebook to file…</button>
+  <button class="item" id="mImport">Open notebook from file…</button>
+  <button class="item" id="mPng">Export this page as image…</button>
+  <hr>
+  <div class="label">Finger input</div>
+  <div class="seg" id="fingerSeg">
+    <button data-mode="auto">Auto</button>
+    <button data-mode="draw">Draw</button>
+    <button data-mode="navigate">Pan &amp; zoom</button>
+  </div>
+  <hr>
+  <button class="item danger" id="mDeletePage">Delete this page…</button>
+  <hr>
+  <button class="item" id="mHelp">Help</button>
+</div>
+<input type="file" id="fileInput" accept=".json,application/json" hidden>
+
+<div class="modal" id="help">
+  <div class="panel">
+    <h2>AggBoard</h2>
+    <p>A notebook whiteboard with a built-in 3D fractal aggregate generator. Everything is saved automatically on this device.</p>
+
+    <h3>Drawing</h3>
+    <p><b>Pen</b> draws (pressure-sensitive with Apple Pencil). <b>Eraser</b> removes whole strokes it touches. <b>Select</b>: draw a loop around strokes or aggregates, then drag inside the frame to move them, drag a corner square to scale the group (handwriting and aggregates keep their proportions; aggregates keep their exact structure), or use Duplicate / Delete. Tapping a colour recolours selected strokes. Tap a single item with Select to pick it. <b>Laser</b> draws a red trail that fades &mdash; for pointing while presenting.</p>
+
+    <h3>Pencil and fingers</h3>
+    <p>Once an Apple Pencil is detected, the pencil draws and fingers pan and zoom (one finger pans, two fingers pinch). Your palm is ignored while the pencil touches the screen. Without a pencil, one finger draws and two fingers pan and zoom. You can force either behaviour under <b>&hellip; &rarr; Finger input</b>.</p>
+
+    <h3>Aggregates</h3>
+    <p>Choose the aggregate tool and drag a box. When you lift, the box fills with a 3D fractal aggregate, and the tool switches back to the pen.</p>
+    <p><b>Double-tap</b> an aggregate (or tap it and choose Adjust) to open its settings:</p>
+    <p><b>Monomer size</b> &mdash; the monomer radius. The number of monomers changes so the aggregate still fills its box (up to 3000 monomers).<br>
+    <b>Fractal dimension</b> &mdash; from 1 (a straight chain) to 3 (compact). The aggregate is regenerated as you drag.<br>
+    <b>New random</b> &mdash; same settings, different random structure.<br>
+    <b>Advanced</b> &mdash; the prefactor k<sub>f</sub> in N = k<sub>f</sub> (R<sub>g</sub>/a)<sup>D<sub>f</sub></sup>. Auto chooses a value that works for every D<sub>f</sub>.</p>
+    <p>When an aggregate is selected: drag it to move. The handles: <b>bottom-right</b> scales it (bigger or smaller, same structure, so the monomers scale too); <b>bottom-left</b> (dashed box) changes the box and regenerates the aggregate to fill it, keeping the monomer size, so the number of monomers changes; <b>top-right</b> (round arrow) rotates it in 3D. Chains and edited aggregates have no bottom-left handle, because they cannot be regenerated. With fingers in pan-and-zoom mode, dragging one finger on a selected aggregate also rotates it.</p>
+    <p>The readout shows N, the radius of gyration R<sub>g</sub> (in monomer radii a), and D<sub>f</sub> fitted from the growth history as a check.</p>
+
+    <h3>Particle chains</h3>
+    <p>The <b>chain</b> tool (spheres without a box) turns a stroke into touching spheres. It uses the current monomer size and the last temperature you set. Temperature makes the chain wiggle in 3D; rotate it to see.</p>
+    <p>Start or end a chain on a sphere of an aggregate and it attaches there, at that sphere's depth, and becomes part of the aggregate. Start on one aggregate and end on another to bridge them into one (both need the same monomer size). This works the same with chains: branch off a chain, connect two chains, or close a chain into a ring. New spheres touch where they join and steer around existing spheres instead of overlapping them.</p>
+    <p>An aggregate with hand-drawn parts is marked <i>edited</i>: it no longer regenerates, its monomer-size slider and corner handle scale it, and <b>Regenerate…</b> turns it back into a fresh aggregate (removing the drawn parts). Double-tap a standalone chain to change its monomer size, temperature or random pattern; it is re-laid along the line you drew.</p>
+
+    <h3>Pages</h3>
+    <p>Use the arrows at the bottom to move between pages and <b>+</b> to add a page after the current one. Undo works per page and covers drawing, erasing, moving and all aggregate changes.</p>
+
+    <h3>Keeping your notes</h3>
+    <p>Notebooks live in this browser on this device. On iPad, add AggBoard to your Home Screen, otherwise Safari may delete its data after a week without use. Use <b>&hellip; &rarr; Save notebook to file</b> regularly as a backup, or to give a notebook to someone else; they open it with <b>Open notebook from file</b>.</p>
+
+    <h3>Keyboard</h3>
+    <p><kbd>P</kbd> pen &middot; <kbd>E</kbd> eraser &middot; <kbd>S</kbd> select &middot; <kbd>L</kbd> laser &middot; <kbd>A</kbd> aggregate &middot; <kbd>C</kbd> chain &middot; <kbd>1</kbd>&ndash;<kbd>5</kbd> colours &middot; <kbd>Ctrl/⌘ Z</kbd> undo &middot; <kbd>Ctrl/⌘ Shift Z</kbd> redo &middot; <kbd>Ctrl/⌘ D</kbd> duplicate &middot; <kbd>Delete</kbd> delete selection &middot; <kbd>PgUp</kbd>/<kbd>PgDn</kbd> pages &middot; <kbd>0</kbd> fit page &middot; <kbd>Esc</kbd> deselect</p>
+    <p>Mouse: right- or middle-drag pans, Ctrl + wheel (or trackpad pinch) zooms, wheel scrolls.</p>
+
+    <div class="close-row"><button id="helpClose">Close</button></div>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="aggregate-engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
