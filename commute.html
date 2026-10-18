@@ -24,13 +24,14 @@
 
   <div class="mb-3 flex flex-wrap gap-2 items-center">
     <div id="loc-buttons" class="contents"></div>
-    <button onclick="autoLocate(true)" class="px-3 py-1.5 rounded bg-gray-800 dark:bg-gray-600 hover:bg-gray-900 dark:hover:bg-gray-500 text-white text-sm shadow flex items-center gap-1">
+    <button onclick="autoLocate(true)" id="btn-auto" class="px-3 py-1.5 rounded text-sm shadow flex items-center gap-1">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-      Auto
+      Auto<span id="auto-dot" class="hidden w-2 h-2 rounded-full ml-0.5"></span>
     </button>
-    <span id="location-status" class="text-xs text-gray-500 dark:text-gray-400 ml-auto"></span>
+    <div class="ml-auto flex gap-2">
     <button onclick="openEditor()" aria-label="Edit locations and trips" class="w-8 h-8 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 shadow flex items-center justify-center active:scale-95"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg></button>
     <button onclick="updateApp()" aria-label="Refresh" class="w-8 h-8 rounded bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white shadow flex items-center justify-center active:scale-95"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
+    </div>
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -41,7 +42,7 @@
       <div id="rain-error" class="text-sm text-red-500 dark:text-red-400 mt-1"></div>
     </div>
     <div class="p-2 rounded border dark:border-gray-700 shadow-sm">
-      <h2 class="text-base font-bold border-b dark:border-gray-700 pb-1 mb-2">Trains</h2>
+      <h2 class="text-base font-bold border-b dark:border-gray-700 pb-1 mb-2 flex justify-between items-baseline">Trains <span id="updated" class="text-xs font-normal text-gray-500 dark:text-gray-400"></span></h2>
       <div id="train-content" class="space-y-2 text-sm text-gray-500 dark:text-gray-400">Loading…</div>
     </div>
   </div>
@@ -73,7 +74,7 @@ window.onerror = (m) => { const el = document.getElementById('debug-error'); el.
 
 // ===== Settings =====
 // Paste your Worker URL here so every device works without setup. Not a secret: the NS key stays in the Worker.
-const DEFAULT_PROXY = 'https://ns-commute.carsten-dominik.workers.dev/';
+const DEFAULT_PROXY = '';
 const FETCH_MS = 5 * 60 * 1000;   // fetch new train/rain data every 5 min while visible
 const TICK_MS = 30 * 1000;        // update "in Xm" countdowns locally every 30 s (no API calls)
 const TIMEOUT_MS = 10000;
@@ -195,7 +196,9 @@ function autoLocate(userAction = false) {
   if (userAction) store.set('locationPref', 'auto');
   if (!navigator.geolocation) { setStatusMsg('No GPS'); updateApp(); return; }
   stopWatching();
+  statusMsg = '';
   renderLocButtons();
+  renderStatus();
   updateApp(); // show last location right away; switch when GPS answers
   geoWatchId = navigator.geolocation.watchPosition(pos => {
     const detected = nearestLocation(pos.coords.latitude, pos.coords.longitude);
@@ -208,12 +211,15 @@ function autoLocate(userAction = false) {
 }
 
 function setStatusMsg(m) { statusMsg = m; renderStatus(); }
+// Auto button: blue when Auto mode is on. Dot: green = GPS position received, amber = GPS problem, grey = waiting.
 function renderStatus() {
-  const parts = [];
-  if (isLive) parts.push('<span class="text-green-600 dark:text-green-400 font-medium">Live</span>');
-  else if (statusMsg) parts.push(`<span class="text-amber-600 dark:text-amber-400">${esc(statusMsg)}</span>`);
-  if (lastUpdated) parts.push(`updated ${fmtTime(lastUpdated)}`);
-  $('location-status').innerHTML = parts.join(' &nbsp;');
+  const auto = store.get('locationPref') === 'auto';
+  const b = $('btn-auto'), dot = $('auto-dot');
+  b.className = 'px-3 py-1.5 rounded text-sm shadow flex items-center gap-1 ' +
+    (auto ? 'bg-blue-600 text-white' : 'bg-gray-800 dark:bg-gray-600 hover:bg-gray-900 dark:hover:bg-gray-500 text-white');
+  dot.className = 'w-2 h-2 rounded-full ml-0.5 ' + (!auto ? 'hidden' : isLive ? 'bg-green-400' : statusMsg ? 'bg-amber-400' : 'bg-gray-300');
+  b.title = !auto ? 'Pick location automatically' : isLive ? 'Following your GPS position' : statusMsg || 'Waiting for GPS…';
+  $('updated').textContent = lastUpdated ? `updated ${fmtTime(lastUpdated)}` : '';
 }
 
 // ===== Refresh =====
