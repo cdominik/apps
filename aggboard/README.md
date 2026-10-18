@@ -32,7 +32,7 @@ then open `http://localhost:8000` (or `http://<your-computer's-IP>:8000` on the 
 At the top of `app.js`:
 
 - `MENU_URL` — set to e.g. `'../index.html'` to show a back button to your app menu. Leave `null` for a standalone install.
-- `N_MAX` — maximum monomers per aggregate (default 3000).
+- `N_MAX` — maximum monomers per aggregate (default 5000).
 - `PAGE_W`, `PAGE_H` — page size in page units (default 1600 × 900, 16:9).
 
 ## Storage
@@ -47,7 +47,7 @@ Notebooks are stored in the browser's IndexedDB on each device. Nothing is uploa
 Tunable particle–cluster aggregation (Filippov, Zurita & Rosner, *J. Colloid Interface Sci.* 229, 261, 2000): each monomer is placed at the distance from the centre of mass that keeps N = k_f (R_g/a)^D_f exact, touching at least one monomer, overlapping none.
 
 - k_f defaults to a function of D_f (`kfAuto` in `aggregate-engine.js`). A fixed k_f cannot span D_f = 1 to 3: a straight chain needs k_f ≥ √3, random dense packing needs k_f ≲ 1. With the default, the fitted D_f matches the target to three decimals over the whole range 1.0–3.0 (tested for N = 1500).
-- Growth is deterministic for a given (D_f, k_f, seed), so smaller aggregates are prefixes of larger ones. Filling a box therefore grows one cluster and picks the prefix length that fills the box best (after aligning its principal axes with the box). Changing the monomer size or the box keeps the same core structure.
+- Growth is deterministic for a given (D_f, k_f, seed), so smaller aggregates are prefixes of larger ones. Filling a box therefore grows one cluster and picks the prefix length that fills the box best, trying several in-plane orientations relative to its principal axes (elongated, low-D_f aggregates fill squarish boxes better on a diagonal). Changing the monomer size or the box keeps the same core structure.
 - Typical speed: 2000 monomers in 5–20 ms, so sliders can regenerate live.
 - **Particle chains** (chain tool) are laid as touching spheres along the drawn stroke: a walk whose aim point advances one diameter along the path per step, with correlated 3D noise scaled by the temperature. N stays ≈ length / 2a at any temperature. Chains that start or end on a sphere (of an aggregate or another chain) attach at that sphere's depth, in exact contact, and are merged into its coordinate frame; such "edited" aggregates are never regenerated. New chain spheres avoid overlapping the joined structure and the chain itself (a collision grid; blocked steps tilt away from the preferred direction, and the closing sphere is placed on the circle of positions that touch both neighbours).
 - Each aggregate stores its monomer coordinates in the notebook, so it looks the same after reloading even if the engine changes later. The seed is kept for regenerating.

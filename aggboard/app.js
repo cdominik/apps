@@ -8,7 +8,7 @@
   const CONFIG = {
     MENU_URL: null,            // e.g. '../index.html' to show a "back to menu" button
     PAGE_W: 1600, PAGE_H: 900, // page size in page units (16:9)
-    N_MAX: 3000,               // maximum monomers per aggregate
+    N_MAX: 5000,               // maximum monomers per aggregate
     DB_NAME: 'aggboard',
     SETTINGS_KEY: 'aggboard.settings.v1',
     FORMAT: 'aggboard-notebook',
@@ -33,7 +33,7 @@
 
   const $ = (id) => document.getElementById(id);
   const board = $('board'), bctx = board.getContext('2d');
-  const overlay = $('overlay'), octx = overlay.getContext('2d');
+  const overlay = $('overlay'), octx = overlay.getContext('2d', { desynchronized: true }) || overlay.getContext('2d');
   const dpr = () => Math.min(window.devicePixelRatio || 1, 2);
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   const now = () => performance.now();
@@ -201,6 +201,9 @@
 
   // Variable-width stroke as runs of quadratic segments with constant width.
   // Round caps/joins make the runs blend; robust at sharp corners.
+  // Variable-width stroke as runs of constant width. Segments are Catmull-Rom
+  // splines through every sample, so fast (sparsely sampled) handwriting keeps
+  // its shape. Round caps/joins make consecutive runs blend seamlessly.
   function buildRuns(pts, base) {
     const n = pts.length / 3, runs = [];
     if (!n) return runs;
@@ -212,27 +215,16 @@
       runs.push({ w: wq(pts[2]), path });
       return runs;
     }
-    const xs = new Float64Array(n), ys = new Float64Array(n);
-    for (let i = 0; i < n; i++) {
-      if (i === 0 || i === n - 1) { xs[i] = pts[3 * i]; ys[i] = pts[3 * i + 1]; }
-      else {
-        xs[i] = 0.25 * pts[3 * i - 3] + 0.5 * pts[3 * i] + 0.25 * pts[3 * i + 3];
-        ys[i] = 0.25 * pts[3 * i - 2] + 0.5 * pts[3 * i + 1] + 0.25 * pts[3 * i + 4];
-      }
-    }
+    const X = (i) => pts[3 * clamp(i, 0, n - 1)], Y = (i) => pts[3 * clamp(i, 0, n - 1) + 1];
     let cur = null, curW = -1;
-    const seg = (w, x0, y0, cx, cy, x1, y1) => {
+    for (let i = 0; i < n - 1; i++) {
+      const w = wq((pts[3 * i + 2] + pts[3 * i + 5]) / 2);
+      const x0 = X(i), y0 = Y(i), x1 = X(i + 1), y1 = Y(i + 1);
       if (w !== curW) { cur = new Path2D(); curW = w; runs.push({ w, path: cur }); cur.moveTo(x0, y0); }
-      cur.quadraticCurveTo(cx, cy, x1, y1);
-    };
-    let mx = (xs[0] + xs[1]) / 2, my = (ys[0] + ys[1]) / 2;
-    seg(wq(pts[2]), xs[0], ys[0], (xs[0] + mx) / 2, (ys[0] + my) / 2, mx, my);
-    for (let i = 1; i < n - 1; i++) {
-      const nx = (xs[i] + xs[i + 1]) / 2, ny = (ys[i] + ys[i + 1]) / 2;
-      seg(wq(pts[3 * i + 2]), mx, my, xs[i], ys[i], nx, ny);
-      mx = nx; my = ny;
+      const c1x = x0 + (x1 - X(i - 1)) / 6, c1y = y0 + (y1 - Y(i - 1)) / 6;
+      const c2x = x1 - (X(i + 2) - x0) / 6, c2y = y1 - (Y(i + 2) - y0) / 6;
+      cur.bezierCurveTo(c1x, c1y, c2x, c2y, x1, y1);
     }
-    seg(wq(pts[3 * n - 1]), mx, my, (mx + xs[n - 1]) / 2, (my + ys[n - 1]) / 2, xs[n - 1], ys[n - 1]);
     return runs;
   }
   function strokeBBox(s) {
@@ -489,6 +481,7 @@
       const arr = pg.items.slice();
       // Generated coordinates are aligned with the box, so the rotation starts fresh.
       arr[idx] = { ...it, pts: m.pts, n: m.n, rg: m.rg, dfFit: m.dfFit, kfUsed: m.kf, capped: !!m.capped, needsGen: false, R: IDENTITY.slice() };
+      if (m.capped && !it.capped && pg === curPage()) toast(`Limit of ${CONFIG.N_MAX} monomers reached, so the aggregate is smaller than its box. Increase the monomer size to fill it.`, 5000);
       pg.items = arr;
       nb.modified = Date.now();
       scheduleSave();
@@ -825,7 +818,7 @@
   function finishChain(a, isTap, p) {
     let startHit = a.startHit;
     const pathAbs = a.pts.slice();
-    if (isTap && startHit) { handleTap(p); return; }
+    if (isTap && startHit) { if (handleTap(p) === 'single-agg') selectIds([startHit.item.id]); return; }
     let endHit = isTap ? null : sphereAt({ x: pathAbs[pathAbs.length - 2], y: pathAbs[pathAbs.length - 1] });
     if (startHit && endHit && startHit.item.id !== endHit.item.id && Math.abs(startHit.item.a - endHit.item.a) > 1e-6) {
       endHit = null;
@@ -1031,7 +1024,12 @@
     if (action) {
       if (action.kind === 'draw') {
         pageT();
-        drawRuns(octx, buildRuns(action.pts, action.width), action.color);
+        let P = action.pts;
+        if (action.pred && action.pred.length) {
+          P = P.slice();
+          for (const q of action.pred) P.push(q.x, q.y, action.ps);
+        }
+        drawRuns(octx, buildRuns(P, action.width), action.color);
       } else if (action.kind === 'lasso' && action.poly.length >= 4) {
         pageT();
         octx.beginPath();
@@ -1211,6 +1209,69 @@
   }
 
   // ============================================================
+  // Input diagnostics (menu -> Input diagnostics). Records raw events and the
+  // app's decisions so problems on a real device can be diagnosed.
+  // ============================================================
+  const diag = { on: false, lines: [], started: 0, saved: 0, interrupted: 0, ignored: 0, t0: 0, moves: new Map(), raf: 0 };
+  function dlog(msg) {
+    if (!diag.on) return;
+    diag.lines.push(((now() - diag.t0) / 1000).toFixed(3).padStart(8) + '  ' + msg);
+    if (diag.lines.length > 600) diag.lines.shift();
+    if (!diag.raf) diag.raf = requestAnimationFrame(renderDiag);
+  }
+  function renderDiag() {
+    diag.raf = 0;
+    $('diagSum').textContent = `strokes ${diag.started} · saved ${diag.saved} · interrupted ${diag.interrupted} · ignored ${diag.ignored}`;
+    $('diagLog').textContent = diag.lines.slice(-26).join('\n');
+  }
+  function diagHeader() {
+    return [
+      'AggBoard input diagnostics',
+      'userAgent: ' + navigator.userAgent,
+      `screen ${window.innerWidth}x${window.innerHeight} dpr ${window.devicePixelRatio} maxTouchPoints ${navigator.maxTouchPoints}`,
+      `fingerMode ${settings.fingerMode} penSeen ${settings.penSeen} coalesced ${typeof PointerEvent !== 'undefined' && 'getCoalescedEvents' in PointerEvent.prototype} predicted ${typeof PointerEvent !== 'undefined' && 'getPredictedEvents' in PointerEvent.prototype}`,
+      `summary: strokes ${diag.started}, saved ${diag.saved}, interrupted ${diag.interrupted}, ignored ${diag.ignored}`,
+      '',
+    ].join('\n');
+  }
+  const fmtPt = (e) => `${e.pointerType || '?'}#${e.pointerId} p=${(e.pressure || 0).toFixed(2)} ${Math.round(e.width || 0)}x${Math.round(e.height || 0)} @${Math.round(e.clientX)},${Math.round(e.clientY)}`;
+  // Raw events, captured before the app handles them.
+  board.addEventListener('pointerdown', (e) => { diag.moves.set(e.pointerId, 0); dlog('down    ' + fmtPt(e)); }, true);
+  board.addEventListener('pointermove', (e) => { if (diag.moves.has(e.pointerId)) diag.moves.set(e.pointerId, diag.moves.get(e.pointerId) + 1); }, true);
+  for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+    board.addEventListener(t, (e) => {
+      const m = diag.moves.get(e.pointerId);
+      diag.moves.delete(e.pointerId);
+      dlog((t === 'pointerup' ? 'up      ' : t === 'pointercancel' ? 'CANCEL  ' : 'lostcap ') + fmtPt(e) + (m != null ? ` moves=${m}` : ''));
+    }, true);
+  }
+  for (const t of ['touchstart', 'touchend', 'touchcancel']) {
+    board.addEventListener(t, (e) => {
+      const kinds = [...(e.changedTouches || [])].map(tc => tc.touchType || 'n/a').join(',');
+      dlog(`${t.padEnd(12)}touchType=${kinds} active=${(e.touches || []).length}`);
+    }, { capture: true, passive: true });
+  }
+  $('mDiag').addEventListener('click', () => {
+    closeMenu();
+    diag.on = true; diag.t0 = now(); diag.lines = []; diag.started = diag.saved = diag.interrupted = diag.ignored = 0;
+    $('diag').hidden = false;
+    dlog('diagnostics on. Write a quick word with the pencil, then tap Copy.');
+  });
+  $('diagClose').addEventListener('click', () => { diag.on = false; $('diag').hidden = true; });
+  $('diagClear').addEventListener('click', () => { diag.lines = []; diag.started = diag.saved = diag.interrupted = diag.ignored = 0; diag.t0 = now(); renderDiag(); });
+  $('diagCopy').addEventListener('click', async () => {
+    const text = diagHeader() + diag.lines.join('\n');
+    try { await navigator.clipboard.writeText(text); toast('Diagnostics copied. Paste them into your message.'); }
+    catch (_) {
+      const ta = $('diagText');
+      ta.value = text; ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (__) {}
+      toast(ok ? 'Diagnostics copied. Paste them into your message.' : 'Could not copy automatically. Take a screenshot instead.');
+    }
+  });
+
+  // ============================================================
   // Input
   // ============================================================
   const pointers = new Map();   // pointerId -> { x, y, type }
@@ -1221,6 +1282,7 @@
   let pendingDot = null;        // { stroke, timer, page }: a tap-dot on an aggregate, held back in case it is a double-tap
   let laserTrails = [];
   let wheelTimer = 0;
+  let lastPenUp = -1e9;
 
   const fingersDraw = () => settings.fingerMode === 'draw' || (settings.fingerMode === 'auto' && !settings.penSeen);
   const pressureOf = (e) => (e.pointerType === 'pen' && e.pressure > 0 ? e.pressure : 0.5);
@@ -1243,6 +1305,9 @@
   board.addEventListener('pointerleave', (e) => { if (!pointers.has(e.pointerId)) { hover = null; requestOverlay(); } });
   board.addEventListener('wheel', onWheel, { passive: false });
   document.addEventListener('gesturestart', (e) => e.preventDefault());
+  // Pointer events still arrive; cancelling the touch events stops iPadOS from
+  // interpreting fast Pencil on/off sequences as system gestures.
+  for (const t of ['touchstart', 'touchmove', 'touchend']) board.addEventListener(t, (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });
 
   function onDown(e) {
     closeMenu();
@@ -1252,8 +1317,14 @@
       notePen();
       if (nav) endNav();
       if (action && action.ptype === 'touch') cancelAction();
+      if (action && action.ptype === 'pen') { dlog('  -> previous stroke never got a pen-up: finishing it'); pointers.delete(action.id); finishAction(null); }   // lost pen-up
     }
-    if (type === 'touch' && action && action.ptype === 'pen') return;   // palm while the pencil is down
+    if (type === 'touch' && action && action.ptype === 'pen') { diag.ignored++; dlog('  -> ignored: pencil is down (palm)'); return; }
+    if (type === 'touch' && settings.penSeen && !fingersDraw() &&
+        (now() - lastPenUp < 350 || (e.width > 40 && e.height > 40))) {   // palm between strokes
+      diag.ignored++; dlog(`  -> ignored: palm guard (${Math.round(now() - lastPenUp)} ms after pen-up, contact ${Math.round(e.width)}x${Math.round(e.height)})`);
+      return;
+    }
     try { board.setPointerCapture(e.pointerId); } catch (_) {}
     const sp = screenPt(e);
     pointers.set(e.pointerId, { x: sp.x, y: sp.y, type });
@@ -1263,7 +1334,8 @@
     if (type === 'touch') {
       const touchIds = [...pointers].filter(([, q]) => q.type === 'touch').map(([id]) => id);
       if (touchIds.length >= 2) {
-        if (action && action.ptype === 'touch') cancelAction();
+        if (action && action.ptype === 'touch') { dlog('  -> second touch: current touch stroke cancelled'); cancelAction(); }
+        dlog(`  -> pan/zoom with ${touchIds.length} touches`);
         startNav(touchIds, false);
         return;
       }
@@ -1276,11 +1348,16 @@
           action = { kind: 'rotate', id: e.pointerId, ptype: type, item: ag.id, last: sp, start: sp, t0: now(), moved: false, pushed: false };
           return;
         }
+        dlog('  -> pan (finger in pan-and-zoom mode)');
         startNav(touchIds, true);
         return;
       }
     }
     startToolAction(e, sp);
+    if (action && action.id === e.pointerId) {
+      if (action.kind === 'draw') diag.started++;
+      dlog('  -> ' + action.kind + (action.kind === 'draw' ? ` (tool pen, as ${type})` : ''));
+    }
   }
 
   function startToolAction(e, sp) {
@@ -1349,10 +1426,13 @@
     const list = evs.length ? evs : [e];
 
     switch (action.kind) {
-      case 'draw':
+      case 'draw': {
         for (const ev of list) addDrawPoint(ev);
+        const pred = (e.getPredictedEvents && e.getPredictedEvents()) || [];
+        action.pred = pred.map(ev => toPage(screenPt(ev)));
         requestOverlay();
         break;
+      }
       case 'erase':
         for (const ev of list) { const q = toPage(screenPt(ev)); eraseAlong(action.last, q); action.last = q; }
         requestRender();
@@ -1422,23 +1502,45 @@
     pts.push(q.x, q.y, action.ps);
   }
 
-  function onUp(e) {
+  function onUp(e) { endPointer(e, false); }
+  // pointercancel / lostpointercapture: iPadOS Safari sends these when it suspects a
+  // system gesture (Scribble, double-tap, ...), e.g. during fast print writing.
+  // The work done so far is kept, never thrown away.
+  function onCancel(e) { endPointer(e, true); }
+  function endPointer(e, cancelled) {
+    if (e.pointerType === 'pen') lastPenUp = now();
     const rec = pointers.get(e.pointerId);
     if (!rec) return;
     pointers.delete(e.pointerId);
-    if (nav && nav.ids.includes(e.pointerId)) { endNavPointer(e); return; }
+    if (nav && nav.ids.includes(e.pointerId)) { endNavPointer(e, cancelled); return; }
     if (!action || action.id !== e.pointerId) return;
+    finishAction(cancelled ? null : e);
+  }
+  // Finish the current action. e = the pointerup event, or null if the pointer was
+  // interrupted (then the last known position is used and nothing counts as a tap).
+  function finishAction(e) {
     const a = action;
     action = null;
-    const p = toPage(screenPt(e));
-    const isTap = !a.moved && now() - a.t0 < TAP_MS;
+    if (!a) return;
+    const interrupted = !e;
+    if (interrupted) { diag.interrupted++; dlog(`  -> ${a.kind} interrupted: keeping what was drawn`); }
     if (a.ptype === 'touch') hover = null;
+    if (interrupted && (a.kind === 'box' || a.kind === 'lasso')) { requestRender(); return; }
+    let p;
+    if (e) p = toPage(screenPt(e));
+    else if ((a.kind === 'draw') && a.pts.length >= 3) p = { x: a.pts[a.pts.length - 3], y: a.pts[a.pts.length - 2] };
+    else if (a.kind === 'chain' && a.pts.length >= 2) p = { x: a.pts[a.pts.length - 2], y: a.pts[a.pts.length - 1] };
+    else p = a.startP || { x: 0, y: 0 };
+    const isTap = !interrupted && !a.moved && now() - a.t0 < TAP_MS;
 
     switch (a.kind) {
-      case 'draw': finishDraw(a, isTap, p); break;
+      case 'draw':
+        if (!isTap && e) { action = a; addDrawPoint(e); action = null; }   // keep the very end of fast strokes
+        finishDraw(a, isTap, p);
+        break;
       case 'erase':
         if (a.erased.size) { pushUndo(); setItems(items().filter(it => !a.erased.has(it.id))); }
-        else if (isTap) handleTap(p);
+        else if (isTap && handleTap(p) === 'single-agg') selectIds([topAggAt(p).id]);
         break;
       case 'lasso':
         if (isTap || a.poly.length < 6) { if (handleTap(p) !== 'double') tapSelect(p); }
@@ -1460,12 +1562,6 @@
         break;
     }
     requestRender();
-  }
-
-  function onCancel(e) {
-    pointers.delete(e.pointerId);
-    if (nav && nav.ids.includes(e.pointerId)) { endNavPointer(e, true); return; }
-    if (action && action.id === e.pointerId) cancelAction();
   }
   function cancelAction() {
     if (action && action.kind === 'laser') action.trail.active = false;
@@ -1554,20 +1650,14 @@
     const stroke = makeStroke(a);
     if (isTap) {
       const r = handleTap(p);
-      if (r === 'double') {
-        if (pendingDot) { clearTimeout(pendingDot.timer); pendingDot = null; updateChrome(); }
-        return;
-      }
-      if (r === 'single-agg') {
-        commitPendingDot();
-        pendingDot = { stroke, page: curPage(), timer: setTimeout(commitPendingDot, DOUBLE_MS) };
-        updateChrome();
-        return;
-      }
+      if (r === 'double') return;
+      if (r === 'single-agg') { selectIds([topAggAt(p).id]); return; }
     }
     commitPendingDot();
     pushUndo();
     setItems([...items(), stroke]);
+    diag.saved++;
+    dlog(`  -> stroke saved (${stroke.points.length / 3} points${isTap ? ', dot' : ''})`);
   }
   function commitPendingDot() {
     if (!pendingDot) return;
@@ -1600,7 +1690,9 @@
     const x = Math.min(a.x0, a.x1), y = Math.min(a.y0, a.y1);
     const w = Math.abs(a.x1 - a.x0), h = Math.abs(a.y1 - a.y0);
     if (isTap || w < MIN_BOX || h < MIN_BOX) {
-      if (handleTap(p) === 'none') toast('Drag a box to place an aggregate.');
+      const r = handleTap(p);
+      if (r === 'none') toast('Drag a box to place an aggregate.');
+      else if (r === 'single-agg') selectIds([topAggAt(p).id]);
       return;
     }
     const A = settings.agg;
@@ -1780,6 +1872,12 @@
   $('selDelete').addEventListener('click', deleteSelection);
 
   let panelId = null, panelSession = false;
+  // The panel is placed once next to its aggregate and then stays put while the
+  // aggregate changes; it is re-placed only when the view changes, and never
+  // while a pointer is down on the panel.
+  let panelPlace = null, panelPointer = false;
+  panel.addEventListener('pointerdown', () => { panelPointer = true; });
+  for (const t of ['pointerup', 'pointercancel']) window.addEventListener(t, () => { panelPointer = false; }, true);
   const aggSize = $('aggSize'), aggDf = $('aggDf'), aggKf = $('aggKf'), aggKfAuto = $('aggKfAuto');
   const aggColorsEl = $('aggColors');
   AGG_COLORS.forEach((c) => {
@@ -1797,6 +1895,7 @@
 
   function openPanel(id) {
     panelId = id;
+    panelPlace = null;
     panelSession = false;
     panel.classList.add('visible');
     refreshPanel();
@@ -1915,6 +2014,12 @@
       const it = findItem(panelId);
       if (!it) return;
       const pw = panel.offsetWidth, ph = panel.offsetHeight;
+      const sameView = panelPlace && panelPlace.s === view.scale && panelPlace.ox === view.ox && panelPlace.oy === view.oy && panelPlace.W === W && panelPlace.H === H;
+      if (panelPlace && (sameView || panelPointer)) {
+        panel.style.left = panelPlace.left + 'px';
+        panel.style.top = panelPlace.top + 'px';
+        return;
+      }
       const p0 = toScreen(it.x, it.y), p1 = toScreen(it.x + it.w, it.y + it.h);
       let x, y;
       if (W < 560) { x = (W - pw) / 2; y = bottomLimit - ph; }
@@ -1924,8 +2029,10 @@
         else x = W - pw - 8;
         y = (p0.y + p1.y) / 2 - ph / 2;
       }
-      panel.style.left = clamp(x, 8, Math.max(8, W - pw - 8)) + 'px';
-      panel.style.top = clamp(y, topLimit, Math.max(topLimit, bottomLimit - ph)) + 'px';
+      const left = clamp(x, 8, Math.max(8, W - pw - 8)), top = clamp(y, topLimit, Math.max(topLimit, bottomLimit - ph));
+      panel.style.left = left + 'px';
+      panel.style.top = top + 'px';
+      panelPlace = { left, top, s: view.scale, ox: view.ox, oy: view.oy, W, H };
     }
   }
 
@@ -2137,11 +2244,12 @@
   function scheduleSave() {
     if (!storageReady) return;
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(saveNow, 700);
+    saveTimer = setTimeout(saveNow, 1500);
   }
-  async function saveNow() {
+  async function saveNow(force) {
     clearTimeout(saveTimer);
     if (!storageReady) return;
+    if (!force && (action || pointers.size)) { saveTimer = setTimeout(saveNow, 1500); return; }
     try {
       if (db) await dbPut('notebook', { ...nb, pages: nb.pages.map(pg => ({ id: pg.id, items: pg.items })) });
       else localStorage.setItem('aggboard.notebook', JSON.stringify(notebookToJSON()));
@@ -2150,8 +2258,8 @@
       console.warn('Save failed:', err);
     }
   }
-  window.addEventListener('pagehide', saveNow);
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveNow(); });
+  window.addEventListener('pagehide', () => saveNow(true));
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveNow(true); });
 
   async function loadStored() {
     try {

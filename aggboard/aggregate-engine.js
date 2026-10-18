@@ -247,21 +247,27 @@
     return g;
   }
 
-  // Principal frame and projected extents (in radii) of the first k monomers.
-  function frameOf(g, k) {
+  // Principal frame of the first k monomers and projected extents (in radii)
+  // along in-plane axes rotated by angle th from the principal axes.
+  function frameOf(g, k, th = 0) {
     const { c, C } = g.moments(k);
     const ev = eigenSym3(C);
-    const e1 = ev[0].vec, e2 = ev[1].vec;
+    const p1 = ev[0].vec, p2 = ev[1].vec;
+    const ct = Math.cos(th), st = Math.sin(th);
+    const e1 = [ct * p1[0] + st * p2[0], ct * p1[1] + st * p2[1], ct * p1[2] + st * p2[2]];
+    const e2 = [-st * p1[0] + ct * p2[0], -st * p1[1] + ct * p2[1], -st * p1[2] + ct * p2[2]];
     const p = g.pos;
     let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
     for (let i = 0; i < k; i++) {
-      const q = [p[3 * i] - c[0], p[3 * i + 1] - c[1], p[3 * i + 2] - c[2]];
-      const s = dot(q, e1), t = dot(q, e2);
-      if (s < a0) a0 = s; if (s > a1) a1 = s;
-      if (t < b0) b0 = t; if (t > b1) b1 = t;
+      const qx = p[3 * i] - c[0], qy = p[3 * i + 1] - c[1], qz = p[3 * i + 2] - c[2];
+      const s1 = qx * e1[0] + qy * e1[1] + qz * e1[2], t1 = qx * e2[0] + qy * e2[1] + qz * e2[2];
+      if (s1 < a0) a0 = s1; if (s1 > a1) a1 = s1;
+      if (t1 < b0) b0 = t1; if (t1 > b1) b1 = t1;
     }
     return { c, e1, e2, major: a1 - a0 + 2, minor: b1 - b0 + 2, a0, a1, b0, b1 };
   }
+  // In-plane orientations tried when fitting a box (0 = principal axis along the long side).
+  const ANGLES = [0, 15, -15, 30, -30, 45, -45, 60, -60, 75, -75, 90].map(d => d * Math.PI / 180);
 
   function fitDf(g, k) {
     if (k < 16) return { df: null, kf: null };
@@ -293,25 +299,33 @@
     const long = Math.max(W, H), short = Math.min(W, H);
     const g = getGrowth(df, kf, params.seed | 0);
 
-    const fill = (k) => { const f = frameOf(g, k); return Math.max(f.major / long, f.minor / short); };
+    const fillAt = (k, th) => { const f = frameOf(g, k, th); return Math.max(f.major / long, f.minor / short); };
+    const bestFill = (k) => { let m = Infinity; for (const th of ANGLES) m = Math.min(m, fillAt(k, th)); return m; };
+    // Largest prefix that fits the box at angle th (binary search; fill grows with k).
+    const largestAt = (th, hiK) => {
+      if (fillAt(hiK, th) <= 1) return hiK;
+      let lo = 1, hi = hiK;
+      while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (fillAt(mid, th) <= 1) lo = mid; else hi = mid; }
+      return lo;
+    };
 
-    let k = 1;
+    let k = 1, th = 0;
     if (short >= 2) {
       const est = kf * Math.pow(0.5 * long * Math.sqrt(df / (df + 2)), df);
       g.extend(Math.min(nMax, Math.max(2, Math.ceil(est * 1.5))));
-      while (g.n < nMax && fill(g.n) < 1) g.extend(Math.min(nMax, Math.ceil(g.n * 1.6) + 4));
-      let lo = 1, hi = Math.min(g.n, nMax);
-      if (fill(hi) <= 1) k = hi;
-      else {
-        while (hi - lo > 1) {
-          const mid = (lo + hi) >> 1;
-          if (fill(mid) <= 1) lo = mid; else hi = mid;
-        }
-        k = lo;
+      while (g.n < nMax && bestFill(g.n) < 1) g.extend(Math.min(nMax, Math.ceil(g.n * 1.6) + 4));
+      const hiK = Math.min(g.n, nMax);
+      // Pick the orientation that fits the most monomers; prefer small angles on near-ties
+      // so the aggregate does not flip around when the box changes slightly.
+      let bestK = -1;
+      for (const a of ANGLES) {
+        const kk = largestAt(a, hiK);
+        if (kk > bestK * 1.03) { bestK = kk; th = a; }
       }
+      k = Math.max(1, bestK);
     }
 
-    const f = frameOf(g, k);
+    const f = frameOf(g, k, th);
     // Major axis goes along the longer side of the box. Keep the frame right-handed.
     let ex = f.e1, ey = f.e2;
     let ox = (f.a0 + f.a1) / 2, oy = (f.b0 + f.b1) / 2;
@@ -327,11 +341,13 @@
     }
     const fit = fitDf(g, k);
     const fillK = short >= 2 ? Math.max(f.major / long, f.minor / short) : 1;
+    const fillMin = short >= 2 ? Math.min(f.major / long, f.minor / short) : 1;
     return {
       pts, n: k,
       rg: Math.sqrt(g.rg2(k)),
       dfFit: fit.df, kfFit: fit.kf,
       capped: k >= nMax && fillK < 0.97,
+      fillMin,
       fill: fillK,
       exact: g.exact / Math.max(1, g.n - 1),
       kf,
