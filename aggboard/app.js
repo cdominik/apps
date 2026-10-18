@@ -5,6 +5,8 @@
   // ============================================================
   // Configuration
   // ============================================================
+  // Bump on every release: shown in the menu, and used to bypass cached program files.
+  const VERSION = '2026.10.18-1';
   const CONFIG = {
     MENU_URL: null,            // e.g. '../index.html' to show a "back to menu" button
     PAGE_W: 1600, PAGE_H: 900, // page size in page units (16:9)
@@ -434,7 +436,7 @@
   const latestToken = new Map();  // item id -> token
   let tokenSeq = 0;
   try {
-    worker = new Worker('aggregate-engine.js');
+    worker = new Worker('aggregate-engine.js?v=' + VERSION);
     worker.onmessage = onGenMessage;
     worker.onerror = (e) => {
       console.warn('Aggregate worker failed, using main thread:', e.message);
@@ -1812,6 +1814,7 @@
 
   $('btnUndo').addEventListener('click', undo);
   $('btnRedo').addEventListener('click', redo);
+  $('versionLabel').textContent = 'AggBoard version ' + VERSION;
   if (CONFIG.MENU_URL) { $('btnHome').href = CONFIG.MENU_URL; $('btnHome').hidden = false; }
 
   function updateChrome() {

@@ -90,6 +90,8 @@
   .seg button { flex: 1; border: none; background: #fff; padding: 8px 4px; font: inherit; font-size: 13px; cursor: pointer; color: #333; }
   .seg button + button { border-left: 1px solid var(--ui-border); }
   .seg button.active { background: var(--accent); color: #fff; }
+  #menu .version { font-size: 11px; color: #999; padding: 6px 10px 2px; text-align: right; }
+  #menu { max-height: calc(100% - 80px - env(safe-area-inset-top, 0px)); overflow-y: auto; touch-action: pan-y; }
   #menuShield { position: absolute; inset: 0; z-index: 29; display: none; }
   #menuShield.visible { display: block; }
 
@@ -297,6 +299,7 @@
   <hr>
   <button class="item" id="mHelp">Help</button>
   <button class="item" id="mDiag">Input diagnostics</button>
+  <div class="version" id="versionLabel"></div>
 </div>
 <input type="file" id="fileInput" accept=".json,application/json" hidden>
 
@@ -351,7 +354,7 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="aggregate-engine.js"></script>
-<script src="app.js"></script>
+<script src="aggregate-engine.js?v=2026.10.18-1"></script>
+<script src="app.js?v=2026.10.18-1"></script>
 </body>
 </html>
