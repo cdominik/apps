@@ -1,14 +1,24 @@
-#+OPTIONS: html-postamble:nil
-#+HTML_HEAD: <body style="font-size: 150%;">
+#+TITLE: Webapps
+#+OPTIONS: html-postamble:nil num:nil toc:nil
+#+HTML_HEAD: <meta name="viewport" content="width=device-width, initial-scale=1">
 #+HTML_HEAD: <link rel="icon" type="image/png" href="favicon.png" sizes="96x96">
+#+HTML_HEAD: <style>
+#+HTML_HEAD:   body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 0 auto; padding: 1rem; }
+#+HTML_HEAD:   h1.title { font-size: 1.6rem; }
+#+HTML_HEAD:   ul { list-style: none; padding: 0; }
+#+HTML_HEAD:   li { margin: 0 0 .6rem; }
+#+HTML_HEAD:   li a { display: block; padding: 1rem; font-size: 1.2rem; text-decoration: none;
+#+HTML_HEAD:          border: 1px solid #8884; border-radius: .5rem; }
+#+HTML_HEAD:   li a:hover, li a:focus { background: #8882; }
+#+HTML_HEAD:   @media (prefers-color-scheme: dark) { body { background: #111; color: #eee; } a { color: #8ab4f8; } }
+#+HTML_HEAD: </style>
+#+HTML_HEAD: <link rel="manifest" href="manifest.json">
+#+HTML_HEAD: <link rel="apple-touch-icon" href="icon-180.png">
+#+HTML_HEAD: <meta name="theme-color" content="#111111">
 
 - [[file:Badminton/sj.html][Badminton scoring]]
-
 - [[file:draw_aggregate.html][Drawing an aggregate]]
-
 - [[file:coag_gallery/gallery.html][Aggregation Webapp gallery]]
-
 - [[file:planet_visibility.html][Planet Sky Visibility]]
-
 - [[file:commute.html][Commute]]
 - [[file:levitationlab/levitate.html][Levitation Lab]]
