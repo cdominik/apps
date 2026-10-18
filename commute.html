@@ -72,6 +72,8 @@ const trainRoutes = {
   ]
 };
 
+// Paste your Worker URL here so every device works without setup. Not a secret: the NS key stays in the Worker.
+const DEFAULT_PROXY = 'https://ns-commute.carsten-dominik.workers.dev';
 const REFRESH_MS = 2 * 60 * 1000;
 const TIMEOUT_MS = 10000;
 let currentLoc = 'Voorschoten', geoWatchId = null, isLive = false, generation = 0, lastUpdated = null;
@@ -191,7 +193,10 @@ async function fetchRain(loc, gen) {
 
 // --- trains ---
 function saveProxy() {
-  const v = document.getElementById('proxy-url').value.trim().replace(/\/+$/, '');
+  let v = document.getElementById('proxy-url').value.trim();
+  if (v && !/^https?:\/\//i.test(v)) v = 'https://' + v;   // add missing scheme
+  v = v.split('?')[0].replace(/\/trips\/?$/, '').replace(/\/+$/, ''); // strip /trips?... and trailing slash
+  document.getElementById('proxy-url').value = v;
   store.set('proxyUrl', v);
   updateApp();
 }
@@ -244,7 +249,7 @@ function errorHint(msg) {
 
 async function fetchTrains(loc, gen) {
   const container = document.getElementById('train-content');
-  const proxy = store.get('proxyUrl');
+  const proxy = store.get('proxyUrl') || DEFAULT_PROXY;
   if (!proxy) { container.innerHTML = 'Set your worker URL below to load trains.'; return; }
 
   const routes = trainRoutes[loc];
@@ -265,7 +270,7 @@ document.addEventListener('visibilitychange', () => {
 
 // --- init ---
 store.del('nsApiKey'); // old version stored the raw NS key here; no longer needed
-document.getElementById('proxy-url').value = store.get('proxyUrl') || '';
+document.getElementById('proxy-url').value = store.get('proxyUrl') || DEFAULT_PROXY;
 const pref = store.get('locationPref');
 if (pref === 'auto') autoLocate(false);
 else setLocation(pref === 'AMS' ? 'AMS' : 'Voorschoten', false);
