@@ -295,6 +295,7 @@
     <button data-mode="navigate">Pan &amp; zoom</button>
   </div>
   <hr>
+  <button class="item" id="mClearPage">Clear this page</button>
   <button class="item danger" id="mDeletePage">Delete this page…</button>
   <hr>
   <button class="item" id="mHelp">Help</button>
@@ -310,6 +311,9 @@
 
     <h3>Drawing</h3>
     <p><b>Pen</b> draws (pressure-sensitive with Apple Pencil). <b>Eraser</b> removes whole strokes it touches. <b>Select</b>: draw a loop around strokes or aggregates, then drag inside the frame to move them, drag a corner square to scale the group (handwriting and aggregates keep their proportions; aggregates keep their exact structure), or use Duplicate / Delete. Tapping a colour recolours selected strokes. Tap a single item with Select to pick it. <b>Laser</b> draws a red trail that fades &mdash; for pointing while presenting.</p>
+
+    <h3>Straight lines and shapes</h3>
+    <p>Draw as usual, then <b>keep the pencil still for half a second</b> at the end of the stroke. It turns into the shape it looks like: a straight line (exactly horizontal, vertical or 45&deg; when close), an angled line such as an L for axes, an arrow (draw the shaft with a quick head in one stroke, or draw a line and then a &ldquo;V&rdquo; at its end), a triangle, a rectangle (squared up), another polygon, or a circle or ellipse. You see the shape while still holding; lift to keep it, or move on to keep the freehand stroke.</p>
 
     <h3>Pencil and fingers</h3>
     <p>Once an Apple Pencil is detected, the pencil draws and fingers pan and zoom (one finger pans, two fingers pinch). Your palm is ignored while the pencil touches the screen. Without a pencil, one finger draws and two fingers pan and zoom. You can force either behaviour under <b>&hellip; &rarr; Finger input</b>.</p>
@@ -330,7 +334,7 @@
     <p>An aggregate with hand-drawn parts is marked <i>edited</i>: it no longer regenerates, its monomer-size slider and corner handle scale it, and <b>Regenerate…</b> turns it back into a fresh aggregate (removing the drawn parts). Double-tap a standalone chain to change its monomer size, temperature or random pattern; it is re-laid along the line you drew.</p>
 
     <h3>Pages</h3>
-    <p>Use the arrows at the bottom to move between pages and <b>+</b> to add a page after the current one. Undo works per page and covers drawing, erasing, moving and all aggregate changes.</p>
+    <p>Use the arrows at the bottom to move between pages and <b>+</b> to add a page after the current one. <b>&hellip; &rarr; Clear this page</b> removes everything on the page in one step (Undo brings it back). Undo works per page and covers drawing, erasing, moving and all aggregate changes.</p>
 
     <h3>Keeping your notes</h3>
     <p>Notebooks live in this browser on this device. On iPad, add AggBoard to your Home Screen, otherwise Safari may delete its data after a week without use. Use <b>&hellip; &rarr; Save notebook to file</b> regularly as a backup, or to give a notebook to someone else; they open it with <b>Open notebook from file</b>.</p>
@@ -354,7 +358,22 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="aggregate-engine.js?v=2026.10.18-1"></script>
-<script src="app.js?v=2026.10.18-1"></script>
+<script src="aggregate-engine.js?v=2026.10.18-4"></script>
+<script src="app.js?v=2026.10.18-4"></script>
+<script>
+  // Warn if the browser mixed files from different releases (e.g. a stale cached app.js).
+  (function () {
+    var want = '2026.10.18-4';
+    var okApp = window.AGGBOARD_VERSION === want;
+    var okEngine = window.AggEngine && window.AggEngine.release === want;
+    if (okApp && okEngine) return;
+    var d = document.createElement('div');
+    d.setAttribute('role', 'alert');
+    d.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:100;max-width:90%;background:#fff3cd;color:#5c4400;border:1px solid #e0c060;border-radius:12px;padding:14px 16px;font:14px/1.45 -apple-system,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.25);text-align:center';
+    d.innerHTML = '<b>Update incomplete</b><br>Some app files are from an older version (page ' + want + ', program ' + (window.AGGBOARD_VERSION || 'old') + ', engine ' + ((window.AggEngine && window.AggEngine.release) || 'old') + ').<br>Check that all files were uploaded, wait a few minutes, then reload.<br><button style="margin-top:10px;padding:8px 16px;border:none;border-radius:8px;background:#2a7;color:#fff;font:inherit">Reload</button>';
+    d.querySelector('button').onclick = function () { location.reload(); };
+    document.body.appendChild(d);
+  })();
+</script>
 </body>
 </html>

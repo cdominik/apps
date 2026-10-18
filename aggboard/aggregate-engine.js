@@ -354,7 +354,7 @@
     };
   }
 
-  const AggEngine = { fitBox, kfAuto, Growth, eigenSym3, version: 1 };
+  const AggEngine = { fitBox, kfAuto, Growth, eigenSym3, version: 1, release: '2026.10.18-4' };
   root.AggEngine = AggEngine;
   if (typeof module !== 'undefined' && module.exports) module.exports = AggEngine;
 

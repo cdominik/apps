@@ -6,7 +6,8 @@
   // Configuration
   // ============================================================
   // Bump on every release: shown in the menu, and used to bypass cached program files.
-  const VERSION = '2026.10.18-1';
+  const VERSION = '2026.10.18-4';
+  window.AGGBOARD_VERSION = VERSION;
   const CONFIG = {
     MENU_URL: null,            // e.g. '../index.html' to show a "back to menu" button
     PAGE_W: 1600, PAGE_H: 900, // page size in page units (16:9)
@@ -206,11 +207,18 @@
   // Variable-width stroke as runs of constant width. Segments are Catmull-Rom
   // splines through every sample, so fast (sparsely sampled) handwriting keeps
   // its shape. Round caps/joins make consecutive runs blend seamlessly.
-  function buildRuns(pts, base) {
+  function buildRuns(pts, base, straight) {
     const n = pts.length / 3, runs = [];
     if (!n) return runs;
     const q = Math.max(0.25, base * 0.1);
     const wq = (p) => Math.max(q, Math.round(pressureWidth(base, p) / q) * q);
+    if (straight && n >= 2) {          // snapped shapes: straight segments, constant width
+      const path = new Path2D();
+      path.moveTo(pts[0], pts[1]);
+      for (let i = 1; i < n; i++) path.lineTo(pts[3 * i], pts[3 * i + 1]);
+      runs.push({ w: wq(pts[2]), path });
+      return runs;
+    }
     if (n === 1) {
       const path = new Path2D();
       path.moveTo(pts[0], pts[1]); path.lineTo(pts[0] + 0.01, pts[1]);
@@ -240,7 +248,7 @@
   }
   function strokeGeom(s) {
     let g = strokeCache.get(s);
-    if (!g) { g = { runs: buildRuns(s.points, s.width), bbox: strokeBBox(s) }; strokeCache.set(s, g); }
+    if (!g) { g = { runs: buildRuns(s.points, s.width, s.straight), bbox: strokeBBox(s) }; strokeCache.set(s, g); }
     return g;
   }
   function drawRuns(ctx, runs, color) {
@@ -496,6 +504,257 @@
     for (const it of pg.items) {
       if (it.type === 'agg' && it.kind !== 'chain' && !it.edited && (it.needsGen || !it.pts) && !latestToken.has(it.id)) requestGen(it);
     }
+  }
+
+  // ============================================================
+  // Shape snapping: hold the pencil still at the end of a stroke and the stroke
+  // is replaced by the recognised shape (line, polyline, arrow, polygon,
+  // rectangle, ellipse/circle). Coordinates in page units.
+  // ============================================================
+  const HOLD_MS = 450, HOLD_SLOP = 5, UNSNAP_PX = 14;
+  const d2 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  function pathLength(P) { let L = 0; for (let i = 1; i < P.length; i++) L += d2(P[i - 1], P[i]); return L; }
+  function resample(P, n) {
+    const L = pathLength(P);
+    if (L === 0) return [P[0].slice()];
+    const out = [P[0].slice()], step = L / (n - 1);
+    let acc = 0;
+    for (let i = 1; i < P.length; i++) {
+      let a = P[i - 1], b = P[i], seg = d2(a, b);
+      while (acc + seg >= step && out.length < n) {
+        const t = (step - acc) / seg;
+        const q = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+        out.push(q); a = q; seg = d2(a, b); acc = 0;
+      }
+      acc += seg;
+    }
+    while (out.length < n) out.push(P[P.length - 1].slice());
+    return out;
+  }
+  function segDist(p, a, b) { return distToSegment(p[0], p[1], a[0], a[1], b[0], b[1]); }
+  function rdp(P, eps) {
+    if (P.length < 3) return P.slice();
+    let idx = -1, dmax = 0;
+    for (let i = 1; i < P.length - 1; i++) { const d = segDist(P[i], P[0], P[P.length - 1]); if (d > dmax) { dmax = d; idx = i; } }
+    if (dmax <= eps) return [P[0], P[P.length - 1]];
+    const A = rdp(P.slice(0, idx + 1), eps), B = rdp(P.slice(idx), eps);
+    return A.slice(0, -1).concat(B);
+  }
+  const angleAt = (a, b, c) => {
+    const ux = a[0] - b[0], uy = a[1] - b[1], vx = c[0] - b[0], vy = c[1] - b[1];
+    return Math.acos(clamp((ux * vx + uy * vy) / (Math.hypot(ux, uy) * Math.hypot(vx, vy) || 1), -1, 1)) * 180 / Math.PI;
+  };
+  // Mean distance of points to a polyline (closed or open).
+  function polyError(R, V, closed) {
+    let s = 0;
+    for (const p of R) {
+      let m = Infinity;
+      const k = closed ? V.length : V.length - 1;
+      for (let i = 0; i < k; i++) m = Math.min(m, segDist(p, V[i], V[(i + 1) % V.length]));
+      s += m;
+    }
+    return s / R.length;
+  }
+  // Snap a direction to 0/45/90/... degrees if within tol degrees.
+  function snapAngle(ang, tol, step = 45) {
+    const deg = ang * 180 / Math.PI, near = Math.round(deg / step) * step;
+    return Math.abs(deg - near) <= tol ? near * Math.PI / 180 : ang;
+  }
+  function straightenOpen(V) {
+    const out = [V[0].slice()];
+    for (let i = 1; i < V.length; i++) {
+      const a = out[i - 1], b = V[i], len = d2(a, b);
+      const ang = snapAngle(Math.atan2(b[1] - a[1], b[0] - a[0]), 6, 90);
+      out.push([a[0] + len * Math.cos(ang), a[1] + len * Math.sin(ang)]);
+    }
+    return out;
+  }
+  function arrowShape(tail, tip, headLen) {
+    const ang = snapAngle(Math.atan2(tip[1] - tail[1], tip[0] - tail[0]), 4);
+    const L = d2(tail, tip);
+    const t2 = [tail[0] + L * Math.cos(ang), tail[1] + L * Math.sin(ang)];
+    const h = clamp(headLen, L * 0.08, L * 0.3), spread = 28 * Math.PI / 180;
+    const b1 = [t2[0] - h * Math.cos(ang - spread), t2[1] - h * Math.sin(ang - spread)];
+    const b2 = [t2[0] - h * Math.cos(ang + spread), t2[1] - h * Math.sin(ang + spread)];
+    return { kind: 'arrow', straight: true, pts: [tail, t2, b1, t2, b2] };
+  }
+  function lineShape(a, b) {
+    const ang = snapAngle(Math.atan2(b[1] - a[1], b[0] - a[0]), 4), L = d2(a, b);
+    return { kind: 'line', straight: true, pts: [a, [a[0] + L * Math.cos(ang), a[1] + L * Math.sin(ang)]] };
+  }
+  function isLine(R) {
+    const a = R[0], b = R[R.length - 1], chord = d2(a, b), L = pathLength(R);
+    if (chord < 1e-6 || chord / L < 0.94) return false;
+    let m = 0; for (const p of R) m = Math.max(m, segDist(p, a, b));
+    return m < Math.max(0.045 * chord, 1.5);
+  }
+  function fitEllipse(R) {
+    let cx = 0, cy = 0;
+    for (const p of R) { cx += p[0]; cy += p[1]; }
+    cx /= R.length; cy /= R.length;
+    let sxx = 0, syy = 0, sxy = 0;
+    for (const p of R) { const x = p[0] - cx, y = p[1] - cy; sxx += x * x; syy += y * y; sxy += x * y; }
+    sxx /= R.length; syy /= R.length; sxy /= R.length;
+    const tr = sxx + syy, det = sxx * syy - sxy * sxy, disc = Math.sqrt(Math.max(0, tr * tr / 4 - det));
+    const l1 = tr / 2 + disc, l2 = Math.max(1e-9, tr / 2 - disc);
+    let th = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+    let a = Math.sqrt(2 * l1), b = Math.sqrt(2 * l2);
+    const c = Math.cos(th), s = Math.sin(th);
+    let err = 0;
+    for (const p of R) {
+      const x = p[0] - cx, y = p[1] - cy, u = c * x + s * y, v = -s * x + c * y;
+      err += Math.abs(Math.hypot(u / a, v / b) - 1) * Math.sqrt(a * b);
+    }
+    return { cx, cy, a, b, th, err: err / R.length };
+  }
+  function ellipseShape(e) {
+    let { cx, cy, a, b, th } = e;
+    if (b / a > 0.86) { a = b = (a + b) / 2; th = 0; }
+    else th = snapAngle(th, 10, 90);
+    const pts = [];
+    for (let i = 0; i <= 72; i++) {
+      const t = (i / 72) * 2 * Math.PI, u = a * Math.cos(t), v = b * Math.sin(t);
+      pts.push([cx + u * Math.cos(th) - v * Math.sin(th), cy + u * Math.sin(th) + v * Math.cos(th)]);
+    }
+    return { kind: a === b ? 'circle' : 'ellipse', straight: false, pts };
+  }
+  function polygonShape(V) {
+    if (V.length === 4 && V.every((_, i) => Math.abs(angleAt(V[(i + 3) % 4], V[i], V[(i + 1) % 4]) - 90) < 18)) {
+      // rectangle: common orientation from the edges, squared corners
+      let sx = 0, sy = 0;
+      for (let i = 0; i < 4; i++) {
+        const a = V[i], b = V[(i + 1) % 4];
+        const ang = Math.atan2(b[1] - a[1], b[0] - a[0]) * 4;   // fold to a 90-degree period
+        sx += Math.cos(ang) * d2(a, b); sy += Math.sin(ang) * d2(a, b);
+      }
+      let th = Math.atan2(sy, sx) / 4;
+      th = snapAngle(th, 6, 90);
+      const c = Math.cos(th), s = Math.sin(th);
+      let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+      for (const p of V) { const u = c * p[0] + s * p[1], v = -s * p[0] + c * p[1]; u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v); }
+      const back = (u, v) => [c * u - s * v, s * u + c * v];
+      const pts = [back(u0, v0), back(u1, v0), back(u1, v1), back(u0, v1)];
+      return { kind: 'rectangle', straight: true, pts: [...pts, pts[0]] };
+    }
+    return { kind: V.length === 3 ? 'triangle' : 'polygon', straight: true, pts: [...V.map(p => p.slice()), V[0].slice()] };
+  }
+  // Is R a "V" (arrowhead) whose apex sits on the end of the previous straight stroke?
+  function arrowFromHead(R, diag) {
+    const V = rdp(R, 0.12 * diag);
+    if (V.length !== 3) return null;
+    const [p, apex, q] = V, ang = angleAt(p, apex, q);
+    const l1 = d2(p, apex), l2 = d2(q, apex);
+    if (ang < 20 || ang > 130 || Math.max(l1, l2) / Math.min(l1, l2) > 2.6) return null;
+    const list = items();
+    const prev = list[list.length - 1];
+    if (!prev || prev.type !== 'stroke') return null;
+    const PP = [];
+    for (let i = 0; i < prev.points.length; i += 3) PP.push([prev.points[i], prev.points[i + 1]]);
+    if (PP.length < 2 || !isLine(resample(PP, 32))) return null;
+    const A = PP[0], B = PP[PP.length - 1];
+    const tol = Math.max(0.6 * (l1 + l2) / 2, 14 / view.scale);
+    for (const [tip, tail] of [[B, A], [A, B]]) {
+      if (d2(apex, tip) > tol) continue;
+      const bis = [(p[0] + q[0]) / 2 - apex[0], (p[1] + q[1]) / 2 - apex[1]];
+      const dir = [tip[0] - tail[0], tip[1] - tail[1]];
+      const cosb = (bis[0] * dir[0] + bis[1] * dir[1]) / (Math.hypot(...bis) * Math.hypot(...dir) || 1);
+      if (cosb > -0.5) continue;   // the V must open back along the line
+      const sh = arrowShape(tail, tip, (l1 + l2) / 2);
+      sh.replaceId = prev.id;
+      return sh;
+    }
+    return null;
+  }
+  // Every piece of a polyline must be straight on its own (curves approximated by
+  // several short pieces fail this): max deviation <= 6% of the piece length.
+  function piecesStraight(R, V) {
+    for (let i = 0; i < V.length - 1; i++) {
+      const a = V[i], b = V[i + 1], len = d2(a, b);
+      // points of R closest to this piece
+      let m = 0;
+      for (const p of R) {
+        let best = Infinity, bi = -1;
+        for (let j = 0; j < V.length - 1; j++) { const dd = segDist(p, V[j], V[j + 1]); if (dd < best) { best = dd; bi = j; } }
+        if (bi === i) m = Math.max(m, best);
+      }
+      if (m > 0.06 * len + 1) return false;
+    }
+    return true;
+  }
+  function recognizeShape(raw) {
+    const P = [];
+    for (let i = 0; i < raw.length; i += 3) P.push([raw[i], raw[i + 1]]);
+    if (P.length < 3) return null;
+    const L = pathLength(P);
+    if (L * view.scale < 20) return null;
+    const R = resample(P, 64);
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const p of R) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); }
+    const diag = Math.hypot(x1 - x0, y1 - y0) || 1;
+    if (isLine(R)) return lineShape(R[0], R[R.length - 1]);
+    const head = arrowFromHead(R, diag);
+    if (head) return head;
+    const closed = d2(R[0], R[R.length - 1]) < Math.max(0.2 * diag, 10 / view.scale);
+    if (closed) {
+      // polygon: start the ring at the point farthest from the centre (a likely corner)
+      let cx = 0, cy = 0; for (const p of R) { cx += p[0]; cy += p[1]; } cx /= R.length; cy /= R.length;
+      let k0 = 0; R.forEach((p, i) => { if (Math.hypot(p[0] - cx, p[1] - cy) > Math.hypot(R[k0][0] - cx, R[k0][1] - cy)) k0 = i; });
+      const ring = R.slice(k0).concat(R.slice(0, k0 + 1));
+      let V = rdp(ring, 0.055 * diag).slice(0, -1);
+      // drop nearly straight vertices
+      for (let changed = true; changed && V.length > 3;) {
+        changed = false;
+        for (let i = 0; i < V.length; i++) {
+          if (angleAt(V[(i + V.length - 1) % V.length], V[i], V[(i + 1) % V.length]) > 158) { V.splice(i, 1); changed = true; break; }
+        }
+      }
+      const polyErr = V.length >= 3 ? polyError(R, V, true) / diag : Infinity;
+      const ell = fitEllipse(R), ellErr = ell.err / diag;
+      // Real polygons have distinct corners; a smooth curve approximated by many sides does not.
+      const maxCorner = V.length >= 3 ? Math.max(...V.map((v, i) => angleAt(V[(i + V.length - 1) % V.length], v, V[(i + 1) % V.length]))) : 180;
+      const cornersOk = V.length <= 4 || maxCorner <= 140;
+      if (V.length >= 3 && V.length <= 8 && cornersOk && polyErr < 0.03 && (polyErr < ellErr || ellErr > 0.05)) return polygonShape(V);
+      if (ellErr < 0.06) return ellipseShape(ell);
+      return null;
+    }
+    const V = rdp(R, 0.06 * diag);
+    const openErr = polyError(R, V, false) / diag;
+    if (openErr > 0.035) return null;
+    if (V.length >= 3) {
+      // one-stroke arrow: a long shaft, then short strokes near its end
+      const shaft = d2(V[0], V[1]);
+      const rest = V.slice(2);
+      const sharpTip = angleAt(V[0], V[1], V[2]) < 65;   // the head turns back sharply at the tip
+      if (sharpTip && openErr < 0.03 && rest.every(v => d2(v, V[1]) < 0.4 * shaft) && V.slice(1).every((v, i, arr) => i === 0 || d2(arr[i - 1], v) * 2.5 < shaft)) {
+        const barb = rest.reduce((m, v) => Math.max(m, d2(v, V[1])), 0);
+        return arrowShape(V[0], V[1], barb);
+      }
+    }
+    // Angled lines (axes, zigzags): pieces must be genuinely straight with distinct corners,
+    // so curvy handwriting such as an "S" is left alone.
+    const inner = V.slice(1, -1).map((v, i) => angleAt(V[i], v, V[i + 2]));
+    if (V.length <= 5 && openErr < 0.018 && inner.every(a => a < 130) && piecesStraight(R, V)) return { kind: 'polyline', straight: true, pts: straightenOpen(V) };
+    return null;
+  }
+  function shapeStroke(a, sh) {
+    let ps = 0; const n = a.pts.length / 3;
+    for (let i = 0; i < n; i++) ps += a.pts[3 * i + 2];
+    const p = Math.round((ps / n) * 100) / 100;
+    const pts = [];
+    for (const q of sh.pts) pts.push(Math.round(q[0] * 10) / 10, Math.round(q[1] * 10) / 10, p);
+    const st = { id: uid(), type: 'stroke', color: a.color, width: a.width, points: pts };
+    if (sh.straight) st.straight = true;
+    return st;
+  }
+  let holdTimer = 0;
+  function armHold() {
+    clearTimeout(holdTimer);
+    const a = action;
+    holdTimer = setTimeout(() => {
+      if (action !== a || !a || a.kind !== 'draw' || a.snap) return;
+      const sh = recognizeShape(a.pts);
+      if (sh) { a.snap = sh; dlog('  -> snapped to ' + sh.kind); requestOverlay(); }
+    }, HOLD_MS);
   }
 
   // ============================================================
@@ -1024,7 +1283,11 @@
     const screenT = () => octx.setTransform(d, 0, 0, d, 0, 0);
 
     if (action) {
-      if (action.kind === 'draw') {
+      if (action.kind === 'draw' && action.snap) {
+        pageT();
+        const st = shapeStroke(action, action.snap);
+        drawRuns(octx, buildRuns(st.points, st.width, st.straight), st.color);
+      } else if (action.kind === 'draw') {
         pageT();
         let P = action.pts;
         if (action.pred && action.pred.length) {
@@ -1381,7 +1644,8 @@
     switch (settings.tool) {
       case 'pen': {
         const pr = pressureOf(e);
-        action = { ...base, kind: 'draw', pts: [p.x, p.y, pr], ps: pr, color: settings.color, width: WIDTHS[settings.width] };
+        action = { ...base, kind: 'draw', pts: [p.x, p.y, pr], ps: pr, color: settings.color, width: WIDTHS[settings.width], hold: { x: sp.x, y: sp.y } };
+        armHold();
         requestOverlay();
         break;
       }
@@ -1430,6 +1694,10 @@
     switch (action.kind) {
       case 'draw': {
         for (const ev of list) addDrawPoint(ev);
+        const dh = Math.hypot(sp.x - action.hold.x, sp.y - action.hold.y);
+        if (action.snap) {
+          if (dh > UNSNAP_PX) { action.snap = null; action.hold = { x: sp.x, y: sp.y }; armHold(); dlog('  -> snap released (moved on)'); }
+        } else if (dh > HOLD_SLOP) { action.hold = { x: sp.x, y: sp.y }; armHold(); }
         const pred = (e.getPredictedEvents && e.getPredictedEvents()) || [];
         action.pred = pred.map(ev => toPage(screenPt(ev)));
         requestOverlay();
@@ -1649,6 +1917,17 @@
     return { id: uid(), type: 'stroke', color: a.color, width: a.width, points: pts };
   }
   function finishDraw(a, isTap, p) {
+    clearTimeout(holdTimer);
+    if (a.snap) {
+      const st = shapeStroke(a, a.snap);
+      commitPendingDot();
+      pushUndo();
+      const base = a.snap.replaceId ? items().filter(it => it.id !== a.snap.replaceId) : items();
+      setItems([...base, st]);
+      diag.saved++;
+      dlog(`  -> ${a.snap.kind} saved`);
+      return;
+    }
     const stroke = makeStroke(a);
     if (isTap) {
       const r = handleTap(p);
@@ -1847,6 +2126,14 @@
     commitPendingDot();
     nb.pages.splice(nb.current + 1, 0, { id: uid(), items: [] });
     goToPage(nb.current + 1);
+  }
+  function clearPage() {
+    if (!items().length) { toast('This page is already empty.'); return; }
+    closePanel();
+    selection = null;
+    pushUndo();
+    setItems([]);
+    toast('Page cleared. Undo brings it back.');
   }
   function deletePage() {
     if (nb.pages.length === 1) {
@@ -2052,6 +2339,7 @@
   menuAction('mImport', () => $('fileInput').click());
   menuAction('mPng', exportPagePNG);
   menuAction('mDeletePage', deletePage);
+  menuAction('mClearPage', clearPage);
   menuAction('mHelp', () => $('help').classList.add('visible'));
   for (const b of $('fingerSeg').children) {
     b.addEventListener('click', () => {
@@ -2126,7 +2414,9 @@
     if (it.type === 'stroke') {
       const pts = numArray(it.points);
       if (!pts || pts.length < 3 || pts.length % 3) return null;
-      return { id, type: 'stroke', color: isHex(it.color) ? it.color : INK[0].v, width: it.width > 0 ? +it.width : 5, points: pts };
+      const st = { id, type: 'stroke', color: isHex(it.color) ? it.color : INK[0].v, width: it.width > 0 ? +it.width : 5, points: pts };
+      if (it.straight) st.straight = true;
+      return st;
     }
     if (it.type === 'agg') {
       const isChain = it.kind === 'chain';
