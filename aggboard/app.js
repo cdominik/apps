@@ -9,7 +9,7 @@
   // Configuration
   // ============================================================
   // Bump on every release: shown in the menu, and used to bypass cached program files.
-  const VERSION = '2026.10.18-16';
+  const VERSION = '2026.10.18-17';
   window.AGGBOARD_VERSION = VERSION;
   const CONFIG = {
     MENU_URL: null,            // e.g. '../index.html' to show a "back to menu" button
@@ -170,7 +170,7 @@
   function fitPage() {
     const W = window.innerWidth, H = window.innerHeight;
     const top = $('toolbar').getBoundingClientRect().bottom + 10;
-    const bottom = H - $('pagebar').getBoundingClientRect().top + 10;
+    const bottom = 14;   // no bottom bar: the page may use the full height below the toolbar
     const availH = Math.max(100, H - top - bottom);
     const s = Math.max(0.05, Math.min((W - 24) / PW, availH / PH));
     view.scale = s; view.fitScale = s;
@@ -2360,7 +2360,7 @@
   function positionFloatingUI() {
     const W = window.innerWidth, H = window.innerHeight;
     const topLimit = $('toolbar').getBoundingClientRect().bottom + 6;
-    const bottomLimit = $('pagebar').getBoundingClientRect().top - 6;
+    const bottomLimit = H - 10;
     // selection bar
     const b = selection && !action && !panelId ? selectionBounds() : null;
     if (b) {
@@ -2406,7 +2406,10 @@
   // Menu, help, toast
   // ============================================================
   const menu = $('menu'), shield = $('menuShield');
-  function openMenu() { menu.classList.add('visible'); shield.classList.add('visible'); updateChrome(); }
+  function openMenu() {
+    menu.style.top = ($('toolbar').getBoundingClientRect().bottom + 6) + 'px';
+    menu.classList.add('visible'); shield.classList.add('visible'); updateChrome();
+  }
   function closeMenu() { menu.classList.remove('visible'); shield.classList.remove('visible'); }
   $('btnMenu').addEventListener('click', () => (menu.classList.contains('visible') ? closeMenu() : openMenu()));
   shield.addEventListener('pointerdown', closeMenu);
