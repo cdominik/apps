@@ -18,6 +18,7 @@
 
 - [[file:Badminton/sj.html][Badminton scoring]]
 - [[file:draw_aggregate.html][Drawing an aggregate]]
+- [[file:draw_aggregate_2.html][Drawing an aggregate new version]]
 - [[file:coag_gallery/gallery.html][Aggregation Webapp gallery]]
 - [[file:planet_visibility.html][Planet Sky Visibility]]
 - [[file:commute.html][Commute]]

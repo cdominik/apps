@@ -1,0 +1,1703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Sphere Aggregate</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #fff; color: #222;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    overscroll-behavior: none;
+  }
+  #stage { position: absolute; inset: 0; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #overlay { position: absolute; inset: 0; pointer-events: none; }
+
+  /* ---------- Buttons ---------- */
+  .btn {
+    pointer-events: auto;
+    background: rgba(255,255,255,0.92); color: #222; border: 1px solid #ccc;
+    padding: 10px 13px; border-radius: 10px; font-size: 14px; font-family: inherit;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    text-align: center; cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    text-decoration: none; display: inline-flex; align-items: center; justify-content: center;
+    line-height: 1.2;
+  }
+  .btn:active { background: #e8e8ee; }
+  .btn.active { background: #2a7; border-color: #2a7; color: #fff; }
+  .btn:disabled { opacity: 0.4; cursor: default; }
+  .btn:disabled:active { background: rgba(255,255,255,0.92); }
+  .btn.icon { min-width: 40px; padding: 8px 10px; font-size: 16px; }
+  .seg { display: flex; pointer-events: auto; }
+  .seg .btn { border-radius: 0; }
+  .seg .btn + .btn { margin-left: -1px; }
+  .seg .btn:first-child { border-radius: 10px 0 0 10px; }
+  .seg .btn:last-child  { border-radius: 0 10px 10px 0; }
+
+  /* ---------- Top bar ---------- */
+  #topbar {
+    position: absolute; top: 0; left: 0; right: 0;
+    padding: calc(8px + env(safe-area-inset-top, 0px))
+             calc(8px + env(safe-area-inset-right, 0px))
+             6px
+             calc(8px + env(safe-area-inset-left, 0px));
+    display: flex; flex-direction: column; gap: 6px;
+    pointer-events: none;
+  }
+  #topRow { display: flex; align-items: center; gap: 8px; }
+  #stats { flex: 1; text-align: center; pointer-events: none; min-width: 0; }
+  #statsText {
+    display: inline-block; max-width: 100%;
+    font-size: 12px; color: #555;
+    background: rgba(255,255,255,0.85);
+    padding: 4px 10px; border-radius: 8px; border: 1px solid #ddd;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #sliders {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    width: 100%; max-width: 440px; margin: 0 auto;
+    pointer-events: none;
+  }
+  @media (min-width: 700px) {
+    #sliders { grid-template-columns: repeat(4, 1fr); max-width: 820px; }
+  }
+  .slider-row {
+    pointer-events: auto; display: flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.92); padding: 5px 10px; border-radius: 10px;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border: 1px solid #ccc; font-size: 12px; color: #222;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .slider-row input[type=range] { flex: 1; min-width: 0; width: auto; }
+  .slider-row .label { flex-shrink: 0; min-width: 34px; }
+  .slider-row .val { flex-shrink: 0; min-width: 24px; text-align: right; color: #666; font-variant-numeric: tabular-nums; }
+
+  /* ---------- Bottom bar ---------- */
+  #bottom {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 8px calc(8px + env(safe-area-inset-right, 0px))
+             calc(8px + env(safe-area-inset-bottom, 0px))
+             calc(8px + env(safe-area-inset-left, 0px));
+    display: flex; justify-content: center;
+    pointer-events: none;
+  }
+  #ui { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+
+  body.ui-hidden #sliders,
+  body.ui-hidden #btnMenuLink,
+  body.ui-hidden #stats,
+  body.ui-hidden #bottom { display: none; }
+  body.ui-hidden #topRow { justify-content: flex-end; }
+
+  #hint {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    color: #888; font-size: 13px; text-align: center; pointer-events: none;
+    max-width: 80%; line-height: 1.5;
+  }
+  #hint.hidden { display: none; }
+
+  /* ---------- Overlays shared ---------- */
+  .modal {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: none; align-items: center; justify-content: center;
+    padding: 16px; z-index: 10;
+    backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+  }
+  .modal.visible { display: flex; }
+  .panel {
+    background: #fff; color: #222; border-radius: 14px;
+    width: 100%; max-height: 100%;
+    overflow-y: auto; touch-action: pan-y;
+    padding: 18px 20px calc(18px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    font-size: 14px; line-height: 1.5;
+    -webkit-overflow-scrolling: touch;
+  }
+  .panel button {
+    background: #2a7; color: #fff; border: none; padding: 10px 18px;
+    border-radius: 10px; font-size: 14px; cursor: pointer; font-family: inherit;
+  }
+  .panel button:active { transform: translateY(1px); }
+  .panel button.secondary { background: #fff; color: #444; border: 1px solid #ccc; }
+  .panel .close-row { display: flex; justify-content: flex-end; margin-top: 16px; gap: 8px; }
+
+  #helpPanel { max-width: 560px; }
+  #helpPanel h2 { font-size: 18px; margin-bottom: 10px; }
+  #helpPanel h3 { font-size: 14px; margin: 14px 0 4px; color: #2a7; }
+  #helpPanel p { margin: 4px 0; }
+  #helpPanel .row { display: flex; gap: 8px; margin: 3px 0; }
+  #helpPanel .tag {
+    font-size: 11px; padding: 1px 6px; border-radius: 4px; font-weight: 600;
+    flex-shrink: 0; align-self: flex-start; margin-top: 2px;
+  }
+  #helpPanel .tag.desktop { background: #e5ecff; color: #2a4aa8; }
+  #helpPanel .tag.mobile  { background: #e8f5ea; color: #1a7a33; }
+  #helpPanel .tag.both    { background: #eee; color: #444; }
+  #helpPanel kbd {
+    font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+    background: #f1f1f4; border: 1px solid #d8d8de; border-radius: 4px; padding: 0 4px;
+  }
+
+  #colorsPanel { max-width: 460px; line-height: 1.4; }
+  #colorsPanel h2 { font-size: 17px; margin-bottom: 4px; }
+  #colorsPanel h3 { font-size: 13px; margin: 14px 0 6px; color: #444; text-transform: uppercase; letter-spacing: 0.04em; }
+  #colorsPanel .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); gap: 8px; }
+  #colorsPanel .swatch {
+    aspect-ratio: 1; border-radius: 10px; border: 2px solid transparent;
+    cursor: pointer; position: relative; transition: transform 0.08s;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12);
+  }
+  #colorsPanel .swatch:active { transform: scale(0.94); }
+  #colorsPanel .swatch.active {
+    border-color: #2a7;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12), 0 0 0 2px rgba(42,170,119,0.25);
+  }
+  #colorsPanel .swatch.checker {
+    background-image:
+      linear-gradient(45deg, #ddd 25%, transparent 25%),
+      linear-gradient(-45deg, #ddd 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #ddd 75%),
+      linear-gradient(-45deg, transparent 75%, #ddd 75%);
+    background-size: 12px 12px;
+    background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+    background-color: #fff;
+  }
+  #colorsPanel .custom-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 10px; padding: 8px 10px; background: #f6f6f8; border-radius: 8px;
+  }
+  #colorsPanel .custom-row label { flex: 1; font-size: 13px; }
+  #colorsPanel .custom-row input[type=color] {
+    width: 44px; height: 32px; border: 1px solid #ccc;
+    border-radius: 6px; padding: 0; cursor: pointer; background: none;
+  }
+  #colorsPanel .desc { color: #666; font-size: 12px; margin-bottom: 4px; }
+
+  /* ---------- Menu (⋯) ---------- */
+  #menuOverlay { position: absolute; inset: 0; display: none; z-index: 15; }
+  #menuOverlay.visible { display: block; }
+  #menuPanel {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    bottom: 70px; width: min(360px, calc(100% - 20px));
+    background: #fff; border-radius: 14px; padding: 10px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  }
+  #menuPanel button {
+    background: #f4f4f7; color: #222; border: 1px solid #e2e2e8;
+    padding: 12px 10px; border-radius: 10px; font-size: 14px; cursor: pointer;
+    font-family: inherit; text-align: left;
+  }
+  #menuPanel button:active { background: #e6e6ec; }
+  #menuPanel button.danger { color: #b3261e; }
+  #menuPanel .toggle {
+    grid-column: 1 / -1; display: flex; align-items: center; gap: 10px;
+    padding: 8px 6px 2px; font-size: 13px; color: #333; cursor: pointer;
+  }
+  #menuPanel .toggle input { width: 18px; height: 18px; accent-color: #2a7; }
+
+  /* ---------- Share preview ---------- */
+  #shareOverlay {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: none; flex-direction: column; z-index: 20;
+    padding: calc(10px + env(safe-area-inset-top, 0px)) 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  #shareOverlay.visible { display: flex; }
+  #shareCanvasWrap {
+    flex: 1; position: relative; min-height: 0;
+    background: #fff; border-radius: 12px; overflow: hidden;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  }
+  #shareCanvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #shareControls {
+    margin-top: 10px; background: rgba(255,255,255,0.95);
+    border-radius: 12px; padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 8px;
+    font-size: 12px; color: #222;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  #shareControls .slider-row { background: transparent; border: none; padding: 0; box-shadow: none; }
+  #shareControls .hint { color: #666; font-size: 11px; margin: 0 2px; }
+  #shareControls .opts { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  #shareControls .opts label { display: flex; align-items: center; gap: 6px; }
+  #shareControls .opts select { font-size: 12px; padding: 3px 4px; border-radius: 6px; border: 1px solid #ccc; background: #fff; }
+  #shareControls .opts .size { color: #666; margin-left: auto; font-variant-numeric: tabular-nums; }
+  #shareControls .buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+  #shareControls .buttons button {
+    padding: 9px 16px; border-radius: 8px; font-size: 13px;
+    border: 1px solid #ccc; background: #fff; color: #222; cursor: pointer; font-family: inherit;
+  }
+  #shareControls .buttons button.primary { background: #2a7; border-color: #2a7; color: #fff; }
+  #shareControls .buttons button:active { transform: translateY(1px); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="canvas"></canvas>
+  <canvas id="overlay"></canvas>
+</div>
+
+<div id="topbar">
+  <div id="topRow">
+    <a class="btn icon" id="btnMenuLink" href="index.html" title="Back to menu" aria-label="Back to menu">&larr;</a>
+    <div id="stats"><span id="statsText">Empty</span></div>
+    <button class="btn" id="btnHideUI" aria-label="Hide or show controls">Hide</button>
+  </div>
+  <div id="sliders">
+    <div class="slider-row"><span class="label">Size</span> <input id="sizeSlider" type="range" min="6" max="40" value="16"><span class="val" id="sizeVal"></span></div>
+    <div class="slider-row"><span class="label">Temp</span> <input id="tempSlider" type="range" min="0" max="300" value="100"><span class="val" id="tempVal"></span></div>
+    <div class="slider-row"><span class="label">Spread</span> <input id="spreadSlider" type="range" min="0" max="100" value="0"><span class="val" id="spreadVal"></span></div>
+    <div class="slider-row"><span class="label">Depth</span> <input id="depthSlider" type="range" min="0" max="100" value="50"><span class="val" id="depthVal"></span></div>
+  </div>
+</div>
+
+<div id="hint">Draw a line with your finger or stylus.<br>Two fingers rotate and zoom &middot; three fingers pan.</div>
+
+<div id="bottom">
+  <div id="ui">
+    <div class="seg">
+      <button class="btn active" id="modeDraw">Draw</button>
+      <button class="btn" id="modeRotate">Rotate</button>
+      <button class="btn" id="modePan">Pan</button>
+    </div>
+    <button class="btn" id="btnUndo">Undo</button>
+    <button class="btn" id="btnRedo">Redo</button>
+    <button class="btn icon" id="btnMore" aria-label="More">&#8943;</button>
+  </div>
+</div>
+
+<div id="menuOverlay">
+  <div id="menuPanel">
+    <button id="mFit">Fit to view</button>
+    <button id="mReset">Reset view</button>
+    <button id="mColors">Colors</button>
+    <button id="mShare">Share image</button>
+    <button id="mExport">Export .txt</button>
+    <button id="mImport">Import .txt</button>
+    <button id="mHelp">Help</button>
+    <button id="mClear" class="danger">Clear all</button>
+    <label class="toggle"><input type="checkbox" id="optStylus"> Stylus draws, fingers rotate</label>
+    <label class="toggle"><input type="checkbox" id="optFlip"> Right-handed export (flip y)</label>
+  </div>
+</div>
+<input type="file" id="fileInput" accept=".txt,text/plain" hidden>
+
+<div class="modal" id="helpOverlay">
+  <div class="panel" id="helpPanel">
+    <h2>Sphere Aggregate &mdash; Help</h2>
+    <p>Draw chains of spheres to build a 3D aggregate. Rotate between strokes to grow arms in different directions. Your work is saved automatically in this browser.</p>
+
+    <h3>Drawing</h3>
+    <p>A stroke becomes a chain of spheres when you lift. A single tap places one sphere. A ring shows the size of the spheres you are about to draw.</p>
+    <p>If a stroke starts or ends on an existing sphere, it connects to that sphere at its 3D depth. If both ends hit existing spheres, the chain forms a genuine 3D bridge. A stroke that starts on empty background is drawn in the plane through the aggregate's center.</p>
+
+    <h3>Moving the view</h3>
+    <div class="row"><span class="tag mobile">Mobile</span><span>Two fingers: drag to rotate, pinch to zoom (around your fingers), twist to roll. Three fingers: pan. Works in any mode.</span></div>
+    <div class="row"><span class="tag desktop">Desktop</span><span>Right-drag rotates. Middle-drag or Shift+drag pans. Wheel zooms around the cursor.</span></div>
+    <p>Rotation is always around the aggregate's center of mass, so the structure stays put while you turn it.</p>
+
+    <h3>Modes</h3>
+    <p><b>Draw</b>, <b>Rotate</b>, <b>Pan</b> set what one finger or left-click does.</p>
+    <p><b>Stylus draws, fingers rotate</b> (in the &hellip; menu) makes a pen always draw and fingers rotate (or pan, in Pan mode). Touches from a resting palm are ignored while the pen is down.</p>
+
+    <h3>Sliders</h3>
+    <p><b>Size</b> &mdash; radius of new spheres (in model units, so it is relative to the aggregate, not the screen). Existing spheres keep their size.</p>
+    <p><b>Temp</b> &mdash; random position deviation from the drawn line. Chain connectivity is preserved.</p>
+    <p><b>Spread</b> &mdash; random log-normal variation of grain size within a stroke.</p>
+    <p><b>Depth</b> &mdash; strength of the atmospheric depth cue. Visual only.</p>
+
+    <h3>Buttons</h3>
+    <p><b>Undo / Redo</b> &mdash; step through strokes.<br>
+    <b>&larr;</b> &mdash; back to the app menu. <b>Hide</b> &mdash; hides all controls for a clean view.<br>
+    <b>Top readout</b> &mdash; sphere count and radius of gyration Rg (mass-weighted, in the same model units as the export). On desktop, hover it to see Rg divided by the mean radius.</p>
+
+    <h3>&hellip; menu</h3>
+    <p><b>Fit to view</b> centers and scales the aggregate to the screen. <b>Reset view</b> also resets rotation.<br>
+    <b>Colors</b> &mdash; background (including transparent) and sphere color.<br>
+    <b>Share image</b> &mdash; preview with perspective; optionally crop to the structure and render at 1&times;&ndash;3&times; resolution. Shares a PNG via the system sheet on mobile, downloads on desktop.<br>
+    <b>Export .txt</b> &mdash; first line is the sphere count; each following line is <code>index radius x y z</code>. By default y is flipped so the coordinates are right-handed (switch off in the menu if you need raw screen orientation).<br>
+    <b>Import .txt</b> &mdash; loads a file in that same format (replaces the current aggregate after confirmation).<br>
+    <b>Clear all</b> &mdash; removes everything (with confirmation).</p>
+
+    <h3>Keyboard</h3>
+    <p><kbd>Ctrl/&#8984;+Z</kbd> undo &middot; <kbd>Ctrl/&#8984;+Shift+Z</kbd> or <kbd>Ctrl+Y</kbd> redo &middot; <kbd>D</kbd> <kbd>R</kbd> <kbd>P</kbd> modes &middot; <kbd>F</kbd> fit &middot; <kbd>H</kbd> hide controls &middot; <kbd>Esc</kbd> close dialogs</p>
+
+    <div class="close-row"><button id="btnHelpClose">Close</button></div>
+  </div>
+</div>
+
+<div class="modal" id="colorsOverlay">
+  <div class="panel" id="colorsPanel">
+    <h2>Colors</h2>
+    <p class="desc">Background and sphere colors update everywhere &mdash; main view, share preview, and PNG export.</p>
+
+    <h3>Background</h3>
+    <div class="swatches" id="bgSwatches"></div>
+    <div class="custom-row">
+      <label for="bgCustom">Custom background</label>
+      <input id="bgCustom" type="color" value="#ffffff">
+    </div>
+
+    <h3>Spheres</h3>
+    <div class="swatches" id="sphereSwatches"></div>
+    <div class="custom-row">
+      <label for="sphereCustom">Custom sphere color</label>
+      <input id="sphereCustom" type="color" value="#3b78c8">
+    </div>
+
+    <div class="close-row">
+      <button class="secondary" id="btnColorsReset">Reset</button>
+      <button id="btnColorsClose">Done</button>
+    </div>
+  </div>
+</div>
+
+<div id="shareOverlay">
+  <div id="shareCanvasWrap">
+    <canvas id="shareCanvas"></canvas>
+  </div>
+  <div id="shareControls">
+    <div class="hint">Drag to rotate &middot; pinch / wheel to zoom &middot; three fingers or Shift+drag to pan</div>
+    <div class="slider-row"><span class="label">Perspective</span> <input id="persSlider" type="range" min="0" max="100" value="30"></div>
+    <div class="opts">
+      <label><input type="checkbox" id="cropChk" checked> Crop to structure</label>
+      <label>Resolution
+        <select id="resSel">
+          <option value="1">1&times;</option>
+          <option value="2" selected>2&times;</option>
+          <option value="3">3&times;</option>
+        </select>
+      </label>
+      <span class="size" id="outSize"></span>
+    </div>
+    <div class="buttons">
+      <button id="btnShareFit">Fit</button>
+      <button id="btnSharePreviewCancel">Cancel</button>
+      <button id="btnSharePreviewDone" class="primary">Share</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ===== Configuration =====
+  const MENU_URL = 'index.html';          // where the "←" button goes
+  const STORAGE_KEY = 'sphereAggregate.v1';
+  const LEVELS = 32;                      // depth quantization for sprite cache
+  const SPR_EXT = 1.4;                    // sprite half-extent in sphere radii (room for shadow)
+  const MAX_EXPORT_DIM = 3840;            // longest side of exported PNG
+  const MAX_PER_STROKE = 4000;            // safety cap
+
+  const $ = (id) => document.getElementById(id);
+  const canvas = $('canvas'), ctx = canvas.getContext('2d');
+  const overlay = $('overlay'), octx = overlay.getContext('2d');
+  const hintEl = $('hint');
+  const statsText = $('statsText');
+  const sizeSlider = $('sizeSlider'), tempSlider = $('tempSlider');
+  const spreadSlider = $('spreadSlider'), depthSlider = $('depthSlider');
+  const topbar = $('topbar'), bottomEl = $('bottom');
+  const colorsOverlay = $('colorsOverlay'), helpOverlay = $('helpOverlay');
+  const menuOverlay = $('menuOverlay'), menuPanel = $('menuPanel');
+  const bgSwatchesEl = $('bgSwatches'), sphereSwatchesEl = $('sphereSwatches');
+  const bgCustomInput = $('bgCustom'), sphereCustomInput = $('sphereCustom');
+  const shareOverlay = $('shareOverlay'), shareCanvas = $('shareCanvas');
+  const sctx = shareCanvas.getContext('2d');
+  const persSlider = $('persSlider'), cropChk = $('cropChk'), resSel = $('resSel');
+  const optStylus = $('optStylus'), optFlip = $('optFlip');
+  $('btnMenuLink').setAttribute('href', MENU_URL);
+
+  // ===== State =====
+  // Spheres live in model coordinates: { x, y, z, r, group }.
+  // View: screen = center + pan + zoom * R * (p - pivot), pivot = center of mass.
+  const spheres = [];
+  let redoStack = [];       // array of groups (arrays of spheres)
+  let strokeGroup = 0;
+
+  let R = identity3();
+  let zoom = 1, panX = 0, panY = 0;
+  let pivot = { x: 0, y: 0, z: 0 };
+  let rg = 0, meanR = 0;
+
+  let sphereRadius = parseFloat(sizeSlider.value);
+  let temperature = parseFloat(tempSlider.value) / 100;
+  let sizeSpread = parseFloat(spreadSlider.value) / 100;
+  let depthStrength = parseFloat(depthSlider.value) / 100;
+  let mode = 'draw';        // 'draw' | 'rotate' | 'pan'
+  let stylusMode = false;
+  let flipExport = true;
+
+  // ===== Colors =====
+  const DEFAULT_BG = '#ffffff';
+  const DEFAULT_SPHERE = '#3b78c8';
+  let bgColor = DEFAULT_BG;         // '#rrggbb' | 'transparent'
+  let sphereColor = DEFAULT_SPHERE;
+  let sphereHSL = { h: 210, s: 65, l: 50 };
+  let bgRGB = { r: 255, g: 255, b: 255 };
+
+  const BG_PRESETS = [
+    { name: 'White', value: '#ffffff' }, { name: 'Paper', value: '#f4ede0' },
+    { name: 'Light gray', value: '#dadde2' }, { name: 'Slate', value: '#3c4452' },
+    { name: 'Charcoal', value: '#1c1f25' }, { name: 'Black', value: '#000000' },
+    { name: 'Sky', value: '#bfdcf2' }, { name: 'Mint', value: '#cdebd6' },
+    { name: 'Sand', value: '#e8d6a8' }, { name: 'Blush', value: '#f3cdcd' },
+    { name: 'Lavender', value: '#dcd0ee' }, { name: 'Transparent', value: 'transparent' },
+  ];
+  const SPHERE_PRESETS = [
+    { name: 'Blue', value: '#3b78c8' }, { name: 'Teal', value: '#1f8c8a' },
+    { name: 'Green', value: '#3e9b4a' }, { name: 'Olive', value: '#7a8a32' },
+    { name: 'Gold', value: '#c89a2b' }, { name: 'Orange', value: '#d97026' },
+    { name: 'Red', value: '#c8362c' }, { name: 'Pink', value: '#d65a8b' },
+    { name: 'Purple', value: '#8a4ab8' }, { name: 'Indigo', value: '#3b3f9c' },
+    { name: 'Stone', value: '#7a7468' }, { name: 'Pearl', value: '#c8c4bb' },
+  ];
+
+  function hexToRgb(hex) {
+    const h = hex.replace('#', '');
+    const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+  }
+  function rgbToHsl(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h, s, l = (max + min) / 2;
+    if (max === min) { h = s = 0; }
+    else {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r: h = ((g - b) / d + (g < b ? 6 : 0)); break;
+        case g: h = ((b - r) / d + 2); break;
+        default: h = ((r - g) / d + 4); break;
+      }
+      h *= 60;
+    }
+    return { h, s: s * 100, l: l * 100 };
+  }
+  function hslToRgb(h, s, l) {
+    s /= 100; l /= 100;
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+    const m = l - c / 2;
+    let r1, g1, b1;
+    if      (h < 60)  [r1, g1, b1] = [c, x, 0];
+    else if (h < 120) [r1, g1, b1] = [x, c, 0];
+    else if (h < 180) [r1, g1, b1] = [0, c, x];
+    else if (h < 240) [r1, g1, b1] = [0, x, c];
+    else if (h < 300) [r1, g1, b1] = [x, 0, c];
+    else              [r1, g1, b1] = [c, 0, x];
+    return { r: Math.round((r1 + m) * 255), g: Math.round((g1 + m) * 255), b: Math.round((b1 + m) * 255) };
+  }
+  function mixRGBToward(r, g, b, target, t) {
+    return `rgb(${Math.round(r + (target.r - r) * t)},${Math.round(g + (target.g - g) * t)},${Math.round(b + (target.b - b) * t)})`;
+  }
+  function sphereStopColor(lightness, mist) {
+    const l = Math.max(0, Math.min(100, lightness));
+    const rgb = hslToRgb(sphereHSL.h, sphereHSL.s, l);
+    return mixRGBToward(rgb.r, rgb.g, rgb.b, bgRGB, mist);
+  }
+  function applyColors(bg, sph) {
+    bgColor = bg; sphereColor = sph;
+    sphereHSL = (() => { const c = hexToRgb(sph); return rgbToHsl(c.r, c.g, c.b); })();
+    bgRGB = bg === 'transparent' ? { r: 255, g: 255, b: 255 } : hexToRgb(bg);
+    clearSprites();
+  }
+  function currentShadowScale() {
+    if (bgColor === 'transparent') return 1;
+    const l = rgbToHsl(bgRGB.r, bgRGB.g, bgRGB.b).l;
+    return Math.max(0, (l - 30) / 70);
+  }
+  function strokeContrastColor() {
+    if (bgColor === 'transparent') return 'rgba(30, 100, 180, 0.6)';
+    return rgbToHsl(bgRGB.r, bgRGB.g, bgRGB.b).l > 50 ? 'rgba(30, 100, 180, 0.6)' : 'rgba(255, 255, 255, 0.75)';
+  }
+
+  // ===== Math =====
+  function identity3() { return [1,0,0, 0,1,0, 0,0,1]; }
+  function matMul(a, b) {
+    const r = new Array(9);
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
+      r[i*3+j] = a[i*3]*b[j] + a[i*3+1]*b[j+3] + a[i*3+2]*b[j+6];
+    }
+    return r;
+  }
+  function rotX(a) { const c = Math.cos(a), s = Math.sin(a); return [1,0,0, 0,c,-s, 0,s,c]; }
+  function rotY(a) { const c = Math.cos(a), s = Math.sin(a); return [c,0,s, 0,1,0, -s,0,c]; }
+  function rotZ(a) { const c = Math.cos(a), s = Math.sin(a); return [c,-s,0, s,c,0, 0,0,1]; }
+  function applyMat(m, v) {
+    return [
+      m[0]*v[0] + m[1]*v[1] + m[2]*v[2],
+      m[3]*v[0] + m[4]*v[1] + m[5]*v[2],
+      m[6]*v[0] + m[7]*v[1] + m[8]*v[2],
+    ];
+  }
+  function transpose3(m) { return [m[0],m[3],m[6], m[1],m[4],m[7], m[2],m[5],m[8]]; }
+  function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+  function dpr() { return Math.min(window.devicePixelRatio || 1, 2); }
+  function gaussian() {
+    let u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  // ===== View helpers =====
+  function viewVec(s) { return applyMat(R, [s.x - pivot.x, s.y - pivot.y, s.z - pivot.z]); }
+
+  function unprojectScreen(sx, sy, viewZ = 0) {
+    const w = window.innerWidth, h = window.innerHeight;
+    const v = [(sx - w/2 - panX) / zoom, (sy - h/2 - panY) / zoom, viewZ];
+    const wv = applyMat(transpose3(R), v);
+    return { x: wv[0] + pivot.x, y: wv[1] + pivot.y, z: wv[2] + pivot.z };
+  }
+
+  // Front-most sphere under (sx, sy): returns its view-space z, or null.
+  function hitTestViewZ(sx, sy) {
+    const w = window.innerWidth, h = window.innerHeight;
+    let best = null;
+    for (const s of spheres) {
+      const v = viewVec(s);
+      const dx = sx - (w/2 + panX + v[0] * zoom);
+      const dy = sy - (h/2 + panY + v[1] * zoom);
+      const r = s.r * zoom;
+      if (dx*dx + dy*dy <= r*r && (best === null || v[2] > best)) best = v[2];
+    }
+    return best;
+  }
+
+  function zoomAbout(cx, cy, ratio) {
+    const w = window.innerWidth, h = window.innerHeight;
+    const vx = (cx - w/2 - panX) / zoom, vy = (cy - h/2 - panY) / zoom;
+    zoom = clamp(zoom * ratio, 0.02, 50);
+    panX = cx - w/2 - vx * zoom;
+    panY = cy - h/2 - vy * zoom;
+  }
+  function applyRotationDelta(dx, dy) {
+    const sens = 0.008;
+    R = matMul(matMul(rotY(dx * sens), rotX(dy * sens)), R);
+  }
+
+  // Recompute center of mass, Rg and pivot. Keeps on-screen positions fixed
+  // when the pivot moves (so adding/undoing a stroke never makes the view jump).
+  function recomputeAggregate(adjustPan = true) {
+    const n = spheres.length;
+    let nx = 0, ny = 0, nz = 0;
+    if (n) {
+      let M = 0, sx = 0, sy = 0, sz = 0, sr = 0;
+      for (const s of spheres) {
+        const m = s.r * s.r * s.r;
+        M += m; sx += m * s.x; sy += m * s.y; sz += m * s.z; sr += s.r;
+      }
+      nx = sx / M; ny = sy / M; nz = sz / M;
+      let acc = 0;
+      for (const s of spheres) {
+        const m = s.r * s.r * s.r;
+        const dx = s.x - nx, dy = s.y - ny, dz = s.z - nz;
+        acc += m * (dx*dx + dy*dy + dz*dz + 0.6 * s.r * s.r); // solid-sphere own moment
+      }
+      rg = Math.sqrt(acc / M);
+      meanR = sr / n;
+    } else { rg = 0; meanR = 0; }
+    if (adjustPan) {
+      const d = applyMat(R, [nx - pivot.x, ny - pivot.y, nz - pivot.z]);
+      panX += zoom * d[0];
+      panY += zoom * d[1];
+    }
+    pivot = { x: nx, y: ny, z: nz };
+  }
+
+  function updateStats() {
+    const n = spheres.length;
+    if (!n) { statsText.textContent = 'Empty'; statsText.title = ''; return; }
+    statsText.textContent = `${n} sphere${n === 1 ? '' : 's'} · Rg ${rg.toPrecision(4)}`;
+    statsText.title = `Rg/a = ${(rg / meanR).toFixed(2)} (a = mean radius ${meanR.toPrecision(3)})`;
+  }
+  function updateButtons() {
+    $('btnUndo').disabled = spheres.length === 0;
+    $('btnRedo').disabled = redoStack.length === 0;
+  }
+  function updateHint() { hintEl.classList.toggle('hidden', spheres.length > 0 || drawingStroke); }
+
+  function afterChange(adjustPan = true) {
+    recomputeAggregate(adjustPan);
+    updateStats(); updateButtons(); updateHint();
+    draw();
+  }
+
+  function fitView(keepRotation = true) {
+    if (!keepRotation) R = identity3();
+    const w = window.innerWidth, h = window.innerHeight;
+    if (!spheres.length) { zoom = 1; panX = 0; panY = 0; draw(); return; }
+    const top = topbar.offsetHeight + 8;
+    const bottom = (bottomEl.offsetHeight || 0) + 10;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const s of spheres) {
+      const v = viewVec(s);
+      x0 = Math.min(x0, v[0] - s.r); x1 = Math.max(x1, v[0] + s.r);
+      y0 = Math.min(y0, v[1] - s.r); y1 = Math.max(y1, v[1] + s.r);
+    }
+    const bw = Math.max(1e-6, x1 - x0), bh = Math.max(1e-6, y1 - y0);
+    zoom = clamp(Math.min((w - 24) / bw, (h - top - bottom) / bh), 0.02, 4);
+    panX = -zoom * (x0 + x1) / 2;
+    panY = (top - bottom) / 2 - zoom * (y0 + y1) / 2;
+    draw();
+  }
+
+  // ===== Sphere rendering (with sprite cache) =====
+  const spriteCache = new Map();
+  const outlineCache = [];
+  function clearSprites() { spriteCache.clear(); outlineCache.length = 0; }
+
+  function outlineStyle(level) {
+    if (!outlineCache[level]) {
+      const t = level / (LEVELS - 1);
+      const mist = depthStrength * 0.65 * (1 - t);
+      const a = (0.35 + 0.25 * (1 - t)) * (1 - mist);
+      outlineCache[level] = `rgba(20,25,40,${a.toFixed(3)})`;
+    }
+    return outlineCache[level];
+  }
+
+  // Direct renderer (used to build sprites and as a fallback for huge spheres).
+  function renderSphereT(c, sx, sy, radius, depthT, shadowScale, withOutline) {
+    const brightness = 0.55 + 0.45 * depthT;
+    const mist = depthStrength * 0.65 * (1 - depthT);
+
+    c.beginPath();
+    c.arc(sx + radius * 0.15, sy + radius * 0.2, radius * 0.95, 0, Math.PI * 2);
+    c.fillStyle = `rgba(0,0,0,${(0.05 + 0.08 * depthT) * (1 - mist * 0.8) * shadowScale})`;
+    c.fill();
+
+    const grad = c.createRadialGradient(
+      sx - radius * 0.4, sy - radius * 0.4, radius * 0.1, sx, sy, radius);
+    grad.addColorStop(0,    sphereStopColor(85 + brightness * 8, mist));
+    grad.addColorStop(0.55, sphereStopColor(55 * brightness + 20, mist));
+    grad.addColorStop(1,    sphereStopColor(Math.max(20, 25 * brightness + 10), mist));
+    c.beginPath();
+    c.arc(sx, sy, radius, 0, Math.PI * 2);
+    c.fillStyle = grad;
+    c.fill();
+
+    if (withOutline) {
+      c.lineWidth = 0.8;
+      c.strokeStyle = outlineStyle(Math.round(depthT * (LEVELS - 1)));
+      c.stroke();
+    }
+  }
+
+  function getSprite(level, S, shadowScale) {
+    const key = level + '|' + S + '|' + shadowScale.toFixed(2);
+    let spr = spriteCache.get(key);
+    if (!spr) {
+      spr = document.createElement('canvas');
+      spr.width = spr.height = S;
+      const sc = spr.getContext('2d');
+      const Rs = S / (2 * SPR_EXT);
+      renderSphereT(sc, S / 2, S / 2, Rs, level / (LEVELS - 1), shadowScale, false);
+      spriteCache.set(key, spr);
+    }
+    return spr;
+  }
+
+  function drawSphere(c, sx, sy, r, level, shadowScale, resMul) {
+    const need = 2 * SPR_EXT * r * resMul;
+    if (need > 256) {
+      renderSphereT(c, sx, sy, r, level / (LEVELS - 1), shadowScale, true);
+      return;
+    }
+    let S = 8;
+    while (S < need) S *= 2;
+    const ext = SPR_EXT * r;
+    c.drawImage(getSprite(level, S, shadowScale), sx - ext, sy - ext, 2 * ext, 2 * ext);
+    c.beginPath();
+    c.arc(sx, sy, r, 0, Math.PI * 2);
+    c.lineWidth = 0.8;
+    c.strokeStyle = outlineStyle(level);
+    c.stroke();
+  }
+
+  // items: [{sx, sy, z, r}] sorted back-to-front.
+  function paintSpheres(c, items, zMin, zRange, shadowScale, resMul, view) {
+    for (const it of items) {
+      const r = Math.max(0.5, it.r);
+      if (view) {
+        const e = r * SPR_EXT;
+        if (it.sx + e < 0 || it.sx - e > view.w || it.sy + e < 0 || it.sy - e > view.h) continue;
+      }
+      const level = clamp(Math.round(((it.z - zMin) / zRange) * (LEVELS - 1)), 0, LEVELS - 1);
+      drawSphere(c, it.sx, it.sy, r, level, shadowScale, resMul);
+    }
+  }
+
+  function paintBackground(c, w, h) {
+    if (bgColor === 'transparent') {
+      c.clearRect(0, 0, w, h);
+      const tile = 14;
+      const cols = Math.ceil(w / tile), rows = Math.ceil(h / tile);
+      for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+        c.fillStyle = ((i + j) & 1) ? '#f1f1f3' : '#e3e3e7';
+        c.fillRect(i * tile, j * tile, tile, tile);
+      }
+    } else {
+      c.fillStyle = bgColor;
+      c.fillRect(0, 0, w, h);
+    }
+  }
+
+  function projectMain(w, h) {
+    const n = spheres.length, items = new Array(n);
+    let zMin = Infinity, zMax = -Infinity;
+    const m = R, cx = w/2 + panX, cy = h/2 + panY;
+    for (let i = 0; i < n; i++) {
+      const s = spheres[i];
+      const x = s.x - pivot.x, y = s.y - pivot.y, z = s.z - pivot.z;
+      const vx = m[0]*x + m[1]*y + m[2]*z;
+      const vy = m[3]*x + m[4]*y + m[5]*z;
+      const vz = m[6]*x + m[7]*y + m[8]*z;
+      items[i] = { sx: cx + vx * zoom, sy: cy + vy * zoom, z: vz, r: s.r * zoom };
+      if (vz < zMin) zMin = vz;
+      if (vz > zMax) zMax = vz;
+    }
+    return { items, zMin, zRange: Math.max(1e-6, zMax - zMin) };
+  }
+
+  function render() {
+    const w = window.innerWidth, h = window.innerHeight;
+    ctx.clearRect(0, 0, w, h);
+    paintBackground(ctx, w, h);
+    if (spheres.length) {
+      const P = projectMain(w, h);
+      P.items.sort((a, b) => a.z - b.z);
+      paintSpheres(ctx, P.items, P.zMin, P.zRange, currentShadowScale(), dpr(), { w, h });
+    }
+  }
+
+  // ===== Overlay: live stroke + brush ring =====
+  let livePreview = [];
+  let drawingStroke = false;
+  const brush = { x: 0, y: 0, show: false, previewUntil: 0 };
+
+  function renderOverlay() {
+    const w = window.innerWidth, h = window.innerHeight;
+    octx.clearRect(0, 0, w, h);
+    if (livePreview.length > 1) {
+      octx.beginPath();
+      octx.moveTo(livePreview[0].x, livePreview[0].y);
+      for (let i = 1; i < livePreview.length; i++) octx.lineTo(livePreview[i].x, livePreview[i].y);
+      octx.strokeStyle = strokeContrastColor();
+      octx.lineWidth = 2;
+      octx.stroke();
+    }
+    const ring = (x, y) => {
+      octx.beginPath();
+      octx.arc(x, y, sphereRadius * zoom, 0, Math.PI * 2);
+      octx.setLineDash([4, 3]);
+      octx.lineWidth = 1.5;
+      octx.strokeStyle = strokeContrastColor();
+      octx.stroke();
+      octx.setLineDash([]);
+    };
+    const live = brush.show && (drawingStroke || mode === 'draw' || stylusMode);
+    if (live) ring(brush.x, brush.y);
+    if (performance.now() < brush.previewUntil && !(live && drawingStroke)) ring(w / 2, h / 2);
+  }
+
+  // ===== Draw scheduling =====
+  let rafId = 0, needMain = false, needOverlay = false, needShare = false;
+  function flush() {
+    rafId = 0;
+    if (needMain) { needMain = false; render(); }
+    if (needOverlay) { needOverlay = false; renderOverlay(); }
+    if (needShare) { needShare = false; drawShareNow(); }
+  }
+  function schedule() { if (!rafId) rafId = requestAnimationFrame(flush); }
+  function draw() { needMain = true; scheduleSave(); schedule(); }
+  function requestOverlay() { needOverlay = true; schedule(); }
+  function drawShare() { needShare = true; schedule(); }
+
+  // ===== Resize =====
+  function resize() {
+    const d = dpr();
+    const w = window.innerWidth, h = window.innerHeight;
+    for (const cv of [canvas, overlay]) {
+      cv.width = Math.round(w * d); cv.height = Math.round(h * d);
+      cv.style.width = w + 'px'; cv.style.height = h + 'px';
+    }
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+    octx.setTransform(d, 0, 0, d, 0, 0);
+    clearSprites();
+    render(); renderOverlay();
+    if (shareOverlay.classList.contains('visible')) { resizeShareCanvas(); drawShare(); }
+  }
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', resize);
+
+  // ===== Stroke creation =====
+  function startStroke(sx, sy) {
+    drawingStroke = true;
+    livePreview = [{ x: sx, y: sy }];
+    brush.x = sx; brush.y = sy; brush.show = true;
+    updateHint();
+    requestOverlay();
+  }
+  function extendStroke(sx, sy) {
+    if (!drawingStroke) return;
+    const last = livePreview[livePreview.length - 1];
+    if (last && last.x === sx && last.y === sy) return;
+    livePreview.push({ x: sx, y: sy });
+    brush.x = sx; brush.y = sy;
+    requestOverlay();
+  }
+  function cancelStroke() {
+    drawingStroke = false;
+    livePreview = [];
+    updateHint();
+    requestOverlay();
+  }
+
+  function endStroke() {
+    if (!drawingStroke) return;
+    drawingStroke = false;
+    if (livePreview.length < 1) { livePreview = []; return; }
+
+    const startZ = hitTestViewZ(livePreview[0].x, livePreview[0].y);
+    const last = livePreview[livePreview.length - 1];
+    const endZ = hitTestViewZ(last.x, last.y);
+
+    let pts = livePreview.slice();
+    let zAtStart, zAtEnd;
+    let snapLastToEnd = false;
+
+    if (startZ !== null && endZ !== null) {
+      zAtStart = startZ; zAtEnd = endZ; snapLastToEnd = true;
+    } else if (endZ !== null && startZ === null) {
+      pts.reverse(); zAtStart = endZ; zAtEnd = endZ;
+    } else if (startZ !== null) {
+      zAtStart = startZ; zAtEnd = startZ;
+    } else {
+      zAtStart = 0; zAtEnd = 0;
+    }
+
+    const cum = new Array(pts.length);
+    cum[0] = 0;
+    for (let i = 1; i < pts.length; i++) {
+      cum[i] = cum[i-1] + Math.hypot(pts[i].x - pts[i-1].x, pts[i].y - pts[i-1].y);
+    }
+    const totalLen = cum[cum.length - 1] || 1;
+
+    function zAtStrokePoint(sx, sy, segIdx) {
+      const a = pts[Math.max(0, segIdx - 1)];
+      const segStart = cum[Math.max(0, segIdx - 1)];
+      const segEnd = cum[segIdx] ?? cum[cum.length - 1];
+      const segLen = segEnd - segStart;
+      const along = Math.hypot(sx - a.x, sy - a.y);
+      const here = segStart + Math.min(segLen, along);
+      return zAtStart + (zAtEnd - zAtStart) * (here / totalLen);
+    }
+
+    strokeGroup++;
+    const group = strokeGroup;
+    const created = [];
+    const RT = transpose3(R);
+
+    const sigma = sizeSpread * 0.9;
+    function sampleRadius() {
+      if (sigma === 0) return sphereRadius;
+      const m = Math.exp(gaussian() * sigma - sigma * sigma / 2);
+      return sphereRadius * Math.max(0.3, Math.min(3.0, m));
+    }
+    const overlapFactor = 0.8;
+    function pointAt(sx, sy, segIdx) {
+      return unprojectScreen(sx, sy, zAtStrokePoint(sx, sy, segIdx));
+    }
+    const jitterBase = temperature * 0.6;
+    function jitterWorld(r) {
+      if (jitterBase === 0) return [0, 0, 0];
+      const amp = jitterBase * r;
+      return applyMat(RT, [gaussian() * amp, gaussian() * amp, gaussian() * amp]);
+    }
+
+    // Screen-space spacing that yields the desired 3D center-to-center distance
+    // even when the chain is traversing depth.
+    const dzPerScreenPx = (zAtEnd - zAtStart) / totalLen;
+    function screenSpacingFor(D3D) {
+      const k2 = (1 / (zoom * zoom)) + dzPerScreenPx * dzPerScreenPx;
+      return D3D / Math.sqrt(k2);
+    }
+
+    const r0 = sampleRadius();
+    const base = pointAt(pts[0].x, pts[0].y, 0);
+    const j0 = jitterWorld(r0);
+    let prev = { x: base.x + j0[0], y: base.y + j0[1], z: base.z + j0[2], r: r0 };
+    created.push({ ...prev, group });
+
+    let segIdx = 1;
+    let segFrom = pts[0];
+    let accScreen = 0;
+    let rNext = sampleRadius();
+    let targetScreen = screenSpacingFor(overlapFactor * (prev.r + rNext));
+
+    while (segIdx < pts.length && created.length < MAX_PER_STROKE) {
+      const segTo = pts[segIdx];
+      const dx = segTo.x - segFrom.x, dy = segTo.y - segFrom.y;
+      const segLen = Math.hypot(dx, dy);
+      if (segLen === 0) { segIdx++; segFrom = segTo; continue; }
+
+      if (accScreen + segLen < targetScreen) {
+        accScreen += segLen;
+        segFrom = segTo;
+        segIdx++;
+      } else {
+        const t = (targetScreen - accScreen) / segLen;
+        const sx = segFrom.x + dx * t, sy = segFrom.y + dy * t;
+        const world = pointAt(sx, sy, segIdx);
+        const jw = jitterWorld(rNext);
+        let wx = world.x + jw[0], wy = world.y + jw[1], wz = world.z + jw[2];
+
+        const ddx = wx - prev.x, ddy = wy - prev.y, ddz = wz - prev.z;
+        const d = Math.hypot(ddx, ddy, ddz);
+        const maxD = prev.r + rNext;
+        if (d > maxD && d > 0) {
+          const k = maxD / d;
+          wx = prev.x + ddx * k; wy = prev.y + ddy * k; wz = prev.z + ddz * k;
+        }
+        prev = { x: wx, y: wy, z: wz, r: rNext };
+        created.push({ ...prev, group });
+
+        segFrom = { x: sx, y: sy };
+        accScreen = 0;
+        rNext = sampleRadius();
+        targetScreen = screenSpacingFor(overlapFactor * (prev.r + rNext));
+      }
+    }
+
+    if (snapLastToEnd) {
+      const endPt = pts[pts.length - 1];
+      const rEnd = sampleRadius();
+      const endWorld = unprojectScreen(endPt.x, endPt.y, zAtEnd);
+      const wx = endWorld.x, wy = endWorld.y, wz = endWorld.z;
+      const ddx = wx - prev.x, ddy = wy - prev.y, ddz = wz - prev.z;
+      const d = Math.hypot(ddx, ddy, ddz);
+      const maxD = prev.r + rEnd;
+      if (d > 0.15 * maxD) {
+        if (d > maxD) {
+          const steps = Math.min(Math.ceil(d / maxD), 500);
+          for (let i = 1; i <= steps; i++) {
+            const t = i / steps;
+            const ix = prev.x + ddx * t, iy = prev.y + ddy * t, iz = prev.z + ddz * t;
+            const ri = (i === steps) ? rEnd : sampleRadius();
+            created.push({ x: ix, y: iy, z: iz, r: ri, group });
+            prev = { x: ix, y: iy, z: iz, r: ri };
+          }
+        } else {
+          created.push({ x: wx, y: wy, z: wz, r: rEnd, group });
+        }
+      }
+    }
+
+    livePreview = [];
+    for (const s of created) spheres.push(s);
+    redoStack = [];
+    afterChange();
+    requestOverlay();
+  }
+
+  // ===== Undo / Redo =====
+  function undo() {
+    if (!spheres.length) return;
+    const g = spheres[spheres.length - 1].group;
+    const grp = [];
+    while (spheres.length && spheres[spheres.length - 1].group === g) grp.push(spheres.pop());
+    grp.reverse();
+    redoStack.push(grp);
+    afterChange();
+  }
+  function redo() {
+    const grp = redoStack.pop();
+    if (!grp) return;
+    for (const s of grp) spheres.push(s);
+    afterChange();
+  }
+  function clearAll() {
+    spheres.length = 0; redoStack = []; strokeGroup = 0;
+    pivot = { x: 0, y: 0, z: 0 }; panX = 0; panY = 0;
+    afterChange(false);
+  }
+
+  // ===== Input (pointer events: mouse, touch, pen) =====
+  const pointers = new Map();   // id -> {x, y, type, button, shift}
+  let gesture = { kind: null, id: null, last: null };
+  let latch = false;            // ignore leftover single pointer after multi-touch / stroke
+
+  function localPos(e) {
+    const r = canvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+  function singleAction(p) {
+    if (p.type === 'mouse') {
+      if (p.button === 2) return 'rotate';
+      if (p.button === 1 || p.shift) return 'pan';
+      return mode;
+    }
+    if (p.type === 'pen' && stylusMode) return 'draw';
+    if (stylusMode) return mode === 'pan' ? 'pan' : 'rotate';
+    return mode;
+  }
+  function relevantPointers() {
+    const all = [...pointers.entries()];
+    if (stylusMode) {
+      const pen = all.find(([, p]) => p.type === 'pen');
+      if (pen) return [pen];   // palm rejection: ignore everything else while the pen is down
+    }
+    return all;
+  }
+  function stateOf(rel) {
+    let cx = 0, cy = 0;
+    for (const [, p] of rel) { cx += p.x; cy += p.y; }
+    cx /= rel.length; cy /= rel.length;
+    let dist = null, angle = null;
+    if (rel.length >= 2) {
+      const a = rel[0][1], b = rel[1][1];
+      dist = Math.hypot(b.x - a.x, b.y - a.y);
+      angle = Math.atan2(b.y - a.y, b.x - a.x);
+    }
+    return { cx, cy, dist, angle };
+  }
+  function decide() {
+    const rel = relevantPointers();
+    let kind = null;
+    if (rel.length === 0) kind = null;
+    else if (rel.length >= 3) kind = 'pan';
+    else if (rel.length === 2) kind = 'multi';
+    else if (latch) kind = 'idle';
+    else kind = singleAction(rel[0][1]);
+
+    const newId = rel.length ? rel[0][0] : null;
+    if (gesture.kind === 'draw' && (kind !== 'draw' || gesture.id !== newId)) cancelStroke();
+    if (kind === 'draw' && gesture.kind !== 'draw') startStroke(rel[0][1].x, rel[0][1].y);
+    gesture.kind = kind;
+    gesture.id = newId;
+    gesture.last = (kind && kind !== 'draw' && kind !== 'idle') ? stateOf(rel) : null;
+  }
+
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  canvas.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });
+  canvas.addEventListener('auxclick', (e) => e.preventDefault());
+  document.addEventListener('gesturestart', (e) => e.preventDefault());
+
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse') {
+      for (const [id, p] of [...pointers]) if (p.type === 'mouse') pointers.delete(id);
+    }
+    try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+    const p = localPos(e);
+    pointers.set(e.pointerId, { x: p.x, y: p.y, type: e.pointerType, button: e.button, shift: e.shiftKey });
+    decide();
+    e.preventDefault();
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    const p = localPos(e);
+    const rec = pointers.get(e.pointerId);
+    if (!rec) {
+      if (e.pointerType === 'mouse' || e.pointerType === 'pen') {
+        brush.x = p.x; brush.y = p.y; brush.show = true;
+        requestOverlay();
+      }
+      return;
+    }
+    if (gesture.kind === 'draw' && gesture.id === e.pointerId) {
+      const evs = (e.getCoalescedEvents && e.getCoalescedEvents()) || [];
+      if (evs.length) for (const ev of evs) { const q = localPos(ev); extendStroke(q.x, q.y); }
+      else extendStroke(p.x, p.y);
+      rec.x = p.x; rec.y = p.y;
+      return;
+    }
+    rec.x = p.x; rec.y = p.y;
+    if (!gesture.kind || gesture.kind === 'idle' || !gesture.last) return;
+    const rel = relevantPointers();
+    if (!rel.length) return;
+    const st = stateOf(rel), last = gesture.last;
+    const dx = st.cx - last.cx, dy = st.cy - last.cy;
+    if (gesture.kind === 'rotate') {
+      applyRotationDelta(dx, dy);
+    } else if (gesture.kind === 'pan') {
+      panX += dx; panY += dy;
+    } else if (gesture.kind === 'multi') {
+      applyRotationDelta(dx, dy);
+      if (last.dist && st.dist) zoomAbout(st.cx, st.cy, st.dist / last.dist);
+      if (last.angle != null && st.angle != null) {
+        let da = st.angle - last.angle;
+        if (da > Math.PI) da -= 2 * Math.PI;
+        if (da < -Math.PI) da += 2 * Math.PI;
+        R = matMul(rotZ(da), R);
+      }
+    }
+    gesture.last = st;
+    draw();
+  });
+
+  function onPointerEnd(e) {
+    const rec = pointers.get(e.pointerId);
+    if (!rec) return;
+    const wasDraw = gesture.kind === 'draw' && gesture.id === e.pointerId;
+    pointers.delete(e.pointerId);
+    if (wasDraw) {
+      if (e.type === 'pointercancel') cancelStroke();
+      else { const q = localPos(e); extendStroke(q.x, q.y); endStroke(); }
+      gesture = { kind: null, id: null, last: null };
+      if (pointers.size > 0) latch = true;
+    } else if (pointers.size > 0 && (gesture.kind === 'multi' || gesture.kind === 'pan')) {
+      latch = true;
+    }
+    if (rec.type === 'touch') brush.show = false;
+    if (pointers.size === 0) {
+      latch = false;
+      gesture = { kind: null, id: null, last: null };
+    } else {
+      decide();
+    }
+    requestOverlay();
+  }
+  canvas.addEventListener('pointerup', onPointerEnd);
+  canvas.addEventListener('pointercancel', onPointerEnd);
+  canvas.addEventListener('lostpointercapture', onPointerEnd);
+  canvas.addEventListener('pointerleave', (e) => {
+    if (!pointers.has(e.pointerId)) { brush.show = false; requestOverlay(); }
+  });
+
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const p = localPos(e);
+    zoomAbout(p.x, p.y, Math.exp(-e.deltaY * 0.0015));
+    draw();
+  }, { passive: false });
+
+  // ===== Modes, sliders =====
+  function setMode(m) {
+    mode = m;
+    $('modeDraw').classList.toggle('active', m === 'draw');
+    $('modeRotate').classList.toggle('active', m === 'rotate');
+    $('modePan').classList.toggle('active', m === 'pan');
+    requestOverlay();
+    scheduleSave();
+  }
+  $('modeDraw').addEventListener('click', () => setMode('draw'));
+  $('modeRotate').addEventListener('click', () => setMode('rotate'));
+  $('modePan').addEventListener('click', () => setMode('pan'));
+
+  function updateSliderLabels() {
+    $('sizeVal').textContent = sizeSlider.value;
+    $('tempVal').textContent = tempSlider.value;
+    $('spreadVal').textContent = spreadSlider.value;
+    $('depthVal').textContent = depthSlider.value;
+  }
+  let sizePreviewTimer = 0;
+  sizeSlider.addEventListener('input', () => {
+    sphereRadius = parseFloat(sizeSlider.value);
+    updateSliderLabels();
+    brush.previewUntil = performance.now() + 1200;
+    requestOverlay();
+    clearTimeout(sizePreviewTimer);
+    sizePreviewTimer = setTimeout(requestOverlay, 1250);
+    scheduleSave();
+  });
+  tempSlider.addEventListener('input', () => {
+    temperature = parseFloat(tempSlider.value) / 100; updateSliderLabels(); scheduleSave();
+  });
+  spreadSlider.addEventListener('input', () => {
+    sizeSpread = parseFloat(spreadSlider.value) / 100; updateSliderLabels(); scheduleSave();
+  });
+  depthSlider.addEventListener('input', () => {
+    depthStrength = parseFloat(depthSlider.value) / 100;
+    updateSliderLabels(); clearSprites(); draw(); if (shareOverlay.classList.contains('visible')) drawShare();
+  });
+
+  $('btnUndo').addEventListener('click', undo);
+  $('btnRedo').addEventListener('click', redo);
+  $('btnHideUI').addEventListener('click', toggleUI);
+  function toggleUI() {
+    const hidden = document.body.classList.toggle('ui-hidden');
+    $('btnHideUI').textContent = hidden ? 'Show' : 'Hide';
+  }
+
+  // ===== Menu (⋯) =====
+  function openMenu() {
+    menuPanel.style.bottom = (bottomEl.offsetHeight + 6) + 'px';
+    optStylus.checked = stylusMode;
+    optFlip.checked = flipExport;
+    menuOverlay.classList.add('visible');
+  }
+  function closeMenu() { menuOverlay.classList.remove('visible'); }
+  $('btnMore').addEventListener('click', openMenu);
+  menuOverlay.addEventListener('pointerdown', (e) => { if (e.target === menuOverlay) closeMenu(); });
+  const menuAction = (id, fn) => $(id).addEventListener('click', () => { closeMenu(); fn(); });
+  menuAction('mFit', () => fitView(true));
+  menuAction('mReset', () => fitView(false));
+  menuAction('mColors', openColors);
+  menuAction('mShare', openSharePreview);
+  menuAction('mExport', exportAscii);
+  menuAction('mImport', () => $('fileInput').click());
+  menuAction('mHelp', () => helpOverlay.classList.add('visible'));
+  menuAction('mClear', () => {
+    if (!spheres.length) return;
+    if (confirm('Clear the entire aggregate?')) clearAll();
+  });
+  optStylus.addEventListener('change', () => { stylusMode = optStylus.checked; scheduleSave(); });
+  optFlip.addEventListener('change', () => { flipExport = optFlip.checked; scheduleSave(); });
+
+  // ===== Colors panel =====
+  function buildSwatches(container, presets, onPick) {
+    container.innerHTML = '';
+    for (const preset of presets) {
+      const el = document.createElement('div');
+      el.className = 'swatch';
+      el.title = preset.name;
+      el.dataset.value = preset.value;
+      if (preset.value === 'transparent') el.classList.add('checker');
+      else el.style.background = preset.value;
+      el.addEventListener('click', () => { onPick(preset.value); markActive(container, preset.value); });
+      container.appendChild(el);
+    }
+  }
+  function markActive(container, value) {
+    const v = String(value).toLowerCase();
+    for (const el of container.children) el.classList.toggle('active', el.dataset.value.toLowerCase() === v);
+  }
+  function refreshAfterColorChange() {
+    draw();
+    if (shareOverlay.classList.contains('visible')) drawShare();
+  }
+  function setBgColor(c) {
+    applyColors(c, sphereColor);
+    if (c !== 'transparent') bgCustomInput.value = c;
+    refreshAfterColorChange();
+  }
+  function setSphereColor(c) {
+    applyColors(bgColor, c);
+    sphereCustomInput.value = c;
+    refreshAfterColorChange();
+  }
+  buildSwatches(bgSwatchesEl, BG_PRESETS, setBgColor);
+  buildSwatches(sphereSwatchesEl, SPHERE_PRESETS, setSphereColor);
+  bgCustomInput.addEventListener('input', () => { setBgColor(bgCustomInput.value); markActive(bgSwatchesEl, bgColor); });
+  sphereCustomInput.addEventListener('input', () => { setSphereColor(sphereCustomInput.value); markActive(sphereSwatchesEl, sphereColor); });
+  function openColors() {
+    bgCustomInput.value = (bgColor === 'transparent') ? '#ffffff' : bgColor;
+    sphereCustomInput.value = sphereColor;
+    markActive(bgSwatchesEl, bgColor);
+    markActive(sphereSwatchesEl, sphereColor);
+    colorsOverlay.classList.add('visible');
+  }
+  $('btnColorsClose').addEventListener('click', () => colorsOverlay.classList.remove('visible'));
+  $('btnColorsReset').addEventListener('click', () => {
+    applyColors(DEFAULT_BG, DEFAULT_SPHERE);
+    bgCustomInput.value = DEFAULT_BG; sphereCustomInput.value = DEFAULT_SPHERE;
+    markActive(bgSwatchesEl, bgColor); markActive(sphereSwatchesEl, sphereColor);
+    refreshAfterColorChange();
+  });
+  colorsOverlay.addEventListener('click', (e) => { if (e.target === colorsOverlay) colorsOverlay.classList.remove('visible'); });
+
+  // ===== Help =====
+  $('btnHelpClose').addEventListener('click', () => helpOverlay.classList.remove('visible'));
+  helpOverlay.addEventListener('click', (e) => { if (e.target === helpOverlay) helpOverlay.classList.remove('visible'); });
+
+  // ===== Share preview =====
+  let pvR = identity3(), pvZoom = 1, pvPanX = 0, pvPanY = 0;
+  let pvPerspective = parseFloat(persSlider.value) / 100;
+
+  function openSharePreview() {
+    if (spheres.length === 0) { alert('Draw something first.'); return; }
+    pvR = R.slice();
+    pvPerspective = parseFloat(persSlider.value) / 100;
+    shareOverlay.classList.add('visible');
+    resizeShareCanvas();
+    fitPreview();
+    drawShare();
+  }
+  function closeSharePreview() { shareOverlay.classList.remove('visible'); }
+
+  function resizeShareCanvas() {
+    const d = dpr();
+    const rect = shareCanvas.getBoundingClientRect();
+    shareCanvas.width = Math.max(1, Math.round(rect.width * d));
+    shareCanvas.height = Math.max(1, Math.round(rect.height * d));
+    sctx.setTransform(d, 0, 0, d, 0, 0);
+  }
+
+  function fitPreview() {
+    const rect = shareCanvas.getBoundingClientRect();
+    const w = rect.width || 1, h = rect.height || 1;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const s of spheres) {
+      const v = applyMat(pvR, [s.x - pivot.x, s.y - pivot.y, s.z - pivot.z]);
+      x0 = Math.min(x0, v[0] - s.r); x1 = Math.max(x1, v[0] + s.r);
+      y0 = Math.min(y0, v[1] - s.r); y1 = Math.max(y1, v[1] + s.r);
+    }
+    const bw = Math.max(1e-6, x1 - x0), bh = Math.max(1e-6, y1 - y0);
+    pvZoom = clamp(Math.min(w * 0.86 / bw, h * 0.86 / bh), 0.02, 50);
+    pvPanX = -pvZoom * (x0 + x1) / 2;
+    pvPanY = -pvZoom * (y0 + y1) / 2;
+  }
+
+  function projectShare(w, h) {
+    const screenSize = Math.max(w, h);
+    const focal = pvPerspective <= 0 ? Infinity
+      : screenSize * Math.pow(0.067, pvPerspective) * 6 / pvZoom;
+    const n = spheres.length, items = new Array(n);
+    let zMin = Infinity, zMax = -Infinity;
+    for (let i = 0; i < n; i++) {
+      const s = spheres[i];
+      const v = applyMat(pvR, [s.x - pivot.x, s.y - pivot.y, s.z - pivot.z]);
+      let sx, sy, r;
+      if (!isFinite(focal)) {
+        sx = w/2 + pvPanX + v[0] * pvZoom;
+        sy = h/2 + pvPanY + v[1] * pvZoom;
+        r = s.r * pvZoom;
+      } else {
+        const d = Math.max(focal * 0.18, focal - v[2]);
+        const scale = pvZoom * (focal / d);
+        sx = w/2 + pvPanX + v[0] * scale;
+        sy = h/2 + pvPanY + v[1] * scale;
+        r = s.r * scale;
+      }
+      items[i] = { sx, sy, z: v[2], r };
+      if (v[2] < zMin) zMin = v[2];
+      if (v[2] > zMax) zMax = v[2];
+    }
+    items.sort((a, b) => a.z - b.z);
+    return { items, zMin, zRange: Math.max(1e-6, zMax - zMin) };
+  }
+
+  // Crop box + output scale for the share image, in preview coordinates.
+  function shareGeometry(items, w, h) {
+    let x0 = 0, y0 = 0, cw = w, ch = h;
+    if (cropChk.checked && items.length) {
+      let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity, maxR = 0;
+      for (const it of items) {
+        const r = Math.max(0.5, it.r);
+        a = Math.min(a, it.sx - r); c = Math.max(c, it.sx + r);
+        b = Math.min(b, it.sy - r); d = Math.max(d, it.sy + r);
+        maxR = Math.max(maxR, r);
+      }
+      const bw = c - a, bh = d - b;
+      const pad = Math.max(8, 0.05 * Math.max(bw, bh), 0.15 * maxR);
+      x0 = a - pad; y0 = b - pad; cw = bw + 2 * pad; ch = bh + 2 * pad;
+    }
+    const req = parseFloat(resSel.value) || 2;
+    const scale = Math.min(req, MAX_EXPORT_DIM / Math.max(cw, ch));
+    return { x0, y0, cw, ch, scale };
+  }
+
+  function drawShareNow() {
+    if (!shareOverlay.classList.contains('visible')) return;
+    const rect = shareCanvas.getBoundingClientRect();
+    const w = rect.width, h = rect.height;
+    sctx.clearRect(0, 0, w, h);
+    paintBackground(sctx, w, h);
+    if (!spheres.length) return;
+    const P = projectShare(w, h);
+    paintSpheres(sctx, P.items, P.zMin, P.zRange, currentShadowScale(), dpr(), { w, h });
+    const g = shareGeometry(P.items, w, h);
+    if (cropChk.checked) {
+      sctx.save();
+      sctx.setLineDash([6, 4]);
+      sctx.lineWidth = 1.5;
+      sctx.strokeStyle = strokeContrastColor();
+      sctx.strokeRect(g.x0, g.y0, g.cw, g.ch);
+      sctx.restore();
+    }
+    $('outSize').textContent = `${Math.round(g.cw * g.scale)} × ${Math.round(g.ch * g.scale)} px`;
+  }
+
+  function renderShareExport() {
+    const rect = shareCanvas.getBoundingClientRect();
+    const w = rect.width, h = rect.height;
+    const P = projectShare(w, h);
+    const g = shareGeometry(P.items, w, h);
+    const out = document.createElement('canvas');
+    out.width = Math.max(1, Math.round(g.cw * g.scale));
+    out.height = Math.max(1, Math.round(g.ch * g.scale));
+    const c = out.getContext('2d');
+    c.setTransform(g.scale, 0, 0, g.scale, -g.x0 * g.scale, -g.y0 * g.scale);
+    const transparent = bgColor === 'transparent';
+    if (!transparent) { c.fillStyle = bgColor; c.fillRect(g.x0, g.y0, g.cw, g.ch); }
+    paintSpheres(c, P.items, P.zMin, P.zRange, transparent ? 0 : currentShadowScale(), g.scale, null);
+    return out;
+  }
+
+  // Preview gestures
+  const pvPointers = new Map();
+  let pvLast = null;
+  function pvPos(e) {
+    const r = shareCanvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+  function pvState() {
+    const pts = [...pvPointers.values()];
+    if (!pts.length) return null;
+    let cx = 0, cy = 0;
+    for (const p of pts) { cx += p.x; cy += p.y; }
+    cx /= pts.length; cy /= pts.length;
+    let dist = null, angle = null;
+    if (pts.length >= 2) {
+      dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+      angle = Math.atan2(pts[1].y - pts[0].y, pts[1].x - pts[0].x);
+    }
+    return { cx, cy, dist, angle, n: pts.length };
+  }
+  function pvZoomAbout(cx, cy, ratio) {
+    const rect = shareCanvas.getBoundingClientRect();
+    const w = rect.width, h = rect.height;
+    const vx = (cx - w/2 - pvPanX) / pvZoom, vy = (cy - h/2 - pvPanY) / pvZoom;
+    pvZoom = clamp(pvZoom * ratio, 0.02, 50);
+    pvPanX = cx - w/2 - vx * pvZoom;
+    pvPanY = cy - h/2 - vy * pvZoom;
+  }
+  shareCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  shareCanvas.addEventListener('pointerdown', (e) => {
+    try { shareCanvas.setPointerCapture(e.pointerId); } catch (_) {}
+    const p = pvPos(e);
+    pvPointers.set(e.pointerId, { x: p.x, y: p.y, pan: e.pointerType === 'mouse' && (e.button === 1 || e.shiftKey) });
+    pvLast = pvState();
+    e.preventDefault();
+  });
+  shareCanvas.addEventListener('pointermove', (e) => {
+    const rec = pvPointers.get(e.pointerId);
+    if (!rec) return;
+    const p = pvPos(e);
+    rec.x = p.x; rec.y = p.y;
+    const st = pvState();
+    if (pvLast && st && pvLast.n === st.n) {
+      const dx = st.cx - pvLast.cx, dy = st.cy - pvLast.cy;
+      if (st.n >= 3 || rec.pan) {
+        pvPanX += dx; pvPanY += dy;
+      } else {
+        pvR = matMul(matMul(rotY(dx * 0.008), rotX(dy * 0.008)), pvR);
+        if (st.dist && pvLast.dist) pvZoomAbout(st.cx, st.cy, st.dist / pvLast.dist);
+        if (st.angle != null && pvLast.angle != null) {
+          let da = st.angle - pvLast.angle;
+          if (da > Math.PI) da -= 2 * Math.PI;
+          if (da < -Math.PI) da += 2 * Math.PI;
+          pvR = matMul(rotZ(da), pvR);
+        }
+      }
+      drawShare();
+    }
+    pvLast = st;
+  });
+  function pvEnd(e) { pvPointers.delete(e.pointerId); pvLast = pvState(); }
+  shareCanvas.addEventListener('pointerup', pvEnd);
+  shareCanvas.addEventListener('pointercancel', pvEnd);
+  shareCanvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const p = pvPos(e);
+    pvZoomAbout(p.x, p.y, Math.exp(-e.deltaY * 0.0015));
+    drawShare();
+  }, { passive: false });
+
+  persSlider.addEventListener('input', () => { pvPerspective = parseFloat(persSlider.value) / 100; drawShare(); });
+  cropChk.addEventListener('change', drawShare);
+  resSel.addEventListener('change', drawShare);
+  $('btnShareFit').addEventListener('click', () => { fitPreview(); drawShare(); });
+  $('btnSharePreviewCancel').addEventListener('click', closeSharePreview);
+  $('btnSharePreviewDone').addEventListener('click', () => {
+    const out = renderShareExport();
+    out.toBlob(async (blob) => {
+      if (!blob) { alert('Could not create image.'); return; }
+      await shareBlob(blob, 'aggregate.png', 'image/png', 'Sphere aggregate');
+      closeSharePreview();
+    }, 'image/png');
+  });
+
+  function isMobileDevice() {
+    if (navigator.userAgentData && typeof navigator.userAgentData.mobile === 'boolean') {
+      return navigator.userAgentData.mobile;
+    }
+    const uaMobile = /Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent || '');
+    return uaMobile || (navigator.maxTouchPoints || 0) > 1;
+  }
+
+  async function shareBlob(blob, filename, mime, title) {
+    const file = new File([blob], filename, { type: mime });
+    if (isMobileDevice() && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title });
+        return;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        console.warn('navigator.share failed:', err);
+      }
+    }
+    const url = URL.createObjectURL(blob);
+    try {
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.rel = 'noopener';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (err) {
+      URL.revokeObjectURL(url);
+      const win = window.open(URL.createObjectURL(blob), '_blank');
+      if (!win) alert('Could not share or download. Check your browser settings.');
+    }
+  }
+
+  // ===== Export / Import (ASCII) =====
+  function fmt(v) { return Number(v.toPrecision(6)).toString(); }
+
+  function exportAscii() {
+    if (spheres.length === 0) { alert('Nothing to export — draw something first.'); return; }
+    const sgn = flipExport ? -1 : 1;
+    const lines = [String(spheres.length)];
+    for (let i = 0; i < spheres.length; i++) {
+      const s = spheres[i];
+      lines.push(`${i + 1} ${fmt(s.r)} ${fmt(s.x)} ${fmt(sgn * s.y)} ${fmt(s.z)}`);
+    }
+    const blob = new Blob([lines.join('\n') + '\n'], { type: 'text/plain' });
+    shareBlob(blob, 'aggregate.txt', 'text/plain', 'Sphere aggregate data');
+  }
+
+  function parseAggregate(text) {
+    const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    const out = [];
+    const sgn = flipExport ? -1 : 1;
+    let start = 0;
+    if (lines.length && /^\d+$/.test(lines[0])) start = 1;
+    for (let i = start; i < lines.length; i++) {
+      const p = lines[i].split(/[\s,;]+/).map(Number);
+      if (p.length >= 5 && p.slice(0, 5).every(Number.isFinite) && p[1] > 0) {
+        out.push({ r: p[1], x: p[2], y: sgn * p[3], z: p[4] });
+      }
+    }
+    return out;
+  }
+
+  $('fileInput').addEventListener('change', async (e) => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    try {
+      const parsed = parseAggregate(await f.text());
+      if (!parsed.length) {
+        alert('No spheres found. Expected: first line = count, then "index radius x y z" per line.');
+        return;
+      }
+      if (spheres.length && !confirm(`Replace the current aggregate (${spheres.length} spheres) with ${parsed.length} imported spheres?`)) return;
+      spheres.length = 0; redoStack = []; strokeGroup = 1;
+      for (const p of parsed) spheres.push({ x: p.x, y: p.y, z: p.z, r: p.r, group: 1 });
+      R = identity3();
+      recomputeAggregate(false);
+      updateStats(); updateButtons(); updateHint();
+      fitView(false);
+    } catch (err) {
+      alert('Could not read that file.');
+      console.warn(err);
+    }
+  });
+
+  // ===== Persistence (localStorage autosave) =====
+  let saveTimer = 0;
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, 500);
+  }
+  function saveNow() {
+    clearTimeout(saveTimer);
+    try {
+      const q = (v) => Math.round(v * 1000) / 1000;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        v: 1,
+        spheres: spheres.map(s => [q(s.x), q(s.y), q(s.z), q(s.r), s.group]),
+        strokeGroup, R: R.map(q), zoom, panX, panY,
+        bgColor, sphereColor,
+        size: sizeSlider.value, temp: tempSlider.value, spread: spreadSlider.value, depth: depthSlider.value,
+        mode, stylusMode, flipExport,
+      }));
+    } catch (_) { /* storage full or unavailable */ }
+  }
+  window.addEventListener('pagehide', saveNow);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveNow(); });
+
+  function loadState() {
+    let d = null;
+    try { d = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch (_) {}
+    if (!d || d.v !== 1) return;
+    const num = (v, def) => (typeof v === 'number' && isFinite(v)) ? v : def;
+    if (Array.isArray(d.spheres)) {
+      for (const a of d.spheres) {
+        if (Array.isArray(a) && a.length >= 5 && a.slice(0, 5).every(Number.isFinite) && a[3] > 0) {
+          spheres.push({ x: a[0], y: a[1], z: a[2], r: a[3], group: a[4] });
+        }
+      }
+    }
+    strokeGroup = Math.max(num(d.strokeGroup, 0), spheres.reduce((m, s) => Math.max(m, s.group), 0));
+    if (Array.isArray(d.R) && d.R.length === 9 && d.R.every(Number.isFinite)) R = d.R;
+    zoom = clamp(num(d.zoom, 1), 0.02, 50);
+    recomputeAggregate(false);
+    panX = num(d.panX, 0); panY = num(d.panY, 0);
+    const okHex = (c) => typeof c === 'string' && /^#[0-9a-fA-F]{6}$/.test(c);
+    applyColors(okHex(d.bgColor) || d.bgColor === 'transparent' ? d.bgColor : DEFAULT_BG,
+                okHex(d.sphereColor) ? d.sphereColor : DEFAULT_SPHERE);
+    const setSlider = (el, v) => { if (v != null && isFinite(parseFloat(v))) el.value = v; };
+    setSlider(sizeSlider, d.size); setSlider(tempSlider, d.temp);
+    setSlider(spreadSlider, d.spread); setSlider(depthSlider, d.depth);
+    sphereRadius = parseFloat(sizeSlider.value);
+    temperature = parseFloat(tempSlider.value) / 100;
+    sizeSpread = parseFloat(spreadSlider.value) / 100;
+    depthStrength = parseFloat(depthSlider.value) / 100;
+    if (d.mode === 'draw' || d.mode === 'rotate' || d.mode === 'pan') setMode(d.mode);
+    stylusMode = !!d.stylusMode;
+    flipExport = d.flipExport !== false;
+  }
+
+  // ===== Keyboard =====
+  function anyModalOpen() {
+    return [helpOverlay, colorsOverlay, shareOverlay, menuOverlay].some(el => el.classList.contains('visible'));
+  }
+  function closeAllModals() {
+    let closed = false;
+    for (const el of [helpOverlay, colorsOverlay, shareOverlay, menuOverlay]) {
+      if (el.classList.contains('visible')) { el.classList.remove('visible'); closed = true; }
+    }
+    return closed;
+  }
+  window.addEventListener('keydown', (e) => {
+    if (e.target && e.target.tagName === 'SELECT') return;
+    const mod = e.ctrlKey || e.metaKey;
+    if (e.key === 'Escape') { if (closeAllModals()) e.preventDefault(); return; }
+    if (anyModalOpen()) return;
+    const k = e.key.toLowerCase();
+    if (mod && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+    if (mod && k === 'y') { e.preventDefault(); redo(); return; }
+    if (mod || e.altKey) return;
+    if (k === 'd') setMode('draw');
+    else if (k === 'r') setMode('rotate');
+    else if (k === 'p') setMode('pan');
+    else if (k === 'f') fitView(true);
+    else if (k === 'h') toggleUI();
+  });
+
+  // ===== Go =====
+  loadState();
+  updateSliderLabels();
+  optStylus.checked = stylusMode;
+  optFlip.checked = flipExport;
+  updateStats(); updateButtons(); updateHint();
+  resize();
+})();
+</script>
+</body>
+</html>
