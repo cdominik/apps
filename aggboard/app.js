@@ -9,7 +9,7 @@
   // Configuration
   // ============================================================
   // Bump on every release: shown in the menu, and used to bypass cached program files.
-  const VERSION = '2026.10.18-14';
+  const VERSION = '2026.10.18-15';
   window.AGGBOARD_VERSION = VERSION;
   const CONFIG = {
     MENU_URL: null,            // e.g. '../index.html' to show a "back to menu" button
@@ -2131,7 +2131,7 @@
   const widthsEl = $('widths');
   WIDTHS.forEach((w, i) => {
     const b = document.createElement('button');
-    b.className = 'wbtn'; b.title = ['Thin', 'Medium', 'Thick'][i]; b.setAttribute('aria-label', b.title + ' line');
+    b.className = 'wbtn'; b.title = ['Thin', 'Medium', 'Thick'][i] + ' ([ / ])'; b.setAttribute('aria-label', ['Thin', 'Medium', 'Thick'][i] + ' line');
     const dot = document.createElement('span');
     const px = [4, 7, 12][i];
     dot.style.width = dot.style.height = px + 'px';
@@ -2773,6 +2773,12 @@
     const tools = { p: 'pen', e: 'eraser', s: 'select', l: 'laser', a: 'aggregate', c: 'chain' };
     if (tools[k]) { setTool(tools[k]); return; }
     if (k >= '1' && k <= '5') { setColor(INK[+k - 1].v); return; }
+    if (e.key === '[' || e.key === ']') {   // thinner / thicker line
+      const i = clamp(settings.width + (e.key === ']' ? 1 : -1), 0, WIDTHS.length - 1);
+      if (i !== settings.width) setWidth(i);
+      toast(['Thin', 'Medium', 'Thick'][i] + ' line', 1200);
+      return;
+    }
     if (k === '0') fitPage();
   });
 

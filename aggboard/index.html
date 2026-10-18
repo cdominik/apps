@@ -422,7 +422,7 @@
     <ul>
       <li><b>&hellip; &rarr; Settings &rarr; Finger input:</b> <i>Auto</i> (fingers draw until a pencil is detected), <i>Draw</i> (one finger always draws), <i>Pan &amp; zoom</i> (one finger always moves the page). Your palm is ignored while the pencil is on the screen.</li>
       <li><b>Mouse / trackpad:</b> click to draw or select, double-click an aggregate for its settings, right- or middle-drag to pan, two-finger swipe to pan, pinch or Ctrl + wheel to zoom.</li>
-      <li><b>Keys:</b> <kbd>P</kbd> pen &middot; <kbd>E</kbd> eraser &middot; <kbd>S</kbd> select &middot; <kbd>L</kbd> laser &middot; <kbd>C</kbd> chain &middot; <kbd>A</kbd> aggregate &middot; <kbd>1</kbd>&ndash;<kbd>5</kbd> colours &middot; <kbd>Ctrl/&#8984; Z</kbd> undo &middot; <kbd>Ctrl/&#8984; Shift Z</kbd> redo &middot; <kbd>Ctrl/&#8984; D</kbd> duplicate &middot; <kbd>Delete</kbd> delete selection &middot; <kbd>PgUp</kbd>/<kbd>PgDn</kbd> pages &middot; <kbd>0</kbd> fit page &middot; <kbd>Esc</kbd> close menus and dialogs, or deselect.</li>
+      <li><b>Keys:</b> <kbd>P</kbd> pen &middot; <kbd>E</kbd> eraser &middot; <kbd>S</kbd> select &middot; <kbd>L</kbd> laser &middot; <kbd>C</kbd> chain &middot; <kbd>A</kbd> aggregate &middot; <kbd>1</kbd>&ndash;<kbd>5</kbd> colours &middot; <kbd>[</kbd> / <kbd>]</kbd> thinner / thicker line &middot; <kbd>Ctrl/&#8984; Z</kbd> undo &middot; <kbd>Ctrl/&#8984; Shift Z</kbd> redo &middot; <kbd>Ctrl/&#8984; D</kbd> duplicate &middot; <kbd>Delete</kbd> delete selection &middot; <kbd>PgUp</kbd>/<kbd>PgDn</kbd> pages &middot; <kbd>0</kbd> fit page &middot; <kbd>Esc</kbd> close menus and dialogs, or deselect.</li>
     </ul>
 
     <h3>If something goes wrong</h3>
@@ -448,12 +448,12 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="aggregate-engine.js?v=2026.10.18-14"></script>
-<script src="app.js?v=2026.10.18-14"></script>
+<script src="aggregate-engine.js?v=2026.10.18-15"></script>
+<script src="app.js?v=2026.10.18-15"></script>
 <script>
   // Warn if the browser mixed files from different releases (e.g. a stale cached app.js).
   (function () {
-    var want = '2026.10.18-14';
+    var want = '2026.10.18-15';
     var okApp = window.AGGBOARD_VERSION === want;
     var okEngine = window.AggEngine && window.AggEngine.release === want;
     if (okApp && okEngine) return;
