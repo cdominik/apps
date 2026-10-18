@@ -23,13 +23,13 @@
 <div class="max-w-4xl mx-auto bg-white dark:bg-gray-800 shadow-md dark:shadow-none rounded p-3 w-full border border-transparent dark:border-gray-700">
 
   <div class="mb-3 flex flex-wrap gap-2 items-center">
-    <button onclick="setLocation('Voorschoten', true)" id="btn-Voorschoten" class="loc-btn px-3 py-1.5 rounded text-sm shadow">Voorschoten</button>
-    <button onclick="setLocation('AMS', true)" id="btn-AMS" class="loc-btn px-3 py-1.5 rounded text-sm shadow">AMS</button>
-    <button onclick="autoLocate(true)" id="btn-auto" class="px-3 py-1.5 rounded bg-gray-800 dark:bg-gray-600 hover:bg-gray-900 dark:hover:bg-gray-500 text-white text-sm shadow flex items-center gap-1">
+    <div id="loc-buttons" class="contents"></div>
+    <button onclick="autoLocate(true)" class="px-3 py-1.5 rounded bg-gray-800 dark:bg-gray-600 hover:bg-gray-900 dark:hover:bg-gray-500 text-white text-sm shadow flex items-center gap-1">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
       Auto
     </button>
     <span id="location-status" class="text-xs text-gray-500 dark:text-gray-400 ml-auto"></span>
+    <button onclick="openEditor()" aria-label="Edit locations and trips" class="w-8 h-8 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 shadow flex items-center justify-center active:scale-95"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg></button>
     <button onclick="updateApp()" aria-label="Refresh" class="w-8 h-8 rounded bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white shadow flex items-center justify-center active:scale-95"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
   </div>
 
@@ -45,51 +45,81 @@
       <div id="train-content" class="space-y-2 text-sm text-gray-500 dark:text-gray-400">Loading…</div>
     </div>
   </div>
+</div>
 
-  <div class="mt-3 flex flex-row gap-2 items-center bg-gray-50 dark:bg-gray-800 p-2 rounded border dark:border-gray-700">
-    <div class="flex-1 min-w-0"><input type="url" id="proxy-url" placeholder="Worker URL, e.g. https://ns.yourname.workers.dev" class="w-full border dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white p-1.5 text-sm rounded focus:outline-none focus:border-blue-500 dark:focus:border-blue-400" /></div>
-    <button onclick="saveProxy()" class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-1.5 text-sm rounded shadow whitespace-nowrap active:scale-95">Save</button>
+<!-- Editor -->
+<div id="editor" class="hidden fixed inset-0 z-50 bg-black/50 overflow-y-auto p-2">
+  <div class="bg-white dark:bg-gray-800 rounded shadow-xl w-full max-w-2xl mx-auto my-4 p-3 border dark:border-gray-700">
+    <div class="flex items-center justify-between gap-2 mb-2">
+      <h2 class="text-lg font-bold">Locations and trips</h2>
+      <div class="flex gap-2">
+        <button onclick="closeEditor(false)" class="px-3 py-1.5 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm">Cancel</button>
+        <button onclick="closeEditor(true)" class="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm shadow">Save</button>
+      </div>
+    </div>
+    <div id="stations-status" class="text-xs text-gray-500 dark:text-gray-400 mb-2"></div>
+    <div id="editor-body" class="space-y-3"></div>
+    <div class="mt-3 flex flex-wrap gap-2">
+      <button onclick="addLocation()" class="px-3 py-1.5 rounded bg-gray-800 dark:bg-gray-600 hover:bg-gray-900 dark:hover:bg-gray-500 text-white text-sm">Add location</button>
+      <button onclick="copySetup()" class="px-3 py-1.5 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm">Copy setup</button>
+      <button onclick="pasteSetup()" class="px-3 py-1.5 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm">Paste setup</button>
+      <button onclick="resetSetup()" class="px-3 py-1.5 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-gray-700 text-sm ml-auto">Reset to default</button>
+    </div>
   </div>
 </div>
 
 <script>
 window.onerror = (m) => { const el = document.getElementById('debug-error'); el.innerText = `Crash: ${m}`; el.classList.remove('hidden'); };
 
-const coords = { Voorschoten: { lat: 52.1258, lon: 4.4447 }, AMS: { lat: 52.3702, lon: 4.8952 } };
-// Station codes: VST Voorschoten, DVD Duivendrecht, ASSP Amsterdam Science Park,
-// ASD Amsterdam Centraal, LDL Leiden Lammenschans, UT Utrecht Centraal. (ASA is Amsterdam Amstel!)
-const trainRoutes = {
-  Voorschoten: [
+// ===== Settings =====
+// Paste your Worker URL here so every device works without setup. Not a secret: the NS key stays in the Worker.
+const DEFAULT_PROXY = 'https://ns-commute.carsten-dominik.workers.dev/';
+const FETCH_MS = 5 * 60 * 1000;   // fetch new train/rain data every 5 min while visible
+const TICK_MS = 30 * 1000;        // update "in Xm" countdowns locally every 30 s (no API calls)
+const TIMEOUT_MS = 10000;
+
+// Used until you change things in the editor (and by "Reset to default").
+const DEFAULT_CONFIG = { locations: [
+  { id: 'Voorschoten', name: 'Voorschoten', lat: 52.1258, lon: 4.4447, routes: [
     { from: 'vst', to: 'dvd', label: 'Vst → Dvd', fromName: 'Voorschoten', toName: 'Duivendrecht' },
     { from: 'vst', to: 'assp', label: 'Vst → Sci Park', fromName: 'Voorschoten', toName: 'Amsterdam Science Park' },
     { from: 'ldl', to: 'ut', label: 'Lammenschans → Utrecht', fromName: 'Leiden Lammenschans', toName: 'Utrecht Centraal' }
-  ],
-  AMS: [
+  ]},
+  { id: 'AMS', name: 'AMS', lat: 52.3702, lon: 4.8952, routes: [
     { from: 'dvd', to: 'vst', label: 'Dvd → Vst', fromName: 'Duivendrecht', toName: 'Voorschoten' },
     { from: 'assp', to: 'vst', label: 'Sci Park → Vst', fromName: 'Amsterdam Science Park', toName: 'Voorschoten' },
     { from: 'assp', to: 'asd', label: 'Sci Park → Centraal', fromName: 'Amsterdam Science Park', toName: 'Amsterdam Centraal' },
     { from: 'asd', to: 'assp', label: 'Centraal → Sci Park', fromName: 'Amsterdam Centraal', toName: 'Amsterdam Science Park' }
-  ]
-};
+  ]}
+]};
 
-// Paste your Worker URL here so every device works without setup. Not a secret: the NS key stays in the Worker.
-const DEFAULT_PROXY = 'https://ns-commute.carsten-dominik.workers.dev';
-const REFRESH_MS = 2 * 60 * 1000;
-const TIMEOUT_MS = 10000;
-let currentLoc = 'Voorschoten', geoWatchId = null, isLive = false, generation = 0, lastUpdated = null;
-
-// --- storage helpers (never let storage errors break the app) ---
+// ===== Helpers =====
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch {} },
   del(k) { try { localStorage.removeItem(k); } catch {} }
 };
-
+const $ = id => document.getElementById(id);
+const clone = o => JSON.parse(JSON.stringify(o));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmtTime = d => d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+const CODE_RE = /^[a-z]{2,6}$/i;
 
-async function fetchJSON(url) {
+function el(tag, cls = '', text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function btn(text, cls, onClick, title) {
+  const b = el('button', cls, text);
+  b.type = 'button'; b.onclick = onClick; if (title) { b.title = title; b.setAttribute('aria-label', title); }
+  return b;
+}
+
+async function fetchJSON(url, timeout = TIMEOUT_MS) {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => ctrl.abort(), timeout);
   try {
     const res = await fetch(url, { cache: 'no-store', signal: ctrl.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -101,14 +131,41 @@ async function fetchJSON(url) {
   }
 }
 
-// --- location ---
+function normalizeProxy(v) {
+  v = (v || '').trim();
+  if (v && !/^https?:\/\//i.test(v)) v = 'https://' + v;
+  return v.split('?')[0].replace(/\/(trips|stations)\/?$/, '').replace(/\/+$/, '');
+}
+const getProxy = () => store.get('proxyUrl') || DEFAULT_PROXY;
+
+// ===== Config =====
+function validConfig(c) {
+  return c && Array.isArray(c.locations) && c.locations.length > 0 && c.locations.every(l =>
+    l && l.id && typeof l.name === 'string' && Number.isFinite(l.lat) && Number.isFinite(l.lon) &&
+    Array.isArray(l.routes) && l.routes.every(r => r && CODE_RE.test(r.from) && CODE_RE.test(r.to)));
+}
+function loadConfig() {
+  try { const c = JSON.parse(store.get('config')); if (validConfig(c)) return c; } catch {}
+  return clone(DEFAULT_CONFIG);
+}
+let config = loadConfig();
+const locById = id => config.locations.find(l => l.id === id);
+const routeLabel = r => r.label || `${r.fromName || r.from.toUpperCase()} → ${r.toName || r.to.toUpperCase()}`;
+
+// ===== State =====
+let currentLoc = config.locations[0].id, geoWatchId = null, isLive = false, generation = 0, lastUpdated = null, statusMsg = '';
+let trainCache = null; // { locId, routes, results } — re-rendered every tick without new API calls
+
+// ===== Location =====
 function renderLocButtons() {
-  for (const loc of ['Voorschoten', 'AMS']) {
-    const active = loc === currentLoc;
-    document.getElementById(`btn-${loc}`).className = 'loc-btn px-3 py-1.5 rounded text-sm shadow ' +
-      (active ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200');
+  const wrap = $('loc-buttons'); wrap.innerHTML = '';
+  for (const l of config.locations) {
+    const active = l.id === currentLoc;
+    wrap.appendChild(btn(l.name || 'Unnamed', 'px-3 py-1.5 rounded text-sm shadow ' +
+      (active ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200'),
+      () => setLocation(l.id, true)));
   }
-  document.getElementById('rain-title').innerText = `Rain: ${currentLoc}`;
+  $('rain-title').innerText = `Rain: ${locById(currentLoc)?.name || ''}`;
 }
 
 function stopWatching() {
@@ -116,12 +173,22 @@ function stopWatching() {
   isLive = false;
 }
 
-function setLocation(loc, userAction = false) {
-  if (userAction) { store.set('locationPref', loc); stopWatching(); }
-  currentLoc = loc;
+function setLocation(id, userAction = false) {
+  if (userAction) { store.set('locationPref', id); stopWatching(); }
+  currentLoc = locById(id) ? id : config.locations[0].id;
   renderLocButtons();
   renderStatus();
   updateApp();
+}
+
+function nearestLocation(lat, lon) {
+  const k = Math.cos(lat * Math.PI / 180);
+  let best = config.locations[0], bestD = Infinity;
+  for (const l of config.locations) {
+    const d = Math.hypot(lat - l.lat, (lon - l.lon) * k);
+    if (d < bestD) { bestD = d; best = l; }
+  }
+  return best.id;
 }
 
 function autoLocate(userAction = false) {
@@ -129,11 +196,9 @@ function autoLocate(userAction = false) {
   if (!navigator.geolocation) { setStatusMsg('No GPS'); updateApp(); return; }
   stopWatching();
   renderLocButtons();
-  updateApp(); // load last known location right away; switch when GPS answers
+  updateApp(); // show last location right away; switch when GPS answers
   geoWatchId = navigator.geolocation.watchPosition(pos => {
-    const { latitude: lat, longitude: lon } = pos.coords;
-    const dist = c => Math.hypot(lat - c.lat, lon - c.lon);
-    const detected = dist(coords.AMS) < dist(coords.Voorschoten) ? 'AMS' : 'Voorschoten';
+    const detected = nearestLocation(pos.coords.latitude, pos.coords.longitude);
     isLive = true;
     if (detected !== currentLoc) setLocation(detected, false); else renderStatus();
   }, err => {
@@ -142,28 +207,28 @@ function autoLocate(userAction = false) {
   }, { enableHighAccuracy: false, maximumAge: 5 * 60 * 1000, timeout: 20000 });
 }
 
-let statusMsg = '';
 function setStatusMsg(m) { statusMsg = m; renderStatus(); }
 function renderStatus() {
   const parts = [];
   if (isLive) parts.push('<span class="text-green-600 dark:text-green-400 font-medium">Live</span>');
-  else if (statusMsg) parts.push(`<span class="text-amber-600 dark:text-amber-400">${statusMsg}</span>`);
+  else if (statusMsg) parts.push(`<span class="text-amber-600 dark:text-amber-400">${esc(statusMsg)}</span>`);
   if (lastUpdated) parts.push(`updated ${fmtTime(lastUpdated)}`);
-  document.getElementById('location-status').innerHTML = parts.join(' &nbsp;');
+  $('location-status').innerHTML = parts.join(' &nbsp;');
 }
 
-// --- main refresh ---
+// ===== Refresh =====
 async function updateApp() {
   const gen = ++generation; // responses from older refreshes are ignored
-  const loc = currentLoc;
-  await Promise.allSettled([fetchRain(loc, gen), fetchTrains(loc, gen)]);
+  const locId = currentLoc;
+  await Promise.allSettled([fetchRain(locId, gen), fetchTrains(locId, gen)]);
   if (gen === generation) { lastUpdated = new Date(); renderStatus(); }
 }
 
-// --- rain ---
-async function fetchRain(loc, gen) {
-  const c = coords[loc];
-  const errEl = document.getElementById('rain-error');
+// ===== Rain =====
+async function fetchRain(locId, gen) {
+  const c = locById(locId);
+  const errEl = $('rain-error');
+  if (!c) return;
   try {
     const data = await fetchJSON(`https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&minutely_15=precipitation&timeformat=unixtime&timezone=auto&past_minutely_15=1&forecast_minutely_15=8`);
     if (gen !== generation) return;
@@ -174,16 +239,14 @@ async function fetchRain(loc, gen) {
     times.forEach((t, i) => { if (t <= now) start = i; }); // current 15-min slot
     const precip = vals.slice(start, start + 8).map(v => v ?? 0);
     const max = Math.max(0.5, ...precip);
-    const bars = document.getElementById('rain-bars'), labels = document.getElementById('rain-labels');
+    const bars = $('rain-bars'), labels = $('rain-labels');
     bars.innerHTML = ''; labels.innerHTML = '';
     precip.forEach((val, i) => {
-      const col = document.createElement('div'); col.className = 'flex-1 flex flex-col justify-end relative h-full';
-      const bar = document.createElement('div'); bar.className = 'bar'; bar.style.height = `${(val / max) * 100}%`; col.appendChild(bar);
-      if (val > 0) { const v = document.createElement('div'); v.className = 'bar-value'; v.innerText = val.toFixed(1); col.appendChild(v); }
+      const col = el('div', 'flex-1 flex flex-col justify-end relative h-full');
+      const bar = el('div', 'bar'); bar.style.height = `${(val / max) * 100}%`; col.appendChild(bar);
+      if (val > 0) col.appendChild(el('div', 'bar-value', val.toFixed(1)));
       bars.appendChild(col);
-      const l = document.createElement('div'); l.className = 'bar-label flex-1';
-      l.innerText = fmtTime(new Date(times[start + i] * 1000));
-      labels.appendChild(l);
+      labels.appendChild(el('div', 'bar-label flex-1', fmtTime(new Date(times[start + i] * 1000))));
     });
     errEl.innerText = '';
   } catch (e) {
@@ -191,16 +254,7 @@ async function fetchRain(loc, gen) {
   }
 }
 
-// --- trains ---
-function saveProxy() {
-  let v = document.getElementById('proxy-url').value.trim();
-  if (v && !/^https?:\/\//i.test(v)) v = 'https://' + v;   // add missing scheme
-  v = v.split('?')[0].replace(/\/trips\/?$/, '').replace(/\/+$/, ''); // strip /trips?... and trailing slash
-  document.getElementById('proxy-url').value = v;
-  store.set('proxyUrl', v);
-  updateApp();
-}
-
+// ===== Trains =====
 function tripTimes(t) {
   const first = t.legs[0].origin, last = t.legs[t.legs.length - 1].destination;
   const dep = new Date(first.actualDateTime || first.plannedDateTime);
@@ -217,9 +271,10 @@ function renderRoute(route, data) {
     .filter(x => x.dep > now - 60000); // drop trains that already left
   const viable = trips.filter(x => !x.cancelled);
   const minT = viable.length ? Math.min(...viable.map(x => x.t.transfers || 0)) : 0;
+  const planner = `https://www.ns.nl/reisplanner/#/?vertrek=${encodeURIComponent(route.fromName || route.from)}&aankomst=${encodeURIComponent(route.toName || route.to)}`;
 
-  let html = `<div class="mb-3"><a href="https://www.ns.nl/reisplanner/#/?vertrek=${encodeURIComponent(route.fromName)}&aankomst=${encodeURIComponent(route.toName)}" target="_blank" rel="noopener" class="block font-bold bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-3 py-2 rounded text-sm mb-1">${route.label}</a><ul class="space-y-0.5">`;
-  if (!trips.length) html += `<li class="text-xs text-gray-500 py-1">No trips returned.</li>`;
+  let html = `<div class="mb-3"><a href="${esc(planner)}" target="_blank" rel="noopener" class="block font-bold bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-3 py-2 rounded text-sm mb-1">${esc(routeLabel(route))}</a><ul class="space-y-0.5">`;
+  if (!trips.length) html += `<li class="text-xs text-gray-500 py-1">No upcoming trips — tap refresh.</li>`;
   for (const x of trips) {
     const mins = Math.max(0, Math.round((x.dep - now) / 60000));
     const dur = x.t.actualDurationInMinutes ?? x.t.plannedDurationInMinutes ?? Math.round((x.arr - x.dep) / 60000);
@@ -227,12 +282,12 @@ function renderRoute(route, data) {
     const isBest = !x.cancelled && transfers === minT;
     const rowColor = x.cancelled ? 'text-red-500 dark:text-red-400 line-through' : isBest ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400';
     const badge = isBest ? 'bg-green-100 text-green-700 border-green-400 dark:bg-green-600/30 dark:text-green-300 dark:border-green-500/50' : 'bg-gray-100 text-gray-500 border-transparent dark:bg-gray-700 dark:text-gray-400';
-    const delayTag = x.delay > 0 ? `<span class="text-xs text-red-500 font-bold no-underline">+${x.delay}</span>` : '';
-    const statusTag = x.cancelled ? `<span class="text-xs font-bold">cancelled</span>` : (x.t.status && x.t.status !== 'NORMAL' ? `<span class="text-xs text-amber-500" title="${x.t.status}">⚠</span>` : '');
+    const delayTag = x.delay > 0 ? `<span class="text-xs text-red-500 font-bold">+${x.delay}</span>` : '';
+    const statusTag = x.cancelled ? `<span class="text-xs font-bold">cancelled</span>` : (x.t.status && x.t.status !== 'NORMAL' ? `<span class="text-xs text-amber-500" title="${esc(x.t.status)}">⚠</span>` : '');
     html += `<li class="flex justify-between items-center text-sm border-b dark:border-gray-700 py-0.5 ${rowColor}">
       <span><strong>${fmtTime(x.dep)}</strong>${delayTag} → <strong>${fmtTime(x.arr)}</strong>
         <span class="inline-block w-14 text-right text-xs text-gray-400 font-mono">in ${mins}m</span> ${statusTag}</span>
-      <span class="flex gap-2 items-center">${x.track ? `<span class="text-xs text-gray-400">sp ${x.track}</span>` : ''}<span class="text-xs">${dur}m</span><span class="${badge} border px-1.5 rounded font-bold">${transfers}</span></span>
+      <span class="flex gap-2 items-center">${x.track ? `<span class="text-xs text-gray-400">sp ${esc(x.track)}</span>` : ''}<span class="text-xs">${dur}m</span><span class="${badge} border px-1.5 rounded font-bold">${transfers}</span></span>
     </li>`;
   }
   return html + `</ul></div>`;
@@ -242,38 +297,287 @@ function errorHint(msg) {
   if (msg.includes('401') || msg.includes('403')) return 'key rejected — check NS_KEY secret in the worker';
   if (msg.includes('429')) return 'rate limited by NS — wait a bit';
   if (msg.includes('404')) return 'wrong worker URL';
+  if (msg.includes('400')) return 'bad station code';
   if (msg === 'timeout') return 'no response';
   if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('Load failed')) return 'network/CORS — check worker URL';
   return msg;
 }
 
-async function fetchTrains(loc, gen) {
-  const container = document.getElementById('train-content');
-  const proxy = store.get('proxyUrl') || DEFAULT_PROXY;
-  if (!proxy) { container.innerHTML = 'Set your worker URL below to load trains.'; return; }
+async function fetchTrains(locId, gen) {
+  const container = $('train-content');
+  const proxy = getProxy();
+  if (!proxy) { trainCache = null; container.innerHTML = 'Tap ⚙ and set your worker URL to load trains.'; return; }
+  const routes = clone(locById(locId)?.routes || []);
+  if (!routes.length) { trainCache = null; container.innerHTML = 'No trips for this location yet. Tap ⚙ to add some.'; return; }
 
-  const routes = trainRoutes[loc];
   const results = await Promise.allSettled(routes.map(r => fetchJSON(`${proxy}/trips?from=${r.from}&to=${r.to}`)));
   if (gen !== generation) return;
+  trainCache = { locId, routes, results };
+  renderTrains();
+}
 
-  container.innerHTML = results.map((res, i) => res.status === 'fulfilled'
-    ? renderRoute(routes[i], res.value)
-    : `<div class="mb-2 text-red-500 text-sm"><strong>${routes[i].label}:</strong> ${errorHint(res.reason.message)}</div>`
+function renderTrains() {
+  if (!trainCache || trainCache.locId !== currentLoc) return;
+  $('train-content').innerHTML = trainCache.results.map((res, i) => res.status === 'fulfilled'
+    ? renderRoute(trainCache.routes[i], res.value)
+    : `<div class="mb-2 text-red-500 text-sm"><strong>${esc(routeLabel(trainCache.routes[i]))}:</strong> ${esc(errorHint(res.reason.message))}</div>`
   ).join('');
 }
 
-// --- auto refresh: every 2 min while visible, and immediately when you reopen the app ---
-setInterval(() => { if (document.visibilityState === 'visible') updateApp(); }, REFRESH_MS);
+// ===== Stations (for the editor's search) =====
+let stations = null;
+const norm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+function parseStations(json) {
+  const arr = json?.payload || json?.stations || (Array.isArray(json) ? json : []);
+  return arr.map(s => ({
+    code: String(s.code || s.id?.code || s.stationCode || '').toLowerCase(),
+    name: s.namen?.lang || s.names?.long || s.name || '',
+    short: s.namen?.middel || s.names?.medium || s.namen?.kort || s.names?.short || '',
+    lat: s.lat ?? s.location?.lat ?? null,
+    lon: s.lng ?? s.lon ?? s.location?.lng ?? null,
+    country: s.land || s.country || ''
+  })).filter(s => CODE_RE.test(s.code) && s.name);
+}
+
+async function loadStations() {
+  if (stations) return stations;
+  try {
+    const c = JSON.parse(store.get('stations') || 'null');
+    if (c && c.list?.length && Date.now() - c.t < 30 * 864e5) return (stations = c.list);
+  } catch {}
+  const proxy = getProxy();
+  if (!proxy) throw new Error('no worker URL');
+  const list = parseStations(await fetchJSON(`${proxy}/stations`, 20000));
+  if (!list.length) throw new Error('empty list');
+  store.set('stations', JSON.stringify({ t: Date.now(), list }));
+  return (stations = list);
+}
+
+function searchStations(q) {
+  q = norm(q.trim());
+  if (!q || !stations) return [];
+  const hits = [];
+  for (const s of stations) {
+    const n = norm(s.name), sh = norm(s.short);
+    let score = s.code === q ? 0 : n.startsWith(q) ? 1
+      : (n.split(/[\s\-/]+/).some(w => w.startsWith(q)) || sh.startsWith(q)) ? 2 : n.includes(q) ? 3 : -1;
+    if (score < 0) continue;
+    if (s.country && s.country !== 'NL') score += 0.5;
+    hits.push([score, s]);
+  }
+  return hits.sort((a, b) => a[0] - b[0] || a[1].name.localeCompare(b[1].name)).slice(0, 8).map(h => h[1]);
+}
+
+// A text box with a dropdown of matching stations. Typing a raw code (e.g. "ledn") also works.
+function makePicker(placeholder, onPick) {
+  const wrap = el('div', 'relative flex-1 min-w-[9rem]');
+  const input = el('input', 'w-full border dark:border-gray-600 bg-white dark:bg-gray-700 p-1.5 text-sm rounded focus:outline-none focus:border-blue-500');
+  input.placeholder = placeholder; input.autocomplete = 'off'; input.spellcheck = false;
+  const list = el('ul', 'hidden absolute z-10 left-0 right-0 mt-1 max-h-64 overflow-y-auto bg-white dark:bg-gray-700 border dark:border-gray-600 rounded shadow-lg text-sm');
+  let results = [];
+
+  const choose = s => {
+    input.value = `${s.name} (${s.code.toUpperCase()})`;
+    list.classList.add('hidden');
+    onPick(s);
+  };
+  input.oninput = () => {
+    onPick(null);
+    results = searchStations(input.value);
+    const raw = input.value.trim().toLowerCase();
+    if (!results.length && CODE_RE.test(raw)) results = [{ code: raw, name: raw.toUpperCase(), short: '', lat: null, lon: null }];
+    list.innerHTML = '';
+    for (const s of results) {
+      const li = el('li', 'px-2 py-2 cursor-pointer hover:bg-blue-50 dark:hover:bg-gray-600 flex justify-between gap-2');
+      li.innerHTML = `<span>${esc(s.name)}</span><span class="text-xs text-gray-400 font-mono">${esc(s.code.toUpperCase())}</span>`;
+      li.onmousedown = e => e.preventDefault(); // keep focus so the click lands
+      li.onclick = () => choose(s);
+      list.appendChild(li);
+    }
+    list.classList.toggle('hidden', !results.length);
+  };
+  input.onkeydown = e => { if (e.key === 'Enter' && results.length) { e.preventDefault(); choose(results[0]); } };
+  input.onblur = () => setTimeout(() => list.classList.add('hidden'), 200);
+  wrap.append(input, list);
+  return wrap;
+}
+
+// ===== Editor =====
+let draft = null;
+const smallBtn = 'px-2 py-1 rounded bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-xs whitespace-nowrap';
+const iconBtn = 'w-7 h-7 shrink-0 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-300 text-sm';
+
+function setStationsStatus(msg) { $('stations-status').textContent = msg; }
+
+function openEditor() {
+  draft = clone(config);
+  draft.proxy = getProxy();
+  renderEditor();
+  $('editor').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  refreshStations();
+}
+
+function refreshStations() {
+  if (stations) { setStationsStatus(''); return; }
+  setStationsStatus('Loading station list…');
+  loadStations()
+    .then(() => setStationsStatus(''))
+    .catch(e => setStationsStatus(
+      e.message === 'no worker URL' ? 'Set your worker URL first, then save and reopen to search stations.'
+      : e.message.includes('404') ? 'Station search needs the updated worker code (ns-worker.js). Until then, type station codes like "ledn".'
+      : `Station list unavailable (${e.message}). You can still type station codes like "ledn".`));
+}
+
+function closeEditor(save) {
+  if (save) {
+    draft.locations.forEach((l, i) => { l.name = (l.name || '').trim() || `Location ${i + 1}`; });
+    const proxy = normalizeProxy(draft.proxy);
+    const proxyChanged = proxy !== getProxy();
+    proxy ? store.set('proxyUrl', proxy) : store.del('proxyUrl');
+    if (proxyChanged) { stations = null; store.del('stations'); }
+    config = { locations: draft.locations };
+    store.set('config', JSON.stringify(config));
+    if (!locById(currentLoc)) currentLoc = config.locations[0].id;
+    if (store.get('locationPref') !== 'auto' && !locById(store.get('locationPref'))) store.set('locationPref', currentLoc);
+    trainCache = null;
+    renderLocButtons();
+    updateApp();
+  }
+  draft = null;
+  $('editor').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+function renderEditor() {
+  const body = $('editor-body');
+  body.innerHTML = '';
+
+  // Worker URL
+  const conn = el('div', 'p-2 rounded border dark:border-gray-700');
+  conn.appendChild(el('label', 'block text-sm font-bold mb-1', 'Worker URL'));
+  const proxyIn = el('input', 'w-full border dark:border-gray-600 bg-white dark:bg-gray-700 p-1.5 text-sm rounded focus:outline-none focus:border-blue-500');
+  proxyIn.type = 'url'; proxyIn.placeholder = 'https://ns-commute.yourname.workers.dev'; proxyIn.value = draft.proxy || '';
+  proxyIn.oninput = () => { draft.proxy = proxyIn.value; };
+  conn.appendChild(proxyIn);
+  body.appendChild(conn);
+
+  draft.locations.forEach((loc, li) => {
+    const card = el('div', 'p-2 rounded border dark:border-gray-700 space-y-2');
+
+    // Name + delete
+    const head = el('div', 'flex gap-2 items-center');
+    const nameIn = el('input', 'flex-1 min-w-0 border dark:border-gray-600 bg-white dark:bg-gray-700 p-1.5 text-sm font-bold rounded focus:outline-none focus:border-blue-500');
+    nameIn.value = loc.name; nameIn.placeholder = 'Location name';
+    nameIn.oninput = () => { loc.name = nameIn.value; };
+    head.appendChild(nameIn);
+    if (li > 0) head.appendChild(btn('↑', iconBtn, () => { [draft.locations[li - 1], draft.locations[li]] = [draft.locations[li], draft.locations[li - 1]]; renderEditor(); }, 'Move location up'));
+    if (draft.locations.length > 1) head.appendChild(btn('Delete', smallBtn + ' text-red-600 dark:text-red-400', () => {
+      if (confirm(`Delete "${loc.name || 'this location'}" and its trips?`)) { draft.locations.splice(li, 1); renderEditor(); }
+    }));
+    card.appendChild(head);
+
+    // Point used for rain and auto-detect
+    const pt = el('div', 'flex flex-wrap gap-2 items-center text-xs text-gray-500 dark:text-gray-400');
+    pt.appendChild(el('span', '', `Rain and Auto use ${loc.lat.toFixed(3)}, ${loc.lon.toFixed(3)}`));
+    pt.appendChild(btn('Use my position', smallBtn, () => {
+      if (!navigator.geolocation) return alert('No GPS available.');
+      navigator.geolocation.getCurrentPosition(p => { loc.lat = p.coords.latitude; loc.lon = p.coords.longitude; renderEditor(); },
+        () => alert('Could not get your position.'), { timeout: 15000 });
+    }));
+    pt.appendChild(makePicker('or pick a station…', s => {
+      if (!s) return;
+      if (s.lat == null) return alert('No coordinates known for that station.');
+      loc.lat = s.lat; loc.lon = s.lon; renderEditor();
+    }));
+    card.appendChild(pt);
+
+    // Trips
+    const list = el('div', 'space-y-1');
+    if (!loc.routes.length) list.appendChild(el('div', 'text-xs text-gray-500', 'No trips yet. Add one below.'));
+    loc.routes.forEach((r, ri) => {
+      const row = el('div', 'flex items-center gap-1 text-sm bg-gray-100 dark:bg-gray-700 rounded pl-2');
+      const lab = el('input', 'flex-1 min-w-0 bg-transparent py-1 focus:outline-none focus:underline');
+      lab.value = routeLabel(r); lab.title = 'Tap to rename';
+      lab.oninput = () => { r.label = lab.value.trim(); };
+      row.append(lab, el('span', 'text-xs text-gray-400 font-mono whitespace-nowrap', `${r.from.toUpperCase()}→${r.to.toUpperCase()}`));
+      row.appendChild(btn('⇄', iconBtn, () => {
+        loc.routes.splice(ri + 1, 0, { from: r.to, to: r.from, fromName: r.toName, toName: r.fromName });
+        renderEditor();
+      }, 'Add return trip'));
+      if (ri > 0) row.appendChild(btn('↑', iconBtn, () => { [loc.routes[ri - 1], loc.routes[ri]] = [loc.routes[ri], loc.routes[ri - 1]]; renderEditor(); }, 'Move up'));
+      row.appendChild(btn('✕', iconBtn, () => { loc.routes.splice(ri, 1); renderEditor(); }, 'Remove trip'));
+      list.appendChild(row);
+    });
+    card.appendChild(list);
+
+    // Add trip
+    let from = null, to = null;
+    const add = el('div', 'flex flex-wrap gap-2 items-center');
+    add.append(
+      makePicker('From station', s => { from = s; }),
+      makePicker('To station', s => { to = s; }),
+      btn('Add trip', 'px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm whitespace-nowrap', () => {
+        if (!from || !to) return alert('Pick both stations from the list (or type a station code and press Enter).');
+        if (from.code === to.code) return alert('From and to are the same station.');
+        loc.routes.push({ from: from.code, to: to.code, fromName: from.name, toName: to.name,
+          label: `${from.short || from.name} → ${to.short || to.name}` });
+        renderEditor();
+      })
+    );
+    card.appendChild(add);
+    body.appendChild(card);
+  });
+}
+
+function addLocation() {
+  const base = draft.locations[draft.locations.length - 1];
+  draft.locations.push({ id: 'loc_' + Date.now().toString(36), name: '', lat: base.lat, lon: base.lon, routes: [] });
+  renderEditor();
+  const inputs = $('editor-body').querySelectorAll('input.font-bold');
+  inputs[inputs.length - 1]?.focus();
+}
+
+async function copySetup() {
+  const text = JSON.stringify({ locations: draft.locations, proxy: normalizeProxy(draft.proxy) || undefined });
+  try { await navigator.clipboard.writeText(text); alert('Setup copied. Send it to someone; they tap "Paste setup" in their copy of the app.'); }
+  catch { prompt('Copy this setup code:', text); }
+}
+
+function pasteSetup() {
+  const text = prompt('Paste a setup code:');
+  if (!text) return;
+  try {
+    const c = JSON.parse(text);
+    if (!validConfig(c)) throw new Error();
+    draft.locations = c.locations;
+    if (c.proxy) draft.proxy = c.proxy;
+    renderEditor();
+  } catch { alert('That setup code is not valid.'); }
+}
+
+function resetSetup() {
+  if (!confirm('Replace all locations and trips with the defaults?')) return;
+  draft.locations = clone(DEFAULT_CONFIG.locations);
+  renderEditor();
+}
+
+// ===== Timers: countdowns tick locally; data refreshes every FETCH_MS while visible =====
+setInterval(() => {
+  if (document.visibilityState !== 'visible') return;
+  if (!lastUpdated || Date.now() - lastUpdated >= FETCH_MS) updateApp(); else renderTrains();
+}, TICK_MS);
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && (!lastUpdated || Date.now() - lastUpdated > 30000)) updateApp();
+  if (document.visibilityState !== 'visible') return;
+  if (!lastUpdated || Date.now() - lastUpdated > 60000) updateApp(); else renderTrains();
 });
 
-// --- init ---
-store.del('nsApiKey'); // old version stored the raw NS key here; no longer needed
-document.getElementById('proxy-url').value = store.get('proxyUrl') || DEFAULT_PROXY;
+// ===== Init =====
+store.del('nsApiKey'); // very old version stored the raw NS key here
 const pref = store.get('locationPref');
 if (pref === 'auto') autoLocate(false);
-else setLocation(pref === 'AMS' ? 'AMS' : 'Voorschoten', false);
+else setLocation(locById(pref) ? pref : config.locations[0].id, false);
 </script>
 </body>
 </html>
