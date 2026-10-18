@@ -36,13 +36,13 @@
 
   <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
     <div class="p-2 rounded border dark:border-gray-700 shadow-sm">
-      <h2 class="text-base font-bold border-b dark:border-gray-700 pb-1 mb-1" id="rain-title">Rain</h2>
+      <h2 class="text-base font-bold border-b dark:border-gray-700 pb-1 mb-1 flex justify-between items-baseline"><span id="rain-title" class="truncate min-w-0">Rain</span> <span class="text-xs font-normal text-gray-500 dark:text-gray-400 whitespace-nowrap shrink-0 ml-2">mm per 15 min</span></h2>
       <div class="bar-container" id="rain-bars"></div>
       <div class="flex mt-1 gap-1" id="rain-labels"></div>
       <div id="rain-error" class="text-sm text-red-500 dark:text-red-400 mt-1"></div>
     </div>
     <div class="p-2 rounded border dark:border-gray-700 shadow-sm">
-      <h2 class="text-base font-bold border-b dark:border-gray-700 pb-1 mb-2 flex justify-between items-baseline">Trains <span id="updated" class="text-xs font-normal text-gray-500 dark:text-gray-400"></span></h2>
+      <h2 class="text-base font-bold border-b dark:border-gray-700 pb-1 mb-2 flex justify-between items-baseline">Trains <span id="updated" class="whitespace-nowrap ml-2 text-xs font-normal text-gray-500 dark:text-gray-400"></span></h2>
       <div id="train-content" class="space-y-2 text-sm text-gray-500 dark:text-gray-400">Loading…</div>
     </div>
   </div>
@@ -162,11 +162,13 @@ function renderLocButtons() {
   const wrap = $('loc-buttons'); wrap.innerHTML = '';
   for (const l of config.locations) {
     const active = l.id === currentLoc;
-    wrap.appendChild(btn(l.name || 'Unnamed', 'px-3 py-1.5 rounded text-sm shadow ' +
+    const b = wrap.appendChild(btn(l.name || 'Unnamed', 'max-w-[11rem] truncate px-3 py-1.5 rounded text-sm shadow ' +
       (active ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200'),
       () => setLocation(l.id, true)));
+    b.title = l.name; // full name on hover / long-press
   }
   $('rain-title').innerText = `Rain: ${locById(currentLoc)?.name || ''}`;
+  $('rain-title').title = locById(currentLoc)?.name || '';
 }
 
 function stopWatching() {
