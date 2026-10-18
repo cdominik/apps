@@ -1,3 +1,6 @@
+/*
+ * AggBoard, Copyright (c) 2026 Carsten Dominik. MIT License (see LICENSE).
+ */
 /* AggBoard — notebook whiteboard with a 3D fractal aggregate tool. */
 (() => {
   'use strict';
@@ -6,7 +9,7 @@
   // Configuration
   // ============================================================
   // Bump on every release: shown in the menu, and used to bypass cached program files.
-  const VERSION = '2026.10.18-4';
+  const VERSION = '2026.10.18-14';
   window.AGGBOARD_VERSION = VERSION;
   const CONFIG = {
     MENU_URL: null,            // e.g. '../index.html' to show a "back to menu" button
@@ -51,7 +54,7 @@
     const d = {
       tool: 'pen', color: INK[0].v, width: 1,
       fingerMode: 'auto', penSeen: false,
-      agg: { a: 10, df: 1.8, kf: null, color: AGG_COLORS[0] },
+      agg: { a: 10, df: 1.8, kf: null, color: AGG_COLORS[0], method: 'cca' },
       chain: { temp: 0.25 },
     };
     try {
@@ -67,6 +70,7 @@
           if (s.agg.df >= 1 && s.agg.df <= 3) d.agg.df = +s.agg.df;
           d.agg.kf = (s.agg.kf > 0) ? +s.agg.kf : null;
           if (AGG_COLORS.includes(s.agg.color)) d.agg.color = s.agg.color;
+          if (s.agg.method === 'pc' || s.agg.method === 'cca') d.agg.method = s.agg.method;
         }
         if (s.chain && s.chain.temp >= 0 && s.chain.temp <= 1) d.chain.temp = +s.chain.temp;
       }
@@ -207,22 +211,23 @@
   // Variable-width stroke as runs of constant width. Segments are Catmull-Rom
   // splines through every sample, so fast (sparsely sampled) handwriting keeps
   // its shape. Round caps/joins make consecutive runs blend seamlessly.
-  function buildRuns(pts, base, straight) {
+  // Stroke geometry as runs of constant width, each a list of path commands.
+  // Used for the screen (Path2D) and for SVG export, so both look identical.
+  // Freehand: Catmull-Rom splines through every sample (keeps fast handwriting
+  // in shape); snapped shapes: straight segments, constant width.
+  function strokeRuns(pts, base, straight) {
     const n = pts.length / 3, runs = [];
     if (!n) return runs;
     const q = Math.max(0.25, base * 0.1);
     const wq = (p) => Math.max(q, Math.round(pressureWidth(base, p) / q) * q);
-    if (straight && n >= 2) {          // snapped shapes: straight segments, constant width
-      const path = new Path2D();
-      path.moveTo(pts[0], pts[1]);
-      for (let i = 1; i < n; i++) path.lineTo(pts[3 * i], pts[3 * i + 1]);
-      runs.push({ w: wq(pts[2]), path });
+    if (straight && n >= 2) {
+      const cmds = [['M', pts[0], pts[1]]];
+      for (let i = 1; i < n; i++) cmds.push(['L', pts[3 * i], pts[3 * i + 1]]);
+      runs.push({ w: wq(pts[2]), cmds });
       return runs;
     }
     if (n === 1) {
-      const path = new Path2D();
-      path.moveTo(pts[0], pts[1]); path.lineTo(pts[0] + 0.01, pts[1]);
-      runs.push({ w: wq(pts[2]), path });
+      runs.push({ w: wq(pts[2]), cmds: [['M', pts[0], pts[1]], ['L', pts[0] + 0.01, pts[1]]] });
       return runs;
     }
     const X = (i) => pts[3 * clamp(i, 0, n - 1)], Y = (i) => pts[3 * clamp(i, 0, n - 1) + 1];
@@ -230,12 +235,21 @@
     for (let i = 0; i < n - 1; i++) {
       const w = wq((pts[3 * i + 2] + pts[3 * i + 5]) / 2);
       const x0 = X(i), y0 = Y(i), x1 = X(i + 1), y1 = Y(i + 1);
-      if (w !== curW) { cur = new Path2D(); curW = w; runs.push({ w, path: cur }); cur.moveTo(x0, y0); }
-      const c1x = x0 + (x1 - X(i - 1)) / 6, c1y = y0 + (y1 - Y(i - 1)) / 6;
-      const c2x = x1 - (X(i + 2) - x0) / 6, c2y = y1 - (Y(i + 2) - y0) / 6;
-      cur.bezierCurveTo(c1x, c1y, c2x, c2y, x1, y1);
+      if (w !== curW) { cur = [['M', x0, y0]]; curW = w; runs.push({ w, cmds: cur }); }
+      cur.push(['C', x0 + (x1 - X(i - 1)) / 6, y0 + (y1 - Y(i - 1)) / 6, x1 - (X(i + 2) - x0) / 6, y1 - (Y(i + 2) - y0) / 6, x1, y1]);
     }
     return runs;
+  }
+  function buildRuns(pts, base, straight) {
+    return strokeRuns(pts, base, straight).map(({ w, cmds }) => {
+      const path = new Path2D();
+      for (const c of cmds) {
+        if (c[0] === 'M') path.moveTo(c[1], c[2]);
+        else if (c[0] === 'L') path.lineTo(c[1], c[2]);
+        else path.bezierCurveTo(c[1], c[2], c[3], c[4], c[5], c[6]);
+      }
+      return { w, path };
+    });
   }
   function strokeBBox(s) {
     const p = s.points, pad = s.width * 0.75;
@@ -255,7 +269,30 @@
     ctx.strokeStyle = color; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     for (const r of runs) { ctx.lineWidth = r.w; ctx.stroke(r.path); }
   }
-  function drawStroke(ctx, s) { drawRuns(ctx, strokeGeom(s).runs, s.color); }
+  // ---------- board themes ----------
+  // Strokes keep their logical colour; on a dark board each colour is shown as a
+  // bright, chalk-like variant, so switching back shows them exactly as written.
+  const THEMES = {
+    light: { page: '#ffffff', desk: '#e9e9ee', mist: { r: 255, g: 255, b: 255 }, shadow: 1, cursor: 'rgba(60,60,70,0.8)', cursorFill: 'rgba(255,255,255,0.35)' },
+    dark: { page: '#1f2428', desk: '#3a3e44', mist: { r: 31, g: 36, b: 40 }, shadow: 0, cursor: 'rgba(235,235,230,0.85)', cursorFill: 'rgba(255,255,255,0.08)' },
+  };
+  const DARK_INK = { '#1d1d22': '#f1f1ec', '#1f5bd6': '#7fb0ff', '#d1342f': '#ff7a70', '#2b8a3e': '#6fd88a', '#e8860c': '#ffbb55' };
+  const darkInkCache = new Map();
+  function inkFor(color, theme) {
+    if (theme !== 'dark') return color;
+    if (DARK_INK[color]) return DARK_INK[color];
+    let v = darkInkCache.get(color);
+    if (!v) {   // any other colour: keep the hue, make it light enough for a dark board
+      const c = hexToRgb(color), h = rgbToHsl(c.r, c.g, c.b);
+      const q = hslToRgb(h.h, Math.min(h.s, 85), Math.max(65, 100 - h.l * 0.5));
+      v = `rgb(${Math.round(q.r)},${Math.round(q.g)},${Math.round(q.b)})`;
+      darkInkCache.set(color, v);
+    }
+    return v;
+  }
+  const themeOf = (pg) => (pg && pg.bg === 'dark' ? 'dark' : 'light');
+  let renderTheme = 'light';     // theme used by sphere rendering (set before drawing a page)
+  function drawStroke(ctx, s, theme = renderTheme) { drawRuns(ctx, strokeGeom(s).runs, inkFor(s.color, theme)); }
 
   function distToSegment(px, py, ax, ay, bx, by) {
     const dx = bx - ax, dy = by - ay;
@@ -279,7 +316,7 @@
   // Aggregates: sphere rendering and bitmap cache
   // ============================================================
   const SPR_EXT = 1.4, LEVELS = 24, DEPTH = 0.5;
-  const MIST_TO = { r: 255, g: 255, b: 255 };   // page background
+
   function hexToRgb(hex) {
     const n = parseInt(hex.slice(1), 16);
     return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
@@ -321,7 +358,8 @@
   function stopColor(hsl, light, mist) {
     const c = hslToRgb(hsl.h, hsl.s, clamp(light, 0, 100));
     const mix = (a, b) => Math.round(a + (b - a) * mist);
-    return `rgb(${mix(c.r, MIST_TO.r)},${mix(c.g, MIST_TO.g)},${mix(c.b, MIST_TO.b)})`;
+    const M = THEMES[renderTheme].mist;
+    return `rgb(${mix(c.r, M.r)},${mix(c.g, M.g)},${mix(c.b, M.b)})`;
   }
   function outlineStyle(t) {
     const mist = DEPTH * 0.65 * (1 - t);
@@ -333,7 +371,7 @@
     const mist = DEPTH * 0.65 * (1 - t);
     c.beginPath();
     c.arc(sx + r * 0.15, sy + r * 0.2, r * 0.95, 0, Math.PI * 2);
-    c.fillStyle = `rgba(0,0,0,${(0.05 + 0.08 * t) * (1 - mist * 0.8)})`;
+    c.fillStyle = `rgba(0,0,0,${(0.05 + 0.08 * t) * (1 - mist * 0.8) * THEMES[renderTheme].shadow})`;
     c.fill();
     const g = c.createRadialGradient(sx - r * 0.4, sy - r * 0.4, r * 0.1, sx, sy, r);
     g.addColorStop(0, stopColor(hsl, 85 + brightness * 8, mist));
@@ -347,7 +385,7 @@
   }
   const spriteCache = new Map();
   function getSprite(color, level, S) {
-    const key = color + '|' + level + '|' + S;
+    const key = renderTheme + '|' + color + '|' + level + '|' + S;
     let spr = spriteCache.get(key);
     if (!spr) {
       spr = document.createElement('canvas');
@@ -371,9 +409,13 @@
     c.stroke();
   }
 
+  // Monomer radius the stored coordinates were generated for. While a regeneration
+  // is pending, the displayed structure keeps its own size (it.aGen) instead of
+  // being stretched to the newly requested monomer size.
+  const ptsScale = (it) => it.aGen || it.a;
   // Render an aggregate into its own canvas. ppu = device pixels per page unit.
   function renderAggBitmap(it, ppu) {
-    const n = it.n, P = it.pts, a = it.a, R = it.R;
+    const n = it.n, P = it.pts, a = ptsScale(it), R = it.R;
     const xs = new Float32Array(n), ys = new Float32Array(n), zs = new Float32Array(n);
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, zmin = Infinity, zmax = -Infinity;
     for (let i = 0; i < n; i++) {
@@ -402,7 +444,7 @@
     return { canvas, ppu, ox: x0, oy: y0 };
   }
   const aggBmpCache = new WeakMap();   // pts -> { sig, entry }
-  function aggSig(it) { return it.a + '|' + it.color + '|' + it.R.join(','); }
+  function aggSig(it) { return renderTheme + '|' + ptsScale(it) + '|' + it.color + '|' + it.R.join(','); }
   function getAggBitmap(it, ppu, allowStale) {
     if (!it.pts || !it.n) return null;
     const sig = aggSig(it);
@@ -431,7 +473,7 @@
       ctx.restore();
       return;
     }
-    if (it.needsGen) ctx.globalAlpha = 0.55;
+    if (it.needsGen) ctx.globalAlpha = 0.7;
     ctx.drawImage(bmp.canvas, cx + bmp.ox, cy + bmp.oy, bmp.canvas.width / bmp.ppu, bmp.canvas.height / bmp.ppu);
     ctx.globalAlpha = 1;
   }
@@ -441,7 +483,8 @@
   // ============================================================
   let worker = null, workerBusy = false;
   const pendingGen = new Map();   // item id -> message
-  const latestToken = new Map();  // item id -> token
+  const latestToken = new Map();  // item id -> token of the newest request
+  const shownToken = new Map();   // item id -> token of the result currently displayed
   let tokenSeq = 0;
   try {
     worker = new Worker('aggregate-engine.js?v=' + VERSION);
@@ -458,7 +501,7 @@
     latestToken.set(it.id, token);
     pendingGen.set(it.id, {
       type: 'fit', id: it.id, token,
-      W: it.w / it.a, H: it.h / it.a, df: it.df, kf: it.kf, seed: it.seed, nMax: CONFIG.N_MAX,
+      W: it.w / it.a, H: it.h / it.a, df: it.df, kf: it.kf, seed: it.seed, nMax: CONFIG.N_MAX, method: it.method === 'cca' ? 'cca' : 'pc', a: it.a,
     });
     pumpGen();
   }
@@ -470,7 +513,7 @@
     if (worker) { worker.postMessage(msg); return; }
     setTimeout(() => {
       let data;
-      try { data = { type: 'result', id: msg.id, token: msg.token, ...window.AggEngine.fitBox(msg) }; }
+      try { data = { type: 'result', id: msg.id, token: msg.token, genA: msg.a, ...window.AggEngine.fitBox(msg) }; }
       catch (err) { data = { type: 'error', id: msg.id, token: msg.token, message: String(err) }; }
       onGenMessage({ data });
     }, 0);
@@ -478,20 +521,28 @@
   function onGenMessage(e) {
     workerBusy = false;
     const m = e.data;
-    if (m && m.type === 'result' && latestToken.get(m.id) === m.token) applyGen(m);
+    // Show any result that is newer than the one on screen: intermediate results keep
+    // the aggregate updating live while a slider is dragged, even when generation is slower
+    // than the slider; only the newest request's result ends the update.
+    const latest = latestToken.get(m && m.id);
+    if (m && m.type === 'result' && latest != null && m.token <= latest && m.token > (shownToken.get(m.id) || 0)) {
+      shownToken.set(m.id, m.token);
+      applyGen(m, m.token === latest);
+    }
     else if (m && m.type === 'error') console.warn('Aggregate generation failed:', m.message);
     pumpGen();
   }
-  function applyGen(m) {
-    latestToken.delete(m.id);
+  function applyGen(m, final = true) {
+    if (final) { latestToken.delete(m.id); shownToken.delete(m.id); }
     for (const pg of nb.pages) {
       const idx = pg.items.findIndex(it => it.id === m.id);
       if (idx < 0) continue;
       const it = pg.items[idx];
       const arr = pg.items.slice();
       // Generated coordinates are aligned with the box, so the rotation starts fresh.
-      arr[idx] = { ...it, pts: m.pts, n: m.n, rg: m.rg, dfFit: m.dfFit, kfUsed: m.kf, capped: !!m.capped, needsGen: false, R: IDENTITY.slice() };
-      if (m.capped && !it.capped && pg === curPage()) toast(`Limit of ${CONFIG.N_MAX} monomers reached, so the aggregate is smaller than its box. Increase the monomer size to fill it.`, 5000);
+      arr[idx] = { ...it, pts: m.pts, n: m.n, rg: m.rg, dfFit: m.dfFit, kfUsed: m.kf, capped: !!m.capped, needsGen: !final, R: IDENTITY.slice(),
+        aniso: m.aniso, ccaFallback: !!m.ccaFallback, aGen: (m.genA && Math.abs(m.genA - it.a) > 1e-9) ? m.genA : undefined };
+      if (final && m.capped && !it.capped && pg === curPage()) toast(`Limit of ${CONFIG.N_MAX} monomers reached, so the aggregate is smaller than its box. Increase the monomer size to fill it.`, 5000);
       pg.items = arr;
       nb.modified = Date.now();
       scheduleSave();
@@ -499,7 +550,7 @@
       return;
     }
   }
-  function invalidateGen() { latestToken.clear(); pendingGen.clear(); }
+  function invalidateGen() { latestToken.clear(); pendingGen.clear(); shownToken.clear(); }
   function ensureGenerated(pg) {
     for (const it of pg.items) {
       if (it.type === 'agg' && it.kind !== 'chain' && !it.edited && (it.needsGen || !it.pts) && !latestToken.has(it.id)) requestGen(it);
@@ -782,10 +833,10 @@
   // Projected sphere centres of an aggregate, relative to its box centre (cached).
   const viewCache = new WeakMap();
   function viewSpheres(it) {
-    const sig = it.a + '|' + it.R.join(',');
+    const sig = ptsScale(it) + '|' + it.R.join(',');
     let e = viewCache.get(it.pts);
     if (e && e.sig === sig) return e;
-    const n = it.n, P = it.pts, R = it.R, a = it.a;
+    const n = it.n, P = it.pts, R = it.R, a = ptsScale(it);
     const xs = new Float32Array(n), ys = new Float32Array(n), zs = new Float32Array(n);
     let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
     for (let i = 0; i < n; i++) {
@@ -810,7 +861,7 @@
       const cx = it.x + it.w / 2, cy = it.y + it.h / 2;
       const lx = p.x - cx, ly = p.y - cy;
       if (lx < v.x0 || lx > v.x1 || ly < v.y0 || ly > v.y1) continue;
-      const r2 = it.a * it.a;
+      const r2 = ptsScale(it) * ptsScale(it);
       let best = -1, bz = -Infinity;
       for (let i = 0; i < it.n; i++) {
         const dx = lx - v.xs[i], dy = ly - v.ys[i];
@@ -991,7 +1042,7 @@
   // Box centred on (cx, cy) that encloses the projected spheres (at least minW x minH).
   function withSymmetricBox(it, cx, cy, minW = 0, minH = 0) {
     const v = viewSpheres(it);
-    const hx = Math.max(minW / 2, -v.x0, v.x1, it.a), hy = Math.max(minH / 2, -v.y0, v.y1, it.a);
+    const hx = Math.max(minW / 2, -v.x0, v.x1, ptsScale(it)), hy = Math.max(minH / 2, -v.y0, v.y1, ptsScale(it));
     return { ...it, x: cx - hx, y: cy - hy, w: 2 * hx, h: 2 * hy };
   }
   /*
@@ -1008,7 +1059,7 @@
     const cx = it.x + it.w / 2 + dx, cy = it.y + it.h / 2 + dy;
     const ni = { ...it, x: cx - w / 2, y: cy - h / 2, w, h };
     if (Math.abs(dx) > 1e-9 || Math.abs(dy) > 1e-9) {
-      const R = it.R, a = it.a;
+      const R = it.R, a = ptsScale(it);
       const sx = (R[0] * dx + R[3] * dy) / a, sy = (R[1] * dx + R[4] * dy) / a, sz = (R[2] * dx + R[5] * dy) / a;
       const pts = new Float32Array(3 * it.n);
       for (let i = 0; i < it.n; i++) {
@@ -1051,7 +1102,7 @@
   }
   // Merge view-space spheres (and optionally all of aggregate B) into aggregate A.
   function mergeInto(A, sph, B) {
-    const cx = A.x + A.w / 2, cy = A.y + A.h / 2, R = A.R, a = A.a;
+    const cx = A.x + A.w / 2, cy = A.y + A.h / 2, R = A.R, a = ptsScale(A);
     const local = (X, Y, Z, out, o) => {
       const vx = (X - cx) / a, vy = (Y - cy) / a, vz = Z / a;   // R^T * v
       out[o] = R[0] * vx + R[3] * vy + R[6] * vz;
@@ -1069,19 +1120,19 @@
       for (let i = 0; i < B.n; i++) { local(bx + vb.xs[i], by + vb.ys[i], vb.zs[i], pts, o); o += 3; }
     }
     const ni = {
-      ...A, pts, n, edited: true, needsGen: false, dfFit: null, rg: rgOf(pts, n),
+      ...A, a, aGen: undefined, pts, n, edited: true, needsGen: false, dfFit: null, rg: rgOf(pts, n),
       genBox: A.genBox || (A.kind === 'chain' ? null : { w: A.w, h: A.h }),
     };
     return refitBox(ni);
   }
-  function forgetGen(id) { latestToken.delete(id); pendingGen.delete(id); }
+  function forgetGen(id) { latestToken.delete(id); pendingGen.delete(id); shownToken.delete(id); }
 
   function finishChain(a, isTap, p) {
     let startHit = a.startHit;
     const pathAbs = a.pts.slice();
     if (isTap && startHit) { if (handleTap(p) === 'single-agg') selectIds([startHit.item.id]); return; }
     let endHit = isTap ? null : sphereAt({ x: pathAbs[pathAbs.length - 2], y: pathAbs[pathAbs.length - 1] });
-    if (startHit && endHit && startHit.item.id !== endHit.item.id && Math.abs(startHit.item.a - endHit.item.a) > 1e-6) {
+    if (startHit && endHit && startHit.item.id !== endHit.item.id && Math.abs(ptsScale(startHit.item) - ptsScale(endHit.item)) > 1e-6) {
       endHit = null;
       toast('The two aggregates have different monomer sizes: connected to the first one only.', 4000);
     }
@@ -1108,7 +1159,7 @@
       const v = viewSpheres(T), tx = T.x + T.w / 2, ty = T.y + T.h / 2;
       for (let i = 0; i < T.n; i++) obstacles.push(tx + v.xs[i], ty + v.ys[i], v.zs[i]);
     }
-    const sph = layChain(pathAbs, z0, z1, A.a, temp, seed, startHit, endHit, obstacles);
+    const sph = layChain(pathAbs, z0, z1, ptsScale(A), temp, seed, startHit, endHit, obstacles);
     if (!sph.length) return;
     forgetGen(A.id);
     if (B) forgetGen(B.id);
@@ -1242,12 +1293,14 @@
   function renderBoard() {
     const d = dpr(), W = window.innerWidth, H = window.innerHeight, s = view.scale;
     bctx.setTransform(d, 0, 0, d, 0, 0);
-    bctx.fillStyle = DESK;
+    renderTheme = themeOf(curPage());
+    const TH = THEMES[renderTheme];
+    bctx.fillStyle = TH.desk;
     bctx.fillRect(0, 0, W, H);
     bctx.setTransform(d * s, 0, 0, d * s, d * view.ox, d * view.oy);
     bctx.save();
     bctx.shadowColor = 'rgba(0,0,0,0.16)'; bctx.shadowBlur = 14; bctx.shadowOffsetY = 2;
-    bctx.fillStyle = '#fff';
+    bctx.fillStyle = TH.page;
     bctx.fillRect(0, 0, PW, PH);
     bctx.restore();
 
@@ -1286,7 +1339,7 @@
       if (action.kind === 'draw' && action.snap) {
         pageT();
         const st = shapeStroke(action, action.snap);
-        drawRuns(octx, buildRuns(st.points, st.width, st.straight), st.color);
+        drawRuns(octx, buildRuns(st.points, st.width, st.straight), inkFor(st.color, themeOf(curPage())));
       } else if (action.kind === 'draw') {
         pageT();
         let P = action.pts;
@@ -1294,7 +1347,7 @@
           P = P.slice();
           for (const q of action.pred) P.push(q.x, q.y, action.ps);
         }
-        drawRuns(octx, buildRuns(P, action.width), action.color);
+        drawRuns(octx, buildRuns(P, action.width), inkFor(action.color, themeOf(curPage())));
       } else if (action.kind === 'lasso' && action.poly.length >= 4) {
         pageT();
         octx.beginPath();
@@ -1366,8 +1419,9 @@
     if (settings.tool === 'eraser' && hover && (!action || action.kind === 'erase')) {
       screenT();
       octx.beginPath(); octx.arc(hover.x, hover.y, ERASER_PX, 0, Math.PI * 2);
-      octx.lineWidth = 1.2; octx.strokeStyle = 'rgba(60,60,70,0.8)'; octx.stroke();
-      octx.fillStyle = 'rgba(255,255,255,0.35)'; octx.fill();
+      const TC = THEMES[themeOf(curPage())];
+      octx.lineWidth = 1.2; octx.strokeStyle = TC.cursor; octx.stroke();
+      octx.fillStyle = TC.cursorFill; octx.fill();
     }
 
     // Laser trails (screen space, fading)
@@ -1637,7 +1691,7 @@
       const h = hitHandle(sp);
       if (h) { startHandleAction(e, sp, h); return; }
       const b = selectionBounds();
-      if (settings.tool !== 'chain' && b && inRect(p, b, 8 / view.scale)) { action = { ...base, kind: 'move', dx: 0, dy: 0 }; requestRender(); return; }
+      if (b && inRect(p, b, 8 / view.scale)) { action = { ...base, kind: 'move', dx: 0, dy: 0 }; requestRender(); return; }   // selected things move, with any tool
       clearSelection();
     }
 
@@ -1979,7 +2033,7 @@
     const A = settings.agg;
     const it = {
       id: uid(), type: 'agg', x, y, w, h,
-      a: A.a, df: A.df, kf: A.kf, seed: randSeed(), color: A.color,
+      a: A.a, df: A.df, kf: A.kf, seed: randSeed(), color: A.color, method: A.method,
       R: IDENTITY.slice(), pts: null, n: 0, rg: 0, dfFit: null, capped: false, needsGen: true,
     };
     pushUndo();
@@ -1998,6 +2052,7 @@
     if (it.type === 'agg') {
       // Coordinates are in monomer radii, so scaling the monomer size scales the whole aggregate exactly.
       const ni = { ...it, x: ax + (it.x - ax) * k, y: ay + (it.y - ay) * k, w: it.w * k, h: it.h * k, a: it.a * k };
+      if (it.aGen) ni.aGen = it.aGen * k;
       if (it.path) { ni.path = it.path.map(v => Math.round(v * k * 1000) / 1000); if (it.pz) ni.pz = it.pz * k; }
       if (it.genBox) ni.genBox = { w: it.genBox.w * k, h: it.genBox.h * k };
       return ni;
@@ -2097,12 +2152,15 @@
   if (CONFIG.MENU_URL) { $('btnHome').href = CONFIG.MENU_URL; $('btnHome').hidden = false; }
 
   function updateChrome() {
+    setColorUI();
+    for (const b of $('boardSeg').children) b.classList.toggle('active', b.dataset.board === themeOf(curPage()));
     const h = hist();
     $('btnUndo').disabled = !h.undo.length && !pendingDot;
     $('btnRedo').disabled = !h.redo.length;
     $('pageLabel').textContent = `${nb.current + 1} / ${nb.pages.length}`;
     $('btnPrev').disabled = nb.current === 0;
     $('btnNext').disabled = nb.current === nb.pages.length - 1;
+    $('btnClearPage').disabled = !items().length;
     for (const b of $('fingerSeg').children) b.classList.toggle('active', b.dataset.mode === settings.fingerMode);
   }
 
@@ -2124,7 +2182,9 @@
   }
   function newPage() {
     commitPendingDot();
-    nb.pages.splice(nb.current + 1, 0, { id: uid(), items: [] });
+    const pg = { id: uid(), items: [] };
+    if (curPage().bg === 'dark') pg.bg = 'dark';
+    nb.pages.splice(nb.current + 1, 0, pg);
     goToPage(nb.current + 1);
   }
   function clearPage() {
@@ -2133,7 +2193,8 @@
     selection = null;
     pushUndo();
     setItems([]);
-    toast('Page cleared. Undo brings it back.');
+    const pg = curPage();
+    toast('Page cleared.', 6000, { label: 'Undo', fn: () => { if (curPage() === pg) undo(); } });
   }
   function deletePage() {
     if (nb.pages.length === 1) {
@@ -2152,6 +2213,7 @@
   $('btnNext').addEventListener('click', () => goToPage(nb.current + 1));
   $('btnNewPage').addEventListener('click', newPage);
   $('btnFit').addEventListener('click', fitPage);
+  $('btnClearPage').addEventListener('click', clearPage);
 
   // ============================================================
   // Selection bar and aggregate panel
@@ -2160,6 +2222,7 @@
   $('selAdjust').addEventListener('click', () => { const ag = singleSelectedAgg(); if (ag) openPanel(ag.id); });
   $('selDuplicate').addEventListener('click', duplicateSelection);
   $('selDelete').addEventListener('click', deleteSelection);
+  $('selSvg').addEventListener('click', exportSelectionSVG);
 
   let panelId = null, panelSession = false;
   // The panel is placed once next to its aggregate and then stays put while the
@@ -2205,6 +2268,8 @@
     const show = (id, on) => { $(id).style.display = on ? '' : 'none'; };
     $('aggTitle').textContent = mode === 'chain' ? 'Chain' : mode === 'edited' ? (it.kind === 'chain' ? 'Chain (connected)' : 'Aggregate (edited)') : 'Aggregate';
     show('rowDf', mode === 'agg');
+    show('rowMethod', mode === 'agg');
+    for (const b of $('methodSeg').children) b.classList.toggle('active', b.dataset.method === (it.method === 'cca' ? 'cca' : 'pc'));
     show('aggAdvanced', mode === 'agg');
     show('rowTemp', mode === 'chain');
     show('aggRandom', mode !== 'edited');
@@ -2228,6 +2293,8 @@
     else {
       html = `N = <b>${it.n}</b> monomers<br>R<sub>g</sub> = ${it.rg.toFixed(1)} a`;
       if (it.dfFit != null) html += ` &middot; fitted D<sub>f</sub> = ${it.dfFit.toFixed(2)}`;
+      if (it.aniso) html += `<br>anisotropy ${it.aniso.toFixed(1)}`;
+      if (it.ccaFallback) html += `<br><span class="warn">Cluster–cluster works up to D<sub>f</sub> = ${window.AggEngine.CCA_MAX_DF}; this one uses particle–cluster.</span>`;
       if (it.needsGen) html += '<br><i>updating…</i>';
       else if (it.capped) html += `<br><span class="warn">Capped at ${CONFIG.N_MAX} monomers: increase the monomer size to fill the box.</span>`;
     }
@@ -2253,12 +2320,21 @@
       return;
     }
     const ni = { ...it, ...changes, needsGen: true };
+    if ('a' in changes && it.pts) ni.aGen = ptsScale(it);   // keep showing the current structure at its own size
     replaceItem(ni);
     requestGen(ni);
     settings.agg.a = ni.a; settings.agg.df = ni.df; settings.agg.kf = ni.kf;
+    settings.agg.method = ni.method === 'cca' ? 'cca' : 'pc';
     saveSettings();
   }
   aggSize.addEventListener('input', () => panelEdit({ a: +aggSize.value }));
+  for (const b of $('methodSeg').children) {
+    b.addEventListener('click', () => {
+      const it = findItem(panelId);
+      if (!it || (it.method === 'cca' ? 'cca' : 'pc') === b.dataset.method) return;
+      panelEdit({ method: b.dataset.method }, true);
+    });
+  }
   $('aggTemp').addEventListener('input', () => panelEdit({ temp: +$('aggTemp').value }));
   $('aggTemp').addEventListener('change', () => { panelSession = false; });
   $('aggRegen').addEventListener('click', () => {
@@ -2338,9 +2414,20 @@
   menuAction('mExport', exportNotebook);
   menuAction('mImport', () => $('fileInput').click());
   menuAction('mPng', exportPagePNG);
+  menuAction('mSvg', exportPageSVG);
   menuAction('mDeletePage', deletePage);
   menuAction('mClearPage', clearPage);
   menuAction('mHelp', () => $('help').classList.add('visible'));
+  for (const b of $('boardSeg').children) {
+    b.addEventListener('click', () => {
+      const pg = curPage();
+      if (b.dataset.board === 'dark') pg.bg = 'dark'; else delete pg.bg;
+      nb.modified = Date.now();
+      scheduleSave();
+      updateChrome();
+      requestRender();
+    });
+  }
   for (const b of $('fingerSeg').children) {
     b.addEventListener('click', () => {
       settings.fingerMode = b.dataset.mode;
@@ -2352,12 +2439,20 @@
   $('help').addEventListener('click', (e) => { if (e.target === $('help')) $('help').classList.remove('visible'); });
 
   let toastTimer = 0;
-  function toast(msg, ms = 2800) {
+  // action: optional { label, fn } shown as a button inside the message.
+  function toast(msg, ms = 2800, action = null) {
     const el = $('toast');
     el.textContent = msg;
+    el.classList.toggle('has-action', !!action);
+    if (action) {
+      const b = document.createElement('button');
+      b.textContent = action.label;
+      b.addEventListener('click', () => { el.classList.remove('visible', 'has-action'); action.fn(); });
+      el.appendChild(b);
+    }
     el.classList.add('visible');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => el.classList.remove('visible'), ms);
+    if (ms > 0) toastTimer = setTimeout(() => el.classList.remove('visible', 'has-action'), ms);
   }
 
   // ============================================================
@@ -2392,7 +2487,7 @@
       format: CONFIG.FORMAT, version: CONFIG.FORMAT_VERSION,
       id: nb.id, title: nb.title, created: nb.created, modified: nb.modified,
       page: { w: PW, h: PH }, current: nb.current,
-      pages: nb.pages.map(pg => ({ id: pg.id, items: pg.items.map(itemToJSON) })),
+      pages: nb.pages.map(pg => ({ id: pg.id, items: pg.items.map(itemToJSON), ...(pg.bg ? { bg: pg.bg } : {}) })),
     };
   }
   function exportNotebook() {
@@ -2436,6 +2531,9 @@
         R: R && R.length === 9 ? R : IDENTITY.slice(),
         pts: ok ? Float32Array.from(pts) : null, n: ok ? n : 0,
         rg: isNum(it.rg) ? it.rg : 0, dfFit: isNum(it.dfFit) ? it.dfFit : null,
+        ...(it.method === 'cca' ? { method: 'cca' } : {}),
+        ...(isNum(it.aGen) && it.aGen > 0 && ok ? { aGen: it.aGen } : {}),
+        ...(isNum(it.aniso) ? { aniso: it.aniso } : {}),
         capped: !!it.capped, needsGen: isChain ? false : (!ok || (!!it.needsGen && !it.edited)),
         ...(isChain ? { kind: 'chain', path, temp: isNum(it.temp) ? clamp(it.temp, 0, 1) : 0.25, pz: isNum(it.pz) ? it.pz : 0 } : {}),
         ...(it.edited && ok ? { edited: true } : {}),
@@ -2452,6 +2550,7 @@
     const pages = d.pages.map(pg => ({
       id: pg && typeof pg.id === 'string' ? pg.id : uid(),
       items: (pg && Array.isArray(pg.items) ? pg.items : []).map(sanitizeItem).filter(Boolean),
+      ...(pg && pg.bg === 'dark' ? { bg: 'dark' } : {}),
     }));
     if (!pages.length) pages.push({ id: uid(), items: [] });
     return {
@@ -2488,13 +2587,88 @@
     }
   });
 
+  // ---------- SVG export (vector) ----------
+  const f2 = (v) => (Math.round(v * 100) / 100).toString();
+  function strokeSVG(st, theme) {
+    const color = inkFor(st.color, theme);
+    return strokeRuns(st.points, st.width, st.straight).map(({ w, cmds }) => {
+      const d = cmds.map(c => c[0] + c.slice(1).map(f2).join(' ')).join('');
+      return `<path d="${d}" fill="none" stroke="${color}" stroke-width="${f2(w)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+    }).join('');
+  }
+  // Spheres as circles with radial-gradient shading, back to front, as on screen.
+  function aggSVG(it, theme, defs, gradIds) {
+    if (!it.pts || !it.n) return '';
+    const v = viewSpheres(it), a = ptsScale(it), cx = it.x + it.w / 2, cy = it.y + it.h / 2;
+    const prev = renderTheme; renderTheme = theme;
+    let zmin = Infinity, zmax = -Infinity;
+    for (let i = 0; i < it.n; i++) { zmin = Math.min(zmin, v.zs[i]); zmax = Math.max(zmax, v.zs[i]); }
+    const zr = Math.max(1e-6, zmax - zmin);
+    const order = Array.from({ length: it.n }, (_, i) => i).sort((i, j) => v.zs[i] - v.zs[j]);
+    const hsl = hslOf(it.color), shadowK = THEMES[theme].shadow;
+    let out = '';
+    for (const i of order) {
+      const level = clamp(Math.round(((v.zs[i] - zmin) / zr) * (LEVELS - 1)), 0, LEVELS - 1);
+      const t = level / (LEVELS - 1), brightness = 0.55 + 0.45 * t, mist = DEPTH * 0.65 * (1 - t);
+      const key = it.color + '|' + level;
+      let id = gradIds.get(key);
+      if (!id) {
+        id = 'g' + gradIds.size;
+        gradIds.set(key, id);
+        defs.push(`<radialGradient id="${id}" cx="0.5" cy="0.5" r="0.5" fx="0.3" fy="0.3" fr="0.05">` +
+          `<stop offset="0" stop-color="${stopColor(hsl, 85 + brightness * 8, mist)}"/>` +
+          `<stop offset="0.55" stop-color="${stopColor(hsl, 55 * brightness + 20, mist)}"/>` +
+          `<stop offset="1" stop-color="${stopColor(hsl, Math.max(20, 25 * brightness + 10), mist)}"/></radialGradient>`);
+      }
+      const x = cx + v.xs[i], y = cy + v.ys[i];
+      if (shadowK > 0) out += `<circle cx="${f2(x + a * 0.15)}" cy="${f2(y + a * 0.2)}" r="${f2(a * 0.95)}" fill="#000" fill-opacity="${((0.05 + 0.08 * t) * (1 - mist * 0.8) * shadowK).toFixed(3)}"/>`;
+      const oc = outlineStyle(t).match(/rgba\((\d+),(\d+),(\d+),([\d.]+)\)/);
+      out += `<circle cx="${f2(x)}" cy="${f2(y)}" r="${f2(a)}" fill="url(#${id})" stroke="rgb(${oc[1]},${oc[2]},${oc[3]})" stroke-opacity="${oc[4]}" stroke-width="${f2(Math.max(0.3, a * 0.06))}"/>`;
+    }
+    renderTheme = prev;
+    return out;
+  }
+  function buildSVG(list, box, theme, withBackground) {
+    const defs = [], gradIds = new Map();
+    const body = list.map(it => (it.type === 'stroke' ? strokeSVG(it, theme) : aggSVG(it, theme, defs, gradIds))).join('\n');
+    const bg = withBackground ? `<rect x="${f2(box.x)}" y="${f2(box.y)}" width="${f2(box.w)}" height="${f2(box.h)}" fill="${THEMES[theme].page}"/>\n` : '';
+    return `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${f2(box.x)} ${f2(box.y)} ${f2(box.w)} ${f2(box.h)}" width="${f2(box.w)}" height="${f2(box.h)}">\n` +
+      `<title>AggBoard export</title>\n<defs>${defs.join('')}</defs>\n${bg}${body}\n</svg>\n`;
+  }
+  // Extent of an item including sphere radii / line widths (for cropping).
+  function exportBounds(it) {
+    if (it.type === 'stroke') return strokeGeom(it).bbox;
+    if (!it.pts) return { x: it.x, y: it.y, w: it.w, h: it.h };
+    const v = viewSpheres(it), cx = it.x + it.w / 2, cy = it.y + it.h / 2, a = ptsScale(it);
+    return { x: cx + v.x0 - 0.2 * a, y: cy + v.y0 - 0.2 * a, w: v.x1 - v.x0 + 0.5 * a, h: v.y1 - v.y0 + 0.5 * a };
+  }
+  function exportPageSVG() {
+    commitPendingDot();
+    const theme = themeOf(curPage());
+    const svg = buildSVG(items(), { x: 0, y: 0, w: PW, h: PH }, theme, true);
+    shareBlob(new Blob([svg], { type: 'image/svg+xml' }), `page-${nb.current + 1}-${dateStamp()}.svg`, 'image/svg+xml');
+  }
+  function exportSelectionSVG() {
+    const sel = selectedItems();
+    if (!sel.length) return;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const it of sel) { const b = exportBounds(it); x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h); }
+    const m = 10, box = { x: x0 - m, y: y0 - m, w: x1 - x0 + 2 * m, h: y1 - y0 + 2 * m };
+    const theme = themeOf(curPage());
+    const ordered = items().filter(it => selection.has(it.id));      // keep page stacking order
+    const svg = buildSVG(ordered, box, theme, theme === 'dark');       // white pages: transparent background
+    shareBlob(new Blob([svg], { type: 'image/svg+xml' }), `selection-${dateStamp()}.svg`, 'image/svg+xml');
+  }
   function exportPagePNG() {
     commitPendingDot();
     const k = 2;
     const c = document.createElement('canvas');
     c.width = PW * k; c.height = PH * k;
     const x = c.getContext('2d');
-    x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+    const prevTheme = renderTheme;
+    renderTheme = themeOf(curPage());
+    x.fillStyle = THEMES[renderTheme].page; x.fillRect(0, 0, c.width, c.height);
     x.setTransform(k, 0, 0, k, 0, 0);
     for (const it of items()) {
       if (it.type === 'stroke') drawStroke(x, it);
@@ -2503,6 +2677,7 @@
         x.drawImage(bmp.canvas, it.x + it.w / 2 + bmp.ox, it.y + it.h / 2 + bmp.oy, bmp.canvas.width / bmp.ppu, bmp.canvas.height / bmp.ppu);
       }
     }
+    renderTheme = prevTheme;
     c.toBlob((blob) => { if (blob) shareBlob(blob, `page-${nb.current + 1}-${dateStamp()}.png`, 'image/png'); }, 'image/png');
   }
 
@@ -2544,7 +2719,7 @@
     if (!storageReady) return;
     if (!force && (action || pointers.size)) { saveTimer = setTimeout(saveNow, 1500); return; }
     try {
-      if (db) await dbPut('notebook', { ...nb, pages: nb.pages.map(pg => ({ id: pg.id, items: pg.items })) });
+      if (db) await dbPut('notebook', { ...nb, pages: nb.pages.map(pg => ({ id: pg.id, items: pg.items, ...(pg.bg ? { bg: pg.bg } : {}) })) });
       else localStorage.setItem('aggboard.notebook', JSON.stringify(notebookToJSON()));
     } catch (err) {
       if (!saveWarned) { saveWarned = true; toast('Could not save on this device. Use "Save notebook to file".', 5000); }
@@ -2616,11 +2791,50 @@
     if (stored) loadNotebook(stored);
     else { goToPage(0); saveNow(); }
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+    setupOffline();
   }
-  function setColorUI() { for (const b of colorsEl.children) b.classList.toggle('active', b.dataset.color === settings.color); }
+  function setColorUI() {
+    const th = themeOf(curPage());
+    for (const b of colorsEl.children) {
+      b.classList.toggle('active', b.dataset.color === settings.color);
+      b.style.backgroundColor = inkFor(b.dataset.color, th);
+    }
+  }
+
+  // ============================================================
+  // Offline support (service worker, see sw.js)
+  // ============================================================
+  function setupOffline() {
+    const sw = navigator.serviceWorker;
+    const secure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if (!sw || !secure) return;
+    let reloading = false;
+    sw.addEventListener('controllerchange', () => { if (reloading) location.reload(); });
+    const offerUpdate = (worker) => {
+      toast('A new version of AggBoard is ready.', 0, {
+        label: 'Reload',
+        fn: () => { reloading = true; saveNow(true).finally(() => worker.postMessage({ type: 'SKIP_WAITING' })); },
+      });
+    };
+    sw.register('sw.js').then((reg) => {
+      if (reg.waiting && sw.controller) offerUpdate(reg.waiting);
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing;
+        if (!nw) return;
+        nw.addEventListener('statechange', () => {
+          // A waiting worker while a page is controlled = an update (not the first install).
+          if (nw.state === 'installed' && sw.controller) offerUpdate(nw);
+        });
+      });
+      // Look for updates when the app comes back to the foreground, and every 30 minutes.
+      const check = () => { if (navigator.onLine !== false) reg.update().catch(() => {}); };
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+      setInterval(check, 30 * 60 * 1000);
+    }).catch((err) => console.warn('Offline support unavailable:', err));
+  }
 
   // Exposed for automated tests only.
-  window.__aggboard = { get nb() { return nb; }, get selection() { return selection; }, view, settings, undo, redo, goToPage, newPage, saveNow, notebookToJSON, sanitizeNotebook };
+  window.__aggboard = { buildSVG, get nb() { return nb; }, get selection() { return selection; }, view, settings, undo, redo, goToPage, newPage, saveNow, notebookToJSON, sanitizeNotebook };
 
   init();
 })();

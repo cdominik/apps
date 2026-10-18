@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- AggBoard, Copyright (c) 2026 Carsten Dominik. MIT License (see LICENSE). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -72,26 +73,31 @@
   /* ---------- popup menu ---------- */
   #menu {
     position: absolute; z-index: 30; display: none;
-    top: calc(60px + env(safe-area-inset-top, 0px)); right: calc(10px + env(safe-area-inset-right, 0px));
-    width: min(300px, calc(100% - 20px));
+    top: calc(60px + env(safe-area-inset-top, 0px)); left: calc(10px + env(safe-area-inset-left, 0px));
+    width: min(320px, calc(100% - 20px));
+    max-height: calc(100% - 80px - env(safe-area-inset-top, 0px)); overflow-y: auto; touch-action: pan-y;
     background: #fff; border-radius: 14px; box-shadow: 0 10px 40px rgba(0,0,0,0.25);
-    padding: 8px;
+    padding: 4px 8px 8px;
   }
   #menu.visible { display: block; }
+  #menu .section {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent);
+    padding: 12px 10px 4px; border-top: 1px solid #eee; margin-top: 6px;
+  }
+  #menu .section:first-child { border-top: none; margin-top: 0; }
+  #menu .row-label { font-size: 12px; color: #777; padding: 4px 10px 4px; }
+  #menu .note { font-size: 12px; color: #888; padding: 2px 10px 6px; line-height: 1.35; }
   #menu button.item {
     display: block; width: 100%; text-align: left; border: none; background: transparent;
-    padding: 11px 10px; border-radius: 8px; font: inherit; font-size: 15px; color: #222; cursor: pointer;
+    padding: 10px 10px; border-radius: 8px; font: inherit; font-size: 15px; color: #222; cursor: pointer;
   }
   #menu button.item:active { background: #f0f0f4; }
   #menu button.danger { color: #b3261e; }
-  #menu hr { border: none; border-top: 1px solid #eee; margin: 6px 4px; }
-  #menu .label { font-size: 12px; color: #777; padding: 6px 10px 4px; }
   .seg { display: flex; margin: 0 8px 6px; border: 1px solid var(--ui-border); border-radius: 9px; overflow: hidden; }
   .seg button { flex: 1; border: none; background: #fff; padding: 8px 4px; font: inherit; font-size: 13px; cursor: pointer; color: #333; }
   .seg button + button { border-left: 1px solid var(--ui-border); }
   .seg button.active { background: var(--accent); color: #fff; }
-  #menu .version { font-size: 11px; color: #999; padding: 6px 10px 2px; text-align: right; }
-  #menu { max-height: calc(100% - 80px - env(safe-area-inset-top, 0px)); overflow-y: auto; touch-action: pan-y; }
+  #menu .version { font-size: 11px; color: #999; padding: 8px 10px 2px; text-align: right; }
   #menuShield { position: absolute; inset: 0; z-index: 29; display: none; }
   #menuShield.visible { display: block; }
 
@@ -125,6 +131,8 @@
   #aggPanel .row label { display: flex; justify-content: space-between; margin-bottom: 4px; }
   #aggPanel .row label b { font-weight: 600; font-variant-numeric: tabular-nums; }
   #aggPanel input[type=range] { width: 100%; accent-color: var(--accent); height: 28px; }
+  #aggPanel .methodseg { margin: 0; }
+  #aggPanel .methodseg button { font-size: 12px; padding: 7px 4px; }
   #aggPanel .readout { margin-top: 8px; padding: 7px 9px; background: #f5f5f8; border-radius: 8px; color: #444; font-variant-numeric: tabular-nums; line-height: 1.45; min-height: calc(3 * 1.45em + 14px); }
   #aggPanel .readout .warn { color: #a5530a; }
   #aggPanel .colors { display: flex; gap: 6px; margin-top: 10px; }
@@ -155,6 +163,8 @@
   .modal h2 { font-size: 18px; margin-bottom: 8px; }
   .modal h3 { font-size: 14px; color: var(--accent); margin: 14px 0 4px; }
   .modal p { margin: 4px 0; }
+  .modal ul { margin: 4px 0 4px 18px; padding: 0; }
+  .modal li { margin: 3px 0; }
   .modal kbd { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: #f1f1f4; border: 1px solid #d8d8de; border-radius: 4px; padding: 0 4px; }
   .modal .close-row { display: flex; justify-content: flex-end; margin-top: 14px; }
   .modal .close-row button { background: var(--accent); color: #fff; border: none; padding: 9px 18px; border-radius: 9px; font: inherit; cursor: pointer; }
@@ -166,6 +176,8 @@
     z-index: 50; opacity: 0; transition: opacity 0.2s; pointer-events: none; max-width: calc(100% - 32px); text-align: center;
   }
   #toast.visible { opacity: 1; }
+  #toast.has-action { pointer-events: auto; display: flex; align-items: center; gap: 12px; }
+  #toast button { background: transparent; color: #7ee2b8; border: 1px solid rgba(126,226,184,0.6); border-radius: 7px; padding: 5px 12px; font: inherit; font-weight: 600; cursor: pointer; }
 
   /* ---------- input diagnostics ---------- */
   #diag {
@@ -242,11 +254,14 @@
   <div class="sep"></div>
   <button class="tbtn" id="btnNewPage" title="New page after this one" aria-label="New page"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
   <button class="tbtn" id="btnFit" title="Fit page (0)" aria-label="Fit page"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+  <div class="sep"></div>
+  <button class="tbtn" id="btnClearPage" title="Clear this page (Undo brings it back)" aria-label="Clear this page"><svg viewBox="0 0 24 24"><path d="M19 3l-7.5 7.5"/><path d="M10.2 9.4l4.4 4.4-1.6 1.6c-.9.9-2.2 1.3-3.4 1.1L5 21l1.2-4.9c-.2-1.3.2-2.6 1.1-3.5z"/><path d="M8 18l1.5-1.5M10.5 19.5L12 18"/></svg></button>
 </div>
 
 <div id="selbar">
   <button id="selAdjust">Adjust</button>
   <button id="selDuplicate">Duplicate</button>
+  <button id="selSvg" title="Export the selection as vector graphics (SVG)">SVG</button>
   <button id="selDelete" class="danger">Delete</button>
 </div>
 
@@ -255,6 +270,13 @@
   <div class="row">
     <label for="aggSize"><span id="aggSizeLabel">Monomer size</span><b id="aggSizeVal"></b></label>
     <input type="range" id="aggSize" min="1" max="120" step="0.5">
+  </div>
+  <div class="row" id="rowMethod">
+    <label><span>Method</span></label>
+    <div class="seg methodseg" id="methodSeg">
+      <button data-method="cca" title="Tunable cluster–cluster aggregation: realistic shapes, D&#8239;f 1–2.3">Cluster–cluster</button>
+      <button data-method="pc" title="Tunable particle–cluster aggregation: D&#8239;f 1–3, keeps its core when resized">Particle–cluster</button>
+    </div>
   </div>
   <div class="row" id="rowDf">
     <label for="aggDf"><span>Fractal dimension D<sub>f</sub></span><b id="aggDfVal"></b></label>
@@ -284,65 +306,133 @@
 
 <div id="menuShield"></div>
 <div id="menu" role="menu">
+  <div class="section">This page</div>
+  <div class="row-label">Board</div>
+  <div class="seg" id="boardSeg">
+    <button data-board="light">White</button>
+    <button data-board="dark">Dark</button>
+  </div>
+  <button class="item" id="mClearPage">Clear this page</button>
+  <button class="item danger" id="mDeletePage">Delete this page…</button>
+
+  <div class="section">Export</div>
+  <button class="item" id="mPng">This page as image (PNG)…</button>
+  <button class="item" id="mSvg">This page as vector graphics (SVG)…</button>
+  <div class="note">To export only part of a page, select it and tap SVG in the selection bar.</div>
+
+  <div class="section">Notebook</div>
   <button class="item" id="mExport">Save notebook to file…</button>
   <button class="item" id="mImport">Open notebook from file…</button>
-  <button class="item" id="mPng">Export this page as image…</button>
-  <hr>
-  <div class="label">Finger input</div>
+
+  <div class="section">Settings</div>
+  <div class="row-label">Finger input</div>
   <div class="seg" id="fingerSeg">
     <button data-mode="auto">Auto</button>
     <button data-mode="draw">Draw</button>
     <button data-mode="navigate">Pan &amp; zoom</button>
   </div>
-  <hr>
-  <button class="item" id="mClearPage">Clear this page</button>
-  <button class="item danger" id="mDeletePage">Delete this page…</button>
-  <hr>
+
+  <div class="section">Help</div>
   <button class="item" id="mHelp">Help</button>
   <button class="item" id="mDiag">Input diagnostics</button>
   <div class="version" id="versionLabel"></div>
+  <div class="version">&copy; 2026 Carsten Dominik &middot; MIT License</div>
+</div>
 </div>
 <input type="file" id="fileInput" accept=".json,application/json" hidden>
 
 <div class="modal" id="help">
   <div class="panel">
     <h2>AggBoard</h2>
-    <p>A notebook whiteboard with a built-in 3D fractal aggregate generator. Everything is saved automatically on this device.</p>
+    <p>A notebook whiteboard with a built-in generator for 3D fractal aggregates. Everything is saved automatically on this device.</p>
+
+    <h3>Getting started</h3>
+    <ul>
+      <li><b>Toolbar (top):</b> pen, eraser, select, laser, particle chain, aggregate box &middot; five ink colours &middot; three line widths &middot; Undo, Redo &middot; <b>&hellip;</b> menu (opens on the left).</li>
+      <li><b>Page bar (bottom):</b> previous / next page, page number, <b>+</b> new page, fit page to screen, and the broom to clear the page.</li>
+      <li><b>Pencil and fingers:</b> once an Apple Pencil is detected, the pencil draws and fingers move the page (one finger pans, two fingers pinch to zoom). Without a pencil, one finger draws.</li>
+    </ul>
 
     <h3>Drawing</h3>
-    <p><b>Pen</b> draws (pressure-sensitive with Apple Pencil). <b>Eraser</b> removes whole strokes it touches. <b>Select</b>: draw a loop around strokes or aggregates, then drag inside the frame to move them, drag a corner square to scale the group (handwriting and aggregates keep their proportions; aggregates keep their exact structure), or use Duplicate / Delete. Tapping a colour recolours selected strokes. Tap a single item with Select to pick it. <b>Laser</b> draws a red trail that fades &mdash; for pointing while presenting.</p>
+    <ul>
+      <li><b>Pen</b> &mdash; pressure-sensitive with the Apple Pencil. Choose colour and width in the toolbar.</li>
+      <li><b>Eraser</b> &mdash; removes every stroke it touches (aggregates are deleted via selection instead).</li>
+      <li><b>Laser</b> &mdash; a red trail that fades after a second, for pointing while presenting. It leaves nothing on the page.</li>
+      <li><b>Straight lines and shapes</b> &mdash; at the end of a stroke, keep the pencil still for half a second. The stroke becomes the shape it resembles: a straight line (exactly horizontal, vertical or 45&deg; when close), an angled line such as an L for axes, an arrow, a triangle, a rectangle, another polygon, or a circle or ellipse. You see the shape while holding; lift to keep it, or keep moving to stay freehand. For an arrow, draw the shaft and a quick head in one stroke, or draw a line and then a &ldquo;V&rdquo; at its end.</li>
+      <li><b>Undo / Redo</b> work per page and cover everything: drawing, erasing, moving, clearing and all aggregate changes.</li>
+    </ul>
 
-    <h3>Straight lines and shapes</h3>
-    <p>Draw as usual, then <b>keep the pencil still for half a second</b> at the end of the stroke. It turns into the shape it looks like: a straight line (exactly horizontal, vertical or 45&deg; when close), an angled line such as an L for axes, an arrow (draw the shaft with a quick head in one stroke, or draw a line and then a &ldquo;V&rdquo; at its end), a triangle, a rectangle (squared up), another polygon, or a circle or ellipse. You see the shape while still holding; lift to keep it, or move on to keep the freehand stroke.</p>
-
-    <h3>Pencil and fingers</h3>
-    <p>Once an Apple Pencil is detected, the pencil draws and fingers pan and zoom (one finger pans, two fingers pinch). Your palm is ignored while the pencil touches the screen. Without a pencil, one finger draws and two fingers pan and zoom. You can force either behaviour under <b>&hellip; &rarr; Finger input</b>.</p>
+    <h3>Selecting and moving</h3>
+    <ul>
+      <li><b>Select tool:</b> draw a loop around strokes and aggregates, or tap a single item.</li>
+      <li><b>Tap an aggregate</b> with any tool except the laser to select it.</li>
+      <li><b>Move:</b> drag inside the selection frame. This works with every tool: whatever is selected moves.</li>
+      <li><b>Scale a group:</b> drag a corner square. Handwriting keeps its proportions; aggregates keep their exact structure.</li>
+      <li><b>Selection bar:</b> Duplicate, Delete, SVG (export the selection), and Adjust for a single aggregate. Tapping an ink colour recolours selected strokes.</li>
+      <li><b>Deselect:</b> tap an empty spot (or press Esc).</li>
+    </ul>
 
     <h3>Aggregates</h3>
-    <p>Choose the aggregate tool and drag a box. When you lift, the box fills with a 3D fractal aggregate, and the tool switches back to the pen.</p>
-    <p><b>Tap</b> an aggregate (with the pencil, a finger or the mouse, in any tool except the laser) to select it; then tap <b>Adjust</b>, or simply <b>double-tap</b> the aggregate, to open its settings:</p>
-    <p><b>Monomer size</b> &mdash; the monomer radius. The number of monomers changes so the aggregate still fills its box (up to 5000 monomers).<br>
-    <b>Fractal dimension</b> &mdash; from 1 (a straight chain) to 3 (compact). The aggregate is regenerated as you drag.<br>
-    <b>New random</b> &mdash; same settings, different random structure.<br>
-    <b>Advanced</b> &mdash; the prefactor k<sub>f</sub> in N = k<sub>f</sub> (R<sub>g</sub>/a)<sup>D<sub>f</sub></sup>. Auto chooses a value that works for every D<sub>f</sub>.</p>
-    <p>When an aggregate is selected: drag it to move. The handles: <b>bottom-right</b> scales it (bigger or smaller, same structure, so the monomers scale too); <b>bottom-left</b> (dashed box) changes the box and regenerates the aggregate to fill it, keeping the monomer size, so the number of monomers changes; <b>top-right</b> (round arrow) rotates it in 3D. Chains and edited aggregates have no bottom-left handle, because they cannot be regenerated. With fingers in pan-and-zoom mode, dragging one finger on a selected aggregate also rotates it.</p>
-    <p>The readout shows N, the radius of gyration R<sub>g</sub> (in monomer radii a), and D<sub>f</sub> fitted from the growth history as a check.</p>
+    <p>Choose the <b>aggregate tool</b> (cluster in a dashed box) and drag a box. When you lift, the box fills with a 3D fractal aggregate and the tool switches back to the pen. The new aggregate is selected, with three handles:</p>
+    <ul>
+      <li><b>Bottom-right</b> &mdash; scale: bigger or smaller with the same structure (the monomers scale too).</li>
+      <li><b>Bottom-left</b> (dashed box) &mdash; refill: change the box; the aggregate is regenerated to fill it at the same monomer size, so the number of monomers changes.</li>
+      <li><b>Top-right</b> (round arrow) &mdash; rotate in 3D. In pan-and-zoom finger mode, dragging one finger on a selected aggregate rotates it too.</li>
+    </ul>
+    <p><b>Double-tap</b> an aggregate (or select it and tap <b>Adjust</b>) for its settings. Changes appear live while you drag a slider.</p>
+    <ul>
+      <li><b>Method</b> &mdash; <i>Cluster&ndash;cluster</i> (default) builds it the way real aggregates form, small clusters merging into larger ones; realistic, irregular shapes for D<sub>f</sub> 1 to 2.3 (above that, particle&ndash;cluster is used automatically and the panel says so). <i>Particle&ndash;cluster</i> adds monomers one at a time; it covers D<sub>f</sub> 1 to 3 and keeps the same core when the size changes, while cluster&ndash;cluster gives a new structure each time.</li>
+      <li><b>Monomer size</b> &mdash; the monomer radius; the number of monomers adjusts so the aggregate still fills its box (at most 5000).</li>
+      <li><b>Fractal dimension D<sub>f</sub></b> &mdash; from 1 (a chain) to 3 (compact).</li>
+      <li><b>Colour</b>, <b>New random</b> (same settings, different structure), <b>Duplicate</b>, <b>Delete</b>.</li>
+      <li><b>Advanced</b> &mdash; the prefactor k<sub>f</sub> in N = k<sub>f</sub> (R<sub>g</sub>/a)<sup>D<sub>f</sub></sup>. <i>Auto</i> picks a value that works across the whole D<sub>f</sub> range.</li>
+      <li><b>Readout</b> &mdash; N, R<sub>g</sub> (in monomer radii a), D<sub>f</sub> fitted from the growth history as a check, and the anisotropy (largest over smallest principal radius of gyration).</li>
+    </ul>
 
     <h3>Particle chains</h3>
-    <p>The <b>chain</b> tool (spheres without a box) turns a stroke into touching spheres. It uses the current monomer size and the last temperature you set. Temperature makes the chain wiggle in 3D; rotate it to see.</p>
-    <p>Start or end a chain on a sphere of an aggregate and it attaches there, at that sphere's depth, and becomes part of the aggregate. Start on one aggregate and end on another to bridge them into one (both need the same monomer size). This works the same with chains: branch off a chain, connect two chains, or close a chain into a ring. New spheres touch where they join and steer around existing spheres instead of overlapping them.</p>
-    <p>An aggregate with hand-drawn parts is marked <i>edited</i>: it no longer regenerates, its monomer-size slider and corner handle scale it, and <b>Regenerate…</b> turns it back into a fresh aggregate (removing the drawn parts). Double-tap a standalone chain to change its monomer size, temperature or random pattern; it is re-laid along the line you drew.</p>
+    <ul>
+      <li>The <b>chain tool</b> (spheres without a box) turns a stroke into a chain of touching spheres, at the current monomer size.</li>
+      <li><b>Connecting:</b> start or end the stroke on a sphere of an aggregate or another chain, and the new chain attaches there in 3D and becomes part of it. Start on one and end on another to bridge them (both need the same monomer size). You can branch off a chain or close it into a ring. New spheres steer around existing ones instead of overlapping. (A <i>selected</i> aggregate is moved instead; tap an empty spot first.)</li>
+      <li><b>Settings:</b> double-tap a chain to change its monomer size, its <b>temperature</b> (how much it wiggles in 3D; rotate it to see) and its random pattern. It is re-laid along the line you drew. New chains use the last temperature you set.</li>
+      <li><b>Edited aggregates:</b> an aggregate with attached chains no longer regenerates. Its size slider and corner handle scale it, and <b>Regenerate&hellip;</b> turns it back into a fresh aggregate (removing the drawn parts).</li>
+    </ul>
 
-    <h3>Pages</h3>
-    <p>Use the arrows at the bottom to move between pages and <b>+</b> to add a page after the current one. <b>&hellip; &rarr; Clear this page</b> removes everything on the page in one step (Undo brings it back). Undo works per page and covers drawing, erasing, moving and all aggregate changes.</p>
+    <h3>Pages and boards</h3>
+    <ul>
+      <li><b>&hellip; &rarr; This page &rarr; Board</b> switches between a white page and a <b>dark board</b>, which is easier on the eyes when projecting. New pages get the board of the page you are on. On the dark board, black ink shows as chalk white and the other colours brighter; switching back shows everything exactly as written.</li>
+      <li><b>Clear</b> a page with the broom in the page bar (or <b>&hellip; &rarr; This page</b>); tap <b>Undo</b> in the message to bring it back. <b>Delete this page</b> removes the page itself and cannot be undone.</li>
+    </ul>
 
-    <h3>Keeping your notes</h3>
-    <p>Notebooks live in this browser on this device. On iPad, add AggBoard to your Home Screen, otherwise Safari may delete its data after a week without use. Use <b>&hellip; &rarr; Save notebook to file</b> regularly as a backup, or to give a notebook to someone else; they open it with <b>Open notebook from file</b>.</p>
+    <h3>Exporting</h3>
+    <ul>
+      <li><b>&hellip; &rarr; Export &rarr; This page as image (PNG)</b> &mdash; a 3200&times;1800 picture.</li>
+      <li><b>&hellip; &rarr; Export &rarr; This page as vector graphics (SVG)</b> &mdash; sharp at any size; opens in browsers, Inkscape, Illustrator, Keynote and PowerPoint.</li>
+      <li><b>For figures:</b> select what you want and tap <b>SVG</b> in the selection bar. Only the selection is exported, cropped, on a transparent background (dark-board pages keep their dark background).</li>
+    </ul>
 
-    <h3>Keyboard</h3>
-    <p><kbd>P</kbd> pen &middot; <kbd>E</kbd> eraser &middot; <kbd>S</kbd> select &middot; <kbd>L</kbd> laser &middot; <kbd>A</kbd> aggregate &middot; <kbd>C</kbd> chain &middot; <kbd>1</kbd>&ndash;<kbd>5</kbd> colours &middot; <kbd>Ctrl/⌘ Z</kbd> undo &middot; <kbd>Ctrl/⌘ Shift Z</kbd> redo &middot; <kbd>Ctrl/⌘ D</kbd> duplicate &middot; <kbd>Delete</kbd> delete selection &middot; <kbd>PgUp</kbd>/<kbd>PgDn</kbd> pages &middot; <kbd>0</kbd> fit page &middot; <kbd>Esc</kbd> deselect</p>
-    <p>Mouse: right- or middle-drag pans, Ctrl + wheel (or trackpad pinch) zooms, wheel scrolls.</p>
+    <h3>Saving, sharing, offline</h3>
+    <ul>
+      <li>Notebooks are stored in this browser on this device, automatically. Different browsers (and the Home Screen app) keep separate notebooks.</li>
+      <li>On iPad, <b>add AggBoard to the Home Screen</b>: Safari may otherwise delete a website's data after a week without use.</li>
+      <li><b>&hellip; &rarr; Notebook &rarr; Save notebook to file</b> for backups, to move a notebook to another browser or device, or to give it to someone; they use <b>Open notebook from file</b>.</li>
+      <li><b>Offline:</b> after one visit with a network connection, AggBoard starts without network. When a new version has been downloaded, a message with <b>Reload</b> appears; nothing changes until you tap it.</li>
+    </ul>
 
+    <h3>Settings, mouse and keyboard</h3>
+    <ul>
+      <li><b>&hellip; &rarr; Settings &rarr; Finger input:</b> <i>Auto</i> (fingers draw until a pencil is detected), <i>Draw</i> (one finger always draws), <i>Pan &amp; zoom</i> (one finger always moves the page). Your palm is ignored while the pencil is on the screen.</li>
+      <li><b>Mouse / trackpad:</b> click to draw or select, double-click an aggregate for its settings, right- or middle-drag to pan, two-finger swipe to pan, pinch or Ctrl + wheel to zoom.</li>
+      <li><b>Keys:</b> <kbd>P</kbd> pen &middot; <kbd>E</kbd> eraser &middot; <kbd>S</kbd> select &middot; <kbd>L</kbd> laser &middot; <kbd>C</kbd> chain &middot; <kbd>A</kbd> aggregate &middot; <kbd>1</kbd>&ndash;<kbd>5</kbd> colours &middot; <kbd>Ctrl/&#8984; Z</kbd> undo &middot; <kbd>Ctrl/&#8984; Shift Z</kbd> redo &middot; <kbd>Ctrl/&#8984; D</kbd> duplicate &middot; <kbd>Delete</kbd> delete selection &middot; <kbd>PgUp</kbd>/<kbd>PgDn</kbd> pages &middot; <kbd>0</kbd> fit page &middot; <kbd>Esc</kbd> close menus and dialogs, or deselect.</li>
+    </ul>
+
+    <h3>If something goes wrong</h3>
+    <ul>
+      <li><b>Version:</b> shown at the bottom of the <b>&hellip;</b> menu.</li>
+      <li><b>&ldquo;Update incomplete&rdquo;:</b> some files on the web server are from an older version. Check that all files were uploaded, wait a few minutes, then reload.</li>
+      <li><b>Pencil problems:</b> open <b>&hellip; &rarr; Help &rarr; Input diagnostics</b>, reproduce the problem, tap <b>Copy</b> and send the text. It records what the device reports and what the app did with it; nothing is sent anywhere by itself.</li>
+    </ul>
+
+    <p style="margin-top:14px;color:#777;font-size:12px">AggBoard &copy; 2026 Carsten Dominik. Free software under the MIT License.</p>
     <div class="close-row"><button id="helpClose">Close</button></div>
   </div>
 </div>
@@ -358,12 +448,12 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="aggregate-engine.js?v=2026.10.18-4"></script>
-<script src="app.js?v=2026.10.18-4"></script>
+<script src="aggregate-engine.js?v=2026.10.18-14"></script>
+<script src="app.js?v=2026.10.18-14"></script>
 <script>
   // Warn if the browser mixed files from different releases (e.g. a stale cached app.js).
   (function () {
-    var want = '2026.10.18-4';
+    var want = '2026.10.18-14';
     var okApp = window.AGGBOARD_VERSION === want;
     var okEngine = window.AggEngine && window.AggEngine.release === want;
     if (okApp && okEngine) return;

@@ -12,7 +12,9 @@ Static site, no build step, no server code. Works on iPad (Apple Pencil), deskto
 | `app.js` | The whiteboard: drawing, pages, selection, storage, aggregate objects |
 | `aggregate-engine.js` | Aggregate generator. Runs as a Web Worker; also loaded on the page as a fallback |
 | `manifest.webmanifest`, `icon-*.png` | Home Screen / install support |
-| `ROADMAP.md` | Ideas deliberately left out of version 1 |
+| `sw.js` | Service worker: offline copy of the app, controlled updates |
+| `ROADMAP.md` | Done and open ideas |
+| `LICENSE` | MIT license |
 
 ## Hosting
 
@@ -26,6 +28,12 @@ python3 -m http.server 8000
 ```
 
 then open `http://localhost:8000` (or `http://<your-computer's-IP>:8000` on the iPad, same network).
+
+## Offline and releases
+
+`sw.js` stores a complete copy of the app per release, so it starts without network after the first visit (needs `https://` or `localhost`). A new release downloads in the background; the app shows a **Reload** prompt and switches only when the user taps it.
+
+When you change any file, bump the version string in **all four places**: `VERSION` in `app.js` and `sw.js`, `release` in `aggregate-engine.js`, and the two `?v=` script URLs plus `want` in `index.html`. The version shown in the menu is the one from `app.js`; the page warns if the files don't match.
 
 ## Configuration
 
@@ -44,6 +52,13 @@ Notebooks are stored in the browser's IndexedDB on each device. Nothing is uploa
 
 ## The aggregate engine
 
+Two tunable methods, both enforcing N = k_f (R_g/a)^D_f exactly:
+
+- **Cluster–cluster (default):** subclusters (about N^0.4 monomers) are grown with the particle–cluster method, then merged hierarchically in pairs of similar size. Each merge puts the centres of mass at Γ² = N²/(N₁N₂)·R_g² − N/N₂·R_g1² − N/N₁·R_g2² and searches for a touching, overlap-free orientation (contact circle + spin about the contact axis, with collision grid); a ballistic approach is the last-resort fallback. Validated: every merge exact and fitted D_f = target for D_f 1.1–2.3 (1.0 gives 1.002), no overlaps, always connected, ≤ ~0.4 s for 4000 monomers. Above D_f 2.3 compact clusters cannot meet the required distance, so the app uses particle–cluster there. Box filling regenerates for a few N values (no prefix property), so resizing gives a new structure.
+- **Particle–cluster:** details below.
+
+### Particle–cluster
+
 Tunable particle–cluster aggregation (Filippov, Zurita & Rosner, *J. Colloid Interface Sci.* 229, 261, 2000): each monomer is placed at the distance from the centre of mass that keeps N = k_f (R_g/a)^D_f exact, touching at least one monomer, overlapping none.
 
 - k_f defaults to a function of D_f (`kfAuto` in `aggregate-engine.js`). A fixed k_f cannot span D_f = 1 to 3: a straight chain needs k_f ≥ √3, random dense packing needs k_f ≲ 1. With the default, the fitted D_f matches the target to three decimals over the whole range 1.0–3.0 (tested for N = 1500).
@@ -51,3 +66,7 @@ Tunable particle–cluster aggregation (Filippov, Zurita & Rosner, *J. Colloid I
 - Typical speed: 2000 monomers in 5–20 ms, so sliders can regenerate live.
 - **Particle chains** (chain tool) are laid as touching spheres along the drawn stroke: a walk whose aim point advances one diameter along the path per step, with correlated 3D noise scaled by the temperature. N stays ≈ length / 2a at any temperature. Chains that start or end on a sphere (of an aggregate or another chain) attach at that sphere's depth, in exact contact, and are merged into its coordinate frame; such "edited" aggregates are never regenerated. New chain spheres avoid overlapping the joined structure and the chain itself (a collision grid; blocked steps tilt away from the preferred direction, and the closing sphere is placed on the circle of positions that touch both neighbours).
 - Each aggregate stores its monomer coordinates in the notebook, so it looks the same after reloading even if the engine changes later. The seed is kept for regenerating.
+
+## License
+
+MIT License, Copyright (c) 2026 Carsten Dominik. See `LICENSE`.
