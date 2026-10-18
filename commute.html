@@ -4,153 +4,271 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Commute App</title>
-<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <style>
   .bar-container { display: flex; align-items: flex-end; height: 75px; gap: 4px; margin-top: 18px; }
-  .bar { background-color: #3b82f6; width: 100%; border-radius: 2px 2px 0 0; transition: height 0.3s; position: relative; }
-  .bar-label { font-size: 0.75rem; text-align: center; color: #6b7280; overflow: hidden; margin-top: 2px;}
+  .bar { background-color: #3b82f6; width: 100%; border-radius: 2px 2px 0 0; transition: height 0.3s; }
+  .bar-label { font-size: 0.75rem; text-align: center; color: #6b7280; overflow: hidden; margin-top: 2px; }
   .bar-value { font-size: 0.75rem; text-align: center; position: absolute; top: -18px; left: 0; right: 0; color: #1d4ed8; font-weight: bold; }
   @media (prefers-color-scheme: dark) {
-    .bar { background-color: #3b82f6; }
     .bar-label { color: #9ca3af; }
     .bar-value { color: #93c5fd; }
   }
 </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 p-2 font-sans h-screen flex flex-col transition-colors duration-200">
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 p-2 font-sans min-h-screen flex flex-col">
 
 <div id="debug-error" class="hidden bg-red-600 text-white p-2 rounded text-xs mb-2 font-mono break-words shadow-md"></div>
 
-<div class="max-w-4xl mx-auto bg-white dark:bg-gray-800 shadow-md dark:shadow-none rounded p-3 w-full border border-transparent dark:border-gray-700 transition-colors duration-200">
-  
+<div class="max-w-4xl mx-auto bg-white dark:bg-gray-800 shadow-md dark:shadow-none rounded p-3 w-full border border-transparent dark:border-gray-700">
+
   <div class="mb-3 flex flex-wrap gap-2 items-center">
-    <button onclick="setLocation('Voorschoten', true)" id="btn-voorschoten" class="px-3 py-1.5 rounded bg-blue-600 text-white text-sm shadow transition">Voorschoten</button>
-    <button onclick="setLocation('AMS', true)" id="btn-ams" class="px-3 py-1.5 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 text-sm shadow transition">AMS</button>
-    <button onclick="autoLocate(true)" class="px-3 py-1.5 rounded bg-gray-800 dark:bg-gray-600 hover:bg-gray-900 dark:hover:bg-gray-500 text-white text-sm shadow transition flex items-center gap-1">
+    <button onclick="setLocation('Voorschoten', true)" id="btn-Voorschoten" class="loc-btn px-3 py-1.5 rounded text-sm shadow">Voorschoten</button>
+    <button onclick="setLocation('AMS', true)" id="btn-AMS" class="loc-btn px-3 py-1.5 rounded text-sm shadow">AMS</button>
+    <button onclick="autoLocate(true)" id="btn-auto" class="px-3 py-1.5 rounded bg-gray-800 dark:bg-gray-600 hover:bg-gray-900 dark:hover:bg-gray-500 text-white text-sm shadow flex items-center gap-1">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
       Auto
     </button>
-    <span id="location-status" class="text-sm text-green-600 dark:text-green-400 font-medium ml-auto"></span>
-    <button onclick="updateApp()" class="w-8 h-8 rounded bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white shadow transition flex items-center justify-center ml-auto md:ml-0 active:scale-95"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
+    <span id="location-status" class="text-xs text-gray-500 dark:text-gray-400 ml-auto"></span>
+    <button onclick="updateApp()" aria-label="Refresh" class="w-8 h-8 rounded bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white shadow flex items-center justify-center active:scale-95"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></button>
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-    <div class="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-700 shadow-sm transition-colors duration-200">
+    <div class="p-2 rounded border dark:border-gray-700 shadow-sm">
       <h2 class="text-base font-bold border-b dark:border-gray-700 pb-1 mb-1" id="rain-title">Rain</h2>
       <div class="bar-container" id="rain-bars"></div>
       <div class="flex mt-1 gap-1" id="rain-labels"></div>
       <div id="rain-error" class="text-sm text-red-500 dark:text-red-400 mt-1"></div>
     </div>
-    <div class="bg-white dark:bg-gray-800 p-2 rounded border dark:border-gray-700 shadow-sm transition-colors duration-200">
+    <div class="p-2 rounded border dark:border-gray-700 shadow-sm">
       <h2 class="text-base font-bold border-b dark:border-gray-700 pb-1 mb-2">Trains</h2>
-      <div id="train-content" class="space-y-2 text-sm text-gray-500 dark:text-gray-400">Loading...</div>
+      <div id="train-content" class="space-y-2 text-sm text-gray-500 dark:text-gray-400">Loading…</div>
     </div>
   </div>
 
-  <div class="mt-3 flex flex-row gap-2 items-center bg-gray-50 dark:bg-gray-800 p-2 rounded border dark:border-gray-700 transition-colors duration-200">
-    <div class="flex-1 min-w-0"><input type="text" id="ns-api-key" placeholder="NS API Key" class="w-full border dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white p-1.5 text-sm rounded focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 transition-colors" /></div>
-    <button onclick="updateApp()" class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-1.5 text-sm rounded shadow transition whitespace-nowrap active:scale-95">Load</button>
+  <div class="mt-3 flex flex-row gap-2 items-center bg-gray-50 dark:bg-gray-800 p-2 rounded border dark:border-gray-700">
+    <div class="flex-1 min-w-0"><input type="url" id="proxy-url" placeholder="Worker URL, e.g. https://ns.yourname.workers.dev" class="w-full border dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white p-1.5 text-sm rounded focus:outline-none focus:border-blue-500 dark:focus:border-blue-400" /></div>
+    <button onclick="saveProxy()" class="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-1.5 text-sm rounded shadow whitespace-nowrap active:scale-95">Save</button>
   </div>
 </div>
 
 <script>
-window.onerror = (m,s,l,c,e) => { document.getElementById('debug-error').innerText = `Crash: ${m}`; document.getElementById('debug-error').classList.remove('hidden'); };
+window.onerror = (m) => { const el = document.getElementById('debug-error'); el.innerText = `Crash: ${m}`; el.classList.remove('hidden'); };
+
 const coords = { Voorschoten: { lat: 52.1258, lon: 4.4447 }, AMS: { lat: 52.3702, lon: 4.8952 } };
+// Station codes: VST Voorschoten, DVD Duivendrecht, ASSP Amsterdam Science Park,
+// ASD Amsterdam Centraal, LDL Leiden Lammenschans, UT Utrecht Centraal. (ASA is Amsterdam Amstel!)
 const trainRoutes = {
   Voorschoten: [
     { from: 'vst', to: 'dvd', label: 'Vst → Dvd', fromName: 'Voorschoten', toName: 'Duivendrecht' },
-    { from: 'vst', to: 'asa', label: 'Vst → Sci Park', fromName: 'Voorschoten', toName: 'Amsterdam Science Park' },
+    { from: 'vst', to: 'assp', label: 'Vst → Sci Park', fromName: 'Voorschoten', toName: 'Amsterdam Science Park' },
     { from: 'ldl', to: 'ut', label: 'Lammenschans → Utrecht', fromName: 'Leiden Lammenschans', toName: 'Utrecht Centraal' }
   ],
   AMS: [
     { from: 'dvd', to: 'vst', label: 'Dvd → Vst', fromName: 'Duivendrecht', toName: 'Voorschoten' },
-    { from: 'asa', to: 'vst', label: 'Sci Park → Vst', fromName: 'Amsterdam Science Park', toName: 'Voorschoten' },
-    { from: 'asa', to: 'asd', label: 'Sci Park → Centraal', fromName: 'Amsterdam Science Park', toName: 'Amsterdam Centraal' },
-    { from: 'asd', to: 'asa', label: 'Centraal → Sci Park', fromName: 'Amsterdam Centraal', toName: 'Amsterdam Science Park' }
+    { from: 'assp', to: 'vst', label: 'Sci Park → Vst', fromName: 'Amsterdam Science Park', toName: 'Voorschoten' },
+    { from: 'assp', to: 'asd', label: 'Sci Park → Centraal', fromName: 'Amsterdam Science Park', toName: 'Amsterdam Centraal' },
+    { from: 'asd', to: 'assp', label: 'Centraal → Sci Park', fromName: 'Amsterdam Centraal', toName: 'Amsterdam Science Park' }
   ]
 };
 
-let currentLoc = 'Voorschoten', geoWatchId = null;
+const REFRESH_MS = 2 * 60 * 1000;
+const TIMEOUT_MS = 10000;
+let currentLoc = 'Voorschoten', geoWatchId = null, isLive = false, generation = 0, lastUpdated = null;
+
+// --- storage helpers (never let storage errors break the app) ---
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} }
+};
+
+const fmtTime = d => d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+
+async function fetchJSON(url) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { cache: 'no-store', signal: ctrl.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    throw new Error(e.name === 'AbortError' ? 'timeout' : e.message);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// --- location ---
+function renderLocButtons() {
+  for (const loc of ['Voorschoten', 'AMS']) {
+    const active = loc === currentLoc;
+    document.getElementById(`btn-${loc}`).className = 'loc-btn px-3 py-1.5 rounded text-sm shadow ' +
+      (active ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200');
+  }
+  document.getElementById('rain-title').innerText = `Rain: ${currentLoc}`;
+}
+
+function stopWatching() {
+  if (geoWatchId !== null) { navigator.geolocation.clearWatch(geoWatchId); geoWatchId = null; }
+  isLive = false;
+}
 
 function setLocation(loc, userAction = false) {
+  if (userAction) { store.set('locationPref', loc); stopWatching(); }
   currentLoc = loc;
-  if(userAction) { localStorage.setItem('locationPref', loc); if(geoWatchId) { navigator.geolocation.clearWatch(geoWatchId); geoWatchId = null; } document.getElementById('location-status').innerText = ''; }
-  document.getElementById('btn-voorschoten').className = loc === 'Voorschoten' ? 'px-3 py-1.5 rounded bg-blue-600 text-white text-sm shadow' : 'px-3 py-1.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-sm shadow';
-  document.getElementById('btn-ams').className = loc === 'AMS' ? 'px-3 py-1.5 rounded bg-blue-600 text-white text-sm shadow' : 'px-3 py-1.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-sm shadow';
-  document.getElementById('rain-title').innerText = `Rain: ${loc}`;
+  renderLocButtons();
+  renderStatus();
   updateApp();
 }
 
 function autoLocate(userAction = false) {
-  if(userAction) localStorage.setItem('locationPref', 'auto');
-  if(navigator.geolocation) {
-    if(geoWatchId) navigator.geolocation.clearWatch(geoWatchId);
-    geoWatchId = navigator.geolocation.watchPosition(pos => {
-      const {latitude: lat, longitude: lon} = pos.coords;
-      const detected = Math.hypot(lat - coords.AMS.lat, lon - coords.AMS.lon) < Math.hypot(lat - coords.Voorschoten.lat, lon - coords.Voorschoten.lon) ? 'AMS' : 'Voorschoten';
-      document.getElementById('location-status').innerText = 'Live';
-      if(currentLoc !== detected) setLocation(detected, false);
-    });
-  }
+  if (userAction) store.set('locationPref', 'auto');
+  if (!navigator.geolocation) { setStatusMsg('No GPS'); updateApp(); return; }
+  stopWatching();
+  renderLocButtons();
+  updateApp(); // load last known location right away; switch when GPS answers
+  geoWatchId = navigator.geolocation.watchPosition(pos => {
+    const { latitude: lat, longitude: lon } = pos.coords;
+    const dist = c => Math.hypot(lat - c.lat, lon - c.lon);
+    const detected = dist(coords.AMS) < dist(coords.Voorschoten) ? 'AMS' : 'Voorschoten';
+    isLive = true;
+    if (detected !== currentLoc) setLocation(detected, false); else renderStatus();
+  }, err => {
+    isLive = false;
+    setStatusMsg(err.code === 1 ? 'GPS denied' : 'GPS unavailable');
+  }, { enableHighAccuracy: false, maximumAge: 5 * 60 * 1000, timeout: 20000 });
 }
 
-async function updateApp() { fetchRain(); fetchTrains(); }
+let statusMsg = '';
+function setStatusMsg(m) { statusMsg = m; renderStatus(); }
+function renderStatus() {
+  const parts = [];
+  if (isLive) parts.push('<span class="text-green-600 dark:text-green-400 font-medium">Live</span>');
+  else if (statusMsg) parts.push(`<span class="text-amber-600 dark:text-amber-400">${statusMsg}</span>`);
+  if (lastUpdated) parts.push(`updated ${fmtTime(lastUpdated)}`);
+  document.getElementById('location-status').innerHTML = parts.join(' &nbsp;');
+}
 
-async function fetchRain() {
-  const c = coords[currentLoc];
+// --- main refresh ---
+async function updateApp() {
+  const gen = ++generation; // responses from older refreshes are ignored
+  const loc = currentLoc;
+  await Promise.allSettled([fetchRain(loc, gen), fetchTrains(loc, gen)]);
+  if (gen === generation) { lastUpdated = new Date(); renderStatus(); }
+}
+
+// --- rain ---
+async function fetchRain(loc, gen) {
+  const c = coords[loc];
+  const errEl = document.getElementById('rain-error');
   try {
-    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&minutely_15=precipitation&timeformat=unixtime&timezone=auto&forecast_days=1`, {cache: 'no-store'});
-    const data = await res.json();
-    const now = Math.floor(Date.now() / 1000);
-    const startIdx = Math.max(0, data.minutely_15.time.findIndex(t => t >= now - 900));
+    const data = await fetchJSON(`https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&minutely_15=precipitation&timeformat=unixtime&timezone=auto&past_minutely_15=1&forecast_minutely_15=8`);
+    if (gen !== generation) return;
+    const times = data?.minutely_15?.time, vals = data?.minutely_15?.precipitation;
+    if (!times?.length) throw new Error('no data');
+    const now = Date.now() / 1000;
+    let start = 0;
+    times.forEach((t, i) => { if (t <= now) start = i; }); // current 15-min slot
+    const precip = vals.slice(start, start + 8).map(v => v ?? 0);
+    const max = Math.max(0.5, ...precip);
     const bars = document.getElementById('rain-bars'), labels = document.getElementById('rain-labels');
     bars.innerHTML = ''; labels.innerHTML = '';
-    const precip = data.minutely_15.precipitation.slice(startIdx, startIdx + 8), max = Math.max(0.5, ...precip);
     precip.forEach((val, i) => {
-      const col = document.createElement('div'); col.className = 'flex-1 flex flex-col justify-end relative';
-      const bar = document.createElement('div'); bar.className = 'bar'; bar.style.height = `${(val/max)*100}%`; col.appendChild(bar);
-      if(val > 0) { const v = document.createElement('div'); v.className = 'bar-value'; v.innerText = val.toFixed(1); col.appendChild(v); }
+      const col = document.createElement('div'); col.className = 'flex-1 flex flex-col justify-end relative h-full';
+      const bar = document.createElement('div'); bar.className = 'bar'; bar.style.height = `${(val / max) * 100}%`; col.appendChild(bar);
+      if (val > 0) { const v = document.createElement('div'); v.className = 'bar-value'; v.innerText = val.toFixed(1); col.appendChild(v); }
       bars.appendChild(col);
-      const l = document.createElement('div'); l.className = 'bar-label flex-1'; l.innerText = new Date(data.minutely_15.time[startIdx+i] * 1000).toLocaleTimeString('nl-NL', {hour:'2-digit', minute:'2-digit'});
+      const l = document.createElement('div'); l.className = 'bar-label flex-1';
+      l.innerText = fmtTime(new Date(times[start + i] * 1000));
       labels.appendChild(l);
     });
-  } catch(e) { document.getElementById('rain-error').innerText = 'Failed'; }
-}
-
-async function fetchTrains() {
-  const apiKey = document.getElementById('ns-api-key').value.trim();
-  const container = document.getElementById('train-content');
-  if(!apiKey) { container.innerHTML = 'Enter API key to load.'; return; }
-  localStorage.setItem('nsApiKey', apiKey);
-  let html = '';
-  for(const route of trainRoutes[currentLoc]) {
-    try {
-      const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(`https://gateway.apiportal.ns.nl/reisinformatie-api/api/v3/trips?fromStation=${route.from}&toStation=${route.to}&nextAdvises=6&subscription-key=${apiKey}`)}&cb=${Date.now()}`, {cache: 'no-store'});
-      const data = await res.json();
-      const trips = data.trips || [], minT = trips.length ? Math.min(...trips.map(t => t.transfers || 0)) : 0;
-      html += `<div class="mb-3"><a href="https://www.ns.nl/reisplanner/#/?vertrek=${encodeURIComponent(route.fromName)}&aankomst=${encodeURIComponent(route.toName)}" target="_blank" class="block font-bold bg-gray-200 dark:bg-gray-700 px-3 py-2 rounded text-sm mb-1">${route.label}</a><ul class="space-y-0.5">`;
-      trips.forEach(t => {
-        const d = new Date(t.legs[0].origin.plannedDateTime), a = new Date(t.legs[t.legs.length-1].destination.plannedDateTime);
-        const mins = Math.max(0, Math.round((d - new Date()) / 60000));
-        const dur = Math.round((a - d)/60000);
-        const isBest = t.transfers === minT;
-        const timeStr = `in ${mins}m`.padStart(3 + (mins < 10 ? 0 : 1), ' ').replace(/ /g, '&nbsp;');
-        html += `<li class="flex justify-between items-center text-sm border-b dark:border-gray-700 py-0.5 ${isBest ? 'text-white' : 'text-gray-500 dark:text-gray-400'}">
-          <span><strong>${d.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}</strong> → <strong>${a.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}</strong><span class="text-xs text-gray-400 font-mono">&nbsp;&nbsp;${timeStr}</span></span>
-          <span class="flex gap-2"><span class="text-xs">${dur}m</span><span class="${isBest ? 'bg-green-600/30 text-green-300 border border-green-500/50' : 'bg-gray-700 text-gray-400'} px-1.5 rounded font-bold">${t.transfers||0}</span></span>
-        </li>`;
-      });
-      html += `</ul></div>`;
-    } catch(e) { html += `<div class="mb-2 text-red-500 text-sm">${route.label}: Error</div>`; }
+    errEl.innerText = '';
+  } catch (e) {
+    if (gen === generation) errEl.innerText = `Rain failed (${e.message}) — showing last data`;
   }
-  container.innerHTML = html;
 }
 
-try {
-  const k = localStorage.getItem('nsApiKey'); if(k) document.getElementById('ns-api-key').value = k;
-  const p = localStorage.getItem('locationPref');
-  if(p === 'auto') autoLocate(false); else if(p) setLocation(p, false); else setLocation('Voorschoten', false);
-} catch(e) { console.error(e); }
+// --- trains ---
+function saveProxy() {
+  const v = document.getElementById('proxy-url').value.trim().replace(/\/+$/, '');
+  store.set('proxyUrl', v);
+  updateApp();
+}
+
+function tripTimes(t) {
+  const first = t.legs[0].origin, last = t.legs[t.legs.length - 1].destination;
+  const dep = new Date(first.actualDateTime || first.plannedDateTime);
+  const arr = new Date(last.actualDateTime || last.plannedDateTime);
+  const delay = first.actualDateTime ? Math.round((new Date(first.actualDateTime) - new Date(first.plannedDateTime)) / 60000) : 0;
+  const cancelled = t.status === 'CANCELLED' || t.legs.some(l => l.cancelled);
+  return { dep, arr, delay, cancelled, track: first.actualTrack || first.plannedTrack };
+}
+
+function renderRoute(route, data) {
+  const now = new Date();
+  const trips = (data.trips || [])
+    .map(t => ({ t, ...tripTimes(t) }))
+    .filter(x => x.dep > now - 60000); // drop trains that already left
+  const viable = trips.filter(x => !x.cancelled);
+  const minT = viable.length ? Math.min(...viable.map(x => x.t.transfers || 0)) : 0;
+
+  let html = `<div class="mb-3"><a href="https://www.ns.nl/reisplanner/#/?vertrek=${encodeURIComponent(route.fromName)}&aankomst=${encodeURIComponent(route.toName)}" target="_blank" rel="noopener" class="block font-bold bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-3 py-2 rounded text-sm mb-1">${route.label}</a><ul class="space-y-0.5">`;
+  if (!trips.length) html += `<li class="text-xs text-gray-500 py-1">No trips returned.</li>`;
+  for (const x of trips) {
+    const mins = Math.max(0, Math.round((x.dep - now) / 60000));
+    const dur = x.t.actualDurationInMinutes ?? x.t.plannedDurationInMinutes ?? Math.round((x.arr - x.dep) / 60000);
+    const transfers = x.t.transfers || 0;
+    const isBest = !x.cancelled && transfers === minT;
+    const rowColor = x.cancelled ? 'text-red-500 dark:text-red-400 line-through' : isBest ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400';
+    const badge = isBest ? 'bg-green-100 text-green-700 border-green-400 dark:bg-green-600/30 dark:text-green-300 dark:border-green-500/50' : 'bg-gray-100 text-gray-500 border-transparent dark:bg-gray-700 dark:text-gray-400';
+    const delayTag = x.delay > 0 ? `<span class="text-xs text-red-500 font-bold no-underline">+${x.delay}</span>` : '';
+    const statusTag = x.cancelled ? `<span class="text-xs font-bold">cancelled</span>` : (x.t.status && x.t.status !== 'NORMAL' ? `<span class="text-xs text-amber-500" title="${x.t.status}">⚠</span>` : '');
+    html += `<li class="flex justify-between items-center text-sm border-b dark:border-gray-700 py-0.5 ${rowColor}">
+      <span><strong>${fmtTime(x.dep)}</strong>${delayTag} → <strong>${fmtTime(x.arr)}</strong>
+        <span class="inline-block w-14 text-right text-xs text-gray-400 font-mono">in ${mins}m</span> ${statusTag}</span>
+      <span class="flex gap-2 items-center">${x.track ? `<span class="text-xs text-gray-400">sp ${x.track}</span>` : ''}<span class="text-xs">${dur}m</span><span class="${badge} border px-1.5 rounded font-bold">${transfers}</span></span>
+    </li>`;
+  }
+  return html + `</ul></div>`;
+}
+
+function errorHint(msg) {
+  if (msg.includes('401') || msg.includes('403')) return 'key rejected — check NS_KEY secret in the worker';
+  if (msg.includes('429')) return 'rate limited by NS — wait a bit';
+  if (msg.includes('404')) return 'wrong worker URL';
+  if (msg === 'timeout') return 'no response';
+  if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('Load failed')) return 'network/CORS — check worker URL';
+  return msg;
+}
+
+async function fetchTrains(loc, gen) {
+  const container = document.getElementById('train-content');
+  const proxy = store.get('proxyUrl');
+  if (!proxy) { container.innerHTML = 'Set your worker URL below to load trains.'; return; }
+
+  const routes = trainRoutes[loc];
+  const results = await Promise.allSettled(routes.map(r => fetchJSON(`${proxy}/trips?from=${r.from}&to=${r.to}`)));
+  if (gen !== generation) return;
+
+  container.innerHTML = results.map((res, i) => res.status === 'fulfilled'
+    ? renderRoute(routes[i], res.value)
+    : `<div class="mb-2 text-red-500 text-sm"><strong>${routes[i].label}:</strong> ${errorHint(res.reason.message)}</div>`
+  ).join('');
+}
+
+// --- auto refresh: every 2 min while visible, and immediately when you reopen the app ---
+setInterval(() => { if (document.visibilityState === 'visible') updateApp(); }, REFRESH_MS);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && (!lastUpdated || Date.now() - lastUpdated > 30000)) updateApp();
+});
+
+// --- init ---
+store.del('nsApiKey'); // old version stored the raw NS key here; no longer needed
+document.getElementById('proxy-url').value = store.get('proxyUrl') || '';
+const pref = store.get('locationPref');
+if (pref === 'auto') autoLocate(false);
+else setLocation(pref === 'AMS' ? 'AMS' : 'Voorschoten', false);
 </script>
 </body>
 </html>
