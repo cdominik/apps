@@ -9,7 +9,7 @@
   // Configuration
   // ============================================================
   // Bump on every release: shown in the menu, and used to bypass cached program files.
-  const VERSION = '2026.10.18-28';
+  const VERSION = '2026.10.18-29';
   window.AGGBOARD_VERSION = VERSION;
   const CONFIG = {
     MENU_URL: null,            // e.g. '../index.html' to show a "back to menu" button
@@ -18,9 +18,13 @@
     DB_NAME: 'aggboard',
     SETTINGS_KEY: 'aggboard.settings.v1',
     FORMAT: 'aggboard-notebook',
-    FORMAT_VERSION: 2,         // v2 adds chains and edited aggregates
+    FORMAT_VERSION: 3,         // v2: chains and edited aggregates; v3: page formats (per-page height)
   };
   const PW = CONFIG.PAGE_W, PH = CONFIG.PAGE_H;
+  // Page formats: the width is always PW (1600 page units), only the height differs, so
+  // switching formats never moves anything sideways. 'screen' is measured when chosen.
+  const PAGE_FORMATS = { '16:9': 9 / 16, '16:10': 10 / 16, '4:3': 3 / 4, 'A4': 1 / Math.SQRT2 };
+  const pageH = (pg) => (pg && pg.h > 0 ? pg.h : PH);
   const INK = [
     { name: 'Black', v: '#1d1d22' },
     { name: 'Blue', v: '#1f5bd6' },
@@ -177,10 +181,11 @@
     const top = $('toolbar').getBoundingClientRect().bottom + 10;
     const bottom = 14;   // no bottom bar: the page may use the full height below the toolbar
     const availH = Math.max(100, H - top - bottom);
-    const s = Math.max(0.05, Math.min((W - 24) / PW, availH / PH));
+    const ph = pageH(curPage());
+    const s = Math.max(0.05, Math.min((W - 24) / PW, availH / ph));
     view.scale = s; view.fitScale = s;
     view.ox = (W - PW * s) / 2;
-    view.oy = top + (availH - PH * s) / 2;
+    view.oy = top + (availH - ph * s) / 2;
     view.fit = true;
     requestRender();
   }
@@ -1330,11 +1335,12 @@
     bctx.save();
     bctx.shadowColor = 'rgba(0,0,0,0.16)'; bctx.shadowBlur = 14; bctx.shadowOffsetY = 2;
     bctx.fillStyle = TH.page;
-    bctx.fillRect(0, 0, PW, PH);
+    const PHc = pageH(curPage());
+    bctx.fillRect(0, 0, PW, PHc);
     bctx.restore();
 
     bctx.save();
-    bctx.beginPath(); bctx.rect(0, 0, PW, PH); bctx.clip();
+    bctx.beginPath(); bctx.rect(0, 0, PW, PHc); bctx.clip();
     const vis = { x: -view.ox / s, y: -view.oy / s, w: W / s, h: H / s };
     const xf = action && (action.kind === 'move' || action.kind === 'scale') ? action : null;
     const erased = action && action.kind === 'erase' ? action.erased : null;
@@ -2505,6 +2511,7 @@
   function updateChrome() {
     setColorUI();
     for (const b of $('boardSeg').children) b.classList.toggle('active', b.dataset.board === themeOf(curPage()));
+    for (const b of $('formatSeg').children) b.classList.toggle('active', b.dataset.format === currentFormat(curPage()));
     const h = hist();
     $('btnUndo').disabled = !h.undo.length && !pendingDot;
     $('btnRedo').disabled = !h.redo.length;
@@ -2525,7 +2532,9 @@
     closePanel();
     selection = null;
     laserTrails = [];
+    const prevH = pageH(curPage());
     nb.current = clamp(i, 0, nb.pages.length - 1);
+    if (pageH(curPage()) !== prevH) fitPage();
     ensureGenerated(curPage());
     scheduleSave();
     updateChrome();
@@ -2535,6 +2544,7 @@
     commitPendingDot();
     const pg = { id: uid(), items: [] };
     if (curPage().bg === 'dark') pg.bg = 'dark';
+    if (curPage().h) { pg.h = curPage().h; pg.format = curPage().format; }   // same format as the current page
     nb.pages.splice(nb.current + 1, 0, pg);
     goToPage(nb.current + 1);
   }
@@ -2795,6 +2805,33 @@
   }
   updateCreateUI();
   applyHand();
+  function screenAspect() {
+    const W = window.innerWidth, H = window.innerHeight;
+    const top = $('toolbar').getBoundingClientRect().bottom + 10;
+    return Math.max(100, H - top - 14) / Math.max(100, W - 24);
+  }
+  function currentFormat(pg) { return pg.format || '16:9'; }
+  function setPageFormat(fmt) {
+    const pg = curPage();
+    const old = { h: pg.h, format: pg.format };
+    const ratio = fmt === 'screen' ? screenAspect() : PAGE_FORMATS[fmt];
+    const h = Math.round(clamp(PW * ratio, 300, 5000));
+    if (fmt === '16:9' && h === PH) { delete pg.h; delete pg.format; } else { pg.h = h; pg.format = fmt; }
+    if (old.h === pg.h && old.format === pg.format) return;
+    nb.modified = Date.now();
+    scheduleSave();
+    fitPage();
+    updateChrome();
+    requestRender();
+    const outside = items().some(it => { const b = itemBounds(it); return b.y + b.h > pageH(pg) + 1; });
+    const restore = () => {
+      if (old.h) { pg.h = old.h; pg.format = old.format; } else { delete pg.h; delete pg.format; }
+      scheduleSave(); fitPage(); updateChrome(); requestRender();
+    };
+    if (outside) toast('Some content is now below the page edge.', 7000, { label: 'Undo', fn: restore });
+    else toast(`Page format: ${fmt === 'screen' ? 'this screen' : fmt}`, 1800);
+  }
+  for (const b of $('formatSeg').children) b.addEventListener('click', () => setPageFormat(b.dataset.format));
   for (const b of $('boardSeg').children) {
     b.addEventListener('click', () => {
       const pg = curPage();
@@ -2853,6 +2890,9 @@
   }
   const dateStamp = () => new Date().toISOString().slice(0, 10);
 
+  function pageMeta(pg) {
+    return { ...(pg.bg ? { bg: pg.bg } : {}), ...(pg.h ? { h: pg.h, format: pg.format } : {}) };
+  }
   function itemToJSON(it) {
     if (it.type !== 'agg') return it;
     const out = { ...it };
@@ -2864,7 +2904,7 @@
       format: CONFIG.FORMAT, version: CONFIG.FORMAT_VERSION,
       id: nb.id, title: nb.title, created: nb.created, modified: nb.modified,
       page: { w: PW, h: PH }, current: nb.current,
-      pages: nb.pages.map(pg => ({ id: pg.id, items: pg.items.map(itemToJSON), ...(pg.bg ? { bg: pg.bg } : {}) })),
+      pages: nb.pages.map(pg => ({ id: pg.id, items: pg.items.map(itemToJSON), ...pageMeta(pg) })),
     };
   }
   function exportNotebook() {
@@ -2929,6 +2969,7 @@
       id: pg && typeof pg.id === 'string' ? pg.id : uid(),
       items: (pg && Array.isArray(pg.items) ? pg.items : []).map(sanitizeItem).filter(Boolean),
       ...(pg && pg.bg === 'dark' ? { bg: 'dark' } : {}),
+      ...(pg && isNum(pg.h) && pg.h >= 300 && pg.h <= 5000 ? { h: pg.h, format: typeof pg.format === 'string' ? pg.format : 'custom' } : {}),
     }));
     if (!pages.length) pages.push({ id: uid(), items: [] });
     return {
@@ -3024,7 +3065,7 @@
   function exportPageSVG() {
     commitPendingDot();
     const theme = themeOf(curPage());
-    const svg = buildSVG(items(), { x: 0, y: 0, w: PW, h: PH }, theme, true);
+    const svg = buildSVG(items(), { x: 0, y: 0, w: PW, h: pageH(curPage()) }, theme, true);
     shareBlob(new Blob([svg], { type: 'image/svg+xml' }), `page-${nb.current + 1}-${dateStamp()}.svg`, 'image/svg+xml');
   }
   function exportSelectionSVG() {
@@ -3042,7 +3083,7 @@
     commitPendingDot();
     const k = 2;
     const c = document.createElement('canvas');
-    c.width = PW * k; c.height = PH * k;
+    c.width = PW * k; c.height = Math.round(pageH(curPage()) * k);
     const x = c.getContext('2d');
     const prevTheme = renderTheme;
     renderTheme = themeOf(curPage());
@@ -3097,7 +3138,7 @@
     if (!storageReady) return;
     if (!force && (action || pointers.size)) { saveTimer = setTimeout(saveNow, 1500); return; }
     try {
-      if (db) await dbPut('notebook', { ...nb, pages: nb.pages.map(pg => ({ id: pg.id, items: pg.items, ...(pg.bg ? { bg: pg.bg } : {}) })) });
+      if (db) await dbPut('notebook', { ...nb, pages: nb.pages.map(pg => ({ id: pg.id, items: pg.items, ...pageMeta(pg) })) });
       else localStorage.setItem('aggboard.notebook', JSON.stringify(notebookToJSON()));
     } catch (err) {
       if (!saveWarned) { saveWarned = true; toast('Could not save on this device. Use "Save notebook to file".', 5000); }

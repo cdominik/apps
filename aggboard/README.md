@@ -41,14 +41,14 @@ At the top of `app.js`:
 
 - `MENU_URL` — set to e.g. `'../index.html'` to show a back button to your app menu. Leave `null` for a standalone install.
 - `N_MAX` — maximum monomers per aggregate (default 5000).
-- `PAGE_W`, `PAGE_H` — page size in page units (default 1600 × 900, 16:9).
+- `PAGE_W`, `PAGE_H` — page width and default height in page units (1600 × 900, 16:9). Other formats (menu → This page → Format) keep the width and change the height.
 
 ## Storage
 
 Notebooks are stored in the browser's IndexedDB on each device. Nothing is uploaded anywhere.
 
 - On iPad, **add the app to the Home Screen**. Safari may otherwise delete a website's stored data after about a week without visits.
-- Use **⋯ → Save notebook to file** for backups and for giving a notebook to someone; **Open notebook from file** loads one. The file format (`*.aggboard.json`) carries a version number (currently 2) so future versions can read old files; older copies of the app refuse newer files with a clear message instead of misreading them.
+- Use **⋯ → Save notebook to file** for backups and for giving a notebook to someone; **Open notebook from file** loads one. The file format (`*.aggboard.json`) carries a version number (currently 3) so future versions can read old files; older copies of the app refuse newer files with a clear message instead of misreading them.
 
 ## The aggregate engine
 

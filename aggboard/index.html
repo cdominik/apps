@@ -357,6 +357,14 @@
     <button data-board="light">White</button>
     <button data-board="dark">Dark</button>
   </div>
+  <div class="row-label">Format</div>
+  <div class="seg" id="formatSeg">
+    <button data-format="screen" title="The proportions of this screen">Screen</button>
+    <button data-format="16:9">16:9</button>
+    <button data-format="16:10">16:10</button>
+    <button data-format="4:3">4:3</button>
+    <button data-format="A4" title="A4 landscape">A4</button>
+  </div>
   <button class="item" id="mClearPage">Clear this page</button>
   <button class="item danger" id="mDeletePage">Delete this page…</button>
 
@@ -459,12 +467,13 @@
     <h3>Pages and boards</h3>
     <ul>
       <li><b>&hellip; &rarr; This page &rarr; Board</b> switches between a white page and a <b>dark board</b>, which is easier on the eyes when projecting. New pages get the board of the page you are on. On the dark board, black ink shows as chalk white and the other colours brighter; switching back shows everything exactly as written.</li>
+      <li><b>&hellip; &rarr; This page &rarr; Format</b> sets the page proportions: <i>Screen</i> (the shape of the drawing area right now, so the whole screen is board), 16:9, 16:10, 4:3 or A4 landscape. All formats have the same width, only the height differs, so switching never moves your drawing sideways. If content ends up below the new bottom edge, a message offers Undo. New pages get the format of the page you are on.</li>
       <li><b>Clear</b> a page with the broom at the right end of the toolbar (or <b>&hellip; &rarr; This page</b>); tap <b>Undo</b> in the message to bring it back. <b>Delete this page</b> removes the page itself and cannot be undone.</li>
     </ul>
 
     <h3>Exporting</h3>
     <ul>
-      <li><b>&hellip; &rarr; Export &rarr; This page as image (PNG)</b> &mdash; a 3200&times;1800 picture.</li>
+      <li><b>&hellip; &rarr; Export &rarr; This page as image (PNG)</b> &mdash; a picture at twice the page size (3200&times;1800 for 16:9).</li>
       <li><b>&hellip; &rarr; Export &rarr; This page as vector graphics (SVG)</b> &mdash; sharp at any size; opens in browsers, Inkscape, Illustrator, Keynote and PowerPoint.</li>
       <li><b>For figures:</b> select what you want and tap <b>SVG</b> in the selection bar. Only the selection is exported, cropped, on a transparent background (dark-board pages keep their dark background).</li>
     </ul>
@@ -508,12 +517,12 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="aggregate-engine.js?v=2026.10.18-28"></script>
-<script src="app.js?v=2026.10.18-28"></script>
+<script src="aggregate-engine.js?v=2026.10.18-29"></script>
+<script src="app.js?v=2026.10.18-29"></script>
 <script>
   // Warn if the browser mixed files from different releases (e.g. a stale cached app.js).
   (function () {
-    var want = '2026.10.18-28';
+    var want = '2026.10.18-29';
     var okApp = window.AGGBOARD_VERSION === want;
     var okEngine = window.AggEngine && window.AggEngine.release === want;
     if (okApp && okEngine) return;

@@ -19,6 +19,7 @@
 - Particle-chain tool with temperature; attaching to aggregates and chains, bridging, branches and rings, collision-free junctions; "edited" aggregates (scale instead of regenerate, Regenerate… to undo the edits).
 
 ### Pages, boards, export
+- Page format per page: Screen, 16:9, 16:10, 4:3, A4 landscape (same width, height varies; new pages inherit; file format version 3).
 - Pages; clear page (broom in the page bar, Undo in the message); delete page.
 - Dark board per page, with adaptive ink, and aggregates shaded brighter there (higher brightness floor, gentler depth fading, light rim) so they read on a projector.
 - Export: page as PNG; page or selection as SVG (vector strokes, shaded vector spheres, cropped selection on transparent background).
@@ -52,7 +53,6 @@
 - **Inserting images or PDF slides** — larger feature, maybe never.
 
 ### Pages and notebooks
-- **Page format:** pages are fixed at 16:9 (1600 × 900), which leaves unused strips on an iPad. Option per notebook/page: "match this screen", 16:9, 16:10, 4:3, A4 landscape; existing pages keep their format.
 - **Page management:** reorder, duplicate, thumbnails strip.
 - **Multiple named notebooks** with a notebook list.
 - **PDF export** of the whole notebook.
