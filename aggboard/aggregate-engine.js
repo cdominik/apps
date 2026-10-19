@@ -684,7 +684,7 @@
     };
   }
 
-  const AggEngine = { fitBox, kfAuto, Growth, eigenSym3, generateCCA, CCA_MAX_DF, version: 1, release: '2026.10.18-17' };
+  const AggEngine = { fitBox, kfAuto, Growth, eigenSym3, generateCCA, CCA_MAX_DF, version: 1, release: '2026.10.18-18' };
   root.AggEngine = AggEngine;
   if (typeof module !== 'undefined' && module.exports) module.exports = AggEngine;
 

@@ -9,7 +9,7 @@
   // Configuration
   // ============================================================
   // Bump on every release: shown in the menu, and used to bypass cached program files.
-  const VERSION = '2026.10.18-17';
+  const VERSION = '2026.10.18-18';
   window.AGGBOARD_VERSION = VERSION;
   const CONFIG = {
     MENU_URL: null,            // e.g. '../index.html' to show a "back to menu" button
@@ -1602,6 +1602,7 @@
   let laserTrails = [];
   let wheelTimer = 0;
   let lastPenUp = -1e9;
+  const PALM_CONTACT = 90;   // px; contacts larger than this right after writing are treated as a palm
 
   const fingersDraw = () => settings.fingerMode === 'draw' || (settings.fingerMode === 'auto' && !settings.penSeen);
   const pressureOf = (e) => (e.pointerType === 'pen' && e.pressure > 0 ? e.pressure : 0.5);
@@ -1639,8 +1640,11 @@
       if (action && action.ptype === 'pen') { dlog('  -> previous stroke never got a pen-up: finishing it'); pointers.delete(action.id); finishAction(null); }   // lost pen-up
     }
     if (type === 'touch' && action && action.ptype === 'pen') { diag.ignored++; dlog('  -> ignored: pencil is down (palm)'); return; }
+    // Palm between strokes: a touch right after the pencil lifted, or a palm-sized contact
+    // shortly after writing. (iPadOS reports a normal fingertip as ~40-55 px across, so the
+    // size limit must be well above that, or pinch and pan with fingers stop working.)
     if (type === 'touch' && settings.penSeen && !fingersDraw() &&
-        (now() - lastPenUp < 350 || (e.width > 40 && e.height > 40))) {   // palm between strokes
+        (now() - lastPenUp < 350 || (e.width > PALM_CONTACT && e.height > PALM_CONTACT && now() - lastPenUp < 3000))) {
       diag.ignored++; dlog(`  -> ignored: palm guard (${Math.round(now() - lastPenUp)} ms after pen-up, contact ${Math.round(e.width)}x${Math.round(e.height)})`);
       return;
     }
