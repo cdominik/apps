@@ -9,7 +9,7 @@
   // Configuration
   // ============================================================
   // Bump on every release: shown in the menu, and used to bypass cached program files.
-  const VERSION = '2026.10.18-24';
+  const VERSION = '2026.10.18-26';
   window.AGGBOARD_VERSION = VERSION;
   const CONFIG = {
     MENU_URL: null,            // e.g. '../index.html' to show a "back to menu" button
@@ -137,6 +137,7 @@
     scheduleSave();
     updateChrome();
     refreshPanel();
+    if (typeof refreshDfScale === 'function') refreshDfScale();
     requestRender();
   }
 
@@ -1186,8 +1187,8 @@
   // Selection
   // ============================================================
   let selection = null;   // Set of item ids, or null
-  function selectIds(ids) { selection = ids.length ? new Set(ids) : null; requestOverlay(); updateChrome(); }
-  function clearSelection() { if (selection) { selection = null; requestOverlay(); updateChrome(); } }
+  function selectIds(ids) { selection = ids.length ? new Set(ids) : null; requestOverlay(); updateChrome(); refreshDfScale(); }
+  function clearSelection() { if (selection) { selection = null; requestOverlay(); updateChrome(); refreshDfScale(); } }
   function selectedItems() { return selection ? items().filter(it => selection.has(it.id)) : []; }
   function singleSelectedAgg() {
     if (!selection || selection.size !== 1) return null;
@@ -1420,7 +1421,7 @@
         const nTxt = A.preview ? `N = ${A.preview.n}` : (est >= CONFIG.N_MAX ? `N ≥ ${CONFIG.N_MAX} (limit)` : `N ≈ ${est}`);
         const dfNow = settings.agg.df;
         const fb = settings.agg.method === 'cca' && dfNow > window.AggEngine.CCA_MAX_DF ? ' (particle–cluster)' : '';
-        const label = `Df ${dfNow.toFixed(2)}${fb} · a = ${A.a.toFixed(1)} · ${nTxt}`;
+        const label = `Df ${dfNow.toFixed(2)}${A.dial.active ? ' ↻' : ''}${fb} · a = ${A.a.toFixed(1)} · ${nTxt}`;
         octx.font = '13px -apple-system, BlinkMacSystemFont, sans-serif';
         const tw = octx.measureText(label).width;
         // label on the outer side of the pencil (away from the centre), so it never covers the aggregate
@@ -1786,9 +1787,10 @@
       case 'aggregate':
         if (settings.aggCreate === 'circle') {
           action = { ...base, kind: 'circle', cx: p.x, cy: p.y, sy: sp.y, a0: settings.agg.a, a: settings.agg.a, R: 0,
-                     seed: randSeed(), hold: { x: sp.x, y: sp.y }, tip: sp, preview: null, previewReq: null, previewBmp: null };
+                     seed: randSeed(), hold: { x: sp.x, y: sp.y }, tip: sp, preview: null, previewReq: null, previewBmp: null,
+                     dial: { x: sp.x, y: sp.y, ang: null, acc: 0, active: false, straight: 0, base: { R: 0, a: settings.agg.a } } };
           armCircleRest();
-          placeDfScale(sp.x);
+          refreshDfScale();
           requestOverlay();
           break;
         }
@@ -1861,12 +1863,14 @@
       }
       case 'circle': {
         const q = toPage(sp), A = action;
-        A.R = Math.abs(q.x - A.cx);
-        const dy = sp.y - A.sy;
-        const eff = Math.sign(dy) * Math.max(0, Math.abs(dy) - CIRCLE_DEAD);
-        A.a = clamp(A.a0 * Math.pow(2, -eff / CIRCLE_OCTAVE), 1, 120);
+        if (!A.dial.active) {                    // while dialling, radius and monomer size stay frozen
+          A.R = Math.abs(q.x - A.cx);
+          const dy = sp.y - A.sy;
+          const eff = Math.sign(dy) * Math.max(0, Math.abs(dy) - CIRCLE_DEAD);
+          A.a = clamp(A.a0 * Math.pow(2, -eff / CIRCLE_OCTAVE), 1, 120);
+        }
+        for (const ev of list) dialStep(A, screenPt(ev));
         A.tip = sp;
-        placeDfScale(sp.x);
         if (Math.hypot(sp.x - A.hold.x, sp.y - A.hold.y) > 4) {
           A.hold = { x: sp.x, y: sp.y };
           A.preview = null; A.previewReq = null; A.previewBmp = null;   // moving: outline only
@@ -1945,7 +1949,7 @@
     if (interrupted) { diag.interrupted++; dlog(`  -> ${a.kind} interrupted: keeping what was drawn`); }
     if (a.ptype === 'touch') hover = null;
     if (interrupted && (a.kind === 'box' || a.kind === 'lasso' || a.kind === 'circle')) {
-      if (a.kind === 'circle') { clearTimeout(circleTimer); latestToken.delete(PREVIEW_ID); pendingGen.delete(PREVIEW_ID); hideDfScale(); }
+      if (a.kind === 'circle') { clearTimeout(circleTimer); latestToken.delete(PREVIEW_ID); pendingGen.delete(PREVIEW_ID); refreshDfScale(); }
       requestRender(); return;
     }
     let p;
@@ -1987,7 +1991,7 @@
     requestRender();
   }
   function cancelAction() {
-    if (action && action.kind === 'circle') { clearTimeout(circleTimer); latestToken.delete(PREVIEW_ID); pendingGen.delete(PREVIEW_ID); hideDfScale(); }
+    if (action && action.kind === 'circle') { clearTimeout(circleTimer); latestToken.delete(PREVIEW_ID); pendingGen.delete(PREVIEW_ID); refreshDfScale(); }
     if (action && action.kind === 'laser') action.trail.active = false;
     action = null;
     requestRender();
@@ -2160,6 +2164,7 @@
     pushUndo();
     setItems([...items(), it]);
     requestGen(it);
+    dfScaleItem = it.id;
     selectIds([it.id]);
     setTool(prevTool);
   }
@@ -2169,6 +2174,43 @@
   // monomer size (log scale: x2 per 80 px up, /2 per 80 px down, 12 px dead zone).
   // While moving: circle, monomer ring, N estimate. At rest (250 ms): real aggregate.
   const CIRCLE_DEAD = 12, CIRCLE_OCTAVE = 80, CIRCLE_REST_MS = 250;
+  // Dial (experimental): small loops while placing change Df; clockwise = higher.
+  const DIAL_PER_LOOP = 0.3, DIAL_START = 1.5 * Math.PI, DIAL_RELEASE_PX = 40;   // Df change per full loop (tuned up from 0.1)
+  // Collect fractional changes until they make a whole 0.01 step (Df is kept in 0.01 steps).
+  function dialApply(D, delta) {
+    D.frac = (D.frac || 0) + delta;
+    const step = Math.trunc(D.frac * 100) / 100;
+    if (step) { D.frac -= step; setGestureDf(settings.agg.df + step); }
+  }
+  function dialStep(A, sp) {
+    const D = A.dial, dx = sp.x - D.x, dy = sp.y - D.y, len = Math.hypot(dx, dy);
+    if (len < 3) return;                        // ignore jitter: direction from movements of 3 px or more
+    const ang = Math.atan2(dy, dx);
+    D.x = sp.x; D.y = sp.y;
+    if (D.ang === null) { D.ang = ang; return; }
+    let turn = ang - D.ang;
+    if (turn > Math.PI) turn -= 2 * Math.PI;
+    if (turn < -Math.PI) turn += 2 * Math.PI;
+    D.ang = ang;
+    if (Math.abs(turn) > 2.6) return;           // sudden reversal: not part of a loop
+    D.straight = Math.abs(turn) < 0.12 ? D.straight + len : 0;
+    if (D.active) {
+      if (Math.abs(turn) < 0.9) dialApply(D, (turn / (2 * Math.PI)) * DIAL_PER_LOOP);   // loops turn gradually; a sharp corner is leaving the dial
+      if (D.straight > DIAL_RELEASE_PX) { D.active = false; D.acc = 0; D.frac = 0; dlog('  -> dial released'); }
+      return;
+    }
+    // remember radius and monomer size from before the loops began
+    if (D.straight > 25 || (D.acc && Math.sign(turn) !== Math.sign(D.acc))) { D.acc = 0; D.base = { R: A.R, a: A.a }; }
+    if (!D.acc) D.base = D.base || { R: A.R, a: A.a };
+    D.acc += turn;
+    if (Math.abs(D.acc) > DIAL_START) {
+      D.active = true;
+      A.R = D.base.R; A.a = D.base.a;           // undo the wobble of the first loop
+      D.frac = 0;
+      dialApply(D, (D.acc / (2 * Math.PI)) * DIAL_PER_LOOP);
+      dlog('  -> dial active');
+    }
+  }
   let circleTimer = 0;
   function circleItem(a) {
     const A = settings.agg;
@@ -2190,32 +2232,59 @@
       a.previewReq = { R: a.R, a: a.a, token: requestGen(circleItem(a)) };
     }, CIRCLE_REST_MS);
   }
-  // ---------- Df scale for the other hand (and arrow keys) ----------
+  // ---------- Df scale ----------
+  // Visible on the left edge whenever the aggregate tool is active ("tool" mode: sets the Df
+  // for the next aggregate), and after placing an aggregate, as long as that aggregate stays
+  // selected ("item" mode: changes it, one undo step per slide).
   const dfScaleEl = $('dfScale'), dfTrack = $('dfTrack'), dfKnob = $('dfKnob');
-  let dfScaleSide = null;
-  function placeDfScale(tipX) {
-    const W = window.innerWidth;
-    // opposite side of the screen from the pencil; flip only when clearly on the other side
-    if (dfScaleSide === null) dfScaleSide = tipX > W / 2 ? 'left' : 'right';
-    else if (dfScaleSide === 'left' && tipX < W * 0.35) dfScaleSide = 'right';
-    else if (dfScaleSide === 'right' && tipX > W * 0.65) dfScaleSide = 'left';
-    dfScaleEl.style.left = dfScaleSide === 'left' ? 'calc(10px + env(safe-area-inset-left, 0px))' : 'auto';
-    dfScaleEl.style.right = dfScaleSide === 'right' ? 'calc(10px + env(safe-area-inset-right, 0px))' : 'auto';
+  let dfScaleItem = null, dfScaleSession = false;
+  function dfScaleMode() {
+    if (action && action.kind === 'circle') return 'tool';
+    if (settings.tool === 'aggregate') return 'tool';
+    if (dfScaleItem && selection && selection.size === 1 && selection.has(dfScaleItem)) {
+      const it = findItem(dfScaleItem);
+      if (it && it.type === 'agg' && it.kind !== 'chain' && !it.edited) return 'item';
+    }
+    return null;
+  }
+  function refreshDfScale() {
+    const m = dfScaleMode();
+    if (!m) { dfScaleEl.hidden = true; dfPointer = null; dfTouch = null; return; }
+    dfScaleEl.style.left = 'calc(10px + env(safe-area-inset-left, 0px))';
+    dfScaleEl.style.right = 'auto';
     dfScaleEl.hidden = false;
     updateDfScale();
   }
-  function hideDfScale() { dfScaleEl.hidden = true; dfScaleSide = null; dfPointer = null; dfTouch = null; }
+  function scaleDf() {
+    if (dfScaleMode() === 'item') { const it = findItem(dfScaleItem); if (it) return it.df; }
+    return settings.agg.df;
+  }
   function updateDfScale() {
-    const df = settings.agg.df;
+    const df = scaleDf();
     dfKnob.style.bottom = ((df - 1) / 2 * 100) + '%';
     $('dfScaleVal').textContent = df.toFixed(2);
+  }
+  function setScaleDf(df) {
+    df = clamp(Math.round(df * 100) / 100, 1, 3);
+    if (dfScaleMode() === 'item') {
+      const it = findItem(dfScaleItem);
+      if (!it || it.df === df) return;
+      if (!dfScaleSession) { pushUndo(); dfScaleSession = true; }
+      const ni = { ...it, df, needsGen: true };
+      replaceItem(ni);
+      requestGen(ni);
+      settings.agg.df = df; saveSettings();
+      updateDfScale();
+      return;
+    }
+    setGestureDf(df);
   }
   function setGestureDf(df) {
     df = clamp(Math.round(df * 100) / 100, 1, 3);
     if (df === settings.agg.df) return;
     settings.agg.df = df;
     saveSettings();
-    updateDfScale();
+    if (!dfScaleEl.hidden) updateDfScale();
     if (action && action.kind === 'circle') {
       const A = action;
       A.preview = null; A.previewReq = null; A.previewBmp = null;
@@ -2231,34 +2300,35 @@
   // and as touch events.
   const dfFromY = (y) => { const r = dfTrack.getBoundingClientRect(); return 1 + 2 * clamp(1 - (y - r.top) / (r.height || 1), 0, 1); };
   function onDfScale(x, y) {
-    if (dfScaleEl.hidden || !action || action.kind !== 'circle') return false;
-    const r = dfTrack.getBoundingClientRect(), pad = 22;
+    if (dfScaleEl.hidden) return false;
+    const r = dfTrack.getBoundingClientRect(), pad = 8;   // the visible scale plus a small margin
     return x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad;
   }
   let dfPointer = null, dfTouch = null;
   window.addEventListener('pointerdown', (e) => {
-    if (e.pointerType === 'pen' || !onDfScale(e.clientX, e.clientY)) return;
-    dfPointer = e.pointerId;
+    if ((action && action.id === e.pointerId) || !onDfScale(e.clientX, e.clientY)) return;
+    if (action && action.kind === 'circle' && e.pointerType === 'pen') return;   // the pencil drawing the circle
+    dfPointer = e.pointerId; dfScaleSession = false;
     dlog(`df scale: ${e.pointerType}#${e.pointerId} down @${Math.round(e.clientX)},${Math.round(e.clientY)}`);
-    setGestureDf(dfFromY(e.clientY));
+    setScaleDf(dfFromY(e.clientY));
     e.stopPropagation(); e.preventDefault();
   }, true);
   window.addEventListener('pointermove', (e) => {
     if (e.pointerId !== dfPointer) return;
-    setGestureDf(dfFromY(e.clientY));
+    setScaleDf(dfFromY(e.clientY));
     e.stopPropagation();
   }, true);
   for (const t of ['pointerup', 'pointercancel']) {
-    window.addEventListener(t, (e) => { if (e.pointerId === dfPointer) { dfPointer = null; e.stopPropagation(); } }, true);
+    window.addEventListener(t, (e) => { if (e.pointerId === dfPointer) { dfPointer = null; dfScaleSession = false; e.stopPropagation(); } }, true);
   }
   // Touch-event path (used if the browser does not report the finger as a separate pointer).
   const fingerTouches = (e) => [...(e.changedTouches || [])].filter(t => t.touchType !== 'stylus');
   window.addEventListener('touchstart', (e) => {
     for (const t of fingerTouches(e)) {
-      if (dfTouch === null && onDfScale(t.clientX, t.clientY)) {
-        dfTouch = t.identifier;
+      if (dfTouch === null && dfPointer === null && onDfScale(t.clientX, t.clientY)) {
+        dfTouch = t.identifier; dfScaleSession = false;
         dlog(`df scale: touch ${t.identifier} start @${Math.round(t.clientX)},${Math.round(t.clientY)}`);
-        setGestureDf(dfFromY(t.clientY));
+        setScaleDf(dfFromY(t.clientY));
       }
     }
     if (diag.on && action && action.kind === 'circle') {
@@ -2266,7 +2336,7 @@
     }
   }, { capture: true, passive: true });
   window.addEventListener('touchmove', (e) => {
-    for (const t of fingerTouches(e)) if (t.identifier === dfTouch) setGestureDf(dfFromY(t.clientY));
+    for (const t of fingerTouches(e)) if (t.identifier === dfTouch && dfPointer === null) setScaleDf(dfFromY(t.clientY));
   }, { capture: true, passive: true });
   for (const tt of ['touchend', 'touchcancel']) {
     window.addEventListener(tt, (e) => { for (const t of fingerTouches(e)) if (t.identifier === dfTouch) dfTouch = null; }, { capture: true, passive: true });
@@ -2283,7 +2353,7 @@
   }
   function finishCircle(a, isTap, p) {
     clearTimeout(circleTimer);
-    hideDfScale();
+    refreshDfScale();
     latestToken.delete(PREVIEW_ID); pendingGen.delete(PREVIEW_ID);
     if (isTap || a.R < MIN_BOX / 2) {
       const r = handleTap(p);
@@ -2301,6 +2371,7 @@
     setItems([...items(), it]);
     if (it.needsGen) requestGen(it);
     settings.agg.a = a.a; saveSettings();
+    dfScaleItem = it.id;
     selectIds([it.id]);
     setTool(prevTool);
   }
@@ -2373,6 +2444,7 @@
     saveSettings();
     for (const b of document.querySelectorAll('[data-tool]')) b.classList.toggle('active', b.dataset.tool === t);
     board.style.cursor = t === 'eraser' ? 'none' : t === 'select' ? 'default' : 'crosshair';
+    refreshDfScale();
     requestOverlay();
   }
   for (const b of document.querySelectorAll('[data-tool]')) b.addEventListener('click', () => setTool(b.dataset.tool));

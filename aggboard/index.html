@@ -420,8 +420,9 @@
     <p>Choose the <b>aggregate tool</b> and place an aggregate in one of two ways (<b>&hellip; &rarr; Settings &rarr; New aggregates</b>):</p>
     <ul>
       <li><b>Box</b> (dashed-box icon): drag a box; when you lift, it fills with a 3D fractal aggregate.</li>
-      <li><b>Circle</b> (dashed-circle icon): put the pencil at the <b>centre</b> and drag sideways. The horizontal distance sets the aggregate's outer radius; moving <b>up makes the monomers bigger</b>, moving <b>down makes them smaller</b>. A ring at the pencil and a second one on the opposite side of the circle show the monomer size; a label shows D<sub>f</sub>, a and N. Meanwhile a <b>D<sub>f</sub> scale</b> appears at the screen edge away from the pencil: slide it with a finger of your other hand (with a keyboard: <kbd>Z</kbd> lower / <kbd>X</kbd> higher, or <kbd>&darr;</kbd>/<kbd>&uarr;</kbd>, with <kbd>Shift</kbd> in finer steps; with a mouse: the scroll wheel). Rest the pencil briefly to see the real aggregate; lift to place it.</li>
+      <li><b>Circle</b> (dashed-circle icon): put the pencil at the <b>centre</b> and drag sideways. The horizontal distance sets the aggregate's outer radius; moving <b>up makes the monomers bigger</b>, moving <b>down makes them smaller</b>. A ring at the pencil and a second one on the opposite side of the circle show the monomer size; a label shows D<sub>f</sub>, a and N. To change D<sub>f</sub> while drawing the circle, <b>draw small loops</b>: clockwise raises it, anticlockwise lowers it (about 0.3 per loop, part of a loop gives part of that; the label shows &#8635;); size and monomer size stay put while you loop, and a straight movement releases them. With a keyboard: <kbd>Z</kbd> lower / <kbd>X</kbd> higher, or <kbd>&darr;</kbd>/<kbd>&uarr;</kbd> (with <kbd>Shift</kbd> in finer steps); with a mouse: the scroll wheel. Rest the pencil briefly to see the real aggregate; lift to place it.</li>
     </ul>
+    <p><b>D<sub>f</sub> scale:</b> while the aggregate tool is active, a D<sub>f</sub> scale is shown on the left edge &mdash; set D<sub>f</sub> there (pencil or finger) <i>before</i> drawing. After placing, the scale stays and now changes the new aggregate, as long as it is selected.</p>
     <p>Afterwards the tool switches back to the pen and the new aggregate is selected, with three handles:</p>
     <ul>
       <li><b>Bottom-right</b> &mdash; scale: bigger or smaller with the same structure (the monomers scale too).</li>
@@ -497,12 +498,12 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="aggregate-engine.js?v=2026.10.18-24"></script>
-<script src="app.js?v=2026.10.18-24"></script>
+<script src="aggregate-engine.js?v=2026.10.18-26"></script>
+<script src="app.js?v=2026.10.18-26"></script>
 <script>
   // Warn if the browser mixed files from different releases (e.g. a stale cached app.js).
   (function () {
-    var want = '2026.10.18-24';
+    var want = '2026.10.18-26';
     var okApp = window.AGGBOARD_VERSION === want;
     var okEngine = window.AggEngine && window.AggEngine.release === want;
     if (okApp && okEngine) return;
