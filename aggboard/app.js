@@ -9,7 +9,7 @@
   // Configuration
   // ============================================================
   // Bump on every release: shown in the menu, and used to bypass cached program files.
-  const VERSION = '2026.10.18-22';
+  const VERSION = '2026.10.18-24';
   window.AGGBOARD_VERSION = VERSION;
   const CONFIG = {
     MENU_URL: null,            // e.g. '../index.html' to show a "back to menu" button
@@ -1657,6 +1657,8 @@
   let wheelTimer = 0;
   let lastPenUp = -1e9;
   const PALM_CONTACT = 90;   // px; contacts larger than this right after writing are treated as a palm
+  const PALM_ALWAYS = 80;    // px; with a pencil in use, contacts this large are a palm at any time
+  const isPalmSize = (e) => e.pointerType === 'touch' && e.width > PALM_ALWAYS && e.height > PALM_ALWAYS;
 
   const fingersDraw = () => settings.fingerMode === 'draw' || (settings.fingerMode === 'auto' && !settings.penSeen);
   const pressureOf = (e) => (e.pointerType === 'pen' && e.pressure > 0 ? e.pressure : 0.5);
@@ -1698,7 +1700,7 @@
     // shortly after writing. (iPadOS reports a normal fingertip as ~40-55 px across, so the
     // size limit must be well above that, or pinch and pan with fingers stop working.)
     if (type === 'touch' && settings.penSeen && !fingersDraw() &&
-        (now() - lastPenUp < 350 || (e.width > PALM_CONTACT && e.height > PALM_CONTACT && now() - lastPenUp < 3000))) {
+        (now() - lastPenUp < 350 || isPalmSize(e) || (e.width > PALM_CONTACT && e.height > PALM_CONTACT && now() - lastPenUp < 3000))) {
       diag.ignored++; dlog(`  -> ignored: palm guard (${Math.round(now() - lastPenUp)} ms after pen-up, contact ${Math.round(e.width)}x${Math.round(e.height)})`);
       return;
     }
@@ -1804,7 +1806,18 @@
       return;
     }
     rec.x = sp.x; rec.y = sp.y;
-    if (nav && nav.ids.includes(e.pointerId)) { updateNav(); return; }
+    if (nav && nav.ids.includes(e.pointerId)) {
+      if (settings.penSeen && !fingersDraw() && isPalmSize(e)) { rejectPalmInNav(e); return; }
+      updateNav();
+      return;
+    }
+    if (action && action.id === e.pointerId && action.kind === 'rotate' && action.ptype === 'touch' && settings.penSeen && isPalmSize(e)) {
+      // a palm on a selected aggregate: undo the rotation it caused
+      dlog(`  -> palm detected while rotating (contact ${Math.round(e.width)}x${Math.round(e.height)}): rotation undone`);
+      const a = action; action = null; pointers.delete(e.pointerId);
+      if (a.pushed) undo();
+      return;
+    }
     if (!action || action.id !== e.pointerId) return;
     hover = sp;
     if (!action.moved && Math.hypot(sp.x - action.start.x, sp.y - action.start.y) > TAP_SLOP) action.moved = true;
@@ -1990,8 +2003,22 @@
     const dist = pts.length >= 2 ? Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) : null;
     return { cx, cy, dist, n: pts.length };
   }
+  function rejectPalmInNav(e) {
+    diag.ignored++;
+    dlog(`  -> palm detected while moving the page (contact ${Math.round(e.width)}x${Math.round(e.height)}): view restored`);
+    const sv = nav.startView;
+    view.scale = sv.scale; view.ox = sv.ox; view.oy = sv.oy; view.fit = sv.fit;
+    pointers.delete(e.pointerId);
+    nav.ids = nav.ids.filter(id => id !== e.pointerId);
+    if (nav.ids.length) { nav.last = navState(nav.ids); nav.tap = false; nav.startView = { ...sv }; }
+    else endNav();
+    requestRender();
+  }
   function startNav(ids, tap) {
-    nav = { ids: ids.slice(), last: navState(ids), travel: 0, t0: now(), tap: tap && ids.length === 1 };
+    const prevStart = nav && nav.startView;
+    nav = { ids: ids.slice(), last: navState(ids), travel: 0, t0: now(), tap: tap && ids.length === 1,
+            startView: { scale: view.scale, ox: view.ox, oy: view.oy, fit: view.fit } };
+    void prevStart;
     gestureActive = true;
   }
   function updateNav() {
@@ -2177,7 +2204,7 @@
     dfScaleEl.hidden = false;
     updateDfScale();
   }
-  function hideDfScale() { dfScaleEl.hidden = true; dfScaleSide = null; }
+  function hideDfScale() { dfScaleEl.hidden = true; dfScaleSide = null; dfPointer = null; dfTouch = null; }
   function updateDfScale() {
     const df = settings.agg.df;
     dfKnob.style.bottom = ((df - 1) / 2 * 100) + '%';
@@ -2197,16 +2224,53 @@
       requestOverlay();
     }
   }
-  let dfDrag = null;
+  // Finger on the Df scale while the pencil draws the circle. On iPad the browser may deliver
+  // a touch that starts during a pencil stroke to the surface where the stroke began, so the
+  // scale cannot rely on receiving it directly: every non-pencil touch is checked here first
+  // (capture phase, before the drawing surface and its palm rules), both as pointer events
+  // and as touch events.
   const dfFromY = (y) => { const r = dfTrack.getBoundingClientRect(); return 1 + 2 * clamp(1 - (y - r.top) / (r.height || 1), 0, 1); };
-  dfTrack.addEventListener('pointerdown', (e) => {
-    e.preventDefault(); e.stopPropagation();
-    try { dfTrack.setPointerCapture(e.pointerId); } catch (_) {}
-    dfDrag = e.pointerId;
+  function onDfScale(x, y) {
+    if (dfScaleEl.hidden || !action || action.kind !== 'circle') return false;
+    const r = dfTrack.getBoundingClientRect(), pad = 22;
+    return x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad;
+  }
+  let dfPointer = null, dfTouch = null;
+  window.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'pen' || !onDfScale(e.clientX, e.clientY)) return;
+    dfPointer = e.pointerId;
+    dlog(`df scale: ${e.pointerType}#${e.pointerId} down @${Math.round(e.clientX)},${Math.round(e.clientY)}`);
     setGestureDf(dfFromY(e.clientY));
-  });
-  dfTrack.addEventListener('pointermove', (e) => { if (dfDrag === e.pointerId) setGestureDf(dfFromY(e.clientY)); });
-  for (const t of ['pointerup', 'pointercancel']) dfTrack.addEventListener(t, (e) => { if (dfDrag === e.pointerId) dfDrag = null; });
+    e.stopPropagation(); e.preventDefault();
+  }, true);
+  window.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== dfPointer) return;
+    setGestureDf(dfFromY(e.clientY));
+    e.stopPropagation();
+  }, true);
+  for (const t of ['pointerup', 'pointercancel']) {
+    window.addEventListener(t, (e) => { if (e.pointerId === dfPointer) { dfPointer = null; e.stopPropagation(); } }, true);
+  }
+  // Touch-event path (used if the browser does not report the finger as a separate pointer).
+  const fingerTouches = (e) => [...(e.changedTouches || [])].filter(t => t.touchType !== 'stylus');
+  window.addEventListener('touchstart', (e) => {
+    for (const t of fingerTouches(e)) {
+      if (dfTouch === null && onDfScale(t.clientX, t.clientY)) {
+        dfTouch = t.identifier;
+        dlog(`df scale: touch ${t.identifier} start @${Math.round(t.clientX)},${Math.round(t.clientY)}`);
+        setGestureDf(dfFromY(t.clientY));
+      }
+    }
+    if (diag.on && action && action.kind === 'circle') {
+      dlog(`touchstart during circle: ${[...(e.changedTouches || [])].map(t => `${t.touchType || 'n/a'}@${Math.round(t.clientX)},${Math.round(t.clientY)}`).join(' ')} target=${e.target && (e.target.id || e.target.className || e.target.tagName)}`);
+    }
+  }, { capture: true, passive: true });
+  window.addEventListener('touchmove', (e) => {
+    for (const t of fingerTouches(e)) if (t.identifier === dfTouch) setGestureDf(dfFromY(t.clientY));
+  }, { capture: true, passive: true });
+  for (const tt of ['touchend', 'touchcancel']) {
+    window.addEventListener(tt, (e) => { for (const t of fingerTouches(e)) if (t.identifier === dfTouch) dfTouch = null; }, { capture: true, passive: true });
+  }
   for (const t of ['touchstart', 'touchmove']) dfScaleEl.addEventListener(t, (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });
 
   function onCirclePreview(m) {
