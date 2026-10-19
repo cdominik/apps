@@ -82,6 +82,10 @@
     padding: 4px 8px 8px;
   }
   #menu.visible { display: block; }
+  /* Left-handed: menu button, menu and D_f scale on the right, away from the writing hand */
+  body.left-handed #menuGroup { order: 100; }
+  body.left-handed #menuSep { order: 99; }
+  body.left-handed #menu { left: auto; right: calc(10px + env(safe-area-inset-right, 0px)); }
   #menu .section {
     font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent);
     padding: 12px 10px 4px; border-top: 1px solid #eee; margin-top: 6px;
@@ -230,12 +234,12 @@
   <a class="tbtn" id="btnHome" title="Back to menu" aria-label="Back to menu" hidden>
     <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
   </a>
-  <div class="group">
+  <div class="group" id="menuGroup">
     <button class="tbtn" id="btnMenu" title="More" aria-label="More">
       <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="19" cy="12" r="1.3" fill="currentColor"/></svg>
     </button>
   </div>
-  <div class="sep"></div>
+  <div class="sep" id="menuSep"></div>
   <div class="group" id="tools">
     <button class="tbtn" data-tool="pen" title="Pen (P)" aria-label="Pen">
       <svg viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19z"/><path d="M14 7l3 3"/></svg>
@@ -371,6 +375,11 @@
     <button data-create="box">Box</button>
     <button data-create="circle">Circle</button>
   </div>
+  <div class="row-label">Writing hand</div>
+  <div class="seg" id="handSeg">
+    <button data-hand="right">Right</button>
+    <button data-hand="left">Left</button>
+  </div>
   <div class="row-label">Finger input</div>
   <div class="seg" id="fingerSeg">
     <button data-mode="auto">Auto</button>
@@ -393,7 +402,7 @@
 
     <h3>Getting started</h3>
     <ul>
-      <li><b>Toolbar</b>, from left to right: the <b>&hellip;</b> menu &middot; pen, eraser, select, laser, particle chain, aggregate box &middot; five ink colours &middot; three line widths &middot; Undo, Redo &middot; page controls: previous / next page, page number, <b>+</b> new page, fit page to screen, and the broom to clear the page.</li>
+      <li><b>Toolbar</b>, from left to right: the <b>&hellip;</b> menu (on the right for left-handed use) &middot; pen, eraser, select, laser, particle chain, aggregate box &middot; five ink colours &middot; three line widths &middot; Undo, Redo &middot; page controls: previous / next page, page number, <b>+</b> new page, fit page to screen, and the broom to clear the page.</li>
       <li><b>Pencil and fingers:</b> once an Apple Pencil is detected, the pencil draws and fingers move the page (one finger pans, two fingers pinch to zoom). Without a pencil, one finger draws.</li>
     </ul>
 
@@ -419,10 +428,10 @@
     <h3>Aggregates</h3>
     <p>Choose the <b>aggregate tool</b> and place an aggregate in one of two ways (<b>&hellip; &rarr; Settings &rarr; New aggregates</b>):</p>
     <ul>
+      <li><b>Circle</b> (dashed-circle icon, the default): put the pencil at the <b>centre</b> and drag sideways. The horizontal distance sets the aggregate's outer radius; moving <b>up makes the monomers bigger</b>, moving <b>down makes them smaller</b>. A ring at the pencil and a second one on the opposite side of the circle show the monomer size; a label shows D<sub>f</sub>, a and N. To change D<sub>f</sub> while drawing the circle, <b>draw small loops</b>: clockwise raises it, anticlockwise lowers it (about 0.3 per loop, part of a loop gives part of that; the label shows &#8635;); size and monomer size stay put while you loop, and a straight movement releases them. With a keyboard: <kbd>Z</kbd> lower / <kbd>X</kbd> higher, or <kbd>&darr;</kbd>/<kbd>&uarr;</kbd> (with <kbd>Shift</kbd> in finer steps); with a mouse: the scroll wheel. Rest the pencil briefly to see the real aggregate; lift to place it.</li>
       <li><b>Box</b> (dashed-box icon): drag a box; when you lift, it fills with a 3D fractal aggregate.</li>
-      <li><b>Circle</b> (dashed-circle icon): put the pencil at the <b>centre</b> and drag sideways. The horizontal distance sets the aggregate's outer radius; moving <b>up makes the monomers bigger</b>, moving <b>down makes them smaller</b>. A ring at the pencil and a second one on the opposite side of the circle show the monomer size; a label shows D<sub>f</sub>, a and N. To change D<sub>f</sub> while drawing the circle, <b>draw small loops</b>: clockwise raises it, anticlockwise lowers it (about 0.3 per loop, part of a loop gives part of that; the label shows &#8635;); size and monomer size stay put while you loop, and a straight movement releases them. With a keyboard: <kbd>Z</kbd> lower / <kbd>X</kbd> higher, or <kbd>&darr;</kbd>/<kbd>&uarr;</kbd> (with <kbd>Shift</kbd> in finer steps); with a mouse: the scroll wheel. Rest the pencil briefly to see the real aggregate; lift to place it.</li>
     </ul>
-    <p><b>D<sub>f</sub> scale:</b> while the aggregate tool is active, a D<sub>f</sub> scale is shown on the left edge &mdash; set D<sub>f</sub> there (pencil or finger) <i>before</i> drawing. After placing, the scale stays and now changes the new aggregate, as long as it is selected.</p>
+    <p><b>D<sub>f</sub> scale:</b> while the aggregate tool is active, a D<sub>f</sub> scale is shown at the screen edge (left, or right for left-handed use) &mdash; set D<sub>f</sub> there (pencil or finger) <i>before</i> drawing. After placing, the scale stays and now changes the new aggregate, as long as it is selected.</p>
     <p>Afterwards the tool switches back to the pen and the new aggregate is selected, with three handles:</p>
     <ul>
       <li><b>Bottom-right</b> &mdash; scale: bigger or smaller with the same structure (the monomers scale too).</li>
@@ -470,6 +479,7 @@
 
     <h3>Settings, mouse and keyboard</h3>
     <ul>
+      <li><b>&hellip; &rarr; Settings &rarr; Writing hand:</b> with <i>Left</i>, the &hellip; button, the menu and the D<sub>f</sub> scale move to the right side, away from your writing hand.</li>
       <li><b>&hellip; &rarr; Settings &rarr; Finger input:</b> <i>Auto</i> (fingers draw until a pencil is detected), <i>Draw</i> (one finger always draws), <i>Pan &amp; zoom</i> (one finger always moves the page). Your palm is ignored while the pencil is on the screen.</li>
       <li><b>Mouse / trackpad:</b> click to draw or select, double-click an aggregate for its settings, right- or middle-drag to pan, two-finger swipe to pan, pinch or Ctrl + wheel to zoom.</li>
       <li><b>Keys:</b> <kbd>P</kbd> pen &middot; <kbd>E</kbd> eraser &middot; <kbd>S</kbd> select &middot; <kbd>L</kbd> laser &middot; <kbd>C</kbd> chain &middot; <kbd>A</kbd> aggregate &middot; <kbd>1</kbd>&ndash;<kbd>5</kbd> colours &middot; <kbd>[</kbd> / <kbd>]</kbd> thinner / thicker line &middot; <kbd>Ctrl/&#8984; Z</kbd> undo &middot; <kbd>Ctrl/&#8984; Shift Z</kbd> redo &middot; <kbd>Ctrl/&#8984; D</kbd> duplicate &middot; <kbd>Delete</kbd> delete selection &middot; <kbd>PgUp</kbd>/<kbd>PgDn</kbd> pages &middot; <kbd>Z</kbd>/<kbd>X</kbd> or <kbd>&darr;</kbd>/<kbd>&uarr;</kbd> lower / higher D<sub>f</sub> while placing a circle aggregate &middot; <kbd>0</kbd> fit page &middot; <kbd>Esc</kbd> close menus and dialogs, or deselect.</li>
@@ -498,12 +508,12 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="aggregate-engine.js?v=2026.10.18-26"></script>
-<script src="app.js?v=2026.10.18-26"></script>
+<script src="aggregate-engine.js?v=2026.10.18-27"></script>
+<script src="app.js?v=2026.10.18-27"></script>
 <script>
   // Warn if the browser mixed files from different releases (e.g. a stale cached app.js).
   (function () {
-    var want = '2026.10.18-26';
+    var want = '2026.10.18-27';
     var okApp = window.AGGBOARD_VERSION === want;
     var okEngine = window.AggEngine && window.AggEngine.release === want;
     if (okApp && okEngine) return;

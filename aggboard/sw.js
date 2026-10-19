@@ -6,7 +6,7 @@
  * version. A new release installs in the background and waits; the page shows
  * a "Reload" prompt and only switches when the user taps it.
  */
-const VERSION = '2026.10.18-26';
+const VERSION = '2026.10.18-27';
 const CACHE = 'aggboard-' + VERSION;
 const FILES = [
   './',

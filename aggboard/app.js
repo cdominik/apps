@@ -9,7 +9,7 @@
   // Configuration
   // ============================================================
   // Bump on every release: shown in the menu, and used to bypass cached program files.
-  const VERSION = '2026.10.18-26';
+  const VERSION = '2026.10.18-27';
   window.AGGBOARD_VERSION = VERSION;
   const CONFIG = {
     MENU_URL: null,            // e.g. '../index.html' to show a "back to menu" button
@@ -56,7 +56,8 @@
       fingerMode: 'auto', penSeen: false,
       agg: { a: 10, df: 1.8, kf: null, color: AGG_COLORS[0], method: 'cca' },
       chain: { temp: 0.25 },
-      aggCreate: 'box',          // 'box' | 'circle': how the aggregate tool places a new aggregate
+      aggCreate: 'circle',       // 'box' | 'circle': how the aggregate tool places a new aggregate
+      hand: 'right',             // 'right' | 'left': controls go to the side away from the writing hand
     };
     try {
       const s = JSON.parse(localStorage.getItem(CONFIG.SETTINGS_KEY) || 'null');
@@ -75,6 +76,7 @@
         }
         if (s.chain && s.chain.temp >= 0 && s.chain.temp <= 1) d.chain.temp = +s.chain.temp;
         if (s.aggCreate === 'box' || s.aggCreate === 'circle') d.aggCreate = s.aggCreate;
+        if (s.hand === 'left' || s.hand === 'right') d.hand = s.hand;
       }
     } catch (_) {}
     return d;
@@ -2250,8 +2252,9 @@
   function refreshDfScale() {
     const m = dfScaleMode();
     if (!m) { dfScaleEl.hidden = true; dfPointer = null; dfTouch = null; return; }
-    dfScaleEl.style.left = 'calc(10px + env(safe-area-inset-left, 0px))';
-    dfScaleEl.style.right = 'auto';
+    const left = settings.hand !== 'left';   // away from the writing hand
+    dfScaleEl.style.left = left ? 'calc(10px + env(safe-area-inset-left, 0px))' : 'auto';
+    dfScaleEl.style.right = left ? 'auto' : 'calc(10px + env(safe-area-inset-right, 0px))';
     dfScaleEl.hidden = false;
     updateDfScale();
   }
@@ -2766,10 +2769,19 @@
     btn.title = settings.aggCreate === 'circle' ? 'Aggregate: drag from the centre (A)' : 'Aggregate in a box (A)';
     for (const b of $('createSeg').children) b.classList.toggle('active', b.dataset.create === settings.aggCreate);
   }
+  function applyHand() {
+    document.body.classList.toggle('left-handed', settings.hand === 'left');
+    for (const b of $('handSeg').children) b.classList.toggle('active', b.dataset.hand === settings.hand);
+    refreshDfScale();
+  }
+  for (const b of $('handSeg').children) {
+    b.addEventListener('click', () => { settings.hand = b.dataset.hand; saveSettings(); applyHand(); });
+  }
   for (const b of $('createSeg').children) {
     b.addEventListener('click', () => { settings.aggCreate = b.dataset.create; saveSettings(); updateCreateUI(); });
   }
   updateCreateUI();
+  applyHand();
   for (const b of $('boardSeg').children) {
     b.addEventListener('click', () => {
       const pg = curPage();

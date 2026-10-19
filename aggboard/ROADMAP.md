@@ -14,7 +14,7 @@
 - Two tunable generators, both exact: **cluster–cluster** (default, realistic anisotropy, D_f 1–2.3, automatic fallback above) and **particle–cluster** (D_f 1–3, keeps its core when resized). Readout: N, R_g, fitted D_f, anisotropy.
 - Handles: bottom-right scales, bottom-left refills, top-right rotates in 3D. The box refits tightly to the projection. Aggregates fill square boxes well (in-plane orientation search). Up to 5000 monomers, with a message when the limit is reached.
 - Live updates while dragging sliders, also when generation is slower than the slider; structures always drawn at their correct size.
-- Two ways to place an aggregate (Settings → New aggregates): **Box** (drag a box) or **Circle** (drag from the centre: horizontal distance = outer radius, vertical offset = monomer size; live circle, monomer ring and N estimate; real aggregate when the pencil rests). Circle-placed aggregates keep a true circle fit when regenerated. A D_f scale on the left edge (while the aggregate tool is active, and for the freshly placed aggregate) sets D_f before or after drawing; during the gesture, small loops change D_f (experimental "dial": clockwise = higher), or Z/X, arrow keys, mouse wheel. Two-handed use (finger on the scale while the pencil draws) is impossible on iPad: the system withholds finger touches while the pencil is down. *To decide after trying both: keep one or both.*
+- Two ways to place an aggregate (Settings → New aggregates): **Box** (drag a box) or **Circle** (drag from the centre: horizontal distance = outer radius, vertical offset = monomer size; live circle, monomer ring and N estimate; real aggregate when the pencil rests). Circle-placed aggregates keep a true circle fit when regenerated. A D_f scale on the left edge (while the aggregate tool is active, and for the freshly placed aggregate) sets D_f before or after drawing; during the gesture, small loops change D_f (the "dial": clockwise = higher, about 0.3 per loop; kept alongside the scale, which sets D_f in advance), or Z/X, arrow keys, mouse wheel. Two-handed use (finger on the scale while the pencil draws) is impossible on iPad: the system withholds finger touches while the pencil is down. Circle is the default; Box remains available as a setting.
 - Tap selects an aggregate in any tool; double-tap opens its settings; the settings panel stays put while editing.
 - Particle-chain tool with temperature; attaching to aggregates and chains, bridging, branches and rings, collision-free junctions; "edited" aggregates (scale instead of regenerate, Regenerate… to undo the edits).
 
@@ -27,6 +27,7 @@
 - IndexedDB autosave; notebook save/open as a versioned file (format version 2).
 - Offline support (service worker) with a Reload prompt for new versions; warning when files from different releases are mixed; version number in the menu.
 - Input diagnostics recorder (copyable log) for device problems.
+- Writing-hand setting: with "Left", the ⋯ button, the menu and the D_f scale move to the right.
 - Menu on the left, grouped into This page / Export / Notebook / Settings / Help; help text organised by topic.
 - Name: AggBoard. License: MIT (Copyright (c) 2026 Carsten Dominik).
 
@@ -52,12 +53,12 @@
 - **Inserting images or PDF slides** — larger feature, maybe never.
 
 ### Pages and notebooks
+- **Page format:** pages are fixed at 16:9 (1600 × 900), which leaves unused strips on an iPad. Option per notebook/page: "match this screen", 16:9, 16:10, 4:3, A4 landscape; existing pages keep their format.
 - **Page management:** reorder, duplicate, thumbnails strip.
 - **Multiple named notebooks** with a notebook list.
 - **PDF export** of the whole notebook.
 
 ### Platform and maintenance
-- **"Menu on the right" setting** for left-handed use.
 - **Performance on very long notebooks:** cache rendered pages; render only changed regions.
 - **Automated test suite in the repository:** the tests used during development (simulated browser with real canvas rendering) could be included so changes can be checked before publishing.
 - **Optional cloud sync** (only if ever needed), e.g. Supabase or Firebase. The data format is already serialisable, so this would be an addition, not a rewrite.
