@@ -103,6 +103,24 @@
   #menuShield { position: absolute; inset: 0; z-index: 29; display: none; }
   #menuShield.visible { display: block; }
 
+  /* ---------- Df scale (circle placement, other hand) ---------- */
+  #dfScale {
+    position: absolute; z-index: 8; top: 50%; transform: translateY(-50%);
+    width: 64px; padding: 8px 6px 10px; border-radius: 14px;
+    background: var(--ui-bg); border: 1px solid var(--ui-border); box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    display: flex; flex-direction: column; align-items: center; touch-action: none; user-select: none;
+  }
+  #dfScale[hidden] { display: none; }
+  #dfScale .dfTitle { font-size: 13px; font-weight: 600; color: #444; }
+  #dfScale .dfVal { font-size: 15px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; margin: 2px 0 10px; }
+  #dfScale .dfTrack { position: relative; width: 52px; height: clamp(180px, 48vh, 420px); margin: 6px 0; cursor: ns-resize; touch-action: none; }
+  #dfScale .dfLine { position: absolute; left: 50%; top: 0; bottom: 0; width: 4px; margin-left: -2px; border-radius: 2px; background: linear-gradient(#2a7, #bfe8d6); }
+  #dfScale .dfTick { position: absolute; left: 0; font-size: 10px; color: #888; transform: translateY(50%); }
+  #dfScale .dfKnob { position: absolute; left: 50%; width: 30px; height: 30px; margin-left: -15px; border-radius: 50%;
+    background: #fff; border: 3px solid var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,0.25); transform: translateY(50%); }
+  #dfScale .dfHint { font-size: 10px; color: #999; margin-top: 8px; }
+
   /* ---------- selection bar ---------- */
   #selbar {
     position: absolute; z-index: 6; display: none; gap: 2px;
@@ -266,6 +284,21 @@
 
 
 
+<div id="dfScale" hidden aria-label="Fractal dimension">
+  <div class="dfTitle">D<sub>f</sub></div>
+  <div class="dfVal" id="dfScaleVal">1.80</div>
+  <div class="dfTrack" id="dfTrack">
+    <div class="dfLine"></div>
+    <div class="dfTick" style="bottom:100%">3</div>
+    <div class="dfTick" style="bottom:75%">2.5</div>
+    <div class="dfTick" style="bottom:50%">2</div>
+    <div class="dfTick" style="bottom:25%">1.5</div>
+    <div class="dfTick" style="bottom:0%">1</div>
+    <div class="dfKnob" id="dfKnob"></div>
+  </div>
+  <div class="dfHint">Z X &middot; &uarr;&darr;</div>
+</div>
+
 <div id="selbar">
   <button id="selAdjust">Adjust</button>
   <button id="selDuplicate">Duplicate</button>
@@ -387,7 +420,7 @@
     <p>Choose the <b>aggregate tool</b> and place an aggregate in one of two ways (<b>&hellip; &rarr; Settings &rarr; New aggregates</b>):</p>
     <ul>
       <li><b>Box</b> (dashed-box icon): drag a box; when you lift, it fills with a 3D fractal aggregate.</li>
-      <li><b>Circle</b> (dashed-circle icon): put the pencil at the <b>centre</b> and drag sideways. The horizontal distance sets the aggregate's outer radius; moving <b>up makes the monomers bigger</b>, moving <b>down makes them smaller</b>. A ring at the pencil shows the monomer size and a label shows N. Rest the pencil briefly to see the real aggregate; lift to place it.</li>
+      <li><b>Circle</b> (dashed-circle icon): put the pencil at the <b>centre</b> and drag sideways. The horizontal distance sets the aggregate's outer radius; moving <b>up makes the monomers bigger</b>, moving <b>down makes them smaller</b>. A ring at the pencil and a second one on the opposite side of the circle show the monomer size; a label shows D<sub>f</sub>, a and N. Meanwhile a <b>D<sub>f</sub> scale</b> appears at the screen edge away from the pencil: slide it with a finger of your other hand (with a keyboard: <kbd>Z</kbd> lower / <kbd>X</kbd> higher, or <kbd>&darr;</kbd>/<kbd>&uarr;</kbd>, with <kbd>Shift</kbd> in finer steps; with a mouse: the scroll wheel). Rest the pencil briefly to see the real aggregate; lift to place it.</li>
     </ul>
     <p>Afterwards the tool switches back to the pen and the new aggregate is selected, with three handles:</p>
     <ul>
@@ -438,7 +471,7 @@
     <ul>
       <li><b>&hellip; &rarr; Settings &rarr; Finger input:</b> <i>Auto</i> (fingers draw until a pencil is detected), <i>Draw</i> (one finger always draws), <i>Pan &amp; zoom</i> (one finger always moves the page). Your palm is ignored while the pencil is on the screen.</li>
       <li><b>Mouse / trackpad:</b> click to draw or select, double-click an aggregate for its settings, right- or middle-drag to pan, two-finger swipe to pan, pinch or Ctrl + wheel to zoom.</li>
-      <li><b>Keys:</b> <kbd>P</kbd> pen &middot; <kbd>E</kbd> eraser &middot; <kbd>S</kbd> select &middot; <kbd>L</kbd> laser &middot; <kbd>C</kbd> chain &middot; <kbd>A</kbd> aggregate &middot; <kbd>1</kbd>&ndash;<kbd>5</kbd> colours &middot; <kbd>[</kbd> / <kbd>]</kbd> thinner / thicker line &middot; <kbd>Ctrl/&#8984; Z</kbd> undo &middot; <kbd>Ctrl/&#8984; Shift Z</kbd> redo &middot; <kbd>Ctrl/&#8984; D</kbd> duplicate &middot; <kbd>Delete</kbd> delete selection &middot; <kbd>PgUp</kbd>/<kbd>PgDn</kbd> pages &middot; <kbd>0</kbd> fit page &middot; <kbd>Esc</kbd> close menus and dialogs, or deselect.</li>
+      <li><b>Keys:</b> <kbd>P</kbd> pen &middot; <kbd>E</kbd> eraser &middot; <kbd>S</kbd> select &middot; <kbd>L</kbd> laser &middot; <kbd>C</kbd> chain &middot; <kbd>A</kbd> aggregate &middot; <kbd>1</kbd>&ndash;<kbd>5</kbd> colours &middot; <kbd>[</kbd> / <kbd>]</kbd> thinner / thicker line &middot; <kbd>Ctrl/&#8984; Z</kbd> undo &middot; <kbd>Ctrl/&#8984; Shift Z</kbd> redo &middot; <kbd>Ctrl/&#8984; D</kbd> duplicate &middot; <kbd>Delete</kbd> delete selection &middot; <kbd>PgUp</kbd>/<kbd>PgDn</kbd> pages &middot; <kbd>Z</kbd>/<kbd>X</kbd> or <kbd>&darr;</kbd>/<kbd>&uarr;</kbd> lower / higher D<sub>f</sub> while placing a circle aggregate &middot; <kbd>0</kbd> fit page &middot; <kbd>Esc</kbd> close menus and dialogs, or deselect.</li>
     </ul>
 
     <h3>If something goes wrong</h3>
@@ -464,12 +497,12 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="aggregate-engine.js?v=2026.10.18-19"></script>
-<script src="app.js?v=2026.10.18-19"></script>
+<script src="aggregate-engine.js?v=2026.10.18-22"></script>
+<script src="app.js?v=2026.10.18-22"></script>
 <script>
   // Warn if the browser mixed files from different releases (e.g. a stale cached app.js).
   (function () {
-    var want = '2026.10.18-19';
+    var want = '2026.10.18-22';
     var okApp = window.AGGBOARD_VERSION === want;
     var okEngine = window.AggEngine && window.AggEngine.release === want;
     if (okApp && okEngine) return;

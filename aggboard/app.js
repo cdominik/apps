@@ -9,7 +9,7 @@
   // Configuration
   // ============================================================
   // Bump on every release: shown in the menu, and used to bypass cached program files.
-  const VERSION = '2026.10.18-19';
+  const VERSION = '2026.10.18-22';
   window.AGGBOARD_VERSION = VERSION;
   const CONFIG = {
     MENU_URL: null,            // e.g. '../index.html' to show a "back to menu" button
@@ -1406,17 +1406,28 @@
         octx.beginPath(); octx.arc(c.x, c.y, 3, 0, Math.PI * 2); octx.fillStyle = blue; octx.fill();
         octx.beginPath(); octx.moveTo(c.x, c.y); octx.lineTo(c.x + Math.sign(A.tip.x - c.x || 1) * Rpx, c.y);
         octx.lineWidth = 1; octx.strokeStyle = 'rgba(59,120,200,0.5)'; octx.stroke();
-        // monomer ring at the pencil
-        octx.beginPath(); octx.arc(A.tip.x, A.tip.y, Math.max(1.5, A.a * s), 0, Math.PI * 2);
-        octx.lineWidth = 2; octx.strokeStyle = ACCENT; octx.stroke();
+        // monomer ring at the pencil, and a second one on the circle opposite the pencil,
+        // where it is never hidden under the hand and sits next to the outer monomers
+        const ring = (x, y, fill) => {
+          octx.beginPath(); octx.arc(x, y, Math.max(1.5, A.a * s), 0, Math.PI * 2);
+          if (fill) { octx.fillStyle = 'rgba(34,170,119,0.22)'; octx.fill(); }
+          octx.lineWidth = 2; octx.strokeStyle = ACCENT; octx.stroke();
+        };
+        ring(A.tip.x, A.tip.y, false);
+        if (Rpx > 4) ring(c.x - Math.sign(A.tip.x - c.x || 1) * Rpx, c.y, true);
         // label
         const est = estimateN(A.R, A.a);
         const nTxt = A.preview ? `N = ${A.preview.n}` : (est >= CONFIG.N_MAX ? `N ≥ ${CONFIG.N_MAX} (limit)` : `N ≈ ${est}`);
-        const label = `a = ${A.a.toFixed(1)} · ${nTxt}`;
+        const dfNow = settings.agg.df;
+        const fb = settings.agg.method === 'cca' && dfNow > window.AggEngine.CCA_MAX_DF ? ' (particle–cluster)' : '';
+        const label = `Df ${dfNow.toFixed(2)}${fb} · a = ${A.a.toFixed(1)} · ${nTxt}`;
         octx.font = '13px -apple-system, BlinkMacSystemFont, sans-serif';
         const tw = octx.measureText(label).width;
-        let lx = A.tip.x + 16, ly = A.tip.y - 30;
+        // label on the outer side of the pencil (away from the centre), so it never covers the aggregate
+        const outward = A.tip.x >= c.x ? 1 : -1;
+        let lx = outward > 0 ? A.tip.x + 16 : A.tip.x - tw - 28, ly = A.tip.y - 30;
         if (lx + tw + 12 > W) lx = A.tip.x - tw - 28;
+        if (lx < 4) lx = A.tip.x + 16;
         if (ly < 70) ly = A.tip.y + 18;
         octx.fillStyle = 'rgba(30,30,36,0.85)';
         octx.beginPath(); octx.rect(lx, ly, tw + 12, 22); octx.fill();
@@ -1775,6 +1786,7 @@
           action = { ...base, kind: 'circle', cx: p.x, cy: p.y, sy: sp.y, a0: settings.agg.a, a: settings.agg.a, R: 0,
                      seed: randSeed(), hold: { x: sp.x, y: sp.y }, tip: sp, preview: null, previewReq: null, previewBmp: null };
           armCircleRest();
+          placeDfScale(sp.x);
           requestOverlay();
           break;
         }
@@ -1841,6 +1853,7 @@
         const eff = Math.sign(dy) * Math.max(0, Math.abs(dy) - CIRCLE_DEAD);
         A.a = clamp(A.a0 * Math.pow(2, -eff / CIRCLE_OCTAVE), 1, 120);
         A.tip = sp;
+        placeDfScale(sp.x);
         if (Math.hypot(sp.x - A.hold.x, sp.y - A.hold.y) > 4) {
           A.hold = { x: sp.x, y: sp.y };
           A.preview = null; A.previewReq = null; A.previewBmp = null;   // moving: outline only
@@ -1919,7 +1932,7 @@
     if (interrupted) { diag.interrupted++; dlog(`  -> ${a.kind} interrupted: keeping what was drawn`); }
     if (a.ptype === 'touch') hover = null;
     if (interrupted && (a.kind === 'box' || a.kind === 'lasso' || a.kind === 'circle')) {
-      if (a.kind === 'circle') { clearTimeout(circleTimer); latestToken.delete(PREVIEW_ID); pendingGen.delete(PREVIEW_ID); }
+      if (a.kind === 'circle') { clearTimeout(circleTimer); latestToken.delete(PREVIEW_ID); pendingGen.delete(PREVIEW_ID); hideDfScale(); }
       requestRender(); return;
     }
     let p;
@@ -1961,7 +1974,7 @@
     requestRender();
   }
   function cancelAction() {
-    if (action && action.kind === 'circle') { clearTimeout(circleTimer); latestToken.delete(PREVIEW_ID); pendingGen.delete(PREVIEW_ID); }
+    if (action && action.kind === 'circle') { clearTimeout(circleTimer); latestToken.delete(PREVIEW_ID); pendingGen.delete(PREVIEW_ID); hideDfScale(); }
     if (action && action.kind === 'laser') action.trail.active = false;
     action = null;
     requestRender();
@@ -2012,8 +2025,15 @@
     gestureActive = false;
     requestRender();
   }
+  let wheelDf = 0;
   function onWheel(e) {
     e.preventDefault();
+    if (action && action.kind === 'circle') {           // scrolling while placing: change Df
+      wheelDf += -e.deltaY * 0.0005;
+      const step = Math.trunc(wheelDf * 100) / 100;     // in 0.01 steps
+      if (step) { wheelDf -= step; setGestureDf(settings.agg.df + step); }
+      return;
+    }
     if (e.ctrlKey || e.metaKey) zoomAbout(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.01));
     else { view.ox -= e.deltaX; view.oy -= e.deltaY; view.fit = false; }
     gestureActive = true;
@@ -2143,6 +2163,52 @@
       a.previewReq = { R: a.R, a: a.a, token: requestGen(circleItem(a)) };
     }, CIRCLE_REST_MS);
   }
+  // ---------- Df scale for the other hand (and arrow keys) ----------
+  const dfScaleEl = $('dfScale'), dfTrack = $('dfTrack'), dfKnob = $('dfKnob');
+  let dfScaleSide = null;
+  function placeDfScale(tipX) {
+    const W = window.innerWidth;
+    // opposite side of the screen from the pencil; flip only when clearly on the other side
+    if (dfScaleSide === null) dfScaleSide = tipX > W / 2 ? 'left' : 'right';
+    else if (dfScaleSide === 'left' && tipX < W * 0.35) dfScaleSide = 'right';
+    else if (dfScaleSide === 'right' && tipX > W * 0.65) dfScaleSide = 'left';
+    dfScaleEl.style.left = dfScaleSide === 'left' ? 'calc(10px + env(safe-area-inset-left, 0px))' : 'auto';
+    dfScaleEl.style.right = dfScaleSide === 'right' ? 'calc(10px + env(safe-area-inset-right, 0px))' : 'auto';
+    dfScaleEl.hidden = false;
+    updateDfScale();
+  }
+  function hideDfScale() { dfScaleEl.hidden = true; dfScaleSide = null; }
+  function updateDfScale() {
+    const df = settings.agg.df;
+    dfKnob.style.bottom = ((df - 1) / 2 * 100) + '%';
+    $('dfScaleVal').textContent = df.toFixed(2);
+  }
+  function setGestureDf(df) {
+    df = clamp(Math.round(df * 100) / 100, 1, 3);
+    if (df === settings.agg.df) return;
+    settings.agg.df = df;
+    saveSettings();
+    updateDfScale();
+    if (action && action.kind === 'circle') {
+      const A = action;
+      A.preview = null; A.previewReq = null; A.previewBmp = null;
+      latestToken.delete(PREVIEW_ID); pendingGen.delete(PREVIEW_ID);
+      armCircleRest();
+      requestOverlay();
+    }
+  }
+  let dfDrag = null;
+  const dfFromY = (y) => { const r = dfTrack.getBoundingClientRect(); return 1 + 2 * clamp(1 - (y - r.top) / (r.height || 1), 0, 1); };
+  dfTrack.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    try { dfTrack.setPointerCapture(e.pointerId); } catch (_) {}
+    dfDrag = e.pointerId;
+    setGestureDf(dfFromY(e.clientY));
+  });
+  dfTrack.addEventListener('pointermove', (e) => { if (dfDrag === e.pointerId) setGestureDf(dfFromY(e.clientY)); });
+  for (const t of ['pointerup', 'pointercancel']) dfTrack.addEventListener(t, (e) => { if (dfDrag === e.pointerId) dfDrag = null; });
+  for (const t of ['touchstart', 'touchmove']) dfScaleEl.addEventListener(t, (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });
+
   function onCirclePreview(m) {
     const a = action;
     if (!a || a.kind !== 'circle' || !a.previewReq || a.previewReq.token !== m.token) return;
@@ -2153,6 +2219,7 @@
   }
   function finishCircle(a, isTap, p) {
     clearTimeout(circleTimer);
+    hideDfScale();
     latestToken.delete(PREVIEW_ID); pendingGen.delete(PREVIEW_ID);
     if (isTap || a.R < MIN_BOX / 2) {
       const r = handleTap(p);
@@ -2912,6 +2979,15 @@
       return;
     }
     if ($('help').classList.contains('visible')) return;
+    // Df while placing a circle aggregate: arrow keys, or Z (lower) / X (higher) for the left hand
+    if (action && action.kind === 'circle' && !mod && !e.altKey) {
+      const up = e.key === 'ArrowUp' || k === 'x', down = e.key === 'ArrowDown' || k === 'z';
+      if (up || down) {
+        e.preventDefault();
+        setGestureDf(settings.agg.df + (up ? 1 : -1) * (e.shiftKey ? 0.01 : 0.05));
+        return;
+      }
+    }
     if (mod && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
     if (mod && k === 'y') { e.preventDefault(); redo(); return; }
     if (mod && k === 'd') { e.preventDefault(); duplicateSelection(); return; }
@@ -2990,7 +3066,7 @@
   }
 
   // Exposed for automated tests only.
-  window.__aggboard = { buildSVG, get nb() { return nb; }, get selection() { return selection; }, view, settings, undo, redo, goToPage, newPage, saveNow, notebookToJSON, sanitizeNotebook };
+  window.__aggboard = { buildSVG, get action() { return action; }, get nb() { return nb; }, get selection() { return selection; }, view, settings, undo, redo, goToPage, newPage, saveNow, notebookToJSON, sanitizeNotebook };
 
   init();
 })();
