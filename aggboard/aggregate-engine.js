@@ -271,6 +271,19 @@
   }
   // In-plane orientations tried when fitting a box (0 = principal axis along the long side).
   const ANGLES = [0, 15, -15, 30, -30, 45, -45, 60, -60, 75, -75, 90].map(d => d * Math.PI / 180);
+  // Circle fit: radius (in monomer radii, including the monomer itself) of the projection,
+  // measured from the centre of its bounding box, divided by the circle radius Rc.
+  function circleFill(P, k, f, Rc) {
+    const cx = (f.a0 + f.a1) / 2, cy = (f.b0 + f.b1) / 2;
+    let m = 0;
+    for (let i = 0; i < k; i++) {
+      const qx = P[3 * i] - f.c[0], qy = P[3 * i + 1] - f.c[1], qz = P[3 * i + 2] - f.c[2];
+      const s1 = qx * f.e1[0] + qy * f.e1[1] + qz * f.e1[2] - cx, t1 = qx * f.e2[0] + qy * f.e2[1] + qz * f.e2[2] - cy;
+      const r2 = s1 * s1 + t1 * t1;
+      if (r2 > m) m = r2;
+    }
+    return (Math.sqrt(m) + 1) / Rc;
+  }
 
   function fitDf(g, k) {
     if (k < 16) return { df: null, kf: null };
@@ -556,7 +569,12 @@
   function fitBoxCCA(params, df, kf, W, H, nMax) {
     const long = Math.max(W, H), short = Math.min(W, H);
     const seed = params.seed | 0;
+    const circle = params.shape === 'circle';
     const bestOrient = (C) => {
+      if (circle) {
+        const f = frameOfPos(C.pos, C.n, 0);
+        return { f, fill: circleFill(C.pos, C.n, f, short / 2), th: 0 };
+      }
       let best = null;
       for (const th of ANGLES) {
         const f = frameOfPos(C.pos, C.n, th), fill = Math.max(f.major / long, f.minor / short);
@@ -606,8 +624,13 @@
     }
     const g = getGrowth(df, kf, params.seed | 0);
 
-    const fillAt = (k, th) => { const f = frameOf(g, k, th); return Math.max(f.major / long, f.minor / short); };
-    const bestFill = (k) => { let m = Infinity; for (const th of ANGLES) m = Math.min(m, fillAt(k, th)); return m; };
+    const circle = params.shape === 'circle';
+    const Rc = short / 2;
+    const angles = circle ? [0] : ANGLES;   // rotating in the plane does not change a circle fit
+    const fillAt = circle
+      ? (k) => circleFill(g.pos, k, frameOf(g, k, 0), Rc)
+      : (k, th) => { const f = frameOf(g, k, th); return Math.max(f.major / long, f.minor / short); };
+    const bestFill = (k) => { let m = Infinity; for (const th of angles) m = Math.min(m, fillAt(k, th)); return m; };
     // Largest prefix that fits the box at angle th (binary search; fill grows with k).
     const largestAt = (th, hiK) => {
       if (fillAt(hiK, th) <= 1) return hiK;
@@ -625,7 +648,7 @@
       // Pick the orientation that fits the most monomers; prefer small angles on near-ties
       // so the aggregate does not flip around when the box changes slightly.
       let bestK = -1;
-      for (const a of ANGLES) {
+      for (const a of angles) {
         const kk = largestAt(a, hiK);
         if (kk > bestK * 1.03) { bestK = kk; th = a; }
       }
@@ -648,8 +671,8 @@
     }
     const fit = fitDf(g, k);
     const evK = eigenSym3(g.moments(k).C);
-    const fillK = short >= 2 ? Math.max(f.major / long, f.minor / short) : 1;
-    const fillMin = short >= 2 ? Math.min(f.major / long, f.minor / short) : 1;
+    const fillK = short < 2 ? 1 : circle ? circleFill(g.pos, k, f, Rc) : Math.max(f.major / long, f.minor / short);
+    const fillMin = short < 2 ? 1 : circle ? fillK : Math.min(f.major / long, f.minor / short);
     return {
       pts, n: k,
       rg: Math.sqrt(g.rg2(k)),
@@ -676,15 +699,15 @@
       pts[3 * i] = dot(q, ex) - ox; pts[3 * i + 1] = dot(q, ey) - oy; pts[3 * i + 2] = dot(q, ez);
     }
     const long = Math.max(W, H), short = Math.min(W, H);
-    const fill = short >= 2 ? Math.max(f.major / long, f.minor / short) : 1;
+    const fill = short < 2 ? 1 : (params.shape === 'circle' ? o.fill : Math.max(f.major / long, f.minor / short));
     return {
       pts, n: k, rg: Math.sqrt(C.rg2), dfFit: res.dfFit, kfFit: res.kfFit,
-      capped: k >= nMax && fill < 0.97, fill, fillMin: short >= 2 ? Math.min(f.major / long, f.minor / short) : 1,
+      capped: k >= nMax && fill < 0.97, fill, fillMin: short < 2 ? 1 : (params.shape === 'circle' ? fill : Math.min(f.major / long, f.minor / short)),
       exact: res.exact, kf, aniso: anisotropy(f.ev), method: 'cca',
     };
   }
 
-  const AggEngine = { fitBox, kfAuto, Growth, eigenSym3, generateCCA, CCA_MAX_DF, version: 1, release: '2026.10.18-18' };
+  const AggEngine = { fitBox, kfAuto, Growth, eigenSym3, generateCCA, CCA_MAX_DF, version: 1, release: '2026.10.18-19' };
   root.AggEngine = AggEngine;
   if (typeof module !== 'undefined' && module.exports) module.exports = AggEngine;
 

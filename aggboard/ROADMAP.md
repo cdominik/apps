@@ -14,6 +14,7 @@
 - Two tunable generators, both exact: **cluster–cluster** (default, realistic anisotropy, D_f 1–2.3, automatic fallback above) and **particle–cluster** (D_f 1–3, keeps its core when resized). Readout: N, R_g, fitted D_f, anisotropy.
 - Handles: bottom-right scales, bottom-left refills, top-right rotates in 3D. The box refits tightly to the projection. Aggregates fill square boxes well (in-plane orientation search). Up to 5000 monomers, with a message when the limit is reached.
 - Live updates while dragging sliders, also when generation is slower than the slider; structures always drawn at their correct size.
+- Two ways to place an aggregate (Settings → New aggregates): **Box** (drag a box) or **Circle** (drag from the centre: horizontal distance = outer radius, vertical offset = monomer size; live circle, monomer ring and N estimate; real aggregate when the pencil rests). Circle-placed aggregates keep a true circle fit when regenerated. *To decide after trying both: keep one or both.*
 - Tap selects an aggregate in any tool; double-tap opens its settings; the settings panel stays put while editing.
 - Particle-chain tool with temperature; attaching to aggregates and chains, bridging, branches and rings, collision-free junctions; "edited" aggregates (scale instead of regenerate, Regenerate… to undo the edits).
 

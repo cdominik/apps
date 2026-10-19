@@ -333,6 +333,11 @@
   <button class="item" id="mImport">Open notebook from file…</button>
 
   <div class="section">Settings</div>
+  <div class="row-label">New aggregates</div>
+  <div class="seg" id="createSeg">
+    <button data-create="box">Box</button>
+    <button data-create="circle">Circle</button>
+  </div>
   <div class="row-label">Finger input</div>
   <div class="seg" id="fingerSeg">
     <button data-mode="auto">Auto</button>
@@ -379,7 +384,12 @@
     </ul>
 
     <h3>Aggregates</h3>
-    <p>Choose the <b>aggregate tool</b> (cluster in a dashed box) and drag a box. When you lift, the box fills with a 3D fractal aggregate and the tool switches back to the pen. The new aggregate is selected, with three handles:</p>
+    <p>Choose the <b>aggregate tool</b> and place an aggregate in one of two ways (<b>&hellip; &rarr; Settings &rarr; New aggregates</b>):</p>
+    <ul>
+      <li><b>Box</b> (dashed-box icon): drag a box; when you lift, it fills with a 3D fractal aggregate.</li>
+      <li><b>Circle</b> (dashed-circle icon): put the pencil at the <b>centre</b> and drag sideways. The horizontal distance sets the aggregate's outer radius; moving <b>up makes the monomers bigger</b>, moving <b>down makes them smaller</b>. A ring at the pencil shows the monomer size and a label shows N. Rest the pencil briefly to see the real aggregate; lift to place it.</li>
+    </ul>
+    <p>Afterwards the tool switches back to the pen and the new aggregate is selected, with three handles:</p>
     <ul>
       <li><b>Bottom-right</b> &mdash; scale: bigger or smaller with the same structure (the monomers scale too).</li>
       <li><b>Bottom-left</b> (dashed box) &mdash; refill: change the box; the aggregate is regenerated to fill it at the same monomer size, so the number of monomers changes.</li>
@@ -454,12 +464,12 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="aggregate-engine.js?v=2026.10.18-18"></script>
-<script src="app.js?v=2026.10.18-18"></script>
+<script src="aggregate-engine.js?v=2026.10.18-19"></script>
+<script src="app.js?v=2026.10.18-19"></script>
 <script>
   // Warn if the browser mixed files from different releases (e.g. a stale cached app.js).
   (function () {
-    var want = '2026.10.18-18';
+    var want = '2026.10.18-19';
     var okApp = window.AGGBOARD_VERSION === want;
     var okEngine = window.AggEngine && window.AggEngine.release === want;
     if (okApp && okEngine) return;

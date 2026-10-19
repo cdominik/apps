@@ -9,7 +9,7 @@
   // Configuration
   // ============================================================
   // Bump on every release: shown in the menu, and used to bypass cached program files.
-  const VERSION = '2026.10.18-18';
+  const VERSION = '2026.10.18-19';
   window.AGGBOARD_VERSION = VERSION;
   const CONFIG = {
     MENU_URL: null,            // e.g. '../index.html' to show a "back to menu" button
@@ -56,6 +56,7 @@
       fingerMode: 'auto', penSeen: false,
       agg: { a: 10, df: 1.8, kf: null, color: AGG_COLORS[0], method: 'cca' },
       chain: { temp: 0.25 },
+      aggCreate: 'box',          // 'box' | 'circle': how the aggregate tool places a new aggregate
     };
     try {
       const s = JSON.parse(localStorage.getItem(CONFIG.SETTINGS_KEY) || 'null');
@@ -73,6 +74,7 @@
           if (s.agg.method === 'pc' || s.agg.method === 'cca') d.agg.method = s.agg.method;
         }
         if (s.chain && s.chain.temp >= 0 && s.chain.temp <= 1) d.chain.temp = +s.chain.temp;
+        if (s.aggCreate === 'box' || s.aggCreate === 'circle') d.aggCreate = s.aggCreate;
       }
     } catch (_) {}
     return d;
@@ -486,6 +488,7 @@
   const latestToken = new Map();  // item id -> token of the newest request
   const shownToken = new Map();   // item id -> token of the result currently displayed
   let tokenSeq = 0;
+  const PREVIEW_ID = '__circle_preview__';
   try {
     worker = new Worker('aggregate-engine.js?v=' + VERSION);
     worker.onmessage = onGenMessage;
@@ -502,8 +505,10 @@
     pendingGen.set(it.id, {
       type: 'fit', id: it.id, token,
       W: it.w / it.a, H: it.h / it.a, df: it.df, kf: it.kf, seed: it.seed, nMax: CONFIG.N_MAX, method: it.method === 'cca' ? 'cca' : 'pc', a: it.a,
+      shape: it.fitShape === 'circle' ? 'circle' : undefined,
     });
     pumpGen();
+    return token;
   }
   function pumpGen() {
     if (workerBusy || !pendingGen.size) return;
@@ -521,6 +526,14 @@
   function onGenMessage(e) {
     workerBusy = false;
     const m = e.data;
+    if (m && m.id === PREVIEW_ID) {           // circle gesture preview, not a page item
+      if (m.type === 'result' && latestToken.get(PREVIEW_ID) === m.token) {
+        latestToken.delete(PREVIEW_ID);
+        onCirclePreview(m);
+      }
+      pumpGen();
+      return;
+    }
     // Show any result that is newer than the one on screen: intermediate results keep
     // the aggregate updating live while a slider is dragged, even when generation is slower
     // than the slider; only the newest request's result ends the update.
@@ -1378,6 +1391,36 @@
         const eh = P.length >= 4 ? sphereAt(tip) : null;
         if (eh && !(sh && eh.item.id === sh.item.id && eh.i === sh.i)) ring(eh.X, eh.Y, eh.item.a, true);
         else ring(tip.x, tip.y, sh ? sh.item.a : settings.agg.a, false);
+      } else if (action.kind === 'circle') {
+        const A = action;
+        if (A.previewBmp) {
+          pageT();
+          const b = A.previewBmp;
+          octx.drawImage(b.canvas, A.cx + b.ox, A.cy + b.oy, b.canvas.width / b.ppu, b.canvas.height / b.ppu);
+        }
+        screenT();
+        const c = toScreen(A.cx, A.cy), Rpx = A.R * s, blue = '#3b78c8';
+        octx.beginPath(); octx.arc(c.x, c.y, Math.max(1, Rpx), 0, Math.PI * 2);
+        octx.setLineDash([6, 4]); octx.lineWidth = 1.5; octx.strokeStyle = blue; octx.stroke(); octx.setLineDash([]);
+        if (!A.previewBmp) { octx.fillStyle = 'rgba(59,120,200,0.06)'; octx.fill(); }
+        octx.beginPath(); octx.arc(c.x, c.y, 3, 0, Math.PI * 2); octx.fillStyle = blue; octx.fill();
+        octx.beginPath(); octx.moveTo(c.x, c.y); octx.lineTo(c.x + Math.sign(A.tip.x - c.x || 1) * Rpx, c.y);
+        octx.lineWidth = 1; octx.strokeStyle = 'rgba(59,120,200,0.5)'; octx.stroke();
+        // monomer ring at the pencil
+        octx.beginPath(); octx.arc(A.tip.x, A.tip.y, Math.max(1.5, A.a * s), 0, Math.PI * 2);
+        octx.lineWidth = 2; octx.strokeStyle = ACCENT; octx.stroke();
+        // label
+        const est = estimateN(A.R, A.a);
+        const nTxt = A.preview ? `N = ${A.preview.n}` : (est >= CONFIG.N_MAX ? `N ≥ ${CONFIG.N_MAX} (limit)` : `N ≈ ${est}`);
+        const label = `a = ${A.a.toFixed(1)} · ${nTxt}`;
+        octx.font = '13px -apple-system, BlinkMacSystemFont, sans-serif';
+        const tw = octx.measureText(label).width;
+        let lx = A.tip.x + 16, ly = A.tip.y - 30;
+        if (lx + tw + 12 > W) lx = A.tip.x - tw - 28;
+        if (ly < 70) ly = A.tip.y + 18;
+        octx.fillStyle = 'rgba(30,30,36,0.85)';
+        octx.beginPath(); octx.rect(lx, ly, tw + 12, 22); octx.fill();
+        octx.fillStyle = '#fff'; octx.textBaseline = 'middle'; octx.fillText(label, lx + 6, ly + 11);
       } else if (action.kind === 'box') {
         pageT();
         const x = Math.min(action.x0, action.x1), y = Math.min(action.y0, action.y1);
@@ -1728,6 +1771,13 @@
         requestOverlay();
         break;
       case 'aggregate':
+        if (settings.aggCreate === 'circle') {
+          action = { ...base, kind: 'circle', cx: p.x, cy: p.y, sy: sp.y, a0: settings.agg.a, a: settings.agg.a, R: 0,
+                     seed: randSeed(), hold: { x: sp.x, y: sp.y }, tip: sp, preview: null, previewReq: null, previewBmp: null };
+          armCircleRest();
+          requestOverlay();
+          break;
+        }
         action = { ...base, kind: 'box', x0: p.x, y0: p.y, x1: p.x, y1: p.y };
         requestOverlay();
         break;
@@ -1780,6 +1830,21 @@
         for (const ev of list) {
           const q = toPage(screenPt(ev));
           if (Math.hypot(q.x - P[P.length - 2], q.y - P[P.length - 1]) >= 0.5 / view.scale) P.push(q.x, q.y);
+        }
+        requestOverlay();
+        break;
+      }
+      case 'circle': {
+        const q = toPage(sp), A = action;
+        A.R = Math.abs(q.x - A.cx);
+        const dy = sp.y - A.sy;
+        const eff = Math.sign(dy) * Math.max(0, Math.abs(dy) - CIRCLE_DEAD);
+        A.a = clamp(A.a0 * Math.pow(2, -eff / CIRCLE_OCTAVE), 1, 120);
+        A.tip = sp;
+        if (Math.hypot(sp.x - A.hold.x, sp.y - A.hold.y) > 4) {
+          A.hold = { x: sp.x, y: sp.y };
+          A.preview = null; A.previewReq = null; A.previewBmp = null;   // moving: outline only
+          armCircleRest();
         }
         requestOverlay();
         break;
@@ -1853,7 +1918,10 @@
     const interrupted = !e;
     if (interrupted) { diag.interrupted++; dlog(`  -> ${a.kind} interrupted: keeping what was drawn`); }
     if (a.ptype === 'touch') hover = null;
-    if (interrupted && (a.kind === 'box' || a.kind === 'lasso')) { requestRender(); return; }
+    if (interrupted && (a.kind === 'box' || a.kind === 'lasso' || a.kind === 'circle')) {
+      if (a.kind === 'circle') { clearTimeout(circleTimer); latestToken.delete(PREVIEW_ID); pendingGen.delete(PREVIEW_ID); }
+      requestRender(); return;
+    }
     let p;
     if (e) p = toPage(screenPt(e));
     else if ((a.kind === 'draw') && a.pts.length >= 3) p = { x: a.pts[a.pts.length - 3], y: a.pts[a.pts.length - 2] };
@@ -1878,6 +1946,7 @@
         a.trail.active = false;
         break;
       case 'box': finishBox(a, isTap, p); break;
+      case 'circle': finishCircle(a, isTap, p); break;
       case 'chain': finishChain(a, isTap, p); break;
       case 'move':
         if (a.moved && (a.dx || a.dy)) commitMove(a.dx, a.dy);
@@ -1892,6 +1961,7 @@
     requestRender();
   }
   function cancelAction() {
+    if (action && action.kind === 'circle') { clearTimeout(circleTimer); latestToken.delete(PREVIEW_ID); pendingGen.delete(PREVIEW_ID); }
     if (action && action.kind === 'laser') action.trail.active = false;
     action = null;
     requestRender();
@@ -2047,6 +2117,63 @@
     setTool(prevTool);
   }
 
+  // ---------- circle placement (aggregate tool, "Circle" setting) ----------
+  // Pencil down at the centre; horizontal distance = outer radius; vertical offset =
+  // monomer size (log scale: x2 per 80 px up, /2 per 80 px down, 12 px dead zone).
+  // While moving: circle, monomer ring, N estimate. At rest (250 ms): real aggregate.
+  const CIRCLE_DEAD = 12, CIRCLE_OCTAVE = 80, CIRCLE_REST_MS = 250;
+  let circleTimer = 0;
+  function circleItem(a) {
+    const A = settings.agg;
+    return {
+      id: PREVIEW_ID, type: 'agg', x: a.cx - a.R, y: a.cy - a.R, w: 2 * a.R, h: 2 * a.R,
+      a: a.a, df: A.df, kf: A.kf, seed: a.seed, color: A.color, method: A.method, fitShape: 'circle', R: IDENTITY.slice(),
+    };
+  }
+  function estimateN(R, a) {
+    const df = settings.agg.df, kf = settings.agg.kf != null ? settings.agg.kf : window.AggEngine.kfAuto(df);
+    const rg = Math.max(0, R / a - 1) * Math.sqrt(df / (df + 2));
+    return Math.max(1, Math.round(kf * Math.pow(rg, df)));
+  }
+  function armCircleRest() {
+    clearTimeout(circleTimer);
+    const a = action;
+    circleTimer = setTimeout(() => {
+      if (action !== a || !a || a.kind !== 'circle' || a.R < MIN_BOX / 2) return;
+      a.previewReq = { R: a.R, a: a.a, token: requestGen(circleItem(a)) };
+    }, CIRCLE_REST_MS);
+  }
+  function onCirclePreview(m) {
+    const a = action;
+    if (!a || a.kind !== 'circle' || !a.previewReq || a.previewReq.token !== m.token) return;
+    a.preview = { ...m, R: a.previewReq.R, a: a.previewReq.a };
+    const pseudo = { ...circleItem(a), R: IDENTITY.slice(), pts: m.pts, n: m.n, a: a.previewReq.a };
+    a.previewBmp = m.n ? renderAggBitmap(pseudo, dpr() * view.scale) : null;
+    requestOverlay();
+  }
+  function finishCircle(a, isTap, p) {
+    clearTimeout(circleTimer);
+    latestToken.delete(PREVIEW_ID); pendingGen.delete(PREVIEW_ID);
+    if (isTap || a.R < MIN_BOX / 2) {
+      const r = handleTap(p);
+      if (r === 'none') toast('Put the pencil at the centre and drag outwards to place an aggregate.');
+      else if (r === 'single-agg') selectIds([topAggAt(p).id]);
+      return;
+    }
+    const it = { ...circleItem(a), id: uid(), pts: null, n: 0, rg: 0, dfFit: null, capped: false, needsGen: true };
+    const pv = a.preview;
+    if (pv && Math.abs(pv.R - a.R) < 1e-9 && Math.abs(pv.a - a.a) < 1e-9) {
+      // the aggregate seen at rest is exactly the one placed
+      Object.assign(it, { pts: pv.pts, n: pv.n, rg: pv.rg, dfFit: pv.dfFit, aniso: pv.aniso, kfUsed: pv.kf, capped: !!pv.capped, ccaFallback: !!pv.ccaFallback, needsGen: false });
+    }
+    pushUndo();
+    setItems([...items(), it]);
+    if (it.needsGen) requestGen(it);
+    settings.agg.a = a.a; saveSettings();
+    selectIds([it.id]);
+    setTool(prevTool);
+  }
+
   function commitMove(dx, dy) {
     pushUndo();
     const sel = selection;
@@ -2080,6 +2207,7 @@
     if (Math.abs(b.w - ag.w) < 0.5 && Math.abs(b.h - ag.h) < 0.5) return;
     pushUndo();
     const ni = { ...ag, x: b.x, y: b.y, w: b.w, h: b.h, needsGen: true };
+    delete ni.fitShape;   // refilling a new box: box fitting from now on
     replaceItem(ni);
     requestGen(ni);
   }
@@ -2425,6 +2553,20 @@
   menuAction('mDeletePage', deletePage);
   menuAction('mClearPage', clearPage);
   menuAction('mHelp', () => $('help').classList.add('visible'));
+  const AGG_ICONS = {
+    box: '<svg viewBox="0 0 24 24"><rect x="2.5" y="2.5" width="19" height="19" rx="2" stroke-dasharray="2.6 2.2" stroke-width="1.4"/><circle cx="9" cy="10" r="2"/><circle cx="12.6" cy="11.2" r="2"/><circle cx="15.4" cy="8.6" r="2"/><circle cx="11.6" cy="15" r="2"/><circle cx="8.4" cy="17" r="1.7"/></svg>',
+    circle: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-dasharray="2.6 2.2" stroke-width="1.4"/><circle cx="9.6" cy="10.4" r="2"/><circle cx="13.2" cy="11.6" r="2"/><circle cx="15" cy="8.4" r="1.8"/><circle cx="11.6" cy="15.2" r="2"/></svg>',
+  };
+  function updateCreateUI() {
+    const btn = document.querySelector('[data-tool=aggregate]');
+    btn.innerHTML = AGG_ICONS[settings.aggCreate];
+    btn.title = settings.aggCreate === 'circle' ? 'Aggregate: drag from the centre (A)' : 'Aggregate in a box (A)';
+    for (const b of $('createSeg').children) b.classList.toggle('active', b.dataset.create === settings.aggCreate);
+  }
+  for (const b of $('createSeg').children) {
+    b.addEventListener('click', () => { settings.aggCreate = b.dataset.create; saveSettings(); updateCreateUI(); });
+  }
+  updateCreateUI();
   for (const b of $('boardSeg').children) {
     b.addEventListener('click', () => {
       const pg = curPage();
@@ -2539,6 +2681,7 @@
         pts: ok ? Float32Array.from(pts) : null, n: ok ? n : 0,
         rg: isNum(it.rg) ? it.rg : 0, dfFit: isNum(it.dfFit) ? it.dfFit : null,
         ...(it.method === 'cca' ? { method: 'cca' } : {}),
+        ...(it.fitShape === 'circle' ? { fitShape: 'circle' } : {}),
         ...(isNum(it.aGen) && it.aGen > 0 && ok ? { aGen: it.aGen } : {}),
         ...(isNum(it.aniso) ? { aniso: it.aniso } : {}),
         capped: !!it.capped, needsGen: isChain ? false : (!ok || (!!it.needsGen && !it.edited)),
