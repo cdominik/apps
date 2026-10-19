@@ -20,7 +20,7 @@
 
 ### Pages, boards, export
 - Pages; clear page (broom in the page bar, Undo in the message); delete page.
-- Dark board per page, with adaptive ink and aggregate shading.
+- Dark board per page, with adaptive ink, and aggregates shaded brighter there (higher brightness floor, gentler depth fading, light rim) so they read on a projector.
 - Export: page as PNG; page or selection as SVG (vector strokes, shaded vector spheres, cropped selection on transparent background).
 
 ### Platform
@@ -35,7 +35,6 @@
 
 ### Aggregates
 - **Teaching overlays:** optionally show N, D_f, a, R_g next to an aggregate, or draw the R_g circle.
-- **Brighter spheres on the dark board,** if aggregates look dim on the projector.
 - **Import from the Aggregation Gallery** (cdominik.github.io/apps/coag_gallery): place a simulated DLA/BPCA/BCCA/DLCA aggregate on the page as an object to rotate, scale and annotate. Needs an export in the gallery apps and an import here (`index radius x y z` text format).
 - **Export coordinates** of an aggregate in the same text format.
 - **Polydisperse monomers:** a size-spread control (log-normal). Needs a decision on which scaling-law convention to enforce (definition of R_g and a; e.g. FracVAL's).

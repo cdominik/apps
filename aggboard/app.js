@@ -9,7 +9,7 @@
   // Configuration
   // ============================================================
   // Bump on every release: shown in the menu, and used to bypass cached program files.
-  const VERSION = '2026.10.18-27';
+  const VERSION = '2026.10.18-28';
   window.AGGBOARD_VERSION = VERSION;
   const CONFIG = {
     MENU_URL: null,            // e.g. '../index.html' to show a "back to menu" button
@@ -366,22 +366,35 @@
     const M = THEMES[renderTheme].mist;
     return `rgb(${mix(c.r, M.r)},${mix(c.g, M.g)},${mix(c.b, M.b)})`;
   }
+  // Sphere shading per board, shared by screen rendering and SVG export. t = depth (0 back, 1 front).
+  // On the dark board, back spheres stay brighter, fade less into the board, and get a light rim
+  // instead of a dark outline, so aggregates read clearly on a projector.
+  const SHADE = {
+    light: { bMin: 0.55, mist: 0.65, edgeMin: 20, edgeBase: 10 },
+    dark:  { bMin: 0.78, mist: 0.32, edgeMin: 36, edgeBase: 24 },
+  };
+  function shade(t) {
+    const S = SHADE[renderTheme] || SHADE.light;
+    const brightness = S.bMin + (1 - S.bMin) * t;
+    const mist = DEPTH * S.mist * (1 - t);
+    return { brightness, mist, l0: 85 + brightness * 8, l1: 55 * brightness + 20, l2: Math.max(S.edgeMin, 25 * brightness + S.edgeBase) };
+  }
   function outlineStyle(t) {
+    if (renderTheme === 'dark') return `rgba(225,232,245,${(0.16 + 0.14 * t).toFixed(3)})`;
     const mist = DEPTH * 0.65 * (1 - t);
     return `rgba(20,25,40,${((0.35 + 0.25 * (1 - t)) * (1 - mist)).toFixed(3)})`;
   }
   function renderSphere(c, sx, sy, r, t, color, outline) {
     const hsl = hslOf(color);
-    const brightness = 0.55 + 0.45 * t;
-    const mist = DEPTH * 0.65 * (1 - t);
+    const { mist, l0, l1, l2 } = shade(t);
     c.beginPath();
     c.arc(sx + r * 0.15, sy + r * 0.2, r * 0.95, 0, Math.PI * 2);
     c.fillStyle = `rgba(0,0,0,${(0.05 + 0.08 * t) * (1 - mist * 0.8) * THEMES[renderTheme].shadow})`;
     c.fill();
     const g = c.createRadialGradient(sx - r * 0.4, sy - r * 0.4, r * 0.1, sx, sy, r);
-    g.addColorStop(0, stopColor(hsl, 85 + brightness * 8, mist));
-    g.addColorStop(0.55, stopColor(hsl, 55 * brightness + 20, mist));
-    g.addColorStop(1, stopColor(hsl, Math.max(20, 25 * brightness + 10), mist));
+    g.addColorStop(0, stopColor(hsl, l0, mist));
+    g.addColorStop(0.55, stopColor(hsl, l1, mist));
+    g.addColorStop(1, stopColor(hsl, l2, mist));
     c.beginPath();
     c.arc(sx, sy, r, 0, Math.PI * 2);
     c.fillStyle = g;
@@ -2974,16 +2987,16 @@
     let out = '';
     for (const i of order) {
       const level = clamp(Math.round(((v.zs[i] - zmin) / zr) * (LEVELS - 1)), 0, LEVELS - 1);
-      const t = level / (LEVELS - 1), brightness = 0.55 + 0.45 * t, mist = DEPTH * 0.65 * (1 - t);
+      const t = level / (LEVELS - 1), { mist, l0, l1, l2 } = shade(t);
       const key = it.color + '|' + level;
       let id = gradIds.get(key);
       if (!id) {
         id = 'g' + gradIds.size;
         gradIds.set(key, id);
         defs.push(`<radialGradient id="${id}" cx="0.5" cy="0.5" r="0.5" fx="0.3" fy="0.3" fr="0.05">` +
-          `<stop offset="0" stop-color="${stopColor(hsl, 85 + brightness * 8, mist)}"/>` +
-          `<stop offset="0.55" stop-color="${stopColor(hsl, 55 * brightness + 20, mist)}"/>` +
-          `<stop offset="1" stop-color="${stopColor(hsl, Math.max(20, 25 * brightness + 10), mist)}"/></radialGradient>`);
+          `<stop offset="0" stop-color="${stopColor(hsl, l0, mist)}"/>` +
+          `<stop offset="0.55" stop-color="${stopColor(hsl, l1, mist)}"/>` +
+          `<stop offset="1" stop-color="${stopColor(hsl, l2, mist)}"/></radialGradient>`);
       }
       const x = cx + v.xs[i], y = cy + v.ys[i];
       if (shadowK > 0) out += `<circle cx="${f2(x + a * 0.15)}" cy="${f2(y + a * 0.2)}" r="${f2(a * 0.95)}" fill="#000" fill-opacity="${((0.05 + 0.08 * t) * (1 - mist * 0.8) * shadowK).toFixed(3)}"/>`;
