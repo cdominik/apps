@@ -584,7 +584,7 @@
       <li><b>Circle</b> (dashed-circle icon, the default): put the pencil at the <b>centre</b> and drag sideways. The horizontal distance sets the aggregate's outer radius; moving <b>up makes the monomers bigger</b>, moving <b>down makes them smaller</b>. A ring at the pencil and a second one on the opposite side of the circle show the monomer size; a label shows D<sub>f</sub>, a and N. To change D<sub>f</sub> while drawing the circle, <b>draw small loops</b>: clockwise raises it, anticlockwise lowers it (about 0.3 per loop, part of a loop gives part of that; the label shows &#8635;); size and monomer size stay put while you loop, and a straight movement releases them. With a keyboard: <kbd>Z</kbd> lower / <kbd>X</kbd> higher, or <kbd>&darr;</kbd>/<kbd>&uarr;</kbd> (with <kbd>Shift</kbd> in finer steps); with a mouse: the scroll wheel. Rest the pencil briefly to see the real aggregate; lift to place it.</li>
       <li><b>Box</b> (dashed-box icon): drag a box; when you lift, it fills with a 3D fractal aggregate.</li>
     </ul>
-    <p><b>D<sub>f</sub> scale:</b> while the aggregate tool is active, a D<sub>f</sub> scale is shown at the screen edge (left, or right for left-handed use) &mdash; set D<sub>f</sub> there (pencil or finger) <i>before</i> drawing. After placing, the scale stays and now changes the new aggregate, as long as it is selected.</p>
+    <p><b>D<sub>f</sub> scale:</b> while the aggregate tool is active, a D<sub>f</sub> scale is shown at the screen edge (left, or right for left-handed use) &mdash; set D<sub>f</sub> there (pencil or finger) <i>before</i> drawing. After placing, the scale stays and now changes the new aggregate, until you deselect it; after that, change its D<sub>f</sub> in its <b>Settings</b>.</p>
     <p>Afterwards the tool switches back to the one you used before, and the new aggregate is selected, with three handles:</p>
     <ul>
       <li><b>Bottom-right</b> &mdash; scale: bigger or smaller with the same structure (the monomers scale too).</li>
@@ -684,12 +684,12 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="aggregate-engine.js?v=2026.10.19-16"></script>
-<script src="app.js?v=2026.10.19-16"></script>
+<script src="aggregate-engine.js?v=2026.10.19-17"></script>
+<script src="app.js?v=2026.10.19-17"></script>
 <script>
   // Warn if the browser mixed files from different releases (e.g. a stale cached app.js).
   (function () {
-    var want = '2026.10.19-16';
+    var want = '2026.10.19-17';
     var okApp = window.AGGBOARD_VERSION === want;
     var okEngine = window.AggEngine && window.AggEngine.release === want;
     if (okApp && okEngine) return;

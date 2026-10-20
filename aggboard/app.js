@@ -9,7 +9,7 @@
   // Configuration
   // ============================================================
   // Bump on every release: shown in the menu, and used to bypass cached program files.
-  const VERSION = '2026.10.19-16';
+  const VERSION = '2026.10.19-17';
   window.AGGBOARD_VERSION = VERSION;
   const CONFIG = {
     MENU_URL: null,            // e.g. '../index.html' to show a "back to menu" button
@@ -2672,6 +2672,9 @@
   const dfScaleEl = $('dfScale'), dfTrack = $('dfTrack'), dfKnob = $('dfKnob');
   let dfScaleItem = null, dfScaleSession = false;
   function dfScaleMode() {
+    // The freshly placed aggregate keeps the scale only until it is first deselected;
+    // after that, its D_f is changed in its Settings.
+    if (dfScaleItem && !(selection && selection.size === 1 && selection.has(dfScaleItem))) dfScaleItem = null;
     if (action && action.kind === 'circle') return 'tool';
     if (settings.tool === 'aggregate') return 'tool';
     if (dfScaleItem && selection && selection.size === 1 && selection.has(dfScaleItem)) {
