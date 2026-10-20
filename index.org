@@ -17,10 +17,14 @@
 #+HTML_HEAD: <meta name="theme-color" content="#111111">
 
 - [[file:Badminton/sj.html][Badminton scoring]]
-- [[file:draw_aggregate.html][Drawing an aggregate]]
-- [[file:draw_aggregate_2.html][Drawing an aggregate new version]]
-- [[file:aggboard/index.html][AggBoard]]
-- [[file:coag_gallery/gallery.html][Aggregation Webapp gallery]]
+- [[file:draw_aggregate.html][Drawing an aggregate new version]]
+- [[file:aggboard/index.html][AggBoard - a drawing baord with aggregates]]
+- [[file:coag_gallery/gallery.html][Aggregation growth mechanism gallery]]
 - [[file:planet_visibility.html][Planet Sky Visibility]]
 - [[file:commute.html][Commute]]
 - [[file:levitationlab/levitate.html][Levitation Lab]]
+
+
+
+
+# - [[file:draw_aggregate.html][Drawing an aggregate, old version]]

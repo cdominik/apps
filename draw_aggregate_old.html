@@ -1,0 +1,1496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Sphere Aggregate</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #fff; color: #222;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    overscroll-behavior: none;
+  }
+  #stage { position: absolute; inset: 0; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #ui {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+    display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+    pointer-events: none;
+  }
+  #ui {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+    display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+    background: linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0));
+    pointer-events: none;
+  }
+  .btn {
+    pointer-events: auto;
+    background: rgba(255,255,255,0.92); color: #222; border: 1px solid #ccc;
+    padding: 10px 14px; border-radius: 10px; font-size: 14px;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    min-width: 64px; text-align: center; cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .btn:active { background: #e8e8ee; }
+  .btn.active { background: #2a7; border-color: #2a7; color: #fff; }
+  #topbar {
+    position: absolute; top: 0; left: 0; right: 0;
+    padding: calc(10px + env(safe-area-inset-top, 0px)) 10px 8px;
+    display: flex; gap: 8px; align-items: flex-start;
+    pointer-events: none;
+  }
+  #info {
+    position: absolute;
+    left: 10px;
+    bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+    font-size: 11px; color: #666;
+    background: rgba(255,255,255,0.8);
+    padding: 3px 8px; border-radius: 8px;
+    border: 1px solid #ddd;
+    pointer-events: none;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  }
+  #sliders {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    flex: 1;
+    max-width: 420px;
+    margin-left: auto;
+    margin-right: auto;
+    pointer-events: none;
+  }
+  .slider-row {
+    pointer-events: auto; display: flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,0.92); padding: 6px 10px; border-radius: 10px;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border: 1px solid #ccc; font-size: 12px; color: #222;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .slider-row input[type=range] { flex: 1; min-width: 0; width: auto; }
+  .slider-row .label { flex-shrink: 0; min-width: 38px; }
+  #hint {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    color: #888; font-size: 13px; text-align: center; pointer-events: none;
+    max-width: 80%; line-height: 1.5;
+  }
+  #hint.hidden { display: none; }
+
+  /* Help overlay */
+  #helpOverlay {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: none; align-items: center; justify-content: center;
+    padding: 16px; z-index: 10;
+    backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+  }
+  #helpOverlay.visible { display: flex; }
+  #helpPanel {
+    background: #fff; color: #222; border-radius: 14px;
+    max-width: 560px; width: 100%; max-height: 100%;
+    overflow-y: auto;
+    padding: 18px 20px calc(18px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    font-size: 14px; line-height: 1.5;
+    -webkit-overflow-scrolling: touch;
+  }
+  #helpPanel h2 { font-size: 18px; margin-bottom: 10px; }
+  #helpPanel h3 { font-size: 14px; margin: 14px 0 4px; color: #2a7; }
+  #helpPanel p { margin: 4px 0; }
+  #helpPanel .row { display: flex; gap: 8px; margin: 3px 0; }
+  #helpPanel .tag {
+    font-size: 11px; padding: 1px 6px; border-radius: 4px; font-weight: 600;
+    flex-shrink: 0; align-self: flex-start; margin-top: 2px;
+  }
+  #helpPanel .tag.desktop { background: #e5ecff; color: #2a4aa8; }
+  #helpPanel .tag.mobile  { background: #e8f5ea; color: #1a7a33; }
+  #helpPanel .tag.both    { background: #eee; color: #444; }
+  #helpPanel .close-row { display: flex; justify-content: flex-end; margin-top: 16px; }
+  #helpPanel button {
+    background: #2a7; color: #fff; border: none; padding: 10px 18px;
+    border-radius: 10px; font-size: 14px; cursor: pointer;
+  }
+  #helpPanel button:active { background: #249060; }
+
+  /* Colors overlay */
+  #colorsOverlay {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: none; align-items: center; justify-content: center;
+    padding: 16px; z-index: 10;
+    backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+  }
+  #colorsOverlay.visible { display: flex; }
+  #colorsPanel {
+    background: #fff; color: #222; border-radius: 14px;
+    max-width: 460px; width: 100%; max-height: 100%;
+    overflow-y: auto;
+    padding: 18px 20px calc(18px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    font-size: 14px; line-height: 1.4;
+    -webkit-overflow-scrolling: touch;
+  }
+  #colorsPanel h2 { font-size: 17px; margin-bottom: 4px; }
+  #colorsPanel h3 { font-size: 13px; margin: 14px 0 6px; color: #444; text-transform: uppercase; letter-spacing: 0.04em; }
+  #colorsPanel .swatches {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(54px, 1fr));
+    gap: 8px;
+  }
+  #colorsPanel .swatch {
+    aspect-ratio: 1; border-radius: 10px;
+    border: 2px solid transparent;
+    cursor: pointer; position: relative;
+    transition: transform 0.08s;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12);
+  }
+  #colorsPanel .swatch:active { transform: scale(0.94); }
+  #colorsPanel .swatch.active {
+    border-color: #2a7;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12), 0 0 0 2px rgba(42,170,119,0.25);
+  }
+  #colorsPanel .swatch.checker {
+    background-image:
+      linear-gradient(45deg, #ddd 25%, transparent 25%),
+      linear-gradient(-45deg, #ddd 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #ddd 75%),
+      linear-gradient(-45deg, transparent 75%, #ddd 75%);
+    background-size: 12px 12px;
+    background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+    background-color: #fff;
+  }
+  #colorsPanel .custom-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 10px; padding: 8px 10px;
+    background: #f6f6f8; border-radius: 8px;
+  }
+  #colorsPanel .custom-row label { flex: 1; font-size: 13px; }
+  #colorsPanel .custom-row input[type=color] {
+    width: 44px; height: 32px; border: 1px solid #ccc;
+    border-radius: 6px; padding: 0; cursor: pointer; background: none;
+  }
+  #colorsPanel .close-row { display: flex; justify-content: flex-end; margin-top: 16px; gap: 8px; }
+  #colorsPanel button {
+    background: #2a7; color: #fff; border: none; padding: 10px 18px;
+    border-radius: 10px; font-size: 14px; cursor: pointer;
+  }
+  #colorsPanel button.secondary {
+    background: #fff; color: #444; border: 1px solid #ccc;
+  }
+  #colorsPanel button:active { transform: translateY(1px); }
+  #colorsPanel .desc { color: #666; font-size: 12px; margin-bottom: 4px; }
+
+  /* Share preview overlay */
+  #shareOverlay {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: none; flex-direction: column;
+    z-index: 20;
+    padding: calc(10px + env(safe-area-inset-top, 0px)) 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  #shareOverlay.visible { display: flex; }
+  #shareCanvasWrap {
+    flex: 1; position: relative; min-height: 0;
+    background: #fff; border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  }
+  #shareCanvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #shareControls {
+    margin-top: 10px;
+    background: rgba(255,255,255,0.95);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 8px;
+    font-size: 12px; color: #222;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  #shareControls .slider-row { background: transparent; border: none; padding: 0; box-shadow: none; }
+  #shareControls .slider-row input[type=range] { flex: 1; }
+  #shareControls .hint { color: #666; font-size: 11px; margin: 0 2px; }
+  #shareControls .buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+  #shareControls .buttons button {
+    padding: 9px 16px; border-radius: 8px; font-size: 13px;
+    border: 1px solid #ccc; background: #fff; color: #222; cursor: pointer;
+  }
+  #shareControls .buttons button.primary {
+    background: #2a7; border-color: #2a7; color: #fff;
+  }
+  #shareControls .buttons button:active { transform: translateY(1px); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="canvas"></canvas>
+</div>
+
+<div id="topbar">
+  <div id="sliders">
+    <div class="slider-row"><span class="label">Size</span> <input id="sizeSlider" type="range" min="6" max="40" value="16"></div>
+    <div class="slider-row"><span class="label">Temp</span> <input id="tempSlider" type="range" min="0" max="300" value="100"></div>
+    <div class="slider-row"><span class="label">Spread</span> <input id="spreadSlider" type="range" min="0" max="100" value="0"></div>
+    <div class="slider-row"><span class="label">Depth</span> <input id="depthSlider" type="range" min="0" max="100" value="50"></div>
+  </div>
+</div>
+
+<div id="info">Spheres: <span id="count">0</span></div>
+
+<div id="hint">Draw a line with your finger or stylus.<br>Two fingers to rotate the structure.<br>Pinch to zoom.</div>
+
+<div id="ui">
+  <button class="btn active" id="modeDraw">Draw</button>
+  <button class="btn" id="modeRotate">Rotate</button>
+  <button class="btn" id="btnUndo">Undo</button>
+  <button class="btn" id="btnClear">Clear</button>
+  <button class="btn" id="btnReset">Reset View</button>
+  <button class="btn" id="btnColors">Colors</button>
+  <button class="btn" id="btnShare">Share</button>
+  <button class="btn" id="btnExport">Export</button>
+  <button class="btn" id="btnHelp" aria-label="Help">?</button>
+</div>
+
+<div id="helpOverlay">
+  <div id="helpPanel">
+    <h2>Sphere Aggregate — Help</h2>
+    <p>Draw chains of spheres to build a 3D aggregate. Rotate between strokes to grow arms in different directions.</p>
+
+    <h3>Drawing</h3>
+    <div class="row"><span class="tag mobile">Mobile</span><span>One finger or stylus draws a stroke. When you lift, the stroke becomes a chain of spheres.</span></div>
+    <div class="row"><span class="tag desktop">Desktop</span><span>Left-click and drag to draw. Release to commit the chain.</span></div>
+    <div class="row"><span class="tag both">Both</span><span>If a stroke starts or ends on an existing sphere, it connects to that sphere at its 3D depth. If both ends hit existing spheres, the chain forms a genuine 3D bridge — smoothly interpolating depth between them along the stroke.</span></div>
+
+    <h3>Rotating</h3>
+    <div class="row"><span class="tag mobile">Mobile</span><span>Two fingers rotate the structure — drag to rotate, twist for roll. Works in any mode.</span></div>
+    <div class="row"><span class="tag desktop">Desktop</span><span>Right-click and drag to rotate, anytime. (Or switch to Rotate mode and use left-click.)</span></div>
+
+    <h3>Zooming</h3>
+    <div class="row"><span class="tag mobile">Mobile</span><span>Pinch with two fingers.</span></div>
+    <div class="row"><span class="tag desktop">Desktop</span><span>Mouse wheel — zooms around the cursor.</span></div>
+
+    <h3>Modes</h3>
+    <p><b>Draw</b> — single finger/left-click draws.<br>
+    <b>Rotate</b> — single finger/left-click rotates instead. Useful on a touchscreen without a stylus or when you want to carefully rotate without risk of drawing.</p>
+    <p>On desktop you can usually leave Draw mode on permanently and use right-drag for rotation.</p>
+
+    <h3>Sliders</h3>
+    <p><b>Size</b> — radius of new spheres. Changes only apply to the next stroke; existing spheres keep their size.</p>
+    <p><b>Spread</b> — random variation in grain size within each stroke. At 0, all new spheres are exactly the Size radius. Higher values produce a natural log-normal mix of large and small grains.</p>
+    <p><b>Temp</b> — random position deviation from the drawn line. At 0, spheres sit exactly on your stroke. Higher values give a more hand-built, irregular look. Chain connectivity is preserved at all temperatures.</p>
+    <p><b>Depth</b> — strength of the atmospheric depth cue (misting toward the background for far spheres). Pure visual effect, doesn't change the geometry.</p>
+
+    <h3>Buttons</h3>
+    <p><b>Undo</b> — removes the most recently drawn stroke.<br>
+    <b>Clear</b> — removes the entire aggregate (with confirmation).<br>
+    <b>Reset View</b> — resets rotation, pan and zoom to defaults. Your aggregate is unchanged.<br>
+    <b>Colors</b> — pick a background color and sphere color. Includes a transparent background option for exporting PNGs that overlay onto other images.<br>
+    <b>Share</b> — opens a preview where you can rotate, zoom, and add perspective for a nicer image before exporting. Tap Share to send the PNG via the system share sheet (mobile) or download it (desktop). The preview is cosmetic only — your aggregate isn't changed.<br>
+    <b>Export</b> — saves the aggregate as an ASCII text file. First line is the number of spheres; each following line is <code>index radius x y z</code>.</p>
+
+    <div class="close-row"><button id="btnHelpClose">Close</button></div>
+  </div>
+</div>
+
+<div id="colorsOverlay">
+  <div id="colorsPanel">
+    <h2>Colors</h2>
+    <p class="desc">Background and sphere colors update everywhere — main view, share preview, and PNG export.</p>
+
+    <h3>Background</h3>
+    <div class="swatches" id="bgSwatches"></div>
+    <div class="custom-row">
+      <label for="bgCustom">Custom background</label>
+      <input id="bgCustom" type="color" value="#ffffff">
+    </div>
+
+    <h3>Spheres</h3>
+    <div class="swatches" id="sphereSwatches"></div>
+    <div class="custom-row">
+      <label for="sphereCustom">Custom sphere color</label>
+      <input id="sphereCustom" type="color" value="#3b78c8">
+    </div>
+
+    <div class="close-row">
+      <button class="secondary" id="btnColorsReset">Reset</button>
+      <button id="btnColorsClose">Done</button>
+    </div>
+  </div>
+</div>
+
+<div id="shareOverlay">
+  <div id="shareCanvasWrap">
+    <canvas id="shareCanvas"></canvas>
+  </div>
+  <div id="shareControls">
+    <div class="hint">Drag to rotate · pinch / wheel to zoom · adjust perspective for a nicer image</div>
+    <div class="slider-row"><span class="label">Perspective</span> <input id="persSlider" type="range" min="0" max="100" value="30"></div>
+    <div class="buttons">
+      <button id="btnSharePreviewCancel">Cancel</button>
+      <button id="btnSharePreviewDone" class="primary">Share</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const countEl = document.getElementById('count');
+  const hintEl = document.getElementById('hint');
+  const sizeSlider = document.getElementById('sizeSlider');
+  const tempSlider = document.getElementById('tempSlider');
+  const spreadSlider = document.getElementById('spreadSlider');
+  const depthSlider = document.getElementById('depthSlider');
+
+  // --- State ---
+  // Aggregate is a list of spheres in world (model) coordinates.
+  // Each sphere: { x, y, z, r, group }  (group = stroke index, for undo)
+  const spheres = [];
+  let strokeGroup = 0;
+
+  // View transform: rotation matrix (3x3) + zoom + center offset (pan optional)
+  let R = identity3();
+  let zoom = 1;
+  let panX = 0, panY = 0;
+
+  let sphereRadius = parseFloat(sizeSlider.value);
+  let temperature = parseFloat(tempSlider.value) / 100; // 0..1
+  let sizeSpread = parseFloat(spreadSlider.value) / 100; // 0..1
+  let depthStrength = parseFloat(depthSlider.value) / 100; // 0..1
+  let mode = 'draw'; // 'draw' | 'rotate'
+
+  // --- Color state ---
+  // bgColor is either a hex string '#rrggbb' or the special string 'transparent'.
+  // sphereColor is always a hex string '#rrggbb'.
+  const DEFAULT_BG = '#ffffff';
+  const DEFAULT_SPHERE = '#3b78c8'; // matches the original blue HSL
+  let bgColor = DEFAULT_BG;
+  let sphereColor = DEFAULT_SPHERE;
+
+  // Cached HSL of the current sphere color (recomputed on change).
+  let sphereHSL = { h: 210, s: 65, l: 50 };
+  // Cached RGB of the current background, used for misting (atmospheric perspective).
+  // For transparent background we mist toward white, which looks neutral.
+  let bgRGB = { r: 255, g: 255, b: 255 };
+
+  // Palette presets
+  const BG_PRESETS = [
+    { name: 'White', value: '#ffffff' },
+    { name: 'Paper', value: '#f4ede0' },
+    { name: 'Light gray', value: '#dadde2' },
+    { name: 'Slate', value: '#3c4452' },
+    { name: 'Charcoal', value: '#1c1f25' },
+    { name: 'Black', value: '#000000' },
+    { name: 'Sky', value: '#bfdcf2' },
+    { name: 'Mint', value: '#cdebd6' },
+    { name: 'Sand', value: '#e8d6a8' },
+    { name: 'Blush', value: '#f3cdcd' },
+    { name: 'Lavender', value: '#dcd0ee' },
+    { name: 'Transparent', value: 'transparent' },
+  ];
+  const SPHERE_PRESETS = [
+    { name: 'Blue',   value: '#3b78c8' },
+    { name: 'Teal',   value: '#1f8c8a' },
+    { name: 'Green',  value: '#3e9b4a' },
+    { name: 'Olive',  value: '#7a8a32' },
+    { name: 'Gold',   value: '#c89a2b' },
+    { name: 'Orange', value: '#d97026' },
+    { name: 'Red',    value: '#c8362c' },
+    { name: 'Pink',   value: '#d65a8b' },
+    { name: 'Purple', value: '#8a4ab8' },
+    { name: 'Indigo', value: '#3b3f9c' },
+    { name: 'Stone',  value: '#7a7468' },
+    { name: 'Pearl',  value: '#c8c4bb' },
+  ];
+
+  // --- Color helpers ---
+  function hexToRgb(hex) {
+    const h = hex.replace('#', '');
+    const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+  }
+  function rgbToHsl(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h, s, l = (max + min) / 2;
+    if (max === min) { h = s = 0; }
+    else {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r: h = ((g - b) / d + (g < b ? 6 : 0)); break;
+        case g: h = ((b - r) / d + 2); break;
+        case b: h = ((r - g) / d + 4); break;
+      }
+      h *= 60;
+    }
+    return { h, s: s * 100, l: l * 100 };
+  }
+  function updateSphereHSL() {
+    const { r, g, b } = hexToRgb(sphereColor);
+    sphereHSL = rgbToHsl(r, g, b);
+  }
+  function updateBgRGB() {
+    if (bgColor === 'transparent') {
+      bgRGB = { r: 255, g: 255, b: 255 };
+    } else {
+      bgRGB = hexToRgb(bgColor);
+    }
+  }
+  // Mix two colors in linear-ish RGB. Returns 'rgb(r,g,b)' string.
+  function mixRGBToward(r, g, b, target, t) {
+    const nr = Math.round(r + (target.r - r) * t);
+    const ng = Math.round(g + (target.g - g) * t);
+    const nb = Math.round(b + (target.b - b) * t);
+    return `rgb(${nr},${ng},${nb})`;
+  }
+  // Build a sphere stop color from base HSL by adjusting lightness and saturation,
+  // then mixing toward background by `mist`.
+  function sphereStopColor(lightnessBase, satScale, mist) {
+    // Convert HSL to RGB once, then mist in RGB. We do this via a temp canvas-free path:
+    // rebuild the HSL with adjusted L/S, then convert HSL->RGB.
+    const h = sphereHSL.h;
+    const s = Math.max(0, Math.min(100, sphereHSL.s * satScale));
+    const l = Math.max(0, Math.min(100, lightnessBase));
+    const rgb = hslToRgb(h, s, l);
+    return mixRGBToward(rgb.r, rgb.g, rgb.b, bgRGB, mist);
+  }
+  function hslToRgb(h, s, l) {
+    s /= 100; l /= 100;
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+    const m = l - c / 2;
+    let r1, g1, b1;
+    if      (h < 60)  [r1, g1, b1] = [c, x, 0];
+    else if (h < 120) [r1, g1, b1] = [x, c, 0];
+    else if (h < 180) [r1, g1, b1] = [0, c, x];
+    else if (h < 240) [r1, g1, b1] = [0, x, c];
+    else if (h < 300) [r1, g1, b1] = [x, 0, c];
+    else              [r1, g1, b1] = [c, 0, x];
+    return {
+      r: Math.round((r1 + m) * 255),
+      g: Math.round((g1 + m) * 255),
+      b: Math.round((b1 + m) * 255),
+    };
+  }
+
+  updateSphereHSL();
+  updateBgRGB();
+
+  // --- Resize ---
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = window.innerWidth, h = window.innerHeight;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', resize);
+
+  // --- Matrix helpers (3x3 row-major) ---
+  function identity3() { return [1,0,0, 0,1,0, 0,0,1]; }
+  function matMul(a, b) {
+    const r = new Array(9);
+    for (let i=0;i<3;i++) for (let j=0;j<3;j++) {
+      r[i*3+j] = a[i*3]*b[j] + a[i*3+1]*b[j+3] + a[i*3+2]*b[j+6];
+    }
+    return r;
+  }
+  function rotX(a) { const c=Math.cos(a), s=Math.sin(a); return [1,0,0, 0,c,-s, 0,s,c]; }
+  function rotY(a) { const c=Math.cos(a), s=Math.sin(a); return [c,0,s, 0,1,0, -s,0,c]; }
+  function rotZ(a) { const c=Math.cos(a), s=Math.sin(a); return [c,-s,0, s,c,0, 0,0,1]; }
+  function applyMat(m, v) {
+    return [
+      m[0]*v[0] + m[1]*v[1] + m[2]*v[2],
+      m[3]*v[0] + m[4]*v[1] + m[5]*v[2],
+      m[6]*v[0] + m[7]*v[1] + m[8]*v[2],
+    ];
+  }
+  // Transpose = inverse for rotation matrices
+  function transpose3(m) {
+    return [m[0],m[3],m[6], m[1],m[4],m[7], m[2],m[5],m[8]];
+  }
+
+  // --- Projection ---
+  // World -> screen: rotate then orthographic project (x,y), z used for depth sort + shading
+  function projectPoint(p) {
+    const v = applyMat(R, [p.x, p.y, p.z]);
+    const w = window.innerWidth, h = window.innerHeight;
+    return {
+      sx: w/2 + panX + v[0] * zoom,
+      sy: h/2 + panY + v[1] * zoom,
+      z: v[2]
+    };
+  }
+  // Screen (sx,sy) at a given view-space depth -> world point
+  function unprojectScreen(sx, sy, viewZ = 0) {
+    const w = window.innerWidth, h = window.innerHeight;
+    const vx = (sx - w/2 - panX) / zoom;
+    const vy = (sy - h/2 - panY) / zoom;
+    const vz = viewZ;
+    // world = R^T * view
+    const RT = transpose3(R);
+    const world = applyMat(RT, [vx, vy, vz]);
+    return { x: world[0], y: world[1], z: world[2] };
+  }
+
+  // Hit-test: find the front-most sphere whose projected disk contains (sx, sy).
+  // Returns that sphere's view-space z, or null if nothing hit.
+  function hitTestViewZ(sx, sy) {
+    let best = null;
+    for (const s of spheres) {
+      const v = applyMat(R, [s.x, s.y, s.z]);
+      const w = window.innerWidth, h = window.innerHeight;
+      const psx = w/2 + panX + v[0] * zoom;
+      const psy = h/2 + panY + v[1] * zoom;
+      const r = s.r * zoom;
+      const d2 = (sx - psx) * (sx - psx) + (sy - psy) * (sy - psy);
+      if (d2 <= r * r) {
+        if (best === null || v[2] > best) best = v[2]; // front-most = larger view z
+      }
+    }
+    return best;
+  }
+
+  // --- Drawing ---
+  function paintBackground(c, w, h) {
+    if (bgColor === 'transparent') {
+      // Render a subtle checkerboard so the user can see where the canvas is.
+      // This is just an on-screen affordance — exports use clearRect for true alpha.
+      c.clearRect(0, 0, w, h);
+      const tile = 14;
+      const cols = Math.ceil(w / tile), rows = Math.ceil(h / tile);
+      for (let j = 0; j < rows; j++) {
+        for (let i = 0; i < cols; i++) {
+          c.fillStyle = ((i + j) & 1) ? '#f1f1f3' : '#e3e3e7';
+          c.fillRect(i * tile, j * tile, tile, tile);
+        }
+      }
+    } else {
+      c.fillStyle = bgColor;
+      c.fillRect(0, 0, w, h);
+    }
+  }
+
+  function draw() {
+    const w = window.innerWidth, h = window.innerHeight;
+    ctx.clearRect(0, 0, w, h);
+    paintBackground(ctx, w, h);
+
+    if (spheres.length > 0) {
+      // Project all and sort by depth (back to front)
+      const projected = spheres.map(s => {
+        const p = projectPoint(s);
+        return { p, s };
+      });
+      projected.sort((a, b) => a.p.z - b.p.z);
+
+      // Depth range for shading
+      let zMin = Infinity, zMax = -Infinity;
+      for (const pr of projected) {
+        if (pr.p.z < zMin) zMin = pr.p.z;
+        if (pr.p.z > zMax) zMax = pr.p.z;
+      }
+      const zRange = Math.max(1e-6, zMax - zMin);
+
+      // Shadow opacity is reduced on dark backgrounds (a black drop shadow on
+      // black is meaningless and looks like an artifact when zoomed).
+      const bgL = bgColor === 'transparent' ? 100 : rgbToHsl(bgRGB.r, bgRGB.g, bgRGB.b).l;
+      const shadowScale = bgColor === 'transparent' ? 1 : Math.max(0.0, (bgL - 30) / 70);
+
+      for (const pr of projected) {
+        const { p, s } = pr;
+        renderSphere(ctx, p.sx, p.sy, s.r * zoom, p.z, zMin, zRange, shadowScale);
+      }
+    } // end if (spheres.length > 0)
+
+    // live-draw preview stroke
+    if (livePreview.length > 1) {
+      ctx.beginPath();
+      ctx.moveTo(livePreview[0].x, livePreview[0].y);
+      for (let i=1;i<livePreview.length;i++) ctx.lineTo(livePreview[i].x, livePreview[i].y);
+      // Pick a stroke color that contrasts the background.
+      ctx.strokeStyle = strokeContrastColor();
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+
+  // Returns a translucent stroke color that reads against the current background.
+  function strokeContrastColor() {
+    if (bgColor === 'transparent') return 'rgba(30, 100, 180, 0.55)';
+    const { l } = rgbToHsl(bgRGB.r, bgRGB.g, bgRGB.b);
+    return l > 50 ? 'rgba(30, 100, 180, 0.55)' : 'rgba(255, 255, 255, 0.7)';
+  }
+
+  // Shared sphere renderer used by main view and share preview.
+  function renderSphere(c, sx, sy, radius, viewZ, zMin, zRange, shadowScale = 1) {
+    const depthT = (viewZ - zMin) / zRange;
+    const brightness = 0.55 + 0.45 * depthT;
+
+    // Aerial perspective: how much to blend sphere colors toward the background.
+    const mist = depthStrength * 0.65 * (1 - depthT);
+
+    // Soft drop shadow (also fades with mist; scaled down on dark backgrounds)
+    c.beginPath();
+    c.arc(sx + radius * 0.15, sy + radius * 0.2, radius * 0.95, 0, Math.PI * 2);
+    c.fillStyle = `rgba(0,0,0,${(0.05 + 0.08 * depthT) * (1 - mist * 0.8) * shadowScale})`;
+    c.fill();
+
+    // Sphere with light from upper-left, colored using the current sphere color.
+    const grad = c.createRadialGradient(
+      sx - radius * 0.4, sy - radius * 0.4, radius * 0.1,
+      sx, sy, radius
+    );
+    const hiL0  = 85 + brightness * 8;
+    const midL0 = 55 * brightness + 20;
+    const loL0  = Math.max(20, 25 * brightness + 10);
+    const satScale = 1; // saturation scaling vs base color
+    grad.addColorStop(0,    sphereStopColor(hiL0,  satScale, mist));
+    grad.addColorStop(0.55, sphereStopColor(midL0, satScale, mist));
+    grad.addColorStop(1,    sphereStopColor(loL0,  satScale, mist));
+
+    c.beginPath();
+    c.arc(sx, sy, radius, 0, Math.PI * 2);
+    c.fillStyle = grad;
+    c.fill();
+
+    // Outline contrasts the sphere color and fades into the mist.
+    c.lineWidth = 0.8;
+    const outlineA = (0.35 + 0.25 * (1 - depthT)) * (1 - mist);
+    c.strokeStyle = `rgba(20,25,40,${outlineA})`;
+    c.stroke();
+  }
+
+  // --- Stroke handling ---
+  let livePreview = []; // screen-space points for current stroke
+  let drawingStroke = false;
+
+  function startStroke(sx, sy) {
+    drawingStroke = true;
+    livePreview = [{ x: sx, y: sy }];
+    hintEl.classList.add('hidden');
+  }
+  function extendStroke(sx, sy) {
+    if (!drawingStroke) return;
+    livePreview.push({ x: sx, y: sy });
+    draw();
+  }
+  function endStroke() {
+    if (!drawingStroke) return;
+    drawingStroke = false;
+    if (livePreview.length < 1) { livePreview = []; return; }
+
+    const startZ = hitTestViewZ(livePreview[0].x, livePreview[0].y);
+    const last = livePreview[livePreview.length - 1];
+    const endZ = hitTestViewZ(last.x, last.y);
+
+    // Determine direction and z profile:
+    // - only end hits  -> walk backwards so the first placed sphere is the anchor
+    // - only start hits-> walk forwards
+    // - both hit       -> walk forwards; end is enforced by a final snap
+    // - neither        -> walk forwards, flat plane
+    let pts = livePreview.slice();
+    let zAtStart, zAtEnd;
+    let snapLastToEnd = false;
+
+    if (startZ !== null && endZ !== null) {
+      zAtStart = startZ; zAtEnd = endZ;
+      snapLastToEnd = true;
+    } else if (endZ !== null && startZ === null) {
+      pts.reverse();
+      zAtStart = endZ; zAtEnd = endZ;
+    } else if (startZ !== null) {
+      zAtStart = startZ; zAtEnd = startZ;
+    } else {
+      zAtStart = 0; zAtEnd = 0;
+    }
+
+    // Arc-length parameterization of the (possibly reversed) point list
+    const cum = new Array(pts.length);
+    cum[0] = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const dx = pts[i].x - pts[i-1].x;
+      const dy = pts[i].y - pts[i-1].y;
+      cum[i] = cum[i-1] + Math.hypot(dx, dy);
+    }
+    const totalLen = cum[cum.length - 1] || 1;
+
+    function zAtStrokePoint(sx, sy, segIdx) {
+      const a = pts[Math.max(0, segIdx - 1)];
+      const segStart = cum[Math.max(0, segIdx - 1)];
+      const segEnd = cum[segIdx] ?? cum[cum.length - 1];
+      const segLen = segEnd - segStart;
+      const dx = sx - a.x, dy = sy - a.y;
+      const along = Math.hypot(dx, dy);
+      const here = segStart + Math.min(segLen, along);
+      const t = here / totalLen;
+      return zAtStart + (zAtEnd - zAtStart) * t;
+    }
+
+    strokeGroup++;
+    const RT = transpose3(R);
+
+    const sigma = sizeSpread * 0.9;
+    function sampleRadius() {
+      if (sigma === 0) return sphereRadius;
+      const m = Math.exp(gaussian() * sigma - sigma * sigma / 2);
+      const clamped = Math.max(0.3, Math.min(3.0, m));
+      return sphereRadius * clamped;
+    }
+
+    const overlapFactor = 0.8;
+
+    function pointAt(sx, sy, segIdx) {
+      const z = zAtStrokePoint(sx, sy, segIdx);
+      return unprojectScreen(sx, sy, z);
+    }
+
+    const jitterBase = temperature * 0.6;
+    function jitterWorld(r) {
+      if (jitterBase === 0) return [0, 0, 0];
+      const amp = jitterBase * r;
+      const jx = gaussian() * amp;
+      const jy = gaussian() * amp;
+      const jz = gaussian() * amp;
+      return applyMat(RT, [jx, jy, jz]);
+    }
+
+    // How much the drawing plane's view-z changes per unit of stroke arc length
+    // (in screen pixels). Used to correct the screen-spacing target so that the
+    // 3D center-to-center distance equals the desired value even when the chain
+    // is traversing depth.
+    const dzPerScreenPx = (zAtEnd - zAtStart) / totalLen;
+
+    // Given a desired 3D center-to-center distance D (in world units), figure
+    // out the screen-space spacing we need to advance along the stroke so that
+    // unprojected points end up exactly D apart in 3D. Screen-plane component
+    // is D_screen_world = sqrt(D^2 - dz^2), then convert to pixels via * zoom.
+    function screenSpacingFor(D3D) {
+      const k2 = (1/(zoom*zoom)) + dzPerScreenPx * dzPerScreenPx;
+      return D3D / Math.sqrt(k2);
+    }
+
+    // First sphere anchored at pts[0]
+    let r0 = sampleRadius();
+    let base = pointAt(pts[0].x, pts[0].y, 0);
+    const j0 = jitterWorld(r0);
+    let prev = { x: base.x + j0[0], y: base.y + j0[1], z: base.z + j0[2], r: r0 };
+    spheres.push({ ...prev, group: strokeGroup });
+
+    let segIdx = 1;
+    let segFrom = pts[0];
+    let accScreen = 0;
+    let rNext = sampleRadius();
+    let targetScreen = screenSpacingFor(overlapFactor * (prev.r + rNext));
+
+    while (segIdx < pts.length) {
+      const segTo = pts[segIdx];
+      const dx = segTo.x - segFrom.x, dy = segTo.y - segFrom.y;
+      const segLen = Math.hypot(dx, dy);
+      if (segLen === 0) { segIdx++; segFrom = segTo; continue; }
+
+      if (accScreen + segLen < targetScreen) {
+        accScreen += segLen;
+        segFrom = segTo;
+        segIdx++;
+      } else {
+        const need = targetScreen - accScreen;
+        const t = need / segLen;
+        const sx = segFrom.x + dx * t;
+        const sy = segFrom.y + dy * t;
+        let world = pointAt(sx, sy, segIdx);
+        const jw = jitterWorld(rNext);
+        let wx = world.x + jw[0], wy = world.y + jw[1], wz = world.z + jw[2];
+
+        const ddx = wx - prev.x, ddy = wy - prev.y, ddz = wz - prev.z;
+        const d = Math.hypot(ddx, ddy, ddz);
+        const maxD = prev.r + rNext;
+        if (d > maxD && d > 0) {
+          const k = maxD / d;
+          wx = prev.x + ddx * k;
+          wy = prev.y + ddy * k;
+          wz = prev.z + ddz * k;
+        }
+
+        prev = { x: wx, y: wy, z: wz, r: rNext };
+        spheres.push({ ...prev, group: strokeGroup });
+
+        segFrom = { x: sx, y: sy };
+        accScreen = 0;
+        rNext = sampleRadius();
+        targetScreen = screenSpacingFor(overlapFactor * (prev.r + rNext));
+      }
+    }
+
+    // If both endpoints were hits, snap a final sphere onto the end point.
+    if (snapLastToEnd) {
+      const endPt = pts[pts.length - 1];
+      const rEnd = sampleRadius();
+      const endWorld = unprojectScreen(endPt.x, endPt.y, zAtEnd);
+      let wx = endWorld.x, wy = endWorld.y, wz = endWorld.z;
+      const ddx = wx - prev.x, ddy = wy - prev.y, ddz = wz - prev.z;
+      const d = Math.hypot(ddx, ddy, ddz);
+      const maxD = prev.r + rEnd;
+      if (d > 0.15 * maxD) {
+        if (d > maxD) {
+          const steps = Math.ceil(d / maxD);
+          for (let i = 1; i <= steps; i++) {
+            const t = i / steps;
+            const ix = prev.x + ddx * t;
+            const iy = prev.y + ddy * t;
+            const iz = prev.z + ddz * t;
+            const ri = (i === steps) ? rEnd : sampleRadius();
+            spheres.push({ x: ix, y: iy, z: iz, r: ri, group: strokeGroup });
+            prev = { x: ix, y: iy, z: iz, r: ri };
+          }
+        } else {
+          spheres.push({ x: wx, y: wy, z: wz, r: rEnd, group: strokeGroup });
+        }
+      }
+    }
+
+    livePreview = [];
+    updateCount();
+    draw();
+  }
+
+  // Approx standard normal via Box-Muller
+  function gaussian() {
+    let u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  // --- Touch / pointer handling with multi-touch rotate & pinch ---
+  const activeTouches = new Map(); // id -> {x,y}
+  let gestureMode = null; // 'draw' | 'rotate'
+  let lastRotateState = null; // { cx, cy, dist, angle }
+
+  function touchPos(t) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: t.clientX - rect.left, y: t.clientY - rect.top, id: t.identifier ?? t.pointerId };
+  }
+
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      const p = touchPos(t);
+      activeTouches.set(p.id, { x: p.x, y: p.y });
+    }
+    decideGesture();
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      const p = touchPos(t);
+      activeTouches.set(p.id, { x: p.x, y: p.y });
+    }
+    updateGesture();
+  }, { passive: false });
+
+  function endTouches(e) {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      activeTouches.delete(t.identifier ?? t.pointerId);
+    }
+    if (activeTouches.size === 0) {
+      if (gestureMode === 'draw') endStroke();
+      gestureMode = null;
+      lastRotateState = null;
+    } else {
+      decideGesture();
+    }
+  }
+  canvas.addEventListener('touchend', endTouches, { passive: false });
+  canvas.addEventListener('touchcancel', endTouches, { passive: false });
+
+  // Mouse fallback (for desktop testing)
+  let mouseDown = false;
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  canvas.addEventListener('mousedown', (e) => {
+    mouseDown = true;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    if (e.button === 2 || mode === 'rotate') {
+      gestureMode = 'rotate'; lastMouse = { x, y };
+    } else {
+      gestureMode = 'draw'; startStroke(x, y);
+    }
+  });
+  let lastMouse = null;
+  canvas.addEventListener('mousemove', (e) => {
+    if (!mouseDown) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    if (gestureMode === 'draw') extendStroke(x, y);
+    else if (gestureMode === 'rotate' && lastMouse) {
+      const dx = x - lastMouse.x, dy = y - lastMouse.y;
+      applyRotationDelta(dx, dy);
+      lastMouse = { x, y };
+      draw();
+    }
+  });
+  window.addEventListener('mouseup', () => {
+    if (gestureMode === 'draw') endStroke();
+    mouseDown = false; gestureMode = null; lastMouse = null;
+  });
+
+  function decideGesture() {
+    if (activeTouches.size === 1 && mode === 'draw') {
+      if (gestureMode !== 'draw') {
+        const [p] = activeTouches.values();
+        startStroke(p.x, p.y);
+        gestureMode = 'draw';
+      }
+    } else if (activeTouches.size >= 2 || (activeTouches.size === 1 && mode === 'rotate')) {
+      if (gestureMode === 'draw') {
+        livePreview = [];
+        drawingStroke = false;
+        draw();
+      }
+      gestureMode = 'rotate';
+      lastRotateState = computeRotateState();
+    }
+  }
+
+  function computeRotateState() {
+    const pts = [...activeTouches.values()];
+    if (pts.length === 1) {
+      return { cx: pts[0].x, cy: pts[0].y, dist: null, angle: null, single: true };
+    }
+    const cx = (pts[0].x + pts[1].x) / 2;
+    const cy = (pts[0].y + pts[1].y) / 2;
+    const dx = pts[1].x - pts[0].x, dy = pts[1].y - pts[0].y;
+    const dist = Math.hypot(dx, dy);
+    const angle = Math.atan2(dy, dx);
+    return { cx, cy, dist, angle, single: false };
+  }
+
+  function applyRotationDelta(dx, dy) {
+    const sens = 0.008;
+    const rx = rotX(dy * sens);
+    const ry = rotY(dx * sens);
+    R = matMul(matMul(ry, rx), R);
+  }
+
+  function updateGesture() {
+    if (gestureMode === 'draw' && activeTouches.size === 1) {
+      const [p] = activeTouches.values();
+      extendStroke(p.x, p.y);
+    } else if (gestureMode === 'rotate') {
+      const st = computeRotateState();
+      if (!lastRotateState) { lastRotateState = st; return; }
+      const dx = st.cx - lastRotateState.cx;
+      const dy = st.cy - lastRotateState.cy;
+      applyRotationDelta(dx, dy);
+
+      if (!st.single && !lastRotateState.single) {
+        if (lastRotateState.dist && st.dist) {
+          const ratio = st.dist / lastRotateState.dist;
+          zoom *= ratio;
+          zoom = Math.min(50, Math.max(0.02, zoom));
+        }
+        if (lastRotateState.angle != null && st.angle != null) {
+          let da = st.angle - lastRotateState.angle;
+          if (da > Math.PI) da -= 2*Math.PI;
+          if (da < -Math.PI) da += 2*Math.PI;
+          R = matMul(rotZ(da), R);
+        }
+      }
+      lastRotateState = st;
+      draw();
+    }
+  }
+
+  // --- UI wiring ---
+  document.getElementById('modeDraw').addEventListener('click', () => setMode('draw'));
+  document.getElementById('modeRotate').addEventListener('click', () => setMode('rotate'));
+  function setMode(m) {
+    mode = m;
+    document.getElementById('modeDraw').classList.toggle('active', m === 'draw');
+    document.getElementById('modeRotate').classList.toggle('active', m === 'rotate');
+  }
+
+  document.getElementById('btnUndo').addEventListener('click', () => {
+    if (spheres.length === 0) return;
+    const lastGroup = spheres[spheres.length - 1].group;
+    while (spheres.length && spheres[spheres.length-1].group === lastGroup) spheres.pop();
+    updateCount();
+    draw();
+  });
+
+  document.getElementById('btnClear').addEventListener('click', () => {
+    if (spheres.length === 0) return;
+    if (confirm('Clear the entire aggregate?')) {
+      spheres.length = 0;
+      strokeGroup = 0;
+      updateCount();
+      hintEl.classList.remove('hidden');
+      draw();
+    }
+  });
+
+  document.getElementById('btnReset').addEventListener('click', () => {
+    R = identity3(); zoom = 1; panX = 0; panY = 0;
+    draw();
+  });
+
+  sizeSlider.addEventListener('input', () => {
+    sphereRadius = parseFloat(sizeSlider.value);
+  });
+  tempSlider.addEventListener('input', () => {
+    temperature = parseFloat(tempSlider.value) / 100;
+  });
+  spreadSlider.addEventListener('input', () => {
+    sizeSpread = parseFloat(spreadSlider.value) / 100;
+  });
+  depthSlider.addEventListener('input', () => {
+    depthStrength = parseFloat(depthSlider.value) / 100;
+    draw();
+  });
+
+  function updateCount() { countEl.textContent = spheres.length; }
+
+  // --- Colors panel ---
+  const colorsOverlay = document.getElementById('colorsOverlay');
+  const bgSwatchesEl = document.getElementById('bgSwatches');
+  const sphereSwatchesEl = document.getElementById('sphereSwatches');
+  const bgCustomInput = document.getElementById('bgCustom');
+  const sphereCustomInput = document.getElementById('sphereCustom');
+
+  function buildSwatches(container, presets, getCurrent, onPick) {
+    container.innerHTML = '';
+    for (const preset of presets) {
+      const el = document.createElement('div');
+      el.className = 'swatch';
+      el.title = preset.name;
+      if (preset.value === 'transparent') {
+        el.classList.add('checker');
+      } else {
+        el.style.background = preset.value;
+      }
+      el.addEventListener('click', () => {
+        onPick(preset.value);
+        markActive(container, preset.value);
+      });
+      container.appendChild(el);
+    }
+    markActive(container, getCurrent());
+  }
+  function markActive(container, value) {
+    for (const el of container.children) {
+      const v = el.classList.contains('checker') ? 'transparent' : el.style.background;
+      // Compare by parsed RGB to handle '#fff' vs 'rgb(255,255,255)' inconsistencies.
+      const same = (v === 'transparent' && value === 'transparent') ||
+                   (v !== 'transparent' && value !== 'transparent' && colorsEqual(v, value));
+      el.classList.toggle('active', same);
+    }
+  }
+  function colorsEqual(a, b) {
+    // Both should be CSS color strings. Use a temp element to canonicalize.
+    const tmp = document.createElement('div');
+    document.body.appendChild(tmp);
+    tmp.style.color = a; const ca = getComputedStyle(tmp).color;
+    tmp.style.color = b; const cb = getComputedStyle(tmp).color;
+    document.body.removeChild(tmp);
+    return ca === cb;
+  }
+
+  function setBgColor(c) {
+    bgColor = c;
+    updateBgRGB();
+    if (c !== 'transparent') bgCustomInput.value = c;
+    draw();
+    if (shareOverlay.classList.contains('visible')) drawShare();
+  }
+  function setSphereColor(c) {
+    sphereColor = c;
+    sphereCustomInput.value = c;
+    updateSphereHSL();
+    draw();
+    if (shareOverlay.classList.contains('visible')) drawShare();
+  }
+
+  buildSwatches(bgSwatchesEl, BG_PRESETS, () => bgColor, setBgColor);
+  buildSwatches(sphereSwatchesEl, SPHERE_PRESETS, () => sphereColor, setSphereColor);
+
+  bgCustomInput.addEventListener('input', () => {
+    setBgColor(bgCustomInput.value);
+    markActive(bgSwatchesEl, bgColor);
+  });
+  sphereCustomInput.addEventListener('input', () => {
+    setSphereColor(sphereCustomInput.value);
+    markActive(sphereSwatchesEl, sphereColor);
+  });
+
+  document.getElementById('btnColors').addEventListener('click', () => {
+    bgCustomInput.value = (bgColor === 'transparent') ? '#ffffff' : bgColor;
+    sphereCustomInput.value = sphereColor;
+    markActive(bgSwatchesEl, bgColor);
+    markActive(sphereSwatchesEl, sphereColor);
+    colorsOverlay.classList.add('visible');
+  });
+  document.getElementById('btnColorsClose').addEventListener('click', () => {
+    colorsOverlay.classList.remove('visible');
+  });
+  document.getElementById('btnColorsReset').addEventListener('click', () => {
+    setBgColor(DEFAULT_BG);
+    setSphereColor(DEFAULT_SPHERE);
+    markActive(bgSwatchesEl, bgColor);
+    markActive(sphereSwatchesEl, sphereColor);
+  });
+  colorsOverlay.addEventListener('click', (e) => {
+    if (e.target === colorsOverlay) colorsOverlay.classList.remove('visible');
+  });
+
+  // --- Share button uses the preview overlay ---
+  document.getElementById('btnShare').onclick = openSharePreview;
+
+  // ===== Share preview =====
+  const shareOverlay = document.getElementById('shareOverlay');
+  const shareCanvas = document.getElementById('shareCanvas');
+  const sctx = shareCanvas.getContext('2d');
+  const persSlider = document.getElementById('persSlider');
+
+  let pvR = identity3();
+  let pvZoom = 1;
+  let pvPerspective = parseFloat(persSlider.value) / 100;
+  let pvPanX = 0, pvPanY = 0;
+
+  function openSharePreview() {
+    if (spheres.length === 0) { alert('Draw something first.'); return; }
+    pvR = R.slice();
+    pvZoom = zoom;
+    pvPanX = panX;
+    pvPanY = panY;
+    pvPerspective = parseFloat(persSlider.value) / 100;
+    shareOverlay.classList.add('visible');
+    resizeShareCanvas();
+    drawShare();
+  }
+  function closeSharePreview() {
+    shareOverlay.classList.remove('visible');
+  }
+
+  function resizeShareCanvas() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const rect = shareCanvas.getBoundingClientRect();
+    shareCanvas.width = Math.max(1, rect.width * dpr);
+    shareCanvas.height = Math.max(1, rect.height * dpr);
+    sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function drawShare() {
+    const rect = shareCanvas.getBoundingClientRect();
+    const w = rect.width, h = rect.height;
+    sctx.clearRect(0, 0, w, h);
+    paintBackground(sctx, w, h);
+    if (spheres.length === 0) return;
+
+    const screenSize = Math.max(w, h);
+    let focal;
+    if (pvPerspective <= 0) {
+      focal = Infinity;
+    } else {
+      const t = pvPerspective;
+      focal = screenSize * Math.pow(0.067, t) * 6 / pvZoom;
+    }
+
+    const projected = spheres.map(s => {
+      const v = applyMat(pvR, [s.x, s.y, s.z]);
+      let sx, sy, rScreen;
+      if (!isFinite(focal)) {
+        sx = w/2 + pvPanX + v[0] * pvZoom;
+        sy = h/2 + pvPanY + v[1] * pvZoom;
+        rScreen = s.r * pvZoom;
+      } else {
+        const d = Math.max(focal * 0.18, focal - v[2]);
+        const scale = pvZoom * (focal / d);
+        sx = w/2 + pvPanX + v[0] * scale;
+        sy = h/2 + pvPanY + v[1] * scale;
+        rScreen = s.r * scale;
+      }
+      return { sx, sy, z: v[2], r: rScreen };
+    });
+    projected.sort((a, b) => a.z - b.z);
+
+    let zMin = Infinity, zMax = -Infinity;
+    for (const pr of projected) {
+      if (pr.z < zMin) zMin = pr.z;
+      if (pr.z > zMax) zMax = pr.z;
+    }
+    const zRange = Math.max(1e-6, zMax - zMin);
+
+    const bgL = bgColor === 'transparent' ? 100 : rgbToHsl(bgRGB.r, bgRGB.g, bgRGB.b).l;
+    const shadowScale = bgColor === 'transparent' ? 1 : Math.max(0.0, (bgL - 30) / 70);
+
+    for (const pr of projected) {
+      const radius = Math.max(0.5, pr.r);
+      renderSphere(sctx, pr.sx, pr.sy, radius, pr.z, zMin, zRange, shadowScale);
+    }
+  }
+
+  // Preview gestures
+  const pvTouches = new Map();
+  let pvLast = null;
+  function pvCoord(t) {
+    const rect = shareCanvas.getBoundingClientRect();
+    return { x: t.clientX - rect.left, y: t.clientY - rect.top };
+  }
+  shareCanvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      const c = pvCoord(t);
+      pvTouches.set(t.identifier, c);
+    }
+    pvLast = pvTouchState();
+  }, { passive: false });
+  shareCanvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      const c = pvCoord(t);
+      pvTouches.set(t.identifier, c);
+    }
+    const st = pvTouchState();
+    if (pvLast && st) {
+      const dx = st.cx - pvLast.cx, dy = st.cy - pvLast.cy;
+      const rx = rotX(dy * 0.008);
+      const ry = rotY(dx * 0.008);
+      pvR = matMul(matMul(ry, rx), pvR);
+      if (st.dist && pvLast.dist) {
+        pvZoom *= st.dist / pvLast.dist;
+        pvZoom = Math.min(50, Math.max(0.02, pvZoom));
+      }
+      if (st.angle != null && pvLast.angle != null) {
+        let da = st.angle - pvLast.angle;
+        if (da > Math.PI) da -= 2*Math.PI;
+        if (da < -Math.PI) da += 2*Math.PI;
+        pvR = matMul(rotZ(da), pvR);
+      }
+      drawShare();
+    }
+    pvLast = st;
+  }, { passive: false });
+  function pvEndTouch(e) {
+    e.preventDefault();
+    for (const t of e.changedTouches) pvTouches.delete(t.identifier);
+    pvLast = pvTouchState();
+  }
+  shareCanvas.addEventListener('touchend', pvEndTouch, { passive: false });
+  shareCanvas.addEventListener('touchcancel', pvEndTouch, { passive: false });
+  function pvTouchState() {
+    const pts = [...pvTouches.values()];
+    if (pts.length === 0) return null;
+    if (pts.length === 1) return { cx: pts[0].x, cy: pts[0].y, dist: null, angle: null };
+    const cx = (pts[0].x + pts[1].x) / 2;
+    const cy = (pts[0].y + pts[1].y) / 2;
+    const dx = pts[1].x - pts[0].x, dy = pts[1].y - pts[0].y;
+    return { cx, cy, dist: Math.hypot(dx, dy), angle: Math.atan2(dy, dx) };
+  }
+
+  let pvMouseDown = false, pvMouseLast = null;
+  shareCanvas.addEventListener('mousedown', (e) => {
+    pvMouseDown = true;
+    pvMouseLast = pvCoord(e);
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!pvMouseDown) return;
+    const c = pvCoord(e);
+    const dx = c.x - pvMouseLast.x, dy = c.y - pvMouseLast.y;
+    const rx = rotX(dy * 0.008);
+    const ry = rotY(dx * 0.008);
+    pvR = matMul(matMul(ry, rx), pvR);
+    pvMouseLast = c;
+    drawShare();
+  });
+  window.addEventListener('mouseup', () => { pvMouseDown = false; });
+  shareCanvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const factor = Math.exp(-e.deltaY * 0.0015);
+    pvZoom *= factor;
+    pvZoom = Math.min(50, Math.max(0.02, pvZoom));
+    drawShare();
+  }, { passive: false });
+
+  persSlider.addEventListener('input', () => {
+    pvPerspective = parseFloat(persSlider.value) / 100;
+    drawShare();
+  });
+
+  document.getElementById('btnSharePreviewCancel').addEventListener('click', closeSharePreview);
+  document.getElementById('btnSharePreviewDone').addEventListener('click', () => {
+    // For transparent background, redraw the share canvas without the
+    // checkerboard so the exported PNG actually has alpha. We swap bgColor
+    // briefly to a sentinel that paintBackground treats as a clear, render,
+    // capture, and restore.
+    const wasTransparent = (bgColor === 'transparent');
+    if (wasTransparent) {
+      // Redraw share canvas with transparent (no checkerboard) for export
+      drawShareForExport();
+    }
+    shareCanvas.toBlob(async (blob) => {
+      if (!blob) { alert('Could not create image.'); return; }
+      await shareBlob(blob, 'aggregate.png', 'image/png', 'Sphere aggregate');
+      if (wasTransparent) drawShare(); // restore on-screen view with checkerboard
+      closeSharePreview();
+    }, 'image/png');
+  });
+
+  // Render the share canvas without the checkerboard background, for export.
+  function drawShareForExport() {
+    const rect = shareCanvas.getBoundingClientRect();
+    const w = rect.width, h = rect.height;
+    sctx.clearRect(0, 0, w, h); // truly transparent
+
+    const screenSize = Math.max(w, h);
+    let focal;
+    if (pvPerspective <= 0) focal = Infinity;
+    else {
+      const t = pvPerspective;
+      focal = screenSize * Math.pow(0.067, t) * 6 / pvZoom;
+    }
+    const projected = spheres.map(s => {
+      const v = applyMat(pvR, [s.x, s.y, s.z]);
+      let sx, sy, rScreen;
+      if (!isFinite(focal)) {
+        sx = w/2 + pvPanX + v[0] * pvZoom;
+        sy = h/2 + pvPanY + v[1] * pvZoom;
+        rScreen = s.r * pvZoom;
+      } else {
+        const d = Math.max(focal * 0.18, focal - v[2]);
+        const scale = pvZoom * (focal / d);
+        sx = w/2 + pvPanX + v[0] * scale;
+        sy = h/2 + pvPanY + v[1] * scale;
+        rScreen = s.r * scale;
+      }
+      return { sx, sy, z: v[2], r: rScreen };
+    });
+    projected.sort((a, b) => a.z - b.z);
+    let zMin = Infinity, zMax = -Infinity;
+    for (const pr of projected) { if (pr.z < zMin) zMin = pr.z; if (pr.z > zMax) zMax = pr.z; }
+    const zRange = Math.max(1e-6, zMax - zMin);
+    // On a transparent background, drop shadows would land on... nothing. Skip them.
+    for (const pr of projected) {
+      renderSphere(sctx, pr.sx, pr.sy, Math.max(0.5, pr.r), pr.z, zMin, zRange, 0);
+    }
+  }
+
+  function isMobileDevice() {
+    if (navigator.userAgentData && typeof navigator.userAgentData.mobile === 'boolean') {
+      return navigator.userAgentData.mobile;
+    }
+    const ua = navigator.userAgent || '';
+    const uaMobile = /Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(ua);
+    const touch = (navigator.maxTouchPoints || 0) > 1;
+    return uaMobile || touch;
+  }
+
+  async function shareBlob(blob, filename, mime, title) {
+    const file = new File([blob], filename, { type: mime });
+    if (isMobileDevice() && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title });
+        return;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        console.warn('navigator.share failed:', err);
+      }
+    }
+    const url = URL.createObjectURL(blob);
+    try {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (err) {
+      URL.revokeObjectURL(url);
+      const url2 = URL.createObjectURL(blob);
+      const win = window.open(url2, '_blank');
+      if (!win) {
+        alert('Could not share or download. Check your browser settings.');
+      }
+    }
+  }
+
+  window.addEventListener('resize', () => {
+    if (shareOverlay.classList.contains('visible')) {
+      resizeShareCanvas();
+      drawShare();
+    }
+  });
+
+  // Export as ASCII file
+  document.getElementById('btnExport').addEventListener('click', exportAscii);
+
+  function exportAscii() {
+    if (spheres.length === 0) {
+      alert('Nothing to export — draw something first.');
+      return;
+    }
+    const lines = [String(spheres.length)];
+    for (let i = 0; i < spheres.length; i++) {
+      const s = spheres[i];
+      lines.push(
+        `${i + 1} ${fmt(s.r)} ${fmt(s.x)} ${fmt(s.y)} ${fmt(s.z)}`
+      );
+    }
+    const text = lines.join('\n') + '\n';
+    const blob = new Blob([text], { type: 'text/plain' });
+    shareBlob(blob, 'aggregate.txt', 'text/plain', 'Sphere aggregate data');
+  }
+
+  function fmt(v) {
+    return Number(v.toPrecision(6)).toString();
+  }
+
+  // Help overlay
+  const helpOverlay = document.getElementById('helpOverlay');
+  document.getElementById('btnHelp').addEventListener('click', () => {
+    helpOverlay.classList.add('visible');
+  });
+  document.getElementById('btnHelpClose').addEventListener('click', () => {
+    helpOverlay.classList.remove('visible');
+  });
+  helpOverlay.addEventListener('click', (e) => {
+    if (e.target === helpOverlay) helpOverlay.classList.remove('visible');
+  });
+
+  // Mouse wheel zoom (around cursor position)
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const w = window.innerWidth, h = window.innerHeight;
+    const vxBefore = (mx - w/2 - panX) / zoom;
+    const vyBefore = (my - h/2 - panY) / zoom;
+    const factor = Math.exp(-e.deltaY * 0.0015);
+    zoom *= factor;
+    zoom = Math.min(50, Math.max(0.02, zoom));
+    panX = mx - w/2 - vxBefore * zoom;
+    panY = my - h/2 - vyBefore * zoom;
+    draw();
+  }, { passive: false });
+
+  // --- Go ---
+  resize();
+  updateCount();
+})();
+</script>
+</body>
+</html>
