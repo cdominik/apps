@@ -58,6 +58,7 @@
   .tbtn svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   .tbtn:active { background: #e6e6ec; }
   .tbtn.active { background: var(--accent); color: #fff; }
+  #btnFingers.fingers-draw { background: #fdecc8; color: #8a5300; }
   .tbtn:disabled { opacity: 0.35; cursor: default; }
   .tbtn:focus-visible, .swatch:focus-visible, .wbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
@@ -70,7 +71,32 @@
   .wbtn span { display: block; border-radius: 50%; background: #333; }
   .wbtn.active { background: #e2e2e8; }
 
-  #pageLabel { min-width: 50px; text-align: center; font-size: 14px; font-variant-numeric: tabular-nums; color: #444; }
+  #pageLabel { min-width: 54px; height: 36px; text-align: center; font: inherit; font-size: 14px; font-variant-numeric: tabular-nums; color: #333; border: none; background: transparent; border-radius: 8px; cursor: pointer; }
+  #pageLabel:active { background: #e2e2e8; }
+
+  /* ---------- page overview ---------- */
+  #pagesView { position: absolute; inset: 0; z-index: 40; display: none; background: rgba(30,30,36,0.45);
+    padding: calc(14px + env(safe-area-inset-top, 0px)) 14px calc(14px + env(safe-area-inset-bottom, 0px)); }
+  #pagesView.visible { display: flex; justify-content: center; }
+  .pv-panel { background: #f2f2f6; border-radius: 14px; width: min(1180px, 100%); display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+  .pv-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #fff; border-bottom: 1px solid #e3e3e8; }
+  .pv-head h2 { flex: 1; font-size: 17px; margin: 0; font-weight: 600; }
+  .pv-head h2 small { font-weight: 400; color: #888; font-size: 14px; margin-left: 6px; }
+  .pv-head button { border: none; border-radius: 9px; padding: 10px 16px; font: inherit; font-size: 14px; cursor: pointer; background: #ececf0; color: #222; }
+  .pv-head button.primary { background: var(--accent); color: #fff; }
+  #pagesGrid { flex: 1; overflow-y: auto; touch-action: pan-y; -webkit-overflow-scrolling: touch; padding: 16px; display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; align-content: start; }
+  .pv-card { background: #fff; border-radius: 11px; border: 2px solid transparent; padding: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+  .pv-card.current { border-color: var(--accent); }
+  .pv-thumb { display: block; width: 100%; height: auto; border-radius: 6px; border: 1px solid #dedee4; cursor: pointer; }
+  .pv-row { display: flex; align-items: center; gap: 2px; margin-top: 6px; }
+  .pv-num { flex: 1; font-size: 14px; color: #444; font-variant-numeric: tabular-nums; padding-left: 4px; }
+  .pv-num em { font-style: normal; color: var(--accent); font-size: 12px; margin-left: 4px; }
+  .pv-row button { width: 40px; height: 40px; border: none; border-radius: 9px; background: transparent; color: #444; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+  .pv-row button:active { background: #ececf0; }
+  .pv-row button:disabled { opacity: 0.28; cursor: default; }
+  .pv-row button.danger { color: #b3261e; }
+  .pv-row svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
   /* ---------- popup menu ---------- */
   #menu {
@@ -104,6 +130,21 @@
   .seg button + button { border-left: 1px solid var(--ui-border); }
   .seg button.active { background: var(--accent); color: #fff; }
   #menu .version { font-size: 11px; color: #999; padding: 8px 10px 2px; text-align: right; }
+  #menu .mrow { display: flex; align-items: center; gap: 8px; padding: 3px 4px; }
+  #menu .mrow .seg { flex: 1; margin: 0; }
+  #menu .mrow .seg button { padding: 10px 2px; font-size: 13px; }
+  #menu .mlab { width: 52px; flex: none; font-size: 13px; color: #666; padding-left: 6px; }
+  #menu .mbtns { flex: 1; display: flex; gap: 6px; }
+  #menu .mbtns button { flex: 1; border: 1px solid var(--ui-border); background: #fff; border-radius: 9px; padding: 10px 2px; font: inherit; font-size: 13px; color: #222; cursor: pointer; }
+  #menu .mbtns button:active { background: #f0f0f4; }
+  #menu .mbtns button.danger { color: #b3261e; }
+  #menu .mdiv { border-top: 1px solid #eee; margin: 10px 0 2px; }
+  #menu button.item.nav { display: flex; justify-content: space-between; align-items: center; }
+  #menu .chev { color: #aaa; font-size: 20px; line-height: 1; }
+  #menu .mhead { display: flex; align-items: center; padding: 6px 2px 2px; }
+  #menu .mhead > span:nth-child(2) { flex: 1; text-align: center; font-weight: 600; font-size: 15px; }
+  #menu .mhead button, #menu .mhead-pad { width: 74px; }
+  #menu .mhead button { border: none; background: transparent; color: var(--accent); font: inherit; font-size: 15px; text-align: left; padding: 8px 6px; cursor: pointer; }
   #menuShield { position: absolute; inset: 0; z-index: 29; display: none; }
   #menuShield.visible { display: block; }
 
@@ -262,6 +303,7 @@
     <button class="tbtn" id="btnMenu" title="More" aria-label="More">
       <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="19" cy="12" r="1.3" fill="currentColor"/></svg>
     </button>
+    <button class="tbtn" id="btnFingers" title="Who draws" aria-label="Who draws"></button>
   </div>
   <div class="sep" id="menuSep"></div>
   <div class="group" id="tools">
@@ -303,7 +345,7 @@
   <div class="sep"></div>
   <div class="group" id="pages" aria-label="Pages">
     <button class="tbtn" id="btnPrev" title="Previous page (PgUp)" aria-label="Previous page"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
-    <span id="pageLabel">1 / 1</span>
+    <button id="pageLabel" title="All pages: reorder, duplicate, delete">1 / 1</button>
     <button class="tbtn" id="btnNext" title="Next page (PgDn)" aria-label="Next page"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
     <div class="sep"></div>
     <button class="tbtn" id="btnNewPage" title="New page after this one" aria-label="New page"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
@@ -392,69 +434,76 @@
     <button id="aggRandom">New random</button>
     <button id="aggRegen">Regenerate…</button>
     <button id="aggDuplicate">Duplicate</button>
+    <button id="aggCoords" title="Save the monomer positions and radii as a text file">Coordinates…</button>
     <button id="aggDelete" class="danger">Delete</button>
   </div>
 </div>
 
 <div id="menuShield"></div>
 <div id="menu" role="menu">
+ <div id="menuMain">
   <div class="section">This page</div>
-  <div class="row-label">Board</div>
-  <div class="seg" id="boardSeg">
-    <button data-board="light">White</button>
-    <button data-board="dark">Dark</button>
-  </div>
-  <div class="row-label">Format</div>
-  <div class="seg" id="formatSeg">
-    <button data-format="screen" title="The proportions of this screen">Screen</button>
-    <button data-format="16:9">16:9</button>
-    <button data-format="16:10">16:10</button>
-    <button data-format="4:3">4:3</button>
-    <button data-format="A4" title="A4 landscape">A4</button>
-  </div>
-  <button class="item" id="mClearPage">Clear this page</button>
-  <button class="item danger" id="mDeletePage">Delete this page…</button>
-
-  <div class="section">Export</div>
-  <button class="item" id="mPng">This page as image (PNG)…</button>
-  <button class="item" id="mSvg">This page as vector graphics (SVG)…</button>
-  <button class="item" id="mGif">This page as animation (video or GIF)…</button>
-  <div class="note">To export only part of a page, select it and tap SVG or Animation in the selection bar.</div>
+  <div class="mrow"><span class="mlab">Board</span>
+    <div class="seg" id="boardSeg"><button data-board="light">White</button><button data-board="dark">Dark</button></div></div>
+  <div class="mrow"><span class="mlab">Format</span>
+    <div class="seg" id="formatSeg">
+      <button data-format="screen" title="The proportions of this screen">Screen</button>
+      <button data-format="16:9">16:9</button>
+      <button data-format="16:10">16:10</button>
+      <button data-format="4:3">4:3</button>
+      <button data-format="A4" title="A4 landscape">A4</button>
+    </div></div>
+  <div class="mrow"><span class="mlab">Export</span>
+    <div class="mbtns">
+      <button id="mPng" title="This page as an image (PNG)">PNG</button>
+      <button id="mSvg" title="This page as vector graphics (SVG)">SVG</button>
+      <button id="mGif" title="This page as an animation (video or GIF)">Animation</button>
+    </div></div>
+  <div class="mrow"><span class="mlab"></span>
+    <div class="mbtns">
+      <button id="mClearPage">Clear page</button>
+      <button id="mDeletePage" class="danger">Delete page</button>
+    </div></div>
 
   <div class="section">Notebook</div>
-  <button class="item" id="mExport">Save notebook to file…</button>
-  <button class="item" id="mImport">Open notebook from file…</button>
+  <div class="mrow">
+    <div class="mbtns">
+      <button id="mPages" title="All pages: reorder, duplicate, delete">Pages</button>
+      <button id="mExport" title="Save the notebook to a file">Save to file</button>
+      <button id="mImport" title="Open a notebook from a file">Open file</button>
+    </div></div>
 
-  <div class="section">Settings</div>
-  <div class="row-label">New aggregates</div>
-  <div class="seg" id="createSeg">
-    <button data-create="box">Box</button>
-    <button data-create="circle">Circle</button>
-  </div>
-  <div class="row-label">Spin</div>
-  <div class="seg" id="spinSeg">
-    <button data-spin="rotate">Rotate</button>
-    <button data-spin="rock">Rock</button>
-  </div>
-  <div class="row-label">Writing hand</div>
-  <div class="seg" id="handSeg">
-    <button data-hand="right">Right</button>
-    <button data-hand="left">Left</button>
-  </div>
-  <div class="row-label">Finger input</div>
-  <div class="seg" id="fingerSeg">
-    <button data-mode="auto">Auto</button>
-    <button data-mode="draw">Draw</button>
-    <button data-mode="navigate">Pan &amp; zoom</button>
-  </div>
-
-  <div class="section">Help</div>
-  <button class="item" id="mHelp">Help</button>
-  <button class="item" id="mDiag">Input diagnostics</button>
-  <div class="version" id="versionLabel"></div>
-  <div class="version">&copy; 2026 Carsten Dominik &middot; MIT License</div>
+  <div class="mdiv"></div>
+  <button class="item nav" id="mSettings">Settings<span class="chev">&rsaquo;</span></button>
+  <button class="item nav" id="mHelp">Help<span class="chev">&rsaquo;</span></button>
+  <div class="version"><span id="versionLabel"></span> &middot; &copy; 2026 Carsten Dominik &middot; MIT License</div>
+ </div>
+ <div id="menuSettings" hidden>
+  <div class="mhead"><button id="mBack">&lsaquo; Menu</button><span>Settings</span><span class="mhead-pad"></span></div>
+  <div class="section">Drawing</div>
+  <div class="mrow"><span class="mlab">Hand</span>
+    <div class="seg" id="handSeg"><button data-hand="right">Right</button><button data-hand="left">Left</button></div></div>
+  <div class="section">Aggregates</div>
+  <div class="mrow"><span class="mlab">New</span>
+    <div class="seg" id="createSeg"><button data-create="box">Box</button><button data-create="circle">Circle</button></div></div>
+  <div class="mrow"><span class="mlab">Spin</span>
+    <div class="seg" id="spinSeg"><button data-spin="rotate">Rotate</button><button data-spin="rock">Rock</button></div></div>
+  <div class="section">Troubleshooting</div>
+  <button class="item nav" id="mDiag">Input diagnostics<span class="chev">&rsaquo;</span></button>
+ </div>
 </div>
 <input type="file" id="fileInput" accept=".json,application/json" hidden>
+
+<div id="pagesView">
+  <div class="pv-panel">
+    <div class="pv-head">
+      <h2>Pages<small id="pagesCount"></small></h2>
+      <button id="pagesNew">New page</button>
+      <button id="pagesDone" class="primary">Done</button>
+    </div>
+    <div id="pagesGrid"></div>
+  </div>
+</div>
 
 <div class="modal" id="gifDlg">
   <div class="panel gif">
@@ -498,7 +547,7 @@
     <h3>Getting started</h3>
     <ul>
       <li><b>Toolbar</b>, from left to right: the <b>&hellip;</b> menu (on the right for left-handed use) &middot; pen, eraser, select, laser, particle chain, aggregate box &middot; five ink colours &middot; three line widths &middot; Undo, Redo, spin (show 3D) &middot; page controls: previous / next page, page number, <b>+</b> new page, fit page to screen, and the broom to clear the page.</li>
-      <li><b>Pencil and fingers:</b> once an Apple Pencil is detected, the pencil draws and fingers move the page (one finger pans, two fingers pinch to zoom). Without a pencil, one finger draws.</li>
+      <li><b>Pencil and fingers:</b> the button next to <b>&hellip;</b> shows who draws. <b>Pencil symbol:</b> the Pencil draws, one finger pans, two fingers pinch to zoom, and your palm is ignored. <b>Finger symbol</b> (tinted): one finger draws. Tap the button to switch, for example when you put the Pencil away. As soon as the Pencil touches the screen, it switches back to the Pencil by itself (a short message says so). Without a Pencil, fingers draw from the start.</li>
     </ul>
 
     <h3>Drawing</h3>
@@ -521,7 +570,7 @@
     </ul>
 
     <h3>Aggregates</h3>
-    <p>Choose the <b>aggregate tool</b> and place an aggregate in one of two ways (<b>&hellip; &rarr; Settings &rarr; New aggregates</b>):</p>
+    <p>Choose the <b>aggregate tool</b> and place an aggregate in one of two ways (<b>&hellip; &rarr; Settings &rarr; Aggregates: New</b>):</p>
     <ul>
       <li><b>Circle</b> (dashed-circle icon, the default): put the pencil at the <b>centre</b> and drag sideways. The horizontal distance sets the aggregate's outer radius; moving <b>up makes the monomers bigger</b>, moving <b>down makes them smaller</b>. A ring at the pencil and a second one on the opposite side of the circle show the monomer size; a label shows D<sub>f</sub>, a and N. To change D<sub>f</sub> while drawing the circle, <b>draw small loops</b>: clockwise raises it, anticlockwise lowers it (about 0.3 per loop, part of a loop gives part of that; the label shows &#8635;); size and monomer size stay put while you loop, and a straight movement releases them. With a keyboard: <kbd>Z</kbd> lower / <kbd>X</kbd> higher, or <kbd>&darr;</kbd>/<kbd>&uarr;</kbd> (with <kbd>Shift</kbd> in finer steps); with a mouse: the scroll wheel. Rest the pencil briefly to see the real aggregate; lift to place it.</li>
       <li><b>Box</b> (dashed-box icon): drag a box; when you lift, it fills with a 3D fractal aggregate.</li>
@@ -542,6 +591,7 @@
       <li><b>Advanced</b> &mdash; the prefactor k<sub>f</sub> in N = k<sub>f</sub> (R<sub>g</sub>/a)<sup>D<sub>f</sub></sup>. <i>Auto</i> picks a value that works across the whole D<sub>f</sub> range.</li>
       <li><b>Size spread &sigma;<sub>g</sub></b> &mdash; makes the monomers polydisperse: radii follow a log-normal distribution with geometric standard deviation &sigma;<sub>g</sub> (1 = all equal, up to 1.4), limited to between half and twice the monomer size. The monomer size is then the geometric mean radius a<sub>g</sub>, and the scaling law N = k<sub>f</sub> (R<sub>g</sub>/a<sub>g</sub>)<sup>D<sub>f</sub></sup> uses the mass-weighted R<sub>g</sub> (each monomer weighted by its volume). While growing, the aggregate follows its accumulated mass (counted in average monomer masses) rather than the monomer count, so that a monomer's size does not decide where it goes; the law then holds on average, typically within a few percent, and for nearly straight chains (D<sub>f</sub> close to 1) only roughly.</li>
       <li><b>Advanced</b> (per aggregate): the prefactor <b>k<sub>f</sub></b> (Auto chooses it from D<sub>f</sub> and the size spread so that the scaling law can be met, or set a fixed value); the <b>subcluster size</b> for cluster&ndash;cluster aggregates (Auto &asymp; N<sup>0.4</sup>, or fixed from 2 to 500: small = more hierarchical, closer to pure cluster&ndash;cluster aggregation; large = more particle&ndash;cluster-like). New aggregates use the values you last set. For a bent string rather than a straight rod, lower D<sub>f</sub> a little (1.2&ndash;1.3) instead of using D<sub>f</sub> = 1.</li>
+      <li><b>Coordinates&hellip;</b> saves the monomers as a text file, one line per monomer: <code>index radius x y z</code>, in units of the monomer radius (for a size spread: of the geometric mean radius), in the orientation shown on the board (x right, y up, z toward you), centred on the centre of mass. Header lines start with <code>#</code> and record N, D<sub>f</sub>, k<sub>f</sub>, method, seed and R<sub>g</sub>; the file reads directly with <code>numpy.loadtxt</code>, Matlab, gnuplot or Fortran.</li>
       <li><b>Show: Numbers</b> &mdash; a label below the aggregate with N, D<sub>f</sub>, k<sub>f</sub>, the monomer radius a (a<sub>g</sub> and &sigma;<sub>g</sub> for polydisperse monomers), R<sub>g</sub> and the outer radius R<sub>out</sub> (in units of a), and the filling factor &phi; = (total monomer volume)/R<sup>3</sup> in units of a, i.e. N (a/R)<sup>3</sup> for equal monomers, with R = &radic;(5/3) R<sub>g</sub>, the radius of a uniform sphere with the same R<sub>g</sub> (so &phi; &prop; N<sup>1&minus;3/D<sub>f</sub></sup>). <b>Show: R<sub>g</sub> circle</b> &mdash; a dashed circle of radius R<sub>g</sub> around the centre of mass (cross), and a dotted circle at R<sub>out</sub>. <b>Show: Growth order / Subclusters</b> &mdash; colours the monomers by how the aggregate was built. Particle&ndash;cluster: by the order they were added, from purple (first, at the centre) through blue and green to yellow (last, at the rim). Cluster&ndash;cluster: each subcluster in its own colour, which shows the patches it was assembled from. Hand-drawn parts of an edited aggregate stay grey. <b>Show: Mass&ndash;radius</b> &mdash; rings at r = 2a, 4a, 8a, &hellip; around one monomer (the one closest to the centre of mass, marked with a dot), each labelled with the number of monomers within that distance in 3D; and a small log-log plot of &lang;N(r)&rang;, the same count averaged over many monomers as centres. Its straight part has slope D<sub>f</sub>: the slope fitted between 3a and 0.7&nbsp;R<sub>g</sub> is shown next to the target D<sub>f</sub>. At larger r the curve levels off at N. (Averaging matters: the centre of mass of a fluffy aggregate often lies in empty space.) All of these belong to the aggregate: they move, scale and spin with it and appear in exports. New aggregates use your last choice.</li>
       <li><b>Readout</b> &mdash; N, R<sub>g</sub> (in monomer radii a), D<sub>f</sub> fitted from the growth history as a check, and the anisotropy (largest over smallest principal radius of gyration).</li>
     </ul>
@@ -550,7 +600,7 @@
     <ul>
       <li>Tap the <b>spin</b> button (next to Undo/Redo, or <kbd>Space</kbd>) and the aggregates make <b>one full rotation</b> (8 seconds) and end where they were. <b>Press and hold</b> it (or <kbd>Shift</kbd>+<kbd>Space</kbd>) to keep them rotating; tap again to stop, and they glide back.</li>
       <li><b>&hellip; &rarr; Settings &rarr; Spin: Rock</b> makes the same button <b>rock</b> the aggregates instead: they swing back and forth by about 35&deg; around their orientation (one swing per tap, continuous when held). The small motion shows the depth very clearly, the aggregate never faces away, and arrows or labels you have drawn stay roughly valid. <i>Rotate</i> shows all sides, including the back.</li>
-      <li><b>As an animation file:</b> &hellip; &rarr; Export &rarr; <b>This page as animation</b>, or select some aggregates and tap <b>Animation</b> in the selection bar (cropped to the selection, with room for the turning aggregates). Choose the format, rotate or rock, size and smoothness; you get a preview, then <b>Save&hellip;</b>. Both formats contain exactly one cycle. <b>Video (MP4)</b> is small and sharp and plays in PowerPoint and Keynote (set it to loop there); <b>GIF</b> repeats by itself and works anywhere, but its files are much larger. Video needs a browser with WebCodecs (current Chrome, Edge, Safari, and every browser on a current iPad).</li>
+      <li><b>As an animation file:</b> &hellip; &rarr; Export: <b>Animation</b>, or select some aggregates and tap <b>Animation</b> in the selection bar (cropped to the selection, with room for the turning aggregates). Choose the format, rotate or rock, size and smoothness; you get a preview, then <b>Save&hellip;</b>. Both formats contain exactly one cycle. <b>Video (MP4)</b> is small and sharp and plays in PowerPoint and Keynote (set it to loop there); <b>GIF</b> repeats by itself and works anywhere, but its files are much larger. Video needs a browser with WebCodecs (current Chrome, Edge, Safari, and every browser on a current iPad).</li>
       <li>If aggregates are selected, only those spin; otherwise all of them on the page. They rotate in step about a slightly tilted axis, so you also see a little of the top and bottom.</li>
       <li>The spin holds still while the pencil, a finger or the mouse touches the page, so you can point or annotate; it continues when you lift.</li>
       <li>It is for display only: the orientation you set with the rotate handle is what is saved and exported, and what you get back when the spin ends.</li>
@@ -566,30 +616,33 @@
 
     <h3>Pages and boards</h3>
     <ul>
+      <li><b>Page overview:</b> tap the page number in the toolbar (or <b>&hellip; &rarr; Notebook: Pages</b>) to see all pages as thumbnails. Tap one to go there. Under each thumbnail: <b>move earlier</b>, <b>move later</b>, <b>duplicate</b> (a full copy right after it) and <b>delete</b>. <b>New page</b> adds an empty page at the end.</li>
       <li><b>&hellip; &rarr; This page &rarr; Board</b> switches between a white page and a <b>dark board</b>, which is easier on the eyes when projecting. New pages get the board of the page you are on. On the dark board, black ink shows as chalk white and the other colours brighter; switching back shows everything exactly as written.</li>
       <li><b>&hellip; &rarr; This page &rarr; Format</b> sets the page proportions: <i>Screen</i> (the shape of the drawing area right now, so the whole screen is board), 16:9, 16:10, 4:3 or A4 landscape. All formats have the same width, only the height differs, so switching never moves your drawing sideways. If content ends up below the new bottom edge, a message offers Undo. New pages get the format of the page you are on.</li>
-      <li><b>Clear</b> a page with the broom at the right end of the toolbar (or <b>&hellip; &rarr; This page</b>); tap <b>Undo</b> in the message to bring it back. <b>Delete this page</b> removes the page itself and cannot be undone.</li>
+      <li><b>Clear</b> a page with the broom at the right end of the toolbar (or <b>&hellip; &rarr; This page: Clear page</b>); tap <b>Undo</b> in the message to bring it back. <b>Delete page</b> (in the menu or the page overview) removes the page itself; the message that follows also offers <b>Undo</b>.</li>
     </ul>
 
     <h3>Exporting</h3>
     <ul>
-      <li><b>&hellip; &rarr; Export &rarr; This page as image (PNG)</b> &mdash; a picture at twice the page size (3200&times;1800 for 16:9).</li>
-      <li><b>&hellip; &rarr; Export &rarr; This page as vector graphics (SVG)</b> &mdash; sharp at any size; opens in browsers, Inkscape, Illustrator, Keynote and PowerPoint.</li>
-      <li><b>For figures:</b> select what you want and tap <b>SVG</b> in the selection bar. Only the selection is exported, cropped, on a transparent background (dark-board pages keep their dark background).</li>
+      <li><b>&hellip; &rarr; Export: PNG</b> &mdash; the page as a picture at twice the page size (3200&times;1800 for 16:9).</li>
+      <li><b>&hellip; &rarr; Export: SVG</b> &mdash; the page as vector graphics, sharp at any size; opens in browsers, Inkscape, Illustrator, Keynote and PowerPoint.</li>
+      <li><b>&hellip; &rarr; Export: Animation</b> &mdash; the spin as a video or GIF (see <i>Showing the 3D structure</i>).</li>
+      <li><b>For figures:</b> select what you want and tap <b>SVG</b> (or <b>Animation</b>) in the selection bar. Only the selection is exported, cropped, on a transparent background (dark-board pages keep their dark background).</li>
     </ul>
 
     <h3>Saving, sharing, offline</h3>
     <ul>
       <li>Notebooks are stored in this browser on this device, automatically. Different browsers (and the Home Screen app) keep separate notebooks.</li>
       <li>On iPad, <b>add AggBoard to the Home Screen</b>: Safari may otherwise delete a website's data after a week without use.</li>
-      <li><b>&hellip; &rarr; Notebook &rarr; Save notebook to file</b> for backups, to move a notebook to another browser or device, or to give it to someone; they use <b>Open notebook from file</b>.</li>
+      <li><b>&hellip; &rarr; Notebook: Save to file</b> for backups, to move a notebook to another browser or device, or to give it to someone; they use <b>Open file</b>.</li>
       <li><b>Offline:</b> after one visit with a network connection, AggBoard starts without network. When a new version has been downloaded, a message with <b>Reload</b> appears; nothing changes until you tap it.</li>
     </ul>
 
     <h3>Settings, mouse and keyboard</h3>
     <ul>
-      <li><b>&hellip; &rarr; Settings &rarr; Writing hand:</b> with <i>Left</i>, the &hellip; button, the menu and the D<sub>f</sub> scale move to the right side, away from your writing hand.</li>
-      <li><b>&hellip; &rarr; Settings &rarr; Finger input:</b> <i>Auto</i> (fingers draw until a pencil is detected), <i>Draw</i> (one finger always draws), <i>Pan &amp; zoom</i> (one finger always moves the page). Your palm is ignored while the pencil is on the screen.</li>
+      <li><b>&hellip; &rarr; Settings</b> opens the settings inside the menu (<b>&lsaquo; Menu</b> goes back): writing hand, how new aggregates are placed, spin style, and input diagnostics. Whether fingers draw is the button next to <b>&hellip;</b> (see <i>Drawing</i>).</li>
+      <li><b>Hand:</b> with <i>Left</i>, the &hellip; button, the menu and the D<sub>f</sub> scale move to the right side, away from your writing hand.</li>
+
       <li><b>Mouse / trackpad:</b> click to draw or select, double-click an aggregate for its settings, right- or middle-drag to pan, two-finger swipe to pan, pinch or Ctrl + wheel to zoom.</li>
       <li><b>Keys:</b> <kbd>P</kbd> pen &middot; <kbd>E</kbd> eraser &middot; <kbd>S</kbd> select &middot; <kbd>L</kbd> laser &middot; <kbd>C</kbd> chain &middot; <kbd>A</kbd> aggregate &middot; <kbd>1</kbd>&ndash;<kbd>5</kbd> colours &middot; <kbd>[</kbd> / <kbd>]</kbd> thinner / thicker line &middot; <kbd>Ctrl/&#8984; Z</kbd> undo &middot; <kbd>Ctrl/&#8984; Shift Z</kbd> redo &middot; <kbd>Ctrl/&#8984; D</kbd> duplicate &middot; <kbd>Delete</kbd> delete selection &middot; <kbd>PgUp</kbd>/<kbd>PgDn</kbd> pages &middot; <kbd>Z</kbd>/<kbd>X</kbd> or <kbd>&darr;</kbd>/<kbd>&uarr;</kbd> lower / higher D<sub>f</sub> while placing a circle aggregate &middot; <kbd>0</kbd> fit page &middot; <kbd>Space</kbd> one rotation or swing / stop, <kbd>Shift</kbd>+<kbd>Space</kbd> keep going &middot; <kbd>Esc</kbd> close menus and dialogs, or deselect.</li>
     </ul>
@@ -598,7 +651,7 @@
     <ul>
       <li><b>Version:</b> shown at the bottom of the <b>&hellip;</b> menu.</li>
       <li><b>&ldquo;Update incomplete&rdquo;:</b> some files on the web server are from an older version. Check that all files were uploaded, wait a few minutes, then reload.</li>
-      <li><b>Pencil problems:</b> open <b>&hellip; &rarr; Help &rarr; Input diagnostics</b>, reproduce the problem, tap <b>Copy</b> and send the text. It records what the device reports and what the app did with it; nothing is sent anywhere by itself.</li>
+      <li><b>Pencil problems:</b> open <b>&hellip; &rarr; Settings &rarr; Input diagnostics</b>, reproduce the problem, tap <b>Copy</b> and send the text. It records what the device reports and what the app did with it; nothing is sent anywhere by itself.</li>
     </ul>
 
     <p style="margin-top:14px;color:#777;font-size:12px">AggBoard &copy; 2026 Carsten Dominik. Free software under the MIT License.</p>
@@ -617,12 +670,12 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="aggregate-engine.js?v=2026.10.19-9"></script>
-<script src="app.js?v=2026.10.19-9"></script>
+<script src="aggregate-engine.js?v=2026.10.19-14"></script>
+<script src="app.js?v=2026.10.19-14"></script>
 <script>
   // Warn if the browser mixed files from different releases (e.g. a stale cached app.js).
   (function () {
-    var want = '2026.10.19-9';
+    var want = '2026.10.19-14';
     var okApp = window.AGGBOARD_VERSION === want;
     var okEngine = window.AggEngine && window.AggEngine.release === want;
     if (okApp && okEngine) return;

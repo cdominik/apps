@@ -9,7 +9,7 @@
   // Configuration
   // ============================================================
   // Bump on every release: shown in the menu, and used to bypass cached program files.
-  const VERSION = '2026.10.19-9';
+  const VERSION = '2026.10.19-14';
   window.AGGBOARD_VERSION = VERSION;
   const CONFIG = {
     MENU_URL: null,            // e.g. '../index.html' to show a "back to menu" button
@@ -57,7 +57,7 @@
   const settings = (() => {
     const d = {
       tool: 'pen', color: INK[0].v, width: 1,
-      fingerMode: 'auto', penSeen: false,
+      fingersDraw: true, penSeen: false,   // who draws with one finger; the Pencil switches it off
       agg: { a: 10, df: 1.8, kf: null, ns: null, color: AGG_COLORS[0], method: 'cca', sigma: 1 },
       chain: { temp: 0.25 },
       aggCreate: 'circle',       // 'box' | 'circle': how the aggregate tool places a new aggregate
@@ -70,8 +70,11 @@
         if (['pen', 'eraser', 'select', 'laser', 'chain'].includes(s.tool)) d.tool = s.tool;
         if (INK.some(c => c.v === s.color)) d.color = s.color;
         if (s.width >= 0 && s.width < WIDTHS.length) d.width = s.width | 0;
-        if (['auto', 'draw', 'navigate'].includes(s.fingerMode)) d.fingerMode = s.fingerMode;
         d.penSeen = !!s.penSeen;
+        if (typeof s.fingersDraw === 'boolean') d.fingersDraw = s.fingersDraw;
+        else if (s.fingerMode === 'draw') d.fingersDraw = true;          // earlier three-way setting
+        else if (s.fingerMode === 'navigate') d.fingersDraw = false;
+        else d.fingersDraw = !d.penSeen;
         if (s.agg) {
           if (s.agg.a >= 0.5 && s.agg.a <= 200) d.agg.a = +s.agg.a;
           if (s.agg.df >= 1 && s.agg.df <= 3) d.agg.df = +s.agg.df;
@@ -1222,7 +1225,11 @@
   function finishChain(a, isTap, p) {
     let startHit = a.startHit;
     const pathAbs = a.pts.slice();
+    // The aggregate may have been regenerated while the chain was drawn: find the sphere
+    // under the starting point again in its current version (or start a free chain).
+    if (startHit && findItem(startHit.item.id) !== startHit.item) startHit = sphereAt({ x: pathAbs[0], y: pathAbs[1] });
     if (isTap && startHit) { if (handleTap(p) === 'single-agg') selectIds([startHit.item.id]); return; }
+    if (isTap && a.deselected) return;   // a tap that only deselected places no sphere
     let endHit = isTap ? null : sphereAt({ x: pathAbs[pathAbs.length - 2], y: pathAbs[pathAbs.length - 1] });
     if (!startHit && endHit) {            // attach at the end only: walk the stroke backwards
       startHit = endHit; endHit = null;
@@ -2010,7 +2017,7 @@
       'AggBoard input diagnostics',
       'userAgent: ' + navigator.userAgent,
       `screen ${window.innerWidth}x${window.innerHeight} dpr ${window.devicePixelRatio} maxTouchPoints ${navigator.maxTouchPoints}`,
-      `fingerMode ${settings.fingerMode} penSeen ${settings.penSeen} coalesced ${typeof PointerEvent !== 'undefined' && 'getCoalescedEvents' in PointerEvent.prototype} predicted ${typeof PointerEvent !== 'undefined' && 'getPredictedEvents' in PointerEvent.prototype}`,
+      `fingersDraw ${settings.fingersDraw} penSeen ${settings.penSeen} coalesced ${typeof PointerEvent !== 'undefined' && 'getCoalescedEvents' in PointerEvent.prototype} predicted ${typeof PointerEvent !== 'undefined' && 'getPredictedEvents' in PointerEvent.prototype}`,
       `summary: strokes ${diag.started}, saved ${diag.saved}, interrupted ${diag.interrupted}, ignored ${diag.ignored}`,
       '',
     ].join('\n');
@@ -2068,17 +2075,30 @@
   const PALM_ALWAYS = 80;    // px; with a pencil in use, contacts this large are a palm at any time
   const isPalmSize = (e) => e.pointerType === 'touch' && e.width > PALM_ALWAYS && e.height > PALM_ALWAYS;
 
-  const fingersDraw = () => settings.fingerMode === 'draw' || (settings.fingerMode === 'auto' && !settings.penSeen);
+  const fingersDraw = () => settings.fingersDraw;
   const pressureOf = (e) => (e.pointerType === 'pen' && e.pressure > 0 ? e.pressure : 0.5);
   const screenPt = (e) => ({ x: e.clientX, y: e.clientY });
 
+  // Any Pencil contact hands drawing back to the Pencil: fingers move the page again.
   function notePen() {
-    if (settings.penSeen) return;
+    const first = !settings.penSeen;
+    if (!first && !settings.fingersDraw) return;
     settings.penSeen = true;
+    if (settings.fingersDraw) {
+      settings.fingersDraw = false;
+      toast(first ? 'Apple Pencil detected: the Pencil draws, fingers move the page. The finger button next to … lets fingers draw again.'
+                  : 'Pencil: fingers move the page again.', first ? 6000 : 2500);
+    }
     saveSettings();
-    if (settings.fingerMode === 'auto') toast('Pencil detected: the pencil draws, fingers pan and zoom.');
     updateChrome();
   }
+  function setFingersDraw(on) {
+    settings.fingersDraw = on;
+    saveSettings();
+    updateChrome();
+    toast(on ? (settings.penSeen ? 'Fingers draw. Touch the screen with the Pencil to switch back.' : 'Fingers draw.') : 'Fingers move the page.', 3000);
+  }
+  $('btnFingers').addEventListener('click', () => setFingersDraw(!settings.fingersDraw));
 
   board.addEventListener('contextmenu', (e) => e.preventDefault());
   board.addEventListener('pointerdown', onDown);
@@ -2161,6 +2181,7 @@
       const b = selectionBounds();
       if (b && inRect(p, b, 8 / view.scale)) { action = { ...base, kind: 'move', dx: 0, dy: 0 }; requestRender(); return; }   // selected things move, with any tool
       clearSelection();
+      base.deselected = true;   // a tap that only deselects leaves no mark; a stroke started here still draws
     }
 
     switch (settings.tool) {
@@ -2519,6 +2540,7 @@
       const r = handleTap(p);
       if (r === 'double') return;
       if (r === 'single-agg') { selectIds([topAggAt(p).id]); return; }
+      if (a.deselected) { dlog('  -> tap only deselected, no dot'); return; }
     }
     commitPendingDot();
     pushUndo();
@@ -2909,9 +2931,11 @@
     });
   }
   $('btnRedo').addEventListener('click', redo);
-  $('versionLabel').textContent = 'AggBoard version ' + VERSION;
+  $('versionLabel').textContent = 'AggBoard ' + VERSION;
   if (CONFIG.MENU_URL) { $('btnHome').href = CONFIG.MENU_URL; $('btnHome').hidden = false; }
 
+  const PENCIL_ICON = '<svg viewBox="0 0 24 24"><path d="M15.6 3.6a2 2 0 0 1 2.8 0l2 2a2 2 0 0 1 0 2.8L9 19.8 4 21l1.2-5z"/><path d="M5.2 16l2.8 2.8"/><path d="M14 6l4 4"/></svg>';
+  const FINGER_ICON = '<svg viewBox="0 0 24 24"><path d="M9 13.5V5a1.6 1.6 0 0 1 3.2 0v6"/><path d="M12.2 10.5a1.6 1.6 0 0 1 3.2 0v1.2"/><path d="M15.4 11.3a1.6 1.6 0 0 1 3.2 0V15c0 3.6-2.5 6-5.8 6h-.9c-1.9 0-3.3-.8-4.4-2.4l-2.7-4a1.5 1.5 0 0 1 2.4-1.8L9 15"/></svg>';
   function updateChrome() {
     setColorUI();
     for (const b of $('boardSeg').children) b.classList.toggle('active', b.dataset.board === themeOf(curPage()));
@@ -2923,7 +2947,12 @@
     $('btnPrev').disabled = nb.current === 0;
     $('btnNext').disabled = nb.current === nb.pages.length - 1;
     $('btnClearPage').disabled = !items().length;
-    for (const b of $('fingerSeg').children) b.classList.toggle('active', b.dataset.mode === settings.fingerMode);
+    const fb = $('btnFingers'), fd = settings.fingersDraw;
+    fb.classList.toggle('fingers-draw', fd);
+    fb.innerHTML = fd ? FINGER_ICON : PENCIL_ICON;
+    fb.title = fd ? 'Fingers draw. Tap: fingers move the page (the Pencil also switches back)' : 'The Pencil draws, fingers move the page. Tap: let fingers draw';
+    fb.setAttribute('aria-label', fd ? 'Fingers draw' : 'Pencil draws, fingers move the page');
+    fb.setAttribute('aria-pressed', fd ? 'true' : 'false');
   }
 
   // ============================================================
@@ -2963,18 +2992,175 @@
     toast('Page cleared.', 6000, { label: 'Undo', fn: () => { if (curPage() === pg) undo(); } });
   }
   function deletePage() {
-    if (nb.pages.length === 1) {
-      if (!items().length) return;
-      if (!confirm('This is the only page. Clear it? (You can undo this.)')) return;
-      pushUndo();
-      setItems([]);
+    if (nb.pages.length === 1) {   // the only page: clearing it is the closest thing, and undoable
+      if (!items().length) { toast('This is the only page, and it is already empty.'); return; }
+      clearPage();
       return;
     }
-    if (!confirm(`Delete page ${nb.current + 1}? This cannot be undone.`)) return;
-    histories.delete(curPage().id);
-    nb.pages.splice(nb.current, 1);
-    goToPage(Math.min(nb.current, nb.pages.length - 1));
+    deletePageAt(nb.current);
   }
+  // Delete page i; the message offers Undo (the page, its undo history and position come back).
+  function deletePageAt(i) {
+    if (nb.pages.length <= 1 || i < 0 || i >= nb.pages.length) return;
+    const pg = nb.pages[i], wasCurrent = i === nb.current;
+    nb.pages.splice(i, 1);
+    nb.modified = Date.now();
+    if (wasCurrent) goToPage(Math.min(i, nb.pages.length - 1));
+    else { if (i < nb.current) nb.current--; scheduleSave(); updateChrome(); }
+    if (pagesOpen()) renderPagesGrid();
+    toast(`Page ${i + 1} deleted.`, 7000, { label: 'Undo', fn: () => {
+      if (nb.pages.includes(pg)) return;
+      const cur = curPage();
+      nb.pages.splice(Math.min(i, nb.pages.length), 0, pg);
+      nb.current = nb.pages.indexOf(cur);
+      nb.modified = Date.now();
+      if (wasCurrent && !pagesOpen()) goToPage(nb.pages.indexOf(pg));
+      else { scheduleSave(); updateChrome(); }
+      if (pagesOpen()) renderPagesGrid();
+    } });
+  }
+  function movePage(i, d) {
+    const j = i + d;
+    if (j < 0 || j >= nb.pages.length) return;
+    const cur = curPage();
+    [nb.pages[i], nb.pages[j]] = [nb.pages[j], nb.pages[i]];
+    nb.current = nb.pages.indexOf(cur);
+    nb.modified = Date.now();
+    scheduleSave(); updateChrome();
+    if (pagesOpen()) renderPagesGrid();
+  }
+  // A full copy right after page i. Everything gets new ids, so the copy and the
+  // original never get mixed up (aggregate regeneration finds items by id).
+  function duplicatePage(i) {
+    const pg = nb.pages[i];
+    const copy = { ...pg, id: uid(), items: pg.items.map(it => ({ ...it, id: uid() })) };
+    const cur = curPage();
+    nb.pages.splice(i + 1, 0, copy);
+    nb.current = nb.pages.indexOf(cur);
+    nb.modified = Date.now();
+    scheduleSave(); updateChrome();
+    if (pagesOpen()) renderPagesGrid(i + 1);
+    toast(`Page ${i + 1} duplicated: the copy is page ${i + 2}.`, 3500);
+  }
+  function addPageAtEnd() {
+    const last = nb.pages[nb.pages.length - 1];
+    const pg = { id: uid(), items: [] };
+    if (curPage().bg === 'dark') pg.bg = 'dark';
+    if (curPage().h) { pg.h = curPage().h; pg.format = curPage().format; }
+    nb.pages.push(pg);
+    nb.modified = Date.now();
+    scheduleSave(); updateChrome();
+    if (pagesOpen()) renderPagesGrid(nb.pages.length - 1);
+    return last;
+  }
+
+  // ---------- page overview ----------
+  const pagesView = $('pagesView'), pagesGrid = $('pagesGrid');
+  const pagesOpen = () => pagesView.classList.contains('visible');
+  const THUMB_W = 420;                       // canvas pixels (shown at about half that)
+  const thumbCache = new WeakMap();          // items array -> { key, canvas }
+  let thumbQueue = [], thumbTimer = 0;
+  function pageThumb(pg) {
+    const theme = themeOf(pg), H = pageH(pg), key = theme + '|' + H;
+    const e = thumbCache.get(pg.items);
+    if (e && e.key === key) return e.canvas;
+    const c = document.createElement('canvas');
+    c.width = THUMB_W; c.height = Math.round(THUMB_W * H / PW);
+    const x = c.getContext('2d'), k = THUMB_W / PW;
+    x.fillStyle = THEMES[theme].page; x.fillRect(0, 0, c.width, c.height);
+    x.setTransform(k, 0, 0, k, 0, 0);
+    const prevTheme = renderTheme; renderTheme = theme;
+    try {
+      for (const it of pg.items) {
+        if (it.type === 'stroke') { drawStroke(x, it, theme); continue; }
+        if (it.pts && it.n) {
+          const bmp = renderAggBitmap(it, k);
+          x.drawImage(bmp.canvas, it.x + it.w / 2 + bmp.ox, it.y + it.h / 2 + bmp.oy, bmp.canvas.width / bmp.ppu, bmp.canvas.height / bmp.ppu);
+          drawOverlays(x, it, theme, 1 / k);
+        } else {
+          x.setLineDash([8, 6]); x.lineWidth = 3; x.strokeStyle = 'rgba(60,120,200,0.6)'; x.strokeRect(it.x, it.y, it.w, it.h); x.setLineDash([]);
+        }
+      }
+    } finally { renderTheme = prevTheme; }
+    thumbCache.set(pg.items, { key, canvas: c });
+    return c;
+  }
+  const PV_ICONS = {
+    left: '<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
+    right: '<svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>',
+    dup: '<svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>',
+    del: '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>',
+  };
+  function renderPagesGrid(scrollTo = -1) {
+    const keep = pagesGrid.scrollTop;
+    clearTimeout(thumbTimer); thumbQueue = [];
+    const N = nb.pages.length;
+    $('pagesCount').textContent = `${N} page${N === 1 ? '' : 's'}`;
+    pagesGrid.textContent = '';
+    nb.pages.forEach((pg, i) => {
+      const card = document.createElement('div');
+      card.className = 'pv-card' + (i === nb.current ? ' current' : '');
+      card.dataset.page = String(i);
+      const cv = document.createElement('canvas');
+      cv.className = 'pv-thumb';
+      cv.width = THUMB_W; cv.height = Math.round(THUMB_W * pageH(pg) / PW);
+      cv.dataset.act = 'go';
+      cv.setAttribute('aria-label', `Go to page ${i + 1}`);
+      const cx = cv.getContext('2d');
+      cx.fillStyle = THEMES[themeOf(pg)].page; cx.fillRect(0, 0, cv.width, cv.height);
+      card.appendChild(cv);
+      const row = document.createElement('div');
+      row.className = 'pv-row';
+      row.innerHTML = `<span class="pv-num">${i + 1}${i === nb.current ? '<em>current</em>' : ''}</span>` +
+        `<button data-act="left" title="Move earlier" aria-label="Move page ${i + 1} earlier"${i === 0 ? ' disabled' : ''}>${PV_ICONS.left}</button>` +
+        `<button data-act="right" title="Move later" aria-label="Move page ${i + 1} later"${i === N - 1 ? ' disabled' : ''}>${PV_ICONS.right}</button>` +
+        `<button data-act="dup" title="Duplicate" aria-label="Duplicate page ${i + 1}">${PV_ICONS.dup}</button>` +
+        `<button data-act="del" class="danger" title="Delete" aria-label="Delete page ${i + 1}"${N === 1 ? ' disabled' : ''}>${PV_ICONS.del}</button>`;
+      card.appendChild(row);
+      pagesGrid.appendChild(card);
+      thumbQueue.push([cv, pg]);
+    });
+    pagesGrid.scrollTop = keep;
+    if (scrollTo >= 0 && pagesGrid.children[scrollTo] && pagesGrid.children[scrollTo].scrollIntoView) pagesGrid.children[scrollTo].scrollIntoView({ block: 'nearest' });
+    pumpThumbs();
+  }
+  // Thumbnails are drawn one per tick, so the overview opens at once.
+  function pumpThumbs() {
+    const job = thumbQueue.shift();
+    if (!job) return;
+    const [cv, pg] = job;
+    try { cv.getContext('2d').drawImage(pageThumb(pg), 0, 0); } catch (err) { console.warn('Thumbnail failed:', err); }
+    thumbTimer = setTimeout(pumpThumbs, 0);
+  }
+  function openPages() {
+    closeMenu();
+    stopSpin(false);
+    commitPendingDot();
+    action = null;
+    closePanel();
+    pagesView.classList.add('visible');
+    renderPagesGrid(nb.current);
+  }
+  function closePages() {
+    clearTimeout(thumbTimer); thumbQueue = [];
+    pagesView.classList.remove('visible');
+    pagesGrid.textContent = '';
+  }
+  pagesGrid.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-act]'), card = e.target.closest('.pv-card');
+    if (!el || !card || el.disabled) return;
+    const i = +card.dataset.page;
+    switch (el.dataset.act) {
+      case 'go': closePages(); if (i !== nb.current) goToPage(i); break;
+      case 'left': movePage(i, -1); break;
+      case 'right': movePage(i, 1); break;
+      case 'dup': duplicatePage(i); break;
+      case 'del': deletePageAt(i); break;
+    }
+  });
+  $('pagesDone').addEventListener('click', closePages);
+  $('pagesNew').addEventListener('click', addPageAtEnd);
+  pagesView.addEventListener('click', (e) => { if (e.target === pagesView) closePages(); });
   $('btnPrev').addEventListener('click', () => goToPage(nb.current - 1));
   $('btnNext').addEventListener('click', () => goToPage(nb.current + 1));
   $('btnNewPage').addEventListener('click', newPage);
@@ -3171,6 +3357,7 @@
   }
   $('aggRandom').addEventListener('click', () => panelEdit({ seed: randSeed() }, true));
   $('aggDuplicate').addEventListener('click', () => { closePanel(); duplicateSelection(); });
+  $('aggCoords').addEventListener('click', () => { const it = findItem(panelId); if (it) exportCoordinates(it); });
   $('aggDelete').addEventListener('click', () => { closePanel(); deleteSelection(); });
   $('aggClose').addEventListener('click', closePanel);
 
@@ -3225,8 +3412,16 @@
   const menu = $('menu'), shield = $('menuShield');
   function openMenu() {
     menu.style.top = ($('toolbar').getBoundingClientRect().bottom + 6) + 'px';
+    showMenuView('main');
     menu.classList.add('visible'); shield.classList.add('visible'); updateChrome();
   }
+  function showMenuView(v) {
+    $('menuMain').hidden = v !== 'main';
+    $('menuSettings').hidden = v !== 'settings';
+    menu.scrollTop = 0;
+  }
+  $('mSettings').addEventListener('click', () => showMenuView('settings'));
+  $('mBack').addEventListener('click', () => showMenuView('main'));
   function closeMenu() { menu.classList.remove('visible'); shield.classList.remove('visible'); }
   $('btnMenu').addEventListener('click', () => (menu.classList.contains('visible') ? closeMenu() : openMenu()));
   shield.addEventListener('pointerdown', closeMenu);
@@ -3239,6 +3434,8 @@
   menuAction('mDeletePage', deletePage);
   menuAction('mClearPage', clearPage);
   menuAction('mHelp', () => $('help').classList.add('visible'));
+  menuAction('mPages', openPages);
+  $('pageLabel').addEventListener('click', () => (pagesOpen() ? closePages() : openPages()));
   const AGG_ICONS = {
     box: '<svg viewBox="0 0 24 24"><rect x="2.5" y="2.5" width="19" height="19" rx="2" stroke-dasharray="2.6 2.2" stroke-width="1.4"/><circle cx="9" cy="10" r="2"/><circle cx="12.6" cy="11.2" r="2"/><circle cx="15.4" cy="8.6" r="2"/><circle cx="11.6" cy="15" r="2"/><circle cx="8.4" cy="17" r="1.7"/></svg>',
     circle: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-dasharray="2.6 2.2" stroke-width="1.4"/><circle cx="9.6" cy="10.4" r="2"/><circle cx="13.2" cy="11.6" r="2"/><circle cx="15" cy="8.4" r="1.8"/><circle cx="11.6" cy="15.2" r="2"/></svg>',
@@ -3300,13 +3497,6 @@
       scheduleSave();
       updateChrome();
       requestRender();
-    });
-  }
-  for (const b of $('fingerSeg').children) {
-    b.addEventListener('click', () => {
-      settings.fingerMode = b.dataset.mode;
-      saveSettings();
-      updateChrome();
     });
   }
   $('helpClose').addEventListener('click', () => $('help').classList.remove('visible'));
@@ -3536,6 +3726,52 @@
     if (!o) return b;
     const x0 = Math.min(b.x, o.x), y0 = Math.min(b.y, o.y);
     return { x: x0, y: y0, w: Math.max(b.x + b.w, o.x + o.w) - x0, h: Math.max(b.y + b.h, o.y + o.h) - y0 };
+  }
+  // Monomer coordinates as a text file: index radius x y z, in units of the monomer
+  // radius, in the orientation shown on the board (x right, y up, z toward the viewer,
+  // right-handed), origin at the (mass-weighted) centre of mass.
+  function coordinatesText(it) {
+    const n = it.n, P = it.pts, R = it.R;
+    const X = new Float64Array(n), Y = new Float64Array(n), Z = new Float64Array(n), r = new Float64Array(n);
+    let M = 0, mx = 0, my = 0, mz = 0;
+    for (let i = 0; i < n; i++) {
+      const x = P[3 * i], y = P[3 * i + 1], z = P[3 * i + 2];
+      X[i] = R[0] * x + R[1] * y + R[2] * z;
+      Y[i] = -(R[3] * x + R[4] * y + R[5] * z);   // screen y points down
+      Z[i] = R[6] * x + R[7] * y + R[8] * z;
+      r[i] = radOf(it, i);
+      const m = r[i] ** 3; M += m; mx += m * X[i]; my += m * Y[i]; mz += m * Z[i];
+    }
+    mx /= M; my /= M; mz /= M;
+    let s2 = 0;
+    for (let i = 0; i < n; i++) { X[i] -= mx; Y[i] -= my; Z[i] -= mz; s2 += r[i] ** 3 * (X[i] * X[i] + Y[i] * Y[i] + Z[i] * Z[i]); }
+    const rg = Math.sqrt(s2 / M), poly = !!it.radii;
+    const H = [`# AggBoard ${VERSION} - ${dateStamp()}`];
+    if (it.kind === 'chain' && !it.edited) H.push(`# hand-drawn chain, N = ${n} (Df and kf do not apply)`);
+    else if (it.edited) H.push(`# aggregate with hand-drawn parts, N = ${n} (Df and kf of the generated part no longer apply)`);
+    else {
+      const kf = it.kfUsed != null ? it.kfUsed : (it.kf != null ? it.kf : window.AggEngine.kfAuto(it.df, it.sigma || 1));
+      const cca = it.method === 'cca' && !it.ccaFallback;
+      H.push(`# ${cca ? 'cluster-cluster' : 'particle-cluster'} aggregate${it.ccaFallback ? ' (cluster-cluster is not possible above Df 2.3)' : ''}, N = ${n}, Df = ${it.df.toFixed(2)}, kf = ${kf.toFixed(3)} (${it.kf != null ? 'fixed' : 'auto'}), seed ${it.seed >>> 0}${cca ? `, subcluster size ${it.ns ? it.ns : 'auto'}` : ''}`);
+      if (it.dfFit) H.push(`# fitted Df of the growth = ${it.dfFit.toFixed(3)}`);
+    }
+    H.push(`# Rg = ${rg.toFixed(4)} a${poly ? ' (mass-weighted)' : ''}`);
+    H.push(poly
+      ? `# polydisperse: coordinates and radii in units of the geometric mean monomer radius a_g (log-normal, sigma_g = ${(it.sigma || 1).toFixed(2)}, truncated to 0.5 ... 2 a_g)`
+      : `# coordinates and radii in units of the monomer radius a`);
+    H.push(`# frame as shown on the board: x right, y up, z toward the viewer (right-handed); origin = centre of mass${poly ? ' (mass-weighted)' : ''}`);
+    if (!(it.kind === 'chain' || it.edited) && !(it.method === 'cca' && !it.ccaFallback)) H.push('# index = order of growth');
+    H.push('# index    radius            x            y            z');
+    const f = (v, w, d) => v.toFixed(d).padStart(w);
+    const L = new Array(n);
+    for (let i = 0; i < n; i++) L[i] = `${String(i + 1).padStart(7)} ${f(r[i], 9, 4)} ${f(X[i], 12, 5)} ${f(Y[i], 12, 5)} ${f(Z[i], 12, 5)}`;
+    return H.join('\n') + '\n' + L.join('\n') + '\n';
+  }
+  function exportCoordinates(it) {
+    if (!it.pts || !it.n) { toast('This aggregate is still being built.', 2500); return; }
+    const txt = coordinatesText(it);
+    const kind = it.kind === 'chain' && !it.edited ? 'chain' : it.edited ? 'aggregate-edited' : `aggregate-Df${it.df.toFixed(2)}`;
+    shareBlob(new Blob([txt], { type: 'text/plain' }), `${kind}-N${it.n}-${dateStamp()}.txt`, 'text/plain');
   }
   function exportPageSVG() {
     commitPendingDot();
@@ -4121,12 +4357,13 @@
     if (e.key === 'Escape') {
       if ($('help').classList.contains('visible')) $('help').classList.remove('visible');
       else if ($('gifDlg').classList.contains('visible')) closeGifDialog();
+      else if (pagesOpen()) closePages();
       else if (menu.classList.contains('visible')) closeMenu();
       else if (panelId) closePanel();
       else clearSelection();
       return;
     }
-    if ($('help').classList.contains('visible') || $('gifDlg').classList.contains('visible')) return;
+    if ($('help').classList.contains('visible') || $('gifDlg').classList.contains('visible') || pagesOpen()) return;
     // Df while placing a circle aggregate: arrow keys, or Z (lower) / X (higher) for the left hand
     if (action && action.kind === 'circle' && !mod && !e.altKey) {
       const up = e.key === 'ArrowUp' || k === 'x', down = e.key === 'ArrowDown' || k === 'z';
@@ -4219,7 +4456,7 @@
   }
 
   // Exposed for automated tests only.
-  window.__aggboard = { spin, startSpin, stopSpin, buildSVG, get gifJob() { return gifJob; }, gifLZW, ByteOut, mp4Mux, get action() { return action; }, get nb() { return nb; }, get selection() { return selection; }, view, settings, undo, redo, goToPage, newPage, saveNow, notebookToJSON, sanitizeNotebook };
+  window.__aggboard = { spin, startSpin, stopSpin, buildSVG, get gifJob() { return gifJob; }, openPages, closePages, pagesOpen, coordinatesText, gifLZW, ByteOut, mp4Mux, get action() { return action; }, get nb() { return nb; }, get selection() { return selection; }, view, settings, undo, redo, goToPage, newPage, saveNow, notebookToJSON, sanitizeNotebook };
 
   init();
 })();

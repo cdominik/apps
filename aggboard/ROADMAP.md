@@ -19,6 +19,10 @@
 - Teaching overlays per aggregate: numbers (N, D_f, k_f, a, R_g, R_out, filling factor φ = N (a/R)^3 with R = √(5/3) R_g) and the R_g circle (with R_out circle and centre of mass); colouring by growth order (particle–cluster) or subcluster (cluster–cluster), hand-drawn parts grey; mass–radius rings (around the monomer nearest the centre of mass) with counts, and a log-log plot of the centre-averaged ⟨N(r)⟩ whose fitted slope (3a…0.7 R_g, matches D_f within ~0.05) is compared with D_f; in exports, follow spin.
 - Spin ("show 3D"): one rotation (8 s) on tap, continuous on hold, selection-only if something is selected, paused while touching the page, tilted axis; display only (stored orientation is saved/exported and restored). Settings → Spin: Rotate | Rock (rock = ±35° swing, 4.5 s per swing).
 - Animated GIF export of rotate or rock (page or selection, 480/800/1200 px, 15/25 frames/s): one seamless cycle, shared median-cut palette (no flicker), changed-rectangle frames with transparency; built-in encoder.
+- Page overview (tap the page number or ⋯ → Notebook: Pages): thumbnails of all pages, go to a page, move earlier/later, duplicate (new ids throughout), delete with Undo (also from the menu; no more confirmation dialog), new page at the end.
+- Finger toggle next to ⋯: shows who draws (Pencil, or fingers, tinted); a tap lets fingers draw, the next Pencil contact switches back (replaces the Auto/Draw/Pan setting; iPadOS gives web pages no way to tell whether the Pencil is attached or charging).
+- Menu reorganised: compact rows for page, export and notebook actions; settings and input diagnostics in a Settings view inside the menu.
+- Coordinate export per aggregate (Settings → Coordinates…): text file `index radius x y z` in units of a, orientation as shown (right-handed), origin at the centre of mass, header with N, Df, kf, method, seed, Rg.
 - Video (MP4, H.264) export of the same animation via WebCodecs, frame-exact; built-in MP4 muxer (validated against x264/ffmpeg frame by frame, including B-frames, and with GPAC MP4Box).
 - Live updates while dragging sliders, also when generation is slower than the slider; structures always drawn at their correct size.
 - Two ways to place an aggregate (Settings → New aggregates): **Box** (drag a box) or **Circle** (drag from the centre: horizontal distance = outer radius, vertical offset = monomer size; live circle, monomer ring and N estimate; real aggregate when the pencil rests). Circle-placed aggregates keep a true circle fit when regenerated. A D_f scale on the left edge (while the aggregate tool is active, and for the freshly placed aggregate) sets D_f before or after drawing; during the gesture, small loops change D_f (the "dial": clockwise = higher, about 0.3 per loop; kept alongside the scale, which sets D_f in advance), or Z/X, arrow keys, mouse wheel. Two-handed use (finger on the scale while the pencil draws) is impossible on iPad: the system withholds finger touches while the pencil is down. Circle is the default; Box remains available as a setting.
@@ -43,7 +47,6 @@
 
 ### Aggregates
 - **Import from the Aggregation Gallery** (cdominik.github.io/apps/coag_gallery): place a simulated DLA/BPCA/BCCA/DLCA aggregate on the page as an object to rotate, scale and annotate. Needs an export in the gallery apps and an import here (`index radius x y z` text format).
-- **Export coordinates** of an aggregate in the same text format.
 - **Chains in depth:** chains avoid overlaps, but their depth runs linearly between the two ends; they don't wrap around an aggregate in 3D on purpose.
 - **Depth-cue control** per aggregate.
 
@@ -54,7 +57,7 @@
 - **Inserting images or PDF slides** — larger feature, maybe never.
 
 ### Pages and notebooks
-- **Page management:** reorder, duplicate, thumbnails strip.
+- Page reordering by drag and drop in the page overview (buttons work now; dragging conflicts with scrolling on the iPad, so it needs a long-press design).
 - **Multiple named notebooks** with a notebook list.
 - **PDF export** of the whole notebook.
 
