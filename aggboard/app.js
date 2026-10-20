@@ -9,7 +9,7 @@
   // Configuration
   // ============================================================
   // Bump on every release: shown in the menu, and used to bypass cached program files.
-  const VERSION = '2026.10.19-14';
+  const VERSION = '2026.10.19-15';
   window.AGGBOARD_VERSION = VERSION;
   const CONFIG = {
     MENU_URL: null,            // e.g. '../index.html' to show a "back to menu" button
@@ -3284,6 +3284,7 @@
     $('ovGrowthLbl').textContent = gk === 'subclusters' ? 'Subclusters' : 'Growth order';
     $('ovGrowth').checked = !!it.showGrowth;
     $('ovMR').checked = !!it.showMR;
+    for (const c of panel.querySelectorAll('.chip')) c.classList.toggle('on', c.querySelector('input').checked);
   }
   function panelEdit(changes, discrete) {
     const it = findItem(panelId);
@@ -3327,13 +3328,14 @@
   $('aggRegen').addEventListener('click', () => {
     const it = findItem(panelId);
     if (!it || !it.edited) return;
-    if (!confirm('Regenerate this aggregate? The hand-drawn chains will be removed. (You can undo this.)')) return;
     pushUndo();
+    const pg = curPage();
     const cx = it.x + it.w / 2, cy = it.y + it.h / 2, gb = it.genBox || { w: it.w, h: it.h };
     const ni = { ...it, edited: false, x: cx - gb.w / 2, y: cy - gb.h / 2, w: gb.w, h: gb.h, needsGen: true };
     delete ni.genBox;
     replaceItem(ni);
     requestGen(ni);
+    toast('Chains removed: the aggregate is rebuilt from its settings.', 6000, { label: 'Undo', fn: () => { if (curPage() === pg) undo(); } });
   });
   aggDf.addEventListener('input', () => panelEdit({ df: +aggDf.value }));
   $('aggSigma').addEventListener('input', () => { const v = +$('aggSigma').value; panelEdit({ sigma: v > 1.0005 ? v : undefined }); });

@@ -20,6 +20,7 @@
 - Spin ("show 3D"): one rotation (8 s) on tap, continuous on hold, selection-only if something is selected, paused while touching the page, tilted axis; display only (stored orientation is saved/exported and restored). Settings → Spin: Rotate | Rock (rock = ±35° swing, 4.5 s per swing).
 - Animated GIF export of rotate or rock (page or selection, 480/800/1200 px, 15/25 frames/s): one seamless cycle, shared median-cut palette (no flicker), changed-rectangle frames with transparency; built-in encoder.
 - Page overview (tap the page number or ⋯ → Notebook: Pages): thumbnails of all pages, go to a page, move earlier/later, duplicate (new ids throughout), delete with Undo (also from the menu; no more confirmation dialog), new page at the end.
+- Aggregate panel reorganised: method on top, the sliders together, overlay toggles as a 2×2 grid of buttons, colour row, actions as a 2×2 grid; Regenerate… renamed Remove chains… and undoable via the message instead of a confirmation.
 - Finger toggle next to ⋯: shows who draws (Pencil, or fingers, tinted); a tap lets fingers draw, the next Pencil contact switches back (replaces the Auto/Draw/Pan setting; iPadOS gives web pages no way to tell whether the Pencil is attached or charging).
 - Menu reorganised: compact rows for page, export and notebook actions; settings and input diagnostics in a Settings view inside the menu.
 - Coordinate export per aggregate (Settings → Coordinates…): text file `index radius x y z` in units of a, orientation as shown (right-handed), origin at the centre of mass, header with N, Df, kf, method, seed, Rg.
@@ -27,7 +28,7 @@
 - Live updates while dragging sliders, also when generation is slower than the slider; structures always drawn at their correct size.
 - Two ways to place an aggregate (Settings → New aggregates): **Box** (drag a box) or **Circle** (drag from the centre: horizontal distance = outer radius, vertical offset = monomer size; live circle, monomer ring and N estimate; real aggregate when the pencil rests). Circle-placed aggregates keep a true circle fit when regenerated. A D_f scale on the left edge (while the aggregate tool is active, and for the freshly placed aggregate) sets D_f before or after drawing; during the gesture, small loops change D_f (the "dial": clockwise = higher, about 0.3 per loop; kept alongside the scale, which sets D_f in advance), or Z/X, arrow keys, mouse wheel. Two-handed use (finger on the scale while the pencil draws) is impossible on iPad: the system withholds finger touches while the pencil is down. Circle is the default; Box remains available as a setting.
 - Tap selects an aggregate in any tool; double-tap opens its settings; the settings panel stays put while editing.
-- Particle-chain tool with temperature; attaching to aggregates and chains, bridging, branches and rings, collision-free junctions; "edited" aggregates (scale instead of regenerate, Regenerate… to undo the edits).
+- Particle-chain tool with temperature; attaching to aggregates and chains, bridging, branches and rings, collision-free junctions; "edited" aggregates (scale instead of regenerate, Remove chains… to undo the edits).
 
 ### Pages, boards, export
 - Page format per page: Screen, 16:9, 16:10, 4:3, A4 landscape (same width, height varies; new pages inherit; file format version 3).

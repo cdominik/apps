@@ -197,16 +197,24 @@
   #aggPanel .row label b { font-weight: 600; font-variant-numeric: tabular-nums; }
   #aggPanel input[type=range] { width: 100%; accent-color: var(--accent); height: 28px; }
   #aggPanel .methodseg { margin: 0; }
+  #aggPanel #rowMethod { margin-top: 2px; }
   #aggPanel .methodseg button { font-size: 12px; padding: 7px 4px; }
   #aggPanel .readout { margin-top: 8px; padding: 7px 9px; background: #f5f5f8; border-radius: 8px; color: #444; font-variant-numeric: tabular-nums; line-height: 1.45; min-height: calc(3 * 1.45em + 14px); }
   #aggPanel .readout .warn { color: #a5530a; }
-  #aggPanel .colors { display: flex; gap: 6px; margin-top: 10px; }
-  #aggPanel .overlays { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin-top: 10px; color: #444; }
-  #aggPanel .overlays > span { color: #777; }
-  #aggPanel .overlays label { display: flex; align-items: center; gap: 5px; }
-  #aggPanel .overlays input { width: 17px; height: 17px; accent-color: var(--accent); }
+  #aggPanel .colors { display: flex; gap: 6px; }
+  #aggPanel .pdiv { border-top: 1px solid #ececf0; margin: 12px 0 8px; }
+  #aggPanel .pcap { color: #777; font-size: 12px; margin-bottom: 6px; }
+  #aggPanel .ovgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  #aggPanel .chip { position: relative; display: flex; align-items: center; justify-content: center; min-height: 36px; padding: 4px 6px;
+    border: 1px solid var(--ui-border); border-radius: 8px; background: #fff; color: #333; cursor: pointer; text-align: center; user-select: none; -webkit-user-select: none; }
+  #aggPanel .chip input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+  #aggPanel .chip.on { background: #e3eefc; border-color: #9cc0ee; color: #174a8c; }
+  #aggPanel .chip:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 1px; }
+  #aggPanel .colorrow { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+  #aggPanel .colorrow .pcap { margin: 0; width: 44px; }
   #aggPanel .colors .swatch { width: 28px; height: 28px; }
-  #aggPanel .actions { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+  #aggPanel .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  #aggPanel .actions #aggDelete { grid-column: 2; }
   #aggPanel .actions button {
     flex: 1; border: 1px solid var(--ui-border); background: #fff; border-radius: 8px;
     padding: 8px 6px; font: inherit; font-size: 13px; cursor: pointer; color: #222; white-space: nowrap;
@@ -382,12 +390,7 @@
 
 <div id="aggPanel" role="dialog" aria-label="Aggregate settings">
   <header><h2 id="aggTitle">Aggregate</h2><button class="close" id="aggClose" aria-label="Close">&times;</button></header>
-  <div class="row">
-    <label for="aggSize"><span id="aggSizeLabel">Monomer size</span><b id="aggSizeVal"></b></label>
-    <input type="range" id="aggSize" min="1" max="120" step="0.5">
-  </div>
   <div class="row" id="rowMethod">
-    <label><span>Method</span></label>
     <div class="seg methodseg" id="methodSeg">
       <button data-method="cca" title="Tunable cluster–cluster aggregation: realistic shapes, D&#8239;f 1–2.3">Cluster–cluster</button>
       <button data-method="pc" title="Tunable particle–cluster aggregation: D&#8239;f 1–3, keeps its core when resized">Particle–cluster</button>
@@ -396,6 +399,10 @@
   <div class="row" id="rowDf">
     <label for="aggDf"><span>Fractal dimension D<sub>f</sub></span><b id="aggDfVal"></b></label>
     <input type="range" id="aggDf" min="1" max="3" step="0.02">
+  </div>
+  <div class="row">
+    <label for="aggSize"><span id="aggSizeLabel">Monomer size</span><b id="aggSizeVal"></b></label>
+    <input type="range" id="aggSize" min="1" max="120" step="0.5">
   </div>
   <div class="row" id="rowSigma">
     <label for="aggSigma"><span>Size spread &sigma;<sub>g</sub></span><b id="aggSigmaVal"></b></label>
@@ -406,14 +413,15 @@
     <input type="range" id="aggTemp" min="0" max="1" step="0.01">
   </div>
   <div class="readout" id="aggReadout"></div>
-  <div class="overlays">
-    <span>Show</span>
-    <label><input type="checkbox" id="ovNums"> Numbers</label>
-    <label><input type="checkbox" id="ovRg"> R<sub>g</sub> circle</label>
-    <label id="ovGrowthRow"><input type="checkbox" id="ovGrowth"> <span id="ovGrowthLbl">Growth order</span></label>
-    <label><input type="checkbox" id="ovMR"> Mass&ndash;radius</label>
+  <div class="pdiv"></div>
+  <div class="pcap">Show</div>
+  <div class="ovgrid">
+    <label class="chip"><input type="checkbox" id="ovNums"><span>Numbers</span></label>
+    <label class="chip"><input type="checkbox" id="ovRg"><span>R<sub>g</sub> circle</span></label>
+    <label class="chip" id="ovGrowthRow"><input type="checkbox" id="ovGrowth"><span id="ovGrowthLbl">Growth order</span></label>
+    <label class="chip"><input type="checkbox" id="ovMR"><span>Mass&ndash;radius</span></label>
   </div>
-  <div class="colors" id="aggColors"></div>
+  <div class="colorrow"><span class="pcap">Colour</span><div class="colors" id="aggColors"></div></div>
   <details id="aggAdvanced">
     <summary>Advanced</summary>
     <div class="genrow">
@@ -430,9 +438,10 @@
     </div>
     <p class="advnote" id="advNote"></p>
   </details>
+  <div class="pdiv"></div>
   <div class="actions">
     <button id="aggRandom">New random</button>
-    <button id="aggRegen">Regenerate…</button>
+    <button id="aggRegen" title="Remove the hand-drawn chains and rebuild the aggregate from its settings">Remove chains…</button>
     <button id="aggDuplicate">Duplicate</button>
     <button id="aggCoords" title="Save the monomer positions and radii as a text file">Coordinates…</button>
     <button id="aggDelete" class="danger">Delete</button>
@@ -611,7 +620,7 @@
       <li>The <b>chain tool</b> (spheres without a box) turns a stroke into a chain of touching spheres, at the current monomer size.</li>
       <li><b>Connecting:</b> start or end the stroke on a sphere of an aggregate or another chain, and the new chain attaches there in 3D and becomes part of it. Start on one and end on another to bridge them (both need the same monomer size). You can branch off a chain or close it into a ring. New spheres steer around existing ones instead of overlapping. (A <i>selected</i> aggregate is moved instead; tap an empty spot first.)</li>
       <li><b>Settings:</b> double-tap a chain to change its monomer size, its <b>temperature</b> (how much it wiggles in 3D; rotate it to see) and its random pattern. It is re-laid along the line you drew. New chains use the last temperature you set.</li>
-      <li><b>Edited aggregates:</b> an aggregate with attached chains no longer regenerates. Its size slider and corner handle scale it, and <b>Regenerate&hellip;</b> turns it back into a fresh aggregate (removing the drawn parts).</li>
+      <li><b>Edited aggregates:</b> an aggregate with attached chains no longer regenerates. Its size slider and corner handle scale it, and <b>Remove chains&hellip;</b> removes the drawn parts and rebuilds the aggregate from its settings: the same structure as before you attached anything (a message offers Undo).</li>
     </ul>
 
     <h3>Pages and boards</h3>
@@ -670,12 +679,12 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="aggregate-engine.js?v=2026.10.19-14"></script>
-<script src="app.js?v=2026.10.19-14"></script>
+<script src="aggregate-engine.js?v=2026.10.19-15"></script>
+<script src="app.js?v=2026.10.19-15"></script>
 <script>
   // Warn if the browser mixed files from different releases (e.g. a stale cached app.js).
   (function () {
-    var want = '2026.10.19-14';
+    var want = '2026.10.19-15';
     var okApp = window.AGGBOARD_VERSION === want;
     var okEngine = window.AggEngine && window.AggEngine.release === want;
     if (okApp && okEngine) return;
