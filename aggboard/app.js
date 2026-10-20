@@ -9,7 +9,7 @@
   // Configuration
   // ============================================================
   // Bump on every release: shown in the menu, and used to bypass cached program files.
-  const VERSION = '2026.10.18-29';
+  const VERSION = '2026.10.19-7';
   window.AGGBOARD_VERSION = VERSION;
   const CONFIG = {
     MENU_URL: null,            // e.g. '../index.html' to show a "back to menu" button
@@ -18,7 +18,7 @@
     DB_NAME: 'aggboard',
     SETTINGS_KEY: 'aggboard.settings.v1',
     FORMAT: 'aggboard-notebook',
-    FORMAT_VERSION: 3,         // v2: chains and edited aggregates; v3: page formats (per-page height)
+    FORMAT_VERSION: 4,         // v2: chains, edited aggregates; v3: page formats; v4: polydisperse monomers (per-monomer radii)
   };
   const PW = CONFIG.PAGE_W, PH = CONFIG.PAGE_H;
   // Page formats: the width is always PW (1600 page units), only the height differs, so
@@ -58,10 +58,11 @@
     const d = {
       tool: 'pen', color: INK[0].v, width: 1,
       fingerMode: 'auto', penSeen: false,
-      agg: { a: 10, df: 1.8, kf: null, color: AGG_COLORS[0], method: 'cca' },
+      agg: { a: 10, df: 1.8, kf: null, ns: null, color: AGG_COLORS[0], method: 'cca', sigma: 1 },
       chain: { temp: 0.25 },
       aggCreate: 'circle',       // 'box' | 'circle': how the aggregate tool places a new aggregate
       hand: 'right',             // 'right' | 'left': controls go to the side away from the writing hand
+      spinStyle: 'rotate',       // 'rotate' (full rotations) | 'rock' (swing back and forth)
     };
     try {
       const s = JSON.parse(localStorage.getItem(CONFIG.SETTINGS_KEY) || 'null');
@@ -77,10 +78,19 @@
           d.agg.kf = (s.agg.kf > 0) ? +s.agg.kf : null;
           if (AGG_COLORS.includes(s.agg.color)) d.agg.color = s.agg.color;
           if (s.agg.method === 'pc' || s.agg.method === 'cca') d.agg.method = s.agg.method;
+          if (isFinite(s.agg.sigma)) d.agg.sigma = clamp(+s.agg.sigma, 1, 1.4);
+          if (s.agg.ns != null && isFinite(s.agg.ns)) d.agg.ns = clamp(Math.round(+s.agg.ns), 2, 500);
+          d.agg.showNums = !!s.agg.showNums; d.agg.showRg = !!s.agg.showRg; d.agg.showGrowth = !!s.agg.showGrowth; d.agg.showMR = !!s.agg.showMR;
         }
         if (s.chain && s.chain.temp >= 0 && s.chain.temp <= 1) d.chain.temp = +s.chain.temp;
         if (s.aggCreate === 'box' || s.aggCreate === 'circle') d.aggCreate = s.aggCreate;
         if (s.hand === 'left' || s.hand === 'right') d.hand = s.hand;
+        if (s.spinStyle === 'rotate' || s.spinStyle === 'rock') d.spinStyle = s.spinStyle;
+        else if (s.spinStyle === 'turn') d.spinStyle = 'rotate';   // earlier name
+        if (s.gen && typeof s.gen === 'object') {   // from the short-lived global setting
+          if (s.gen.kf != null && isFinite(s.gen.kf)) d.agg.kf = clamp(+s.gen.kf, 0.5, 2.5);
+          if (s.gen.ns != null && isFinite(s.gen.ns)) d.agg.ns = clamp(Math.round(+s.gen.ns), 2, 500);
+        }
       }
     } catch (_) {}
     return d;
@@ -436,9 +446,38 @@
   // is pending, the displayed structure keeps its own size (it.aGen) instead of
   // being stretched to the newly requested monomer size.
   const ptsScale = (it) => it.aGen || it.a;
+  // "How it was built" colouring (overlay): particle-cluster aggregates by growth order
+  // (purple = first, centre -> yellow = last, rim); cluster-cluster aggregates by subcluster
+  // (groups); hand-drawn parts of edited aggregates in neutral grey. Only the hue counts;
+  // the depth shading stays as usual.
+  const ORDER_RAMP = (() => {
+    const A = [[68, 1, 84], [59, 82, 139], [33, 145, 140], [94, 201, 98], [253, 231, 37]], out = [];
+    for (let k = 0; k < 24; k++) {
+      const f = k / 23 * (A.length - 1), i = Math.min(A.length - 2, Math.floor(f)), u = f - i;
+      const c = A[i].map((v, j) => Math.round(v + (A[i + 1][j] - v) * u));
+      out.push('#' + c.map(v => v.toString(16).padStart(2, '0')).join(''));
+    }
+    return out;
+  })();
+  const GROUP_PAL = Array.from({ length: 24 }, (_, k) => {
+    const c = hslToRgb((k * 15) % 360, 68, 52);
+    return '#' + [c.r, c.g, c.b].map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+  });
+  const NEUTRAL_SPHERE = '#9a9aa2';
+  const growthKind = (it) => (it.kind === 'chain' ? null : it.groups ? 'subclusters' : 'order');
+  function sphereColorFn(it) {
+    if (!it.showGrowth || !growthKind(it)) return null;
+    const nGen = it.nGen != null ? it.nGen : it.n;
+    if (it.groups) return (i) => (i < nGen ? GROUP_PAL[(it.groups[i] * 7) % 24] : NEUTRAL_SPHERE);   // 7 is coprime to 24: neighbours differ
+    return (i) => (i < nGen ? ORDER_RAMP[Math.min(23, Math.floor((i / Math.max(1, nGen)) * 24))] : NEUTRAL_SPHERE);
+  }
+  // Monomer radius relative to the aggregate's monomer size a (= a_g, the geometric mean radius).
+  // Monodisperse aggregates store no radii: every monomer has radius 1.
+  const radOf = (it, i) => (it.radii ? it.radii[i] : 1);
+  const maxRad = (it) => { if (!it.radii) return 1; let m = 0; for (let i = 0; i < it.n; i++) if (it.radii[i] > m) m = it.radii[i]; return m; };
   // Render an aggregate into its own canvas. ppu = device pixels per page unit.
   function renderAggBitmap(it, ppu) {
-    const n = it.n, P = it.pts, a = ptsScale(it), R = it.R;
+    const n = it.n, P = it.pts, a = ptsScale(it), R = it.R, colorOf = sphereColorFn(it);
     const xs = new Float32Array(n), ys = new Float32Array(n), zs = new Float32Array(n);
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, zmin = Infinity, zmax = -Infinity;
     for (let i = 0; i < n; i++) {
@@ -450,7 +489,7 @@
       if (ys[i] < y0) y0 = ys[i]; if (ys[i] > y1) y1 = ys[i];
       if (zs[i] < zmin) zmin = zs[i]; if (zs[i] > zmax) zmax = zs[i];
     }
-    const pad = a * SPR_EXT;
+    const pad = a * SPR_EXT * maxRad(it);
     x0 -= pad; y0 -= pad; x1 += pad; y1 += pad;
     const bw = x1 - x0, bh = y1 - y0;
     ppu = Math.min(ppu, 2048 / Math.max(bw, bh));
@@ -462,12 +501,12 @@
     const zr = Math.max(1e-6, zmax - zmin);
     for (const i of order) {
       const level = clamp(Math.round(((zs[i] - zmin) / zr) * (LEVELS - 1)), 0, LEVELS - 1);
-      drawSphere(c, (xs[i] - x0) * ppu, (ys[i] - y0) * ppu, a * ppu, level, it.color);
+      drawSphere(c, (xs[i] - x0) * ppu, (ys[i] - y0) * ppu, a * radOf(it, i) * ppu, level, colorOf ? colorOf(i) : it.color);
     }
     return { canvas, ppu, ox: x0, oy: y0 };
   }
   const aggBmpCache = new WeakMap();   // pts -> { sig, entry }
-  function aggSig(it) { return renderTheme + '|' + ptsScale(it) + '|' + it.color + '|' + it.R.join(','); }
+  function aggSig(it) { return renderTheme + '|' + ptsScale(it) + '|' + (it.radii ? 'p' : '') + '|' + it.color + '|' + (it.showGrowth ? 'g' + (it.nGen != null ? it.nGen : '') : '') + '|' + it.R.join(','); }
   function getAggBitmap(it, ppu, allowStale) {
     if (!it.pts || !it.n) return null;
     const sig = aggSig(it);
@@ -490,7 +529,7 @@
       ctx.strokeStyle = 'rgba(60,120,200,0.6)';
       ctx.strokeRect(it.x, it.y, it.w, it.h);
       ctx.fillStyle = 'rgba(60,120,200,0.7)';
-      ctx.font = `${13 * unit}px -apple-system, sans-serif`;
+      ctx.font = `${13 * unit}px system-ui, sans-serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('Building…', cx, cy);
       ctx.restore();
@@ -526,6 +565,7 @@
     pendingGen.set(it.id, {
       type: 'fit', id: it.id, token,
       W: it.w / it.a, H: it.h / it.a, df: it.df, kf: it.kf, seed: it.seed, nMax: CONFIG.N_MAX, method: it.method === 'cca' ? 'cca' : 'pc', a: it.a,
+      sigma: it.sigma > 1 ? it.sigma : 1, ns: it.ns || null,
       shape: it.fitShape === 'circle' ? 'circle' : undefined,
     });
     pumpGen();
@@ -575,7 +615,8 @@
       const arr = pg.items.slice();
       // Generated coordinates are aligned with the box, so the rotation starts fresh.
       arr[idx] = { ...it, pts: m.pts, n: m.n, rg: m.rg, dfFit: m.dfFit, kfUsed: m.kf, capped: !!m.capped, needsGen: !final, R: IDENTITY.slice(),
-        aniso: m.aniso, ccaFallback: !!m.ccaFallback, aGen: (m.genA && Math.abs(m.genA - it.a) > 1e-9) ? m.genA : undefined };
+        aniso: m.aniso, ccaFallback: !!m.ccaFallback, aGen: (m.genA && Math.abs(m.genA - it.a) > 1e-9) ? m.genA : undefined,
+        groups: m.groups || undefined, radii: m.radii || undefined, nGen: undefined };
       if (final && m.capped && !it.capped && pg === curPage()) toast(`Limit of ${CONFIG.N_MAX} monomers reached, so the aggregate is smaller than its box. Increase the monomer size to fill it.`, 5000);
       pg.items = arr;
       nb.modified = Date.now();
@@ -867,21 +908,22 @@
   // Projected sphere centres of an aggregate, relative to its box centre (cached).
   const viewCache = new WeakMap();
   function viewSpheres(it) {
-    const sig = ptsScale(it) + '|' + it.R.join(',');
+    const sig = ptsScale(it) + '|' + (it.radii ? 'p' : '') + '|' + it.R.join(',');
     let e = viewCache.get(it.pts);
     if (e && e.sig === sig) return e;
     const n = it.n, P = it.pts, R = it.R, a = ptsScale(it);
-    const xs = new Float32Array(n), ys = new Float32Array(n), zs = new Float32Array(n);
+    const xs = new Float32Array(n), ys = new Float32Array(n), zs = new Float32Array(n), rs = new Float32Array(n);
     let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
     for (let i = 0; i < n; i++) {
-      const x = P[3 * i], y = P[3 * i + 1], z = P[3 * i + 2];
+      const x = P[3 * i], y = P[3 * i + 1], z = P[3 * i + 2], r = a * radOf(it, i);
       xs[i] = (R[0] * x + R[1] * y + R[2] * z) * a;
       ys[i] = (R[3] * x + R[4] * y + R[5] * z) * a;
       zs[i] = (R[6] * x + R[7] * y + R[8] * z) * a;
-      if (xs[i] < x0) x0 = xs[i]; if (xs[i] > x1) x1 = xs[i];
-      if (ys[i] < y0) y0 = ys[i]; if (ys[i] > y1) y1 = ys[i];
+      rs[i] = r;
+      if (xs[i] - r < x0) x0 = xs[i] - r; if (xs[i] + r > x1) x1 = xs[i] + r;
+      if (ys[i] - r < y0) y0 = ys[i] - r; if (ys[i] + r > y1) y1 = ys[i] + r;
     }
-    e = { sig, xs, ys, zs, x0: x0 - a, x1: x1 + a, y0: y0 - a, y1: y1 + a };
+    e = { sig, xs, ys, zs, rs, x0, x1, y0, y1 };
     viewCache.set(it.pts, e);
     return e;
   }
@@ -895,13 +937,12 @@
       const cx = it.x + it.w / 2, cy = it.y + it.h / 2;
       const lx = p.x - cx, ly = p.y - cy;
       if (lx < v.x0 || lx > v.x1 || ly < v.y0 || ly > v.y1) continue;
-      const r2 = ptsScale(it) * ptsScale(it);
       let best = -1, bz = -Infinity;
       for (let i = 0; i < it.n; i++) {
         const dx = lx - v.xs[i], dy = ly - v.ys[i];
-        if (dx * dx + dy * dy <= r2 && v.zs[i] > bz) { bz = v.zs[i]; best = i; }
+        if (dx * dx + dy * dy <= v.rs[i] * v.rs[i] && v.zs[i] > bz) { bz = v.zs[i]; best = i; }
       }
-      if (best >= 0) return { item: it, i: best, X: cx + v.xs[best], Y: cy + v.ys[best], Z: v.zs[best] };
+      if (best >= 0) return { item: it, i: best, X: cx + v.xs[best], Y: cy + v.ys[best], Z: v.zs[best], r: v.rs[best] };
     }
     return null;
   }
@@ -910,8 +951,8 @@
    * Lay touching spheres (radius a) along a 2D path (flat [x,y,...], page units).
    * Depth runs linearly from z0 to z1 along the path. temp (0..1) jitters each
    * placement in 3D; every sphere still touches the previous one.
-   * start/end: optional existing sphere centres {X,Y,Z} to attach to.
-   * obstacles: optional flat [X,Y,Z,...] of existing spheres (same radius) that new
+   * start/end: optional existing spheres {X,Y,Z,r} to attach to (r: their radius, default a).
+   * obstacles: optional flat [X,Y,Z,r,...] of existing spheres (any radius) that new
    * spheres must not overlap; the chain also avoids itself.
    */
   function layChain(path, z0, z1, a, temp, seed, start, end, obstacles) {
@@ -945,37 +986,39 @@
       const f = L > 0 ? Math.min(M, sArc / h) : 0, k0 = Math.floor(f), k1 = Math.min(M, k0 + 1), t = f - k0;
       return [S[k0][0] + (S[k1][0] - S[k0][0]) * t, S[k0][1] + (S[k1][1] - S[k0][1]) * t, S[k0][2] + (S[k1][2] - S[k0][2]) * t];
     };
-    // Collision grid (cell = one diameter) over obstacles and placed chain spheres.
-    const grid = new Map(), OFF = 1 << 20, LIM2 = (D * (1 - 1e-4)) ** 2;
-    const key = (x, y, z) => ((Math.floor(x / D) + OFF) * 2097152 + (Math.floor(y / D) + OFF)) * 2097152 + (Math.floor(z / D) + OFF);
-    const gridAdd = (q) => { const k = key(q[0], q[1], q[2]); const l = grid.get(k); if (l) l.push(q); else grid.set(k, [q]); };
-    if (obstacles) for (let i = 0; i < obstacles.length; i += 3) gridAdd([obstacles[i], obstacles[i + 1], obstacles[i + 2]]);
+    // Collision grid over obstacles and placed chain spheres; cell = largest contact distance.
+    // Each entry is [x, y, z, r]. clear() is the smallest gap to any sphere (negative = overlap).
+    let rObs = a;
+    if (obstacles) for (let i = 3; i < obstacles.length; i += 4) if (obstacles[i] > rObs) rObs = obstacles[i];
+    const CELL = a + rObs, TOL = -2e-4 * a;
+    const grid = new Map(), OFF = 1 << 20;
+    const key = (x, y, z) => ((Math.floor(x / CELL) + OFF) * 2097152 + (Math.floor(y / CELL) + OFF)) * 2097152 + (Math.floor(z / CELL) + OFF);
+    const gridAdd = (q) => { if (q.length < 4) q.push(a); const k = key(q[0], q[1], q[2]); const l = grid.get(k); if (l) l.push(q); else grid.set(k, [q]); };
+    if (obstacles) for (let i = 0; i < obstacles.length; i += 4) gridAdd([obstacles[i], obstacles[i + 1], obstacles[i + 2], obstacles[i + 3]]);
     const dead = new Set();   // chain spheres removed again while closing
-    // Squared distance to the nearest sphere (capped at the search range).
-    const clear2 = (q) => {
-      const ix = Math.floor(q[0] / D), iy = Math.floor(q[1] / D), iz = Math.floor(q[2] / D);
-      let m = 4 * D * D;
+    const clear = (q) => {
+      const ix = Math.floor(q[0] / CELL), iy = Math.floor(q[1] / CELL), iz = Math.floor(q[2] / CELL);
+      let m = 2 * CELL;
       for (let u = -1; u <= 1; u++) for (let v = -1; v <= 1; v++) for (let w = -1; w <= 1; w++) {
         const l = grid.get(((ix + u + OFF) * 2097152 + (iy + v + OFF)) * 2097152 + (iz + w + OFF));
         if (!l) continue;
         for (const o of l) {
           if (dead.has(o)) continue;
-          const d2 = (o[0] - q[0]) ** 2 + (o[1] - q[1]) ** 2 + (o[2] - q[2]) ** 2;
-          if (d2 < m) m = d2;
+          const g = Math.hypot(o[0] - q[0], o[1] - q[1], o[2] - q[2]) - (o[3] + a);
+          if (g < m) m = g;
         }
       }
       return m;
     };
-    const free = (q) => clear2(q) >= LIM2;
-    // Place a sphere touching prev in direction (dx,dy,dz); if that spot is taken,
-    // try directions tilted away from it by increasing angles.
-    const placeFrom = (prev, dx, dy, dz) => {
+    // Place a sphere touching prev (at centre distance dist, default 2a) in direction (dx,dy,dz);
+    // if that spot is taken, try directions tilted away from it by increasing angles.
+    const placeFrom = (prev, dx, dy, dz, dist = D) => {
       let d = Math.hypot(dx, dy, dz);
       if (d < 1e-9) { dx = 1; dy = 0; dz = 0; d = 1; }
       const ux = dx / d, uy = dy / d, uz = dz / d;
-      const first = [prev[0] + D * ux, prev[1] + D * uy, prev[2] + D * uz];
-      let best = first, bestC = clear2(first);
-      if (bestC >= LIM2) return first;
+      const first = [prev[0] + dist * ux, prev[1] + dist * uy, prev[2] + dist * uz];
+      let best = first, bestC = clear(first);
+      if (bestC >= TOL) return first;
       let ax = Math.abs(ux) < 0.9 ? 1 : 0, ay = ax ? 0 : 1;
       let vx = uy * 0 - uz * ay, vy = uz * ax - ux * 0, vz = ux * ay - uy * ax;
       const vl = Math.hypot(vx, vy, vz); vx /= vl; vy /= vl; vz /= vl;
@@ -985,9 +1028,9 @@
         const phi0 = rand() * 2 * Math.PI;
         for (let k = 0; k < 8; k++) {
           const ph = phi0 + k * Math.PI / 4, cp = Math.cos(ph) * st, sp = Math.sin(ph) * st;
-          const q = [prev[0] + D * (ct * ux + cp * vx + sp * wx), prev[1] + D * (ct * uy + cp * vy + sp * wy), prev[2] + D * (ct * uz + cp * vz + sp * wz)];
-          const c2 = clear2(q);
-          if (c2 >= LIM2) return q;
+          const q = [prev[0] + dist * (ct * ux + cp * vx + sp * wx), prev[1] + dist * (ct * uy + cp * vy + sp * wy), prev[2] + dist * (ct * uz + cp * vz + sp * wz)];
+          const c2 = clear(q);
+          if (c2 >= TOL) return q;
           if (c2 > bestC) { bestC = c2; best = q; }
         }
       }
@@ -997,17 +1040,19 @@
     const nv = [0, 0, 0], RHO = 0.75;
     const stepTo = (prev, T) => {
       for (let c = 0; c < 3; c++) nv[c] = RHO * nv[c] + gaussian(rand) * jit;
-      const q = placeFrom(prev, T[0] - prev[0] + nv[0], T[1] - prev[1] + nv[1], T[2] - prev[2] + nv[2]);
+      // the first step from an attached sphere touches it at its own radius
+      const dist = prev.length > 3 && prev[3] !== a ? prev[3] + a : D;
+      const q = placeFrom(prev, T[0] - prev[0] + nv[0], T[1] - prev[1] + nv[1], T[2] - prev[2] + nv[2], dist);
       gridAdd(q);
       return q;
     };
     let prev;
-    if (start) prev = [start.X, start.Y, start.Z];
+    if (start) prev = [start.X, start.Y, start.Z, start.r || a];
     else { prev = S[0].slice(); out.push(prev); gridAdd(prev); }
     let sArc = 0;
-    const Eend = end ? [end.X, end.Y, end.Z] : null;
+    const Eend = end ? [end.X, end.Y, end.Z] : null, dE = end ? (end.r || a) + a : D;
     while (sArc < L - 1e-9 && out.length < CONFIG.N_MAX) {
-      if (Eend && dist3(prev, Eend) <= 2 * D) break;   // close enough: the closing step below connects
+      if (Eend && dist3(prev, Eend) <= D + dE) break;   // close enough: the closing step below connects
       sArc = Math.min(L, sArc + D);
       const T = at(sArc);
       if (dist3(T, prev) < D * 0.5 && sArc >= L) break;
@@ -1022,30 +1067,33 @@
       out.push(prev);
     }
     if (end) {
-      // Close onto the end sphere E with exact contacts and no overlaps:
-      // drop spheres closer than 2a to E, step straight towards E in 2a steps
-      // while more than 4a away, then place one sphere touching both neighbours.
+      // Close onto the end sphere E (radius rE) with exact contacts and no overlaps:
+      // drop spheres closer than rE + a to E, step straight towards E in 2a steps
+      // while more than 2a + rE + a away, then place one sphere touching both neighbours.
       const E = [end.X, end.Y, end.Z];
-      while (out.length && dist3(out[out.length - 1], E) < D - 1e-9) dead.add(out.pop());
-      let last = out.length ? out[out.length - 1] : (start ? [start.X, start.Y, start.Z] : null);
+      while (out.length && dist3(out[out.length - 1], E) < dE - 1e-9) dead.add(out.pop());
+      let last = out.length ? out[out.length - 1] : (start ? [start.X, start.Y, start.Z, start.r || a] : null);
       if (last) {
         let guard = 0;
         const maxSteps = Math.ceil(dist3(last, E) / D) + 4;
-        while (dist3(last, E) > 2 * D && guard++ < maxSteps) {
-          last = placeFrom(last, E[0] - last[0], E[1] - last[1], E[2] - last[2]);
+        while (dist3(last, E) > D + dE && guard++ < maxSteps) {
+          const dist = last.length > 3 && last[3] !== a ? last[3] + a : D;
+          last = placeFrom(last, E[0] - last[0], E[1] - last[1], E[2] - last[2], dist);
           gridAdd(last);
           out.push(last);
         }
-        const r = dist3(last, E);
-        if (r > D + 1e-9) {
+        const r = dist3(last, E), dL = last.length > 3 && last[3] !== a ? last[3] + a : D;
+        if (r > dE + 1e-9) {
           const ux = (E[0] - last[0]) / r, uy = (E[1] - last[1]) / r, uz = (E[2] - last[2]) / r;
           let px = uy, py = -ux, pz = 0;                    // perpendicular, preferably in the view plane
           let pl = Math.hypot(px, py, pz);
           if (pl < 1e-6) { px = 0; py = uz; pz = -uy; pl = Math.hypot(px, py, pz) || 1; }
           px /= pl; py /= pl; pz /= pl;
           const qx = uy * pz - uz * py, qy = uz * px - ux * pz, qz = ux * py - uy * px;   // u x p
-          const h = Math.sqrt(Math.max(0, D * D - (r / 2) * (r / 2)));
-          const mx = (last[0] + E[0]) / 2, my = (last[1] + E[1]) / 2, mz = (last[2] + E[2]) / 2;
+          // circle of points at distance dL from last and dE from E
+          const xa = (r * r + dL * dL - dE * dE) / (2 * r);
+          const h = Math.sqrt(Math.max(0, dL * dL - xa * xa));
+          const mx = last[0] + ux * xa, my = last[1] + uy * xa, mz = last[2] + uz * xa;
           // every point on this circle touches both last and E; prefer view-plane positions, avoid overlaps
           let pick = null, pickC = -1;
           const phi0 = rand() < 0.5 ? 0 : Math.PI;
@@ -1053,25 +1101,26 @@
             const ph = phi0 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * Math.PI / 12;
             const c = Math.cos(ph) * h, sn = Math.sin(ph) * h;
             const q = [mx + c * px + sn * qx, my + c * py + sn * qy, mz + c * pz + sn * qz];
-            const c2 = clear2(q);
+            const c2 = clear(q);
             if (c2 > pickC) { pickC = c2; pick = q; }
-            if (c2 >= LIM2) break;
+            if (c2 >= TOL) break;
           }
           out.push(pick);
         }
       }
     }
-    return out;
+    return out.map(q => [q[0], q[1], q[2]]);
   }
 
-  function rgOf(P, n) {
+  function rgOf(P, n, rad) {
     if (!n) return 0;
-    let mx = 0, my = 0, mz = 0;
-    for (let i = 0; i < n; i++) { mx += P[3 * i]; my += P[3 * i + 1]; mz += P[3 * i + 2]; }
-    mx /= n; my /= n; mz /= n;
+    const w = (i) => (rad ? rad[i] ** 3 : 1);
+    let M = 0, mx = 0, my = 0, mz = 0;
+    for (let i = 0; i < n; i++) { const m = w(i); M += m; mx += m * P[3 * i]; my += m * P[3 * i + 1]; mz += m * P[3 * i + 2]; }
+    mx /= M; my /= M; mz /= M;
     let s2 = 0;
-    for (let i = 0; i < n; i++) s2 += (P[3 * i] - mx) ** 2 + (P[3 * i + 1] - my) ** 2 + (P[3 * i + 2] - mz) ** 2;
-    return Math.sqrt(s2 / n);
+    for (let i = 0; i < n; i++) s2 += w(i) * ((P[3 * i] - mx) ** 2 + (P[3 * i + 1] - my) ** 2 + (P[3 * i + 2] - mz) ** 2);
+    return Math.sqrt(s2 / M);
   }
   // Box centred on (cx, cy) that encloses the projected spheres (at least minW x minH).
   function withSymmetricBox(it, cx, cy, minW = 0, minH = 0) {
@@ -1149,12 +1198,21 @@
     pts.set(A.pts.subarray(0, 3 * A.n));
     let o = 3 * A.n;
     for (const q of sph) { local(q[0], q[1], q[2], pts, o); o += 3; }
+    let rad = new Float32Array(n).fill(1), poly = !!A.radii;
+    if (A.radii) rad.set(A.radii.subarray(0, A.n));
     if (B) {
       const vb = viewSpheres(B), bx = B.x + B.w / 2, by = B.y + B.h / 2;
-      for (let i = 0; i < B.n; i++) { local(bx + vb.xs[i], by + vb.ys[i], vb.zs[i], pts, o); o += 3; }
+      for (let i = 0; i < B.n; i++) {
+        rad[A.n + sph.length + i] = vb.rs[i] / a;
+        if (Math.abs(vb.rs[i] / a - 1) > 1e-6) poly = true;
+        local(bx + vb.xs[i], by + vb.ys[i], vb.zs[i], pts, o); o += 3;
+      }
     }
+    if (!poly) rad = undefined;
     const ni = {
-      ...A, a, aGen: undefined, pts, n, edited: true, needsGen: false, dfFit: null, rg: rgOf(pts, n),
+      ...A, a, aGen: undefined, pts, n, radii: rad, edited: true, needsGen: false, dfFit: null, rg: rgOf(pts, n, rad),
+      nGen: A.nGen != null ? A.nGen : A.n,
+      groups: A.groups ? (() => { const gr = new Uint16Array(n); gr.set(A.groups.subarray(0, A.n)); return gr; })() : undefined,
       genBox: A.genBox || (A.kind === 'chain' ? null : { w: A.w, h: A.h }),
     };
     return refitBox(ni);
@@ -1166,10 +1224,6 @@
     const pathAbs = a.pts.slice();
     if (isTap && startHit) { if (handleTap(p) === 'single-agg') selectIds([startHit.item.id]); return; }
     let endHit = isTap ? null : sphereAt({ x: pathAbs[pathAbs.length - 2], y: pathAbs[pathAbs.length - 1] });
-    if (startHit && endHit && startHit.item.id !== endHit.item.id && Math.abs(ptsScale(startHit.item) - ptsScale(endHit.item)) > 1e-6) {
-      endHit = null;
-      toast('The two aggregates have different monomer sizes: connected to the first one only.', 4000);
-    }
     if (!startHit && endHit) {            // attach at the end only: walk the stroke backwards
       startHit = endHit; endHit = null;
       const rev = [];
@@ -1191,7 +1245,7 @@
     const obstacles = [];
     for (const T of B ? [A, B] : [A]) {
       const v = viewSpheres(T), tx = T.x + T.w / 2, ty = T.y + T.h / 2;
-      for (let i = 0; i < T.n; i++) obstacles.push(tx + v.xs[i], ty + v.ys[i], v.zs[i]);
+      for (let i = 0; i < T.n; i++) obstacles.push(tx + v.xs[i], ty + v.ys[i], v.zs[i], v.rs[i]);
     }
     const sph = layChain(pathAbs, z0, z1, ptsScale(A), temp, seed, startHit, endHit, obstacles);
     if (!sph.length) return;
@@ -1310,6 +1364,336 @@
   }
 
   // ============================================================
+  // Spin ("show 3D"): display-only rotation of aggregates
+  // ------------------------------------------------------------
+  // All spinning aggregates turn in step about an axis tilted 15° towards the viewer.
+  // Tap the button: one rotation (ends exactly at the stored orientation). Hold: continuous;
+  // tap again to stop with a short glide back. Stored orientations, saving, exports,
+  // selection frames and handles are never affected. The spin pauses while anything
+  // touches the page.
+  // ============================================================
+  const SPIN_TILT = 15 * Math.PI / 180, SPIN_FPS = 30, SPIN_RETURN_MS = 500;
+  // Rocking: theta = A sin(phase), one swing (0 -> +A -> -A -> 0) per ROCK_PERIOD.
+  const ROCK_AMP = 35 * Math.PI / 180, ROCK_PERIOD = 4500;
+  const SPIN_AXIS = [0, Math.cos(SPIN_TILT), -Math.sin(SPIN_TILT)];
+  const spin = { mode: null, theta: 0, last: 0, ids: null, from: 0, to: 0, t0: 0, timer: 0, period: 8000, style: 'rotate', phase: 0, rockPeriod: ROCK_PERIOD };
+  function axisRot(u, t) {
+    const c = Math.cos(t), sn = Math.sin(t), C = 1 - c, [x, y, z] = u;
+    return [c + x * x * C, x * y * C - z * sn, x * z * C + y * sn,
+            y * x * C + z * sn, c + y * y * C, y * z * C - x * sn,
+            z * x * C - y * sn, z * y * C + x * sn, c + z * z * C];
+  }
+  const spinningItem = (it) => spin.mode && spin.theta !== 0 && (!spin.ids || spin.ids.has(it.id));
+  function startSpin(mode) {
+    const selAggs = selectedItems().filter(it => it.type === 'agg');
+    spin.ids = selAggs.length ? new Set(selAggs.map(it => it.id)) : null;
+    if (spin.mode !== 'loop' && spin.mode !== 'once') {
+      // a new motion: take the chosen style now, so changing the setting mid-motion does not jump
+      spin.theta = spin.mode === 'return' ? spin.theta : 0;
+      spin.style = settings.spinStyle === 'rock' ? 'rock' : 'rotate';
+      spin.phase = spin.style === 'rock' && spin.theta ? Math.asin(clamp(spin.theta / ROCK_AMP, -1, 1)) : 0;
+    }
+    spin.mode = mode;
+    spin.last = now();
+    dlog(`spin: ${mode}${spin.ids ? ` (${spin.ids.size} selected)` : ' (all)'}`);
+    scheduleSpin(0);
+    updateSpinBtn();
+  }
+  function stopSpin(smooth = true) {
+    if (!spin.mode) return;
+    clearTimeout(spin.timer);
+    if (!smooth || spin.theta === 0) { spin.mode = null; spin.theta = 0; requestRender(); updateSpinBtn(); return; }
+    const t = ((spin.theta % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+    spin.mode = 'return'; spin.from = t; spin.to = t > Math.PI ? 2 * Math.PI : 0; spin.t0 = now();
+    scheduleSpin(0);
+    updateSpinBtn();
+  }
+  function scheduleSpin(delay) {
+    clearTimeout(spin.timer);
+    spin.timer = setTimeout(() => requestAnimationFrame(spinTick), delay);
+  }
+  function spinTick() {
+    if (!spin.mode) return;
+    const t = now(), dt = t - spin.last;
+    spin.last = t;
+    if (spin.mode === 'return') {
+      const u = clamp((t - spin.t0) / SPIN_RETURN_MS, 0, 1), e = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+      spin.theta = spin.from + (spin.to - spin.from) * e;
+      if (u >= 1) { spin.theta = 0; spin.mode = null; }
+    } else if (!pointers.size) {               // paused while the pencil, a finger or the mouse is on the page
+      if (spin.style === 'rock') {
+        spin.phase += (dt / spin.rockPeriod) * 2 * Math.PI;
+        if (spin.mode === 'once' && spin.phase >= 2 * Math.PI) { spin.theta = 0; spin.mode = null; }
+        else spin.theta = ROCK_AMP * Math.sin(spin.phase);
+      } else {
+        spin.theta += (dt / spin.period) * 2 * Math.PI;
+        if (spin.mode === 'once' && spin.theta >= 2 * Math.PI) { spin.theta = 0; spin.mode = null; }
+      }
+    }
+    requestRender();
+    updateSpinBtn();
+    if (spin.mode) scheduleSpin(1000 / SPIN_FPS);
+  }
+  function updateSpinBtn() {
+    const b = $('btnSpin');
+    if (!b) return;
+    b.classList.toggle('active', spin.mode === 'once' || spin.mode === 'loop');
+    const rock = settings.spinStyle === 'rock';
+    b.title = spin.mode === 'loop' ? 'Stop (Space)' : rock ? 'Show 3D: one swing (Space) · hold: keep rocking (Shift+Space)' : 'Show 3D: one rotation (Space) · hold: keep rotating (Shift+Space)';
+  }
+
+  // ============================================================
+  // Teaching overlays: numbers (N, Df, kf, a, Rg, Rout, filling factor) and the Rg circle
+  // ------------------------------------------------------------
+  // Rg is the point-mass radius of gyration, as in N = kf (Rg/a)^Df. Rout is the largest
+  // distance of a monomer surface from the centre of mass. The filling factor is
+  // phi = N (a/R)^3 with R = sqrt(5/3) Rg (uniform sphere with the same Rg), so that
+  // phi ~ N^(1 - 3/Df). Overlays follow the displayed orientation (also while spinning).
+  // ============================================================
+  const OV_FONT = 24;                       // page units (about 17 px on an iPad at fit)
+  const ovCache = new WeakMap();            // pts -> { com (units a, local frame), rg, rOut }
+  function ovStats(it) {
+    let st = ovCache.get(it.pts);
+    if (st && st.radii === it.radii) return st;
+    const P = it.pts, n = it.n, w = (i) => (it.radii ? it.radii[i] ** 3 : 1);
+    let M = 0, mx = 0, my = 0, mz = 0;
+    for (let i = 0; i < n; i++) { const m = w(i); M += m; mx += m * P[3 * i]; my += m * P[3 * i + 1]; mz += m * P[3 * i + 2]; }
+    mx /= M; my /= M; mz /= M;
+    let s2 = 0, rmax = 0;
+    for (let i = 0; i < n; i++) {
+      const d2 = (P[3 * i] - mx) ** 2 + (P[3 * i + 1] - my) ** 2 + (P[3 * i + 2] - mz) ** 2;
+      s2 += w(i) * d2; rmax = Math.max(rmax, Math.sqrt(d2) + radOf(it, i));
+    }
+    // vol: total monomer volume in units of a^3 (= N for equal monomers), for the filling factor
+    st = { com: [mx, my, mz], rg: Math.sqrt(s2 / M), rOut: rmax, vol: M, radii: it.radii };
+    ovCache.set(it.pts, st);
+    return st;
+  }
+  function ovGeometry(it) {
+    const st = ovStats(it), a = ptsScale(it), R = it.R, c = st.com;
+    return {
+      X: it.x + it.w / 2 + (R[0] * c[0] + R[1] * c[1] + R[2] * c[2]) * a,
+      Y: it.y + it.h / 2 + (R[3] * c[0] + R[4] * c[1] + R[5] * c[2]) * a,
+      rg: st.rg * a, rOut: st.rOut * a, st,
+    };
+  }
+  const fmtNum = (v, d) => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(d));
+  function ovLines(it) {
+    const st = ovStats(it), n = it.n, a = ptsScale(it);
+    const rc = Math.sqrt(5 / 3) * st.rg, phi = rc > 0 ? st.vol / Math.pow(rc, 3) : 1;
+    let l1;
+    if (it.kind === 'chain' && !it.edited) l1 = `N = ${n} · chain`;
+    else if (it.edited) l1 = `N = ${n} · with hand-drawn parts`;
+    else {
+      const kf = it.kfUsed != null ? it.kfUsed : (it.kf != null ? it.kf : window.AggEngine.kfAuto(it.df, it.sigma || 1));
+      l1 = `N = ${n} · Df = ${it.df.toFixed(2)} · kf = ${kf.toFixed(2)}${it.radii && it.sigma > 1 ? ` · σg = ${it.sigma.toFixed(2)}` : ''}`;
+    }
+    return [l1, `${it.radii ? 'ag' : 'a'} = ${fmtNum(a, 1)} · Rg = ${fmtNum(st.rg, 1)} a · Rout = ${fmtNum(st.rOut, 1)} a`, `filling factor φ = ${phi < 0.01 ? phi.toExponential(1) : phi.toFixed(3)}`];
+  }
+  // Label box below the aggregate (above it if it would leave the page).
+  function ovLabelBox(it, lines) {
+    const lh = OV_FONT * 1.22, w = Math.max(...lines.map(l => l.length)) * OV_FONT * 0.52 + 14, h = lines.length * lh + 8;
+    let y = it.y + it.h + 6;
+    if (y + h > pageH(curPage())) y = it.y - h - 6;
+    return { x: it.x, y, w, h, lh };
+  }
+  const ovColors = (theme) => theme === 'dark'
+    ? { rg: '#ffbb55', out: 'rgba(230,232,240,0.55)', text: '#e8e8ee', bg: 'rgba(31,36,40,0.82)' }
+    : { rg: '#d4730a', out: 'rgba(60,60,70,0.5)', text: '#2a2a30', bg: 'rgba(255,255,255,0.82)' };
+  function drawOverlays(ctx, it, theme, unit) {
+    if (!it.pts || !it.n || (!it.showRg && !it.showNums && !it.showMR)) return;
+    if (it.showMR) drawShapes(ctx, mrShapes(it, theme));
+    const C = ovColors(theme);
+    if (it.showRg) {
+      const g = ovGeometry(it);
+      ctx.save();
+      ctx.lineWidth = 2.2;
+      ctx.setLineDash([2, 5]); ctx.strokeStyle = C.out;
+      ctx.beginPath(); ctx.arc(g.X, g.Y, g.rOut, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([10, 6]); ctx.strokeStyle = C.rg; ctx.lineWidth = 2.6;
+      ctx.beginPath(); ctx.arc(g.X, g.Y, g.rg, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+      const k = Math.max(6, ptsScale(it) * 0.9);
+      ctx.beginPath(); ctx.moveTo(g.X - k, g.Y); ctx.lineTo(g.X + k, g.Y); ctx.moveTo(g.X, g.Y - k); ctx.lineTo(g.X, g.Y + k); ctx.stroke();
+      ctx.fillStyle = C.rg; ctx.font = `600 ${OV_FONT}px system-ui, sans-serif`;
+      ctx.textBaseline = 'bottom'; ctx.fillText('Rg', g.X + g.rg * 0.72 + 4, g.Y - g.rg * 0.72 - 2);
+      ctx.restore();
+    }
+    if (it.showNums) {
+      const lines = ovLines(it), b = ovLabelBox(it, lines);
+      ctx.save();
+      ctx.fillStyle = C.bg; ctx.fillRect(b.x, b.y, b.w, b.h);
+      ctx.fillStyle = C.text; ctx.font = `${OV_FONT}px system-ui, sans-serif`; ctx.textBaseline = 'top';
+      lines.forEach((l, i) => ctx.fillText(l, b.x + 6, b.y + 4 + i * b.lh));
+      ctx.restore();
+    }
+  }
+  // ---------- mass-radius overlay: rings + log-log plot (slope = Df) ----------
+  // Around the centre of mass a fluffy aggregate is often empty, which makes single-centre
+  // counts misleading. The plot therefore shows <N(r)>, the mean number of monomers within r
+  // of a monomer, averaged over up to 200 monomers as centres (the operational definition of
+  // Df), fitted for 3a <= r <= 0.7 Rg (checked: matches Df within ~0.05). The rings illustrate
+  // the counting around one monomer: the one closest to the centre of mass. r in units of a.
+  const mrCache = new WeakMap();
+  function mrStats(it) {
+    let m = mrCache.get(it.pts);
+    if (m && m.radii === it.radii) return m;
+    const st = ovStats(it), P = it.pts, n = it.n, c = st.com;
+    // ring centre: the monomer nearest the centre of mass
+    let c0 = 0, best = Infinity;
+    for (let i = 0; i < n; i++) { const q = (P[3 * i] - c[0]) ** 2 + (P[3 * i + 1] - c[1]) ** 2 + (P[3 * i + 2] - c[2]) ** 2; if (q < best) { best = q; c0 = i; } }
+    const d0 = new Float64Array(n);
+    for (let j = 0; j < n; j++) d0[j] = Math.hypot(P[3 * j] - P[3 * c0], P[3 * j + 1] - P[3 * c0 + 1], P[3 * j + 2] - P[3 * c0 + 2]);
+    d0.sort();
+    const count = (r) => { let lo = 0, hi = n; while (lo < hi) { const mid = (lo + hi) >> 1; if (d0[mid] <= r) lo = mid + 1; else hi = mid; } return lo; };
+    // centre-averaged N(r) on radii r_k = 2^(k/4), collected directly into bins (no sorting)
+    const rMax = Math.max(2, st.rOut + 1), K = Math.ceil(4 * Math.log2(2 * rMax)) + 1;
+    const hist = new Float64Array(K + 1), step = Math.max(1, Math.floor(n / 200));
+    let centres = 0;
+    for (let i = 0; i < n; i += step) {
+      centres++;
+      const xi = P[3 * i], yi = P[3 * i + 1], zi = P[3 * i + 2];
+      for (let j = 0; j < n; j++) {
+        const dd = Math.hypot(P[3 * j] - xi, P[3 * j + 1] - yi, P[3 * j + 2] - zi);
+        const b = dd <= 1 ? 0 : Math.min(K, Math.ceil(4 * Math.log2(dd) - 1e-9));
+        hist[b]++;
+      }
+    }
+    const samples = [];
+    let cum = 0;
+    for (let k = 0; k <= K; k++) { cum += hist[k]; const r = Math.pow(2, k / 4); if (r > rMax) break; samples.push({ r, N: cum / centres }); }
+    const fitPts = samples.filter(q => q.r >= 3 && q.r <= 0.7 * st.rg);
+    m = { samples, slope: null, count, rMax, c0, radii: it.radii };
+    if (fitPts.length >= 4) {
+      let sx = 0, sy = 0, sxx = 0, sxy = 0; const k = fitPts.length;
+      for (const q of fitPts) { const X = Math.log(q.r), Y = Math.log(q.N); sx += X; sy += Y; sxx += X * X; sxy += X * Y; }
+      m.slope = (k * sxy - sx * sy) / (k * sxx - sx * sx);
+      m.icpt = (sy - m.slope * sx) / k; m.r0 = fitPts[0].r; m.r1 = fitPts[k - 1].r;
+    }
+    mrCache.set(it.pts, m);
+    return m;
+  }
+  const MR_W = 270, MR_H = 190;
+  // Place the plot at the first position that fits on the page, avoiding the numbers label.
+  function mrPlotBox(it) {
+    const PHc = pageH(curPage()), W = MR_W, H = MR_H, gap = 8;
+    const lb = it.showNums && it.pts ? ovLabelBox(it, ovLines(it)) : null;
+    const hits = (b) => lb && b.x < lb.x + lb.w && b.x + b.w > lb.x && b.y < lb.y + lb.h && b.y + b.h > lb.y;
+    const fits = (b) => b.x >= 0 && b.y >= 0 && b.x + b.w <= PW && b.y + b.h <= PHc && !hits(b);
+    const cands = [
+      { x: it.x + it.w - W, y: it.y + it.h + 6 },                        // below, right-aligned (next to the label)
+      { x: it.x + it.w + gap, y: it.y + it.h - H },                      // right of the aggregate, bottom-aligned
+      { x: it.x + it.w + gap, y: it.y },                                 // right, top-aligned
+      { x: it.x - W - gap, y: it.y + it.h - H },                         // left, bottom-aligned
+      { x: it.x - W - gap, y: it.y },                                    // left, top-aligned
+      { x: it.x, y: (lb ? lb.y + lb.h : it.y + it.h) + gap },            // below the label
+      { x: it.x + it.w - W, y: it.y - H - 6 },                           // above
+    ].map(c => ({ x: c.x, y: c.y, w: W, h: H }));
+    return cands.find(fits) || { x: clamp(cands[0].x, 0, Math.max(0, PW - W)), y: clamp(cands[0].y, 0, Math.max(0, PHc - H)), w: W, h: H };
+  }
+  // Rings and plot as simple shapes, rendered both on canvas and in SVG.
+  function mrShapes(it, theme) {
+    const out = [], C = theme === 'dark'
+      ? { ring: '#5fd1c8', text: '#e8e8ee', axis: 'rgba(230,232,240,0.6)', bg: 'rgba(31,36,40,0.85)', fit: '#5fd1c8', dot: '#e8e8ee' }
+      : { ring: '#13807d', text: '#2a2a30', axis: 'rgba(60,60,70,0.55)', bg: 'rgba(255,255,255,0.88)', fit: '#13807d', dot: '#2a2a30' };
+    const m = mrStats(it), a = ptsScale(it), F = 15, R = it.R, P = it.pts, i0 = m.c0;
+    const gx = it.x + it.w / 2 + (R[0] * P[3 * i0] + R[1] * P[3 * i0 + 1] + R[2] * P[3 * i0 + 2]) * a;
+    const gy = it.y + it.h / 2 + (R[3] * P[3 * i0] + R[4] * P[3 * i0 + 1] + R[5] * P[3 * i0 + 2]) * a;
+    for (let r = 2; r < m.rMax; r *= 2) {
+      out.push({ t: 'circle', x: gx, y: gy, r: r * a, color: C.ring, w: 1.8, dash: [4, 4] });
+      const N = m.count(r), ang = -Math.PI / 4;
+      out.push({ t: 'text', x: gx + Math.cos(ang) * r * a + 3, y: gy + Math.sin(ang) * r * a - 3, s: String(N), size: F, color: C.ring, bold: true, halo: THEMES[theme].page });
+    }
+    out.push({ t: 'dot', x: gx, y: gy, r: Math.max(3, a * 0.35), fill: C.ring });
+    const b = mrPlotBox(it), L = 46, Bm = 32, T = 24, Rm = 12;
+    const px0 = b.x + L, px1 = b.x + b.w - Rm, py0 = b.y + b.h - Bm, py1 = b.y + T;
+    const lx = (r) => px0 + (Math.log(r) / Math.log(m.rMax)) * (px1 - px0);
+    const lN = Math.log(Math.max(2, it.n));
+    const ly = (N) => py0 - (Math.log(N) / lN) * (py0 - py1);
+    out.push({ t: 'rect', x: b.x, y: b.y, w: b.w, h: b.h, fill: C.bg });
+    out.push({ t: 'line', pts: [px0, py0, px1, py0], color: C.axis, w: 1.4 });
+    out.push({ t: 'line', pts: [px0, py0, px0, py1], color: C.axis, w: 1.4 });
+    for (let r = 1; r <= m.rMax * 1.001; r *= 2) {
+      out.push({ t: 'line', pts: [lx(r), py0, lx(r), py0 + 4], color: C.axis, w: 1.2 });
+      out.push({ t: 'text', x: lx(r), y: py0 + 6 + F * 0.8, s: String(r), size: F * 0.8, color: C.text, anchor: 'middle' });
+    }
+    for (let N = 1; N <= it.n * 1.001; N *= 10) {
+      out.push({ t: 'line', pts: [px0 - 4, ly(N), px0, ly(N)], color: C.axis, w: 1.2 });
+      out.push({ t: 'text', x: px0 - 6, y: ly(N) + F * 0.3, s: String(N), size: F * 0.8, color: C.text, anchor: 'end' });
+    }
+    out.push({ t: 'text', x: px1, y: py0 + 6 + F * 1.75, s: 'r / a', size: F * 0.85, color: C.text, anchor: 'end' });
+    out.push({ t: 'text', x: b.x + 6, y: b.y + F, s: '⟨N(r)⟩', size: F * 0.85, color: C.text });
+    for (const q of m.samples) out.push({ t: 'dot', x: lx(q.r), y: ly(q.N), r: 2.6, fill: C.dot });
+    if (m.slope != null) {
+      const f = (r) => Math.exp(m.icpt + m.slope * Math.log(r));
+      out.push({ t: 'line', pts: [lx(m.r0), ly(f(m.r0)), lx(m.r1), ly(f(m.r1))], color: C.fit, w: 3 });
+      const target = it.kind === 'chain' || it.edited ? '' : ` · Df ${it.df.toFixed(2)}`;
+      out.push({ t: 'text', x: px1, y: b.y + F, s: `slope ${m.slope.toFixed(2)}${target}`, size: F, color: C.fit, anchor: 'end', bold: true });
+    } else {
+      out.push({ t: 'text', x: px1, y: b.y + F, s: 'too small to fit', size: F * 0.9, color: C.text, anchor: 'end' });
+    }
+    return out;
+  }
+  function drawShapes(ctx, shapes) {
+    ctx.save();
+    for (const q of shapes) {
+      if (q.t === 'rect') { ctx.fillStyle = q.fill; ctx.fillRect(q.x, q.y, q.w, q.h); continue; }
+      if (q.t === 'dot') { ctx.fillStyle = q.fill; ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, Math.PI * 2); ctx.fill(); continue; }
+      if (q.t === 'text') {
+        ctx.fillStyle = q.color; ctx.font = `${q.bold ? '600 ' : ''}${q.size}px system-ui, sans-serif`;
+        ctx.textAlign = q.anchor === 'middle' ? 'center' : q.anchor === 'end' ? 'right' : 'left'; ctx.textBaseline = 'alphabetic';
+        if (q.halo) { ctx.strokeStyle = q.halo; ctx.lineWidth = q.size * 0.3; ctx.lineJoin = 'round'; ctx.setLineDash([]); ctx.strokeText(q.s, q.x, q.y); }
+        ctx.fillText(q.s, q.x, q.y); continue;
+      }
+      ctx.strokeStyle = q.color; ctx.lineWidth = q.w; ctx.setLineDash(q.dash || []);
+      ctx.beginPath();
+      if (q.t === 'circle') ctx.arc(q.x, q.y, q.r, 0, Math.PI * 2); else { ctx.moveTo(q.pts[0], q.pts[1]); ctx.lineTo(q.pts[2], q.pts[3]); }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function shapesSVG(shapes) {
+    let out = '';
+    for (const q of shapes) {
+      if (q.t === 'rect') out += `<rect x="${f2(q.x)}" y="${f2(q.y)}" width="${f2(q.w)}" height="${f2(q.h)}" fill="${q.fill}"/>`;
+      else if (q.t === 'dot') out += `<circle cx="${f2(q.x)}" cy="${f2(q.y)}" r="${f2(q.r)}" fill="${q.fill}"/>`;
+      else if (q.t === 'text') out += `<text x="${f2(q.x)}" y="${f2(q.y)}" fill="${q.color}" font-family="sans-serif" font-size="${f2(q.size)}"${q.bold ? ' font-weight="600"' : ''}${q.anchor ? ` text-anchor="${q.anchor}"` : ''}${q.halo ? ` stroke="${q.halo}" stroke-width="${f2(q.size * 0.3)}" stroke-linejoin="round" paint-order="stroke"` : ''}>${q.s.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</text>`;
+      else if (q.t === 'circle') out += `<circle cx="${f2(q.x)}" cy="${f2(q.y)}" r="${f2(q.r)}" fill="none" stroke="${q.color}" stroke-width="${q.w}"${q.dash ? ` stroke-dasharray="${q.dash.join(' ')}"` : ''}/>`;
+      else out += `<path d="M${f2(q.pts[0])} ${f2(q.pts[1])}L${f2(q.pts[2])} ${f2(q.pts[3])}" stroke="${q.color}" stroke-width="${q.w}"/>`;
+    }
+    return out;
+  }
+  function overlaySVG(it, theme) {
+    if (!it.pts || !it.n || (!it.showRg && !it.showNums && !it.showMR)) return '';
+    const C = ovColors(theme), esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    let out = it.showMR ? shapesSVG(mrShapes(it, theme)) : '';
+    if (it.showRg) {
+      const g = ovGeometry(it), k = Math.max(6, ptsScale(it) * 0.9);
+      out += `<circle cx="${f2(g.X)}" cy="${f2(g.Y)}" r="${f2(g.rOut)}" fill="none" stroke="${C.out}" stroke-width="2.2" stroke-dasharray="2 5"/>`;
+      out += `<circle cx="${f2(g.X)}" cy="${f2(g.Y)}" r="${f2(g.rg)}" fill="none" stroke="${C.rg}" stroke-width="2.6" stroke-dasharray="10 6"/>`;
+      out += `<path d="M${f2(g.X - k)} ${f2(g.Y)}H${f2(g.X + k)}M${f2(g.X)} ${f2(g.Y - k)}V${f2(g.Y + k)}" stroke="${C.rg}" stroke-width="2.6"/>`;
+      out += `<text x="${f2(g.X + g.rg * 0.72 + 4)}" y="${f2(g.Y - g.rg * 0.72 - 2)}" fill="${C.rg}" font-family="sans-serif" font-weight="600" font-size="${OV_FONT}">Rg</text>`;
+    }
+    if (it.showNums) {
+      const lines = ovLines(it), b = ovLabelBox(it, lines);
+      out += `<rect x="${f2(b.x)}" y="${f2(b.y)}" width="${f2(b.w)}" height="${f2(b.h)}" fill="${C.bg}"/>`;
+      lines.forEach((l, i) => { out += `<text x="${f2(b.x + 6)}" y="${f2(b.y + 4 + (i + 0.8) * b.lh)}" fill="${C.text}" font-family="sans-serif" font-size="${OV_FONT}">${esc(l)}</text>`; });
+    }
+    return out;
+  }
+  function overlayBounds(it) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    if (it.showRg && it.pts) { const g = ovGeometry(it); x0 = g.X - g.rOut; x1 = g.X + g.rOut; y0 = g.Y - g.rOut; y1 = g.Y + g.rOut; }
+    if (it.showNums && it.pts) { const b = ovLabelBox(it, ovLines(it)); x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h); }
+    if (it.showMR && it.pts) {
+      const b = mrPlotBox(it), sh = mrShapes(it, 'light').filter(q => q.t === 'circle');
+      x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h);
+      for (const q of sh) { x0 = Math.min(x0, q.x - q.r); y0 = Math.min(y0, q.y - q.r); x1 = Math.max(x1, q.x + q.r); y1 = Math.max(y1, q.y + q.r); }
+    }
+    return x0 < Infinity ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } : null;
+  }
+
+  // ============================================================
   // Rendering
   // ============================================================
   let raf = 0, needBoard = false, needOverlay = false;
@@ -1345,6 +1729,7 @@
     const xf = action && (action.kind === 'move' || action.kind === 'scale') ? action : null;
     const erased = action && action.kind === 'erase' ? action.erased : null;
     const ppu = d * s, unit = 1 / s;
+    const spinR = spin.mode && spin.theta !== 0 ? axisRot(SPIN_AXIS, spin.theta) : null;
     for (const it of items()) {
       if (erased && erased.has(it.id)) continue;
       const moved = xf && selection && selection.has(it.id);
@@ -1356,7 +1741,8 @@
         else { bctx.translate(xf.anchor.x, xf.anchor.y); bctx.scale(xf.s, xf.s); bctx.translate(-xf.anchor.x, -xf.anchor.y); }
       }
       if (it.type === 'stroke') drawStroke(bctx, it);
-      else drawAgg(bctx, it, ppu, gestureActive, unit);
+      else if (spinningItem(it)) { const sp = { ...it, R: matMul(spinR, it.R) }; drawAgg(bctx, sp, ppu * 0.75, false, unit); drawOverlays(bctx, sp, renderTheme, unit); }
+      else { drawAgg(bctx, it, ppu, gestureActive, unit); drawOverlays(bctx, it, renderTheme, unit); }
       if (moved) bctx.restore();
     }
     if (pendingDot && pendingDot.page === curPage()) drawStroke(bctx, pendingDot.stroke);
@@ -1443,7 +1829,7 @@
         const dfNow = settings.agg.df;
         const fb = settings.agg.method === 'cca' && dfNow > window.AggEngine.CCA_MAX_DF ? ' (particle–cluster)' : '';
         const label = `Df ${dfNow.toFixed(2)}${A.dial.active ? ' ↻' : ''}${fb} · a = ${A.a.toFixed(1)} · ${nTxt}`;
-        octx.font = '13px -apple-system, BlinkMacSystemFont, sans-serif';
+        octx.font = '13px system-ui, sans-serif';
         const tw = octx.measureText(label).width;
         // label on the outer side of the pencil (away from the centre), so it never covers the aggregate
         const outward = A.tip.x >= c.x ? 1 : -1;
@@ -2180,6 +2566,8 @@
     const it = {
       id: uid(), type: 'agg', x, y, w, h,
       a: A.a, df: A.df, kf: A.kf, seed: randSeed(), color: A.color, method: A.method,
+      ...(A.ns ? { ns: A.ns } : {}), ...(A.sigma > 1 ? { sigma: A.sigma } : {}),
+      ...(A.showNums ? { showNums: true } : {}), ...(A.showRg ? { showRg: true } : {}), ...(A.showGrowth ? { showGrowth: true } : {}), ...(A.showMR ? { showMR: true } : {}),
       R: IDENTITY.slice(), pts: null, n: 0, rg: 0, dfFit: null, capped: false, needsGen: true,
     };
     pushUndo();
@@ -2237,11 +2625,13 @@
     const A = settings.agg;
     return {
       id: PREVIEW_ID, type: 'agg', x: a.cx - a.R, y: a.cy - a.R, w: 2 * a.R, h: 2 * a.R,
-      a: a.a, df: A.df, kf: A.kf, seed: a.seed, color: A.color, method: A.method, fitShape: 'circle', R: IDENTITY.slice(),
+      a: a.a, df: A.df, kf: A.kf, seed: a.seed, color: A.color, method: A.method, fitShape: 'circle',
+      ...(A.ns ? { ns: A.ns } : {}), R: IDENTITY.slice(), ...(A.sigma > 1 ? { sigma: A.sigma } : {}),
+      ...(A.showNums ? { showNums: true } : {}), ...(A.showRg ? { showRg: true } : {}), ...(A.showGrowth ? { showGrowth: true } : {}), ...(A.showMR ? { showMR: true } : {}),
     };
   }
   function estimateN(R, a) {
-    const df = settings.agg.df, kf = settings.agg.kf != null ? settings.agg.kf : window.AggEngine.kfAuto(df);
+    const df = settings.agg.df, kf = settings.agg.kf != null ? settings.agg.kf : window.AggEngine.kfAuto(df, settings.agg.sigma || 1);
     const rg = Math.max(0, R / a - 1) * Math.sqrt(df / (df + 2));
     return Math.max(1, Math.round(kf * Math.pow(rg, df)));
   }
@@ -2387,7 +2777,7 @@
     const pv = a.preview;
     if (pv && Math.abs(pv.R - a.R) < 1e-9 && Math.abs(pv.a - a.a) < 1e-9) {
       // the aggregate seen at rest is exactly the one placed
-      Object.assign(it, { pts: pv.pts, n: pv.n, rg: pv.rg, dfFit: pv.dfFit, aniso: pv.aniso, kfUsed: pv.kf, capped: !!pv.capped, ccaFallback: !!pv.ccaFallback, needsGen: false });
+      Object.assign(it, { pts: pv.pts, n: pv.n, rg: pv.rg, dfFit: pv.dfFit, aniso: pv.aniso, kfUsed: pv.kf, capped: !!pv.capped, ccaFallback: !!pv.ccaFallback, needsGen: false, groups: pv.groups || undefined, radii: pv.radii || undefined });
     }
     pushUndo();
     setItems([...items(), it]);
@@ -2504,6 +2894,20 @@
   }
 
   $('btnUndo').addEventListener('click', undo);
+  {
+    const b = $('btnSpin');
+    let holdTimer = 0, held = false;
+    b.addEventListener('pointerdown', () => {
+      held = false;
+      clearTimeout(holdTimer);
+      holdTimer = setTimeout(() => { held = true; startSpin('loop'); toast(settings.spinStyle === 'rock' ? 'Rocking continuously. Tap the button again to stop.' : 'Rotating continuously. Tap the button again to stop.', 2500); }, 500);
+    });
+    for (const t of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(t, () => clearTimeout(holdTimer));
+    b.addEventListener('click', () => {
+      if (held) { held = false; return; }
+      if (spin.mode === 'once' || spin.mode === 'loop') stopSpin(true); else startSpin('once');
+    });
+  }
   $('btnRedo').addEventListener('click', redo);
   $('versionLabel').textContent = 'AggBoard version ' + VERSION;
   if (CONFIG.MENU_URL) { $('btnHome').href = CONFIG.MENU_URL; $('btnHome').hidden = false; }
@@ -2526,6 +2930,7 @@
   // Pages
   // ============================================================
   function goToPage(i) {
+    stopSpin(false);
     commitPendingDot();
     action = null;
     if (nav) endNav();
@@ -2592,7 +2997,25 @@
   let panelPlace = null, panelPointer = false;
   panel.addEventListener('pointerdown', () => { panelPointer = true; });
   for (const t of ['pointerup', 'pointercancel']) window.addEventListener(t, () => { panelPointer = false; }, true);
-  const aggSize = $('aggSize'), aggDf = $('aggDf'), aggKf = $('aggKf'), aggKfAuto = $('aggKfAuto');
+  const aggSize = $('aggSize'), aggDf = $('aggDf');
+  const NS_MIN = 2, NS_MAX = 500;
+  const nsToSlider = (ns) => Math.log(ns / NS_MIN) / Math.log(NS_MAX / NS_MIN);
+  const sliderToNs = (v) => Math.round(NS_MIN * Math.pow(NS_MAX / NS_MIN, v));
+  function refreshAdvanced(it) {
+    const kfAuto = it.kf == null;
+    $('advKfAuto').checked = kfAuto;
+    $('advKf').disabled = kfAuto;
+    const kfShown = kfAuto ? (it.kfUsed != null ? it.kfUsed : window.AggEngine.kfAuto(it.df, it.sigma || 1)) : it.kf;
+    $('advKf').value = kfShown;
+    $('advKfVal').textContent = kfShown.toFixed(2);
+    const cca = it.method === 'cca';
+    $('advNsRow').style.opacity = cca ? '' : '0.45';
+    $('advNsAuto').checked = !it.ns;
+    $('advNs').disabled = !it.ns || !cca; $('advNsAuto').disabled = !cca;
+    $('advNs').value = nsToSlider(it.ns || 16);
+    $('advNsVal').textContent = it.ns ? String(it.ns) : '≈N^0.4';
+    $('advNote').textContent = !cca ? 'Subclusters apply to cluster–cluster aggregates only.' : '';
+  }
   const aggColorsEl = $('aggColors');
   AGG_COLORS.forEach((c) => {
     const b = document.createElement('button');
@@ -2631,7 +3054,6 @@
     show('rowDf', mode === 'agg');
     show('rowMethod', mode === 'agg');
     for (const b of $('methodSeg').children) b.classList.toggle('active', b.dataset.method === (it.method === 'cca' ? 'cca' : 'pc'));
-    show('aggAdvanced', mode === 'agg');
     show('rowTemp', mode === 'chain');
     show('aggRandom', mode !== 'edited');
     show('aggRegen', mode === 'edited' && it.kind !== 'chain');
@@ -2641,12 +3063,13 @@
     $('aggSizeVal').textContent = it.a.toFixed(1);
     aggDf.value = it.df;
     $('aggDfVal').textContent = it.df.toFixed(2);
-    const auto = it.kf == null;
-    aggKfAuto.checked = auto;
-    const kfShown = auto ? window.AggEngine.kfAuto(it.df) : it.kf;
-    aggKf.value = kfShown;
-    aggKf.disabled = auto;
-    $('aggKfVal').textContent = kfShown.toFixed(2);
+    {
+    $('aggSigma').value = it.sigma || 1;
+    $('aggSigmaVal').textContent = (it.sigma || 1) > 1 ? (it.sigma).toFixed(2) : '1 (equal)';
+    show('rowSigma', mode === 'agg');
+    show('aggAdvanced', mode === 'agg');
+    if (mode === 'agg') refreshAdvanced(it);
+    }
     let html;
     if (mode === 'chain') html = `N = <b>${it.n}</b> monomers &middot; hand-drawn chain`;
     else if (mode === 'edited') html = `N = <b>${it.n}</b> monomers<br><i>Contains hand-drawn chains, so it is no longer regenerated.</i>`;
@@ -2661,6 +3084,13 @@
     }
     $('aggReadout').innerHTML = html;
     for (const b of aggColorsEl.children) b.classList.toggle('active', b.dataset.color === it.color);
+    $('ovNums').checked = !!it.showNums;
+    $('ovRg').checked = !!it.showRg;
+    const gk = growthKind(it);
+    $('ovGrowthRow').style.display = gk ? '' : 'none';
+    $('ovGrowthLbl').textContent = gk === 'subclusters' ? 'Subclusters' : 'Growth order';
+    $('ovGrowth').checked = !!it.showGrowth;
+    $('ovMR').checked = !!it.showMR;
   }
   function panelEdit(changes, discrete) {
     const it = findItem(panelId);
@@ -2684,7 +3114,10 @@
     if ('a' in changes && it.pts) ni.aGen = ptsScale(it);   // keep showing the current structure at its own size
     replaceItem(ni);
     requestGen(ni);
-    settings.agg.a = ni.a; settings.agg.df = ni.df; settings.agg.kf = ni.kf;
+    if (!(ni.sigma > 1)) delete ni.sigma;
+    if (!ni.ns) delete ni.ns;
+    settings.agg.a = ni.a; settings.agg.df = ni.df; settings.agg.sigma = ni.sigma || 1;
+    settings.agg.kf = ni.kf != null ? ni.kf : null; settings.agg.ns = ni.ns || null;
     settings.agg.method = ni.method === 'cca' ? 'cca' : 'pc';
     saveSettings();
   }
@@ -2710,9 +3143,25 @@
     requestGen(ni);
   });
   aggDf.addEventListener('input', () => panelEdit({ df: +aggDf.value }));
-  aggKf.addEventListener('input', () => { if (!aggKfAuto.checked) panelEdit({ kf: +aggKf.value }); });
-  for (const el of [aggSize, aggDf, aggKf]) el.addEventListener('change', () => { panelSession = false; });
-  aggKfAuto.addEventListener('change', () => panelEdit({ kf: aggKfAuto.checked ? null : +aggKf.value }, true));
+  $('aggSigma').addEventListener('input', () => { const v = +$('aggSigma').value; panelEdit({ sigma: v > 1.0005 ? v : undefined }); });
+  $('aggSigma').addEventListener('change', () => { panelSession = false; });
+  for (const el of [aggSize, aggDf]) el.addEventListener('change', () => { panelSession = false; });
+  $('advKfAuto').addEventListener('change', () => panelEdit({ kf: $('advKfAuto').checked ? null : +$('advKf').value }, true));
+  $('advKf').addEventListener('input', () => { if (!$('advKfAuto').checked) panelEdit({ kf: +$('advKf').value }); });
+  $('advNsAuto').addEventListener('change', () => panelEdit({ ns: $('advNsAuto').checked ? null : sliderToNs(+$('advNs').value) }, true));
+  $('advNs').addEventListener('input', () => { if (!$('advNsAuto').checked) panelEdit({ ns: sliderToNs(+$('advNs').value) }); });
+  for (const id of ['advKf', 'advNs']) $(id).addEventListener('change', () => { panelSession = false; });
+  for (const [id, key] of [['ovNums', 'showNums'], ['ovRg', 'showRg'], ['ovGrowth', 'showGrowth'], ['ovMR', 'showMR']]) {
+    $(id).addEventListener('change', () => {
+      const it = findItem(panelId);
+      if (!it) return;
+      pushUndo();
+      const ni = { ...it };
+      if ($(id).checked) ni[key] = true; else delete ni[key];
+      replaceItem(ni);
+      settings.agg[key] = $(id).checked; saveSettings();
+    });
+  }
   $('aggRandom').addEventListener('click', () => panelEdit({ seed: randSeed() }, true));
   $('aggDuplicate').addEventListener('click', () => { closePanel(); duplicateSelection(); });
   $('aggDelete').addEventListener('click', () => { closePanel(); deleteSelection(); });
@@ -2792,6 +3241,8 @@
     btn.title = settings.aggCreate === 'circle' ? 'Aggregate: drag from the centre (A)' : 'Aggregate in a box (A)';
     for (const b of $('createSeg').children) b.classList.toggle('active', b.dataset.create === settings.aggCreate);
   }
+  function updateSpinStyleUI() { for (const b of $('spinSeg').children) b.classList.toggle('active', b.dataset.spin === settings.spinStyle); updateSpinBtn(); }
+  for (const b of $('spinSeg').children) b.addEventListener('click', () => { settings.spinStyle = b.dataset.spin; saveSettings(); updateSpinStyleUI(); });
   function applyHand() {
     document.body.classList.toggle('left-handed', settings.hand === 'left');
     for (const b of $('handSeg').children) b.classList.toggle('active', b.dataset.hand === settings.hand);
@@ -2805,6 +3256,7 @@
   }
   updateCreateUI();
   applyHand();
+  updateSpinStyleUI();
   function screenAspect() {
     const W = window.innerWidth, H = window.innerHeight;
     const top = $('toolbar').getBoundingClientRect().bottom + 10;
@@ -2897,11 +3349,15 @@
     if (it.type !== 'agg') return it;
     const out = { ...it };
     out.pts = it.pts ? Array.from(it.pts, v => Math.round(v * 1000) / 1000) : null;
+    if (it.groups) out.groups = Array.from(it.groups);
+    if (it.radii) out.radii = Array.from(it.radii, v => Math.round(v * 10000) / 10000);
     return out;
   }
   function notebookToJSON() {
+    // Version 4 only when a page holds polydisperse monomers; otherwise version 3, which older copies can read.
+    const poly = nb.pages.some(pg => pg.items.some(it => it.radii));
     return {
-      format: CONFIG.FORMAT, version: CONFIG.FORMAT_VERSION,
+      format: CONFIG.FORMAT, version: poly ? 4 : 3,
       id: nb.id, title: nb.title, created: nb.created, modified: nb.modified,
       page: { w: PW, h: PH }, current: nb.current,
       pages: nb.pages.map(pg => ({ id: pg.id, items: pg.items.map(itemToJSON), ...pageMeta(pg) })),
@@ -2950,6 +3406,12 @@
         rg: isNum(it.rg) ? it.rg : 0, dfFit: isNum(it.dfFit) ? it.dfFit : null,
         ...(it.method === 'cca' ? { method: 'cca' } : {}),
         ...(it.fitShape === 'circle' ? { fitShape: 'circle' } : {}),
+        ...(it.showNums ? { showNums: true } : {}), ...(it.showRg ? { showRg: true } : {}), ...(it.showGrowth ? { showGrowth: true } : {}), ...(it.showMR ? { showMR: true } : {}),
+        ...(ok && it.groups && it.groups.length === n ? { groups: Uint16Array.from(numArray(it.groups) || []) } : {}),
+        ...(ok && it.radii && it.radii.length === n && (numArray(it.radii) || []).every(v => v >= 0.05 && v <= 20) ? { radii: Float32Array.from(numArray(it.radii)) } : {}),
+        ...(isNum(it.sigma) && it.sigma > 1 ? { sigma: clamp(it.sigma, 1, 1.5) } : {}),
+        ...(isNum(it.ns) && it.ns >= 2 ? { ns: clamp(Math.round(it.ns), 2, 500) } : {}),
+        ...(ok && isNum(it.nGen) && it.nGen >= 0 && it.nGen <= n ? { nGen: it.nGen | 0 } : {}),
         ...(isNum(it.aGen) && it.aGen > 0 && ok ? { aGen: it.aGen } : {}),
         ...(isNum(it.aniso) ? { aniso: it.aniso } : {}),
         capped: !!it.capped, needsGen: isChain ? false : (!ok || (!!it.needsGen && !it.edited)),
@@ -3024,12 +3486,13 @@
     for (let i = 0; i < it.n; i++) { zmin = Math.min(zmin, v.zs[i]); zmax = Math.max(zmax, v.zs[i]); }
     const zr = Math.max(1e-6, zmax - zmin);
     const order = Array.from({ length: it.n }, (_, i) => i).sort((i, j) => v.zs[i] - v.zs[j]);
-    const hsl = hslOf(it.color), shadowK = THEMES[theme].shadow;
+    const colorOf = sphereColorFn(it), shadowK = THEMES[theme].shadow;
     let out = '';
     for (const i of order) {
       const level = clamp(Math.round(((v.zs[i] - zmin) / zr) * (LEVELS - 1)), 0, LEVELS - 1);
       const t = level / (LEVELS - 1), { mist, l0, l1, l2 } = shade(t);
-      const key = it.color + '|' + level;
+      const col = colorOf ? colorOf(i) : it.color, hsl = hslOf(col);
+      const key = col + '|' + level;
       let id = gradIds.get(key);
       if (!id) {
         id = 'g' + gradIds.size;
@@ -3039,17 +3502,17 @@
           `<stop offset="0.55" stop-color="${stopColor(hsl, l1, mist)}"/>` +
           `<stop offset="1" stop-color="${stopColor(hsl, l2, mist)}"/></radialGradient>`);
       }
-      const x = cx + v.xs[i], y = cy + v.ys[i];
-      if (shadowK > 0) out += `<circle cx="${f2(x + a * 0.15)}" cy="${f2(y + a * 0.2)}" r="${f2(a * 0.95)}" fill="#000" fill-opacity="${((0.05 + 0.08 * t) * (1 - mist * 0.8) * shadowK).toFixed(3)}"/>`;
+      const x = cx + v.xs[i], y = cy + v.ys[i], ri = v.rs[i];
+      if (shadowK > 0) out += `<circle cx="${f2(x + ri * 0.15)}" cy="${f2(y + ri * 0.2)}" r="${f2(ri * 0.95)}" fill="#000" fill-opacity="${((0.05 + 0.08 * t) * (1 - mist * 0.8) * shadowK).toFixed(3)}"/>`;
       const oc = outlineStyle(t).match(/rgba\((\d+),(\d+),(\d+),([\d.]+)\)/);
-      out += `<circle cx="${f2(x)}" cy="${f2(y)}" r="${f2(a)}" fill="url(#${id})" stroke="rgb(${oc[1]},${oc[2]},${oc[3]})" stroke-opacity="${oc[4]}" stroke-width="${f2(Math.max(0.3, a * 0.06))}"/>`;
+      out += `<circle cx="${f2(x)}" cy="${f2(y)}" r="${f2(ri)}" fill="url(#${id})" stroke="rgb(${oc[1]},${oc[2]},${oc[3]})" stroke-opacity="${oc[4]}" stroke-width="${f2(Math.max(0.3, ri * 0.06))}"/>`;
     }
     renderTheme = prev;
     return out;
   }
   function buildSVG(list, box, theme, withBackground) {
     const defs = [], gradIds = new Map();
-    const body = list.map(it => (it.type === 'stroke' ? strokeSVG(it, theme) : aggSVG(it, theme, defs, gradIds))).join('\n');
+    const body = list.map(it => (it.type === 'stroke' ? strokeSVG(it, theme) : aggSVG(it, theme, defs, gradIds) + overlaySVG(it, theme))).join('\n');
     const bg = withBackground ? `<rect x="${f2(box.x)}" y="${f2(box.y)}" width="${f2(box.w)}" height="${f2(box.h)}" fill="${THEMES[theme].page}"/>\n` : '';
     return `<?xml version="1.0" encoding="UTF-8"?>\n` +
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${f2(box.x)} ${f2(box.y)} ${f2(box.w)} ${f2(box.h)}" width="${f2(box.w)}" height="${f2(box.h)}">\n` +
@@ -3060,7 +3523,11 @@
     if (it.type === 'stroke') return strokeGeom(it).bbox;
     if (!it.pts) return { x: it.x, y: it.y, w: it.w, h: it.h };
     const v = viewSpheres(it), cx = it.x + it.w / 2, cy = it.y + it.h / 2, a = ptsScale(it);
-    return { x: cx + v.x0 - 0.2 * a, y: cy + v.y0 - 0.2 * a, w: v.x1 - v.x0 + 0.5 * a, h: v.y1 - v.y0 + 0.5 * a };
+    const b = { x: cx + v.x0 - 0.2 * a, y: cy + v.y0 - 0.2 * a, w: v.x1 - v.x0 + 0.5 * a, h: v.y1 - v.y0 + 0.5 * a };
+    const o = overlayBounds(it);
+    if (!o) return b;
+    const x0 = Math.min(b.x, o.x), y0 = Math.min(b.y, o.y);
+    return { x: x0, y: y0, w: Math.max(b.x + b.w, o.x + o.w) - x0, h: Math.max(b.y + b.h, o.y + o.h) - y0 };
   }
   function exportPageSVG() {
     commitPendingDot();
@@ -3094,6 +3561,7 @@
       else if (it.pts) {
         const bmp = renderAggBitmap(it, k);
         x.drawImage(bmp.canvas, it.x + it.w / 2 + bmp.ox, it.y + it.h / 2 + bmp.oy, bmp.canvas.width / bmp.ppu, bmp.canvas.height / bmp.ppu);
+        drawOverlays(x, it, renderTheme, 1 / k);
       }
     }
     renderTheme = prevTheme;
@@ -3208,6 +3676,11 @@
       return;
     }
     if (k === '0') fitPage();
+    if (e.key === ' ') {
+      e.preventDefault();
+      if (spin.mode === 'once' || spin.mode === 'loop') stopSpin(true);
+      else startSpin(e.shiftKey ? 'loop' : 'once');
+    }
   });
 
   // ============================================================
@@ -3268,7 +3741,7 @@
   }
 
   // Exposed for automated tests only.
-  window.__aggboard = { buildSVG, get action() { return action; }, get nb() { return nb; }, get selection() { return selection; }, view, settings, undo, redo, goToPage, newPage, saveNow, notebookToJSON, sanitizeNotebook };
+  window.__aggboard = { spin, startSpin, stopSpin, buildSVG, get action() { return action; }, get nb() { return nb; }, get selection() { return selection; }, view, settings, undo, redo, goToPage, newPage, saveNow, notebookToJSON, sanitizeNotebook };
 
   init();
 })();

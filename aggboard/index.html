@@ -160,6 +160,10 @@
   #aggPanel .readout { margin-top: 8px; padding: 7px 9px; background: #f5f5f8; border-radius: 8px; color: #444; font-variant-numeric: tabular-nums; line-height: 1.45; min-height: calc(3 * 1.45em + 14px); }
   #aggPanel .readout .warn { color: #a5530a; }
   #aggPanel .colors { display: flex; gap: 6px; margin-top: 10px; }
+  #aggPanel .overlays { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin-top: 10px; color: #444; }
+  #aggPanel .overlays > span { color: #777; }
+  #aggPanel .overlays label { display: flex; align-items: center; gap: 5px; }
+  #aggPanel .overlays input { width: 17px; height: 17px; accent-color: var(--accent); }
   #aggPanel .colors .swatch { width: 28px; height: 28px; }
   #aggPanel .actions { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
   #aggPanel .actions button {
@@ -190,7 +194,16 @@
   .modal ul { margin: 4px 0 4px 18px; padding: 0; }
   .modal li { margin: 3px 0; }
   .modal kbd { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: #f1f1f4; border: 1px solid #d8d8de; border-radius: 4px; padding: 0 4px; }
-  .modal .close-row { display: flex; justify-content: flex-end; margin-top: 14px; }
+  .modal .close-row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+  #aggAdvanced summary { cursor: pointer; color: #555; margin-top: 10px; }
+  #aggAdvanced .advnote { color: #777; font-size: 12px; margin: 4px 0 0; }
+  .genrow .lbl { min-width: 78px; color: #444; }
+  .genrow { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+  .genrow input[type=range] { flex: 1; accent-color: var(--accent); }
+  .genrow label { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .genrow input[type=checkbox] { width: 17px; height: 17px; accent-color: var(--accent); }
+  .genrow b { min-width: 48px; text-align: right; font-variant-numeric: tabular-nums; }
+  button.secondary { background: #fff; color: #444; border: 1px solid #ccc; }
   .modal .close-row button { background: var(--accent); color: #fff; border: none; padding: 9px 18px; border-radius: 9px; font: inherit; cursor: pointer; }
 
   /* ---------- toast ---------- */
@@ -272,6 +285,9 @@
     <button class="tbtn" id="btnRedo" title="Redo (Ctrl/⌘ Shift Z)" aria-label="Redo">
       <svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>
     </button>
+    <button class="tbtn" id="btnSpin" title="Show 3D: one rotation (Space) · hold: keep rotating (Shift+Space)" aria-label="Show 3D (spin aggregates)">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M4 12.5c0 2.5 3.6 4.5 8 4.5s8-2 8-4.5-3.6-4.5-8-4.5"/><path d="M9.5 6.2L12 8l-2.3 1.9"/></svg>
+    </button>
   </div>
   <div class="sep"></div>
   <div class="group" id="pages" aria-label="Pages">
@@ -304,7 +320,7 @@
 </div>
 
 <div id="selbar">
-  <button id="selAdjust">Adjust</button>
+  <button id="selAdjust">Settings</button>
   <button id="selDuplicate">Duplicate</button>
   <button id="selSvg" title="Export the selection as vector graphics (SVG)">SVG</button>
   <button id="selDelete" class="danger">Delete</button>
@@ -327,19 +343,38 @@
     <label for="aggDf"><span>Fractal dimension D<sub>f</sub></span><b id="aggDfVal"></b></label>
     <input type="range" id="aggDf" min="1" max="3" step="0.02">
   </div>
+  <div class="row" id="rowSigma">
+    <label for="aggSigma"><span>Size spread &sigma;<sub>g</sub></span><b id="aggSigmaVal"></b></label>
+    <input type="range" id="aggSigma" min="1" max="1.4" step="0.01">
+  </div>
   <div class="row" id="rowTemp">
     <label for="aggTemp"><span>Temperature</span><b id="aggTempVal"></b></label>
     <input type="range" id="aggTemp" min="0" max="1" step="0.01">
   </div>
   <div class="readout" id="aggReadout"></div>
+  <div class="overlays">
+    <span>Show</span>
+    <label><input type="checkbox" id="ovNums"> Numbers</label>
+    <label><input type="checkbox" id="ovRg"> R<sub>g</sub> circle</label>
+    <label id="ovGrowthRow"><input type="checkbox" id="ovGrowth"> <span id="ovGrowthLbl">Growth order</span></label>
+    <label><input type="checkbox" id="ovMR"> Mass&ndash;radius</label>
+  </div>
   <div class="colors" id="aggColors"></div>
   <details id="aggAdvanced">
     <summary>Advanced</summary>
-    <div class="kfrow">
-      <label><input type="checkbox" id="aggKfAuto" checked> Auto k<sub>f</sub></label>
-      <input type="range" id="aggKf" min="0.5" max="2.5" step="0.05">
-      <b id="aggKfVal"></b>
+    <div class="genrow">
+      <span class="lbl">k<sub>f</sub></span>
+      <label><input type="checkbox" id="advKfAuto"> Auto</label>
+      <input type="range" id="advKf" min="0.5" max="2.5" step="0.05">
+      <b id="advKfVal"></b>
     </div>
+    <div class="genrow" id="advNsRow">
+      <span class="lbl">Subclusters</span>
+      <label><input type="checkbox" id="advNsAuto"> Auto</label>
+      <input type="range" id="advNs" min="0" max="1" step="0.01">
+      <b id="advNsVal"></b>
+    </div>
+    <p class="advnote" id="advNote"></p>
   </details>
   <div class="actions">
     <button id="aggRandom">New random</button>
@@ -383,6 +418,11 @@
     <button data-create="box">Box</button>
     <button data-create="circle">Circle</button>
   </div>
+  <div class="row-label">Spin</div>
+  <div class="seg" id="spinSeg">
+    <button data-spin="rotate">Rotate</button>
+    <button data-spin="rock">Rock</button>
+  </div>
   <div class="row-label">Writing hand</div>
   <div class="seg" id="handSeg">
     <button data-hand="right">Right</button>
@@ -410,7 +450,7 @@
 
     <h3>Getting started</h3>
     <ul>
-      <li><b>Toolbar</b>, from left to right: the <b>&hellip;</b> menu (on the right for left-handed use) &middot; pen, eraser, select, laser, particle chain, aggregate box &middot; five ink colours &middot; three line widths &middot; Undo, Redo &middot; page controls: previous / next page, page number, <b>+</b> new page, fit page to screen, and the broom to clear the page.</li>
+      <li><b>Toolbar</b>, from left to right: the <b>&hellip;</b> menu (on the right for left-handed use) &middot; pen, eraser, select, laser, particle chain, aggregate box &middot; five ink colours &middot; three line widths &middot; Undo, Redo, spin (show 3D) &middot; page controls: previous / next page, page number, <b>+</b> new page, fit page to screen, and the broom to clear the page.</li>
       <li><b>Pencil and fingers:</b> once an Apple Pencil is detected, the pencil draws and fingers move the page (one finger pans, two fingers pinch to zoom). Without a pencil, one finger draws.</li>
     </ul>
 
@@ -429,7 +469,7 @@
       <li><b>Tap an aggregate</b> with any tool except the laser to select it.</li>
       <li><b>Move:</b> drag inside the selection frame. This works with every tool: whatever is selected moves.</li>
       <li><b>Scale a group:</b> drag a corner square. Handwriting keeps its proportions; aggregates keep their exact structure.</li>
-      <li><b>Selection bar:</b> Duplicate, Delete, SVG (export the selection), and Adjust for a single aggregate. Tapping an ink colour recolours selected strokes.</li>
+      <li><b>Selection bar:</b> Duplicate, Delete, SVG (export the selection), and Settings for a single aggregate. Tapping an ink colour recolours selected strokes.</li>
       <li><b>Deselect:</b> tap an empty spot (or press Esc).</li>
     </ul>
 
@@ -446,14 +486,26 @@
       <li><b>Bottom-left</b> (dashed box) &mdash; refill: change the box; the aggregate is regenerated to fill it at the same monomer size, so the number of monomers changes.</li>
       <li><b>Top-right</b> (round arrow) &mdash; rotate in 3D. In pan-and-zoom finger mode, dragging one finger on a selected aggregate rotates it too.</li>
     </ul>
-    <p><b>Double-tap</b> an aggregate (or select it and tap <b>Adjust</b>) for its settings. Changes appear live while you drag a slider.</p>
+    <p><b>Double-tap</b> an aggregate (or select it and tap <b>Settings</b>) for its settings: how it is generated and what is shown on it. Changes appear live while you drag a slider.</p>
     <ul>
       <li><b>Method</b> &mdash; <i>Cluster&ndash;cluster</i> (default) builds it the way real aggregates form, small clusters merging into larger ones; realistic, irregular shapes for D<sub>f</sub> 1 to 2.3 (above that, particle&ndash;cluster is used automatically and the panel says so). <i>Particle&ndash;cluster</i> adds monomers one at a time; it covers D<sub>f</sub> 1 to 3 and keeps the same core when the size changes, while cluster&ndash;cluster gives a new structure each time.</li>
       <li><b>Monomer size</b> &mdash; the monomer radius; the number of monomers adjusts so the aggregate still fills its box (at most 5000).</li>
       <li><b>Fractal dimension D<sub>f</sub></b> &mdash; from 1 (a chain) to 3 (compact).</li>
       <li><b>Colour</b>, <b>New random</b> (same settings, different structure), <b>Duplicate</b>, <b>Delete</b>.</li>
       <li><b>Advanced</b> &mdash; the prefactor k<sub>f</sub> in N = k<sub>f</sub> (R<sub>g</sub>/a)<sup>D<sub>f</sub></sup>. <i>Auto</i> picks a value that works across the whole D<sub>f</sub> range.</li>
+      <li><b>Size spread &sigma;<sub>g</sub></b> &mdash; makes the monomers polydisperse: radii follow a log-normal distribution with geometric standard deviation &sigma;<sub>g</sub> (1 = all equal, up to 1.4), limited to between half and twice the monomer size. The monomer size is then the geometric mean radius a<sub>g</sub>, and the scaling law N = k<sub>f</sub> (R<sub>g</sub>/a<sub>g</sub>)<sup>D<sub>f</sub></sup> uses the mass-weighted R<sub>g</sub> (each monomer weighted by its volume). While growing, the aggregate follows its accumulated mass (counted in average monomer masses) rather than the monomer count, so that a monomer's size does not decide where it goes; the law then holds on average, typically within a few percent, and for nearly straight chains (D<sub>f</sub> close to 1) only roughly.</li>
+      <li><b>Advanced</b> (per aggregate): the prefactor <b>k<sub>f</sub></b> (Auto chooses it from D<sub>f</sub> and the size spread so that the scaling law can be met, or set a fixed value); the <b>subcluster size</b> for cluster&ndash;cluster aggregates (Auto &asymp; N<sup>0.4</sup>, or fixed from 2 to 500: small = more hierarchical, closer to pure cluster&ndash;cluster aggregation; large = more particle&ndash;cluster-like). New aggregates use the values you last set. For a bent string rather than a straight rod, lower D<sub>f</sub> a little (1.2&ndash;1.3) instead of using D<sub>f</sub> = 1.</li>
+      <li><b>Show: Numbers</b> &mdash; a label below the aggregate with N, D<sub>f</sub>, k<sub>f</sub>, the monomer radius a (a<sub>g</sub> and &sigma;<sub>g</sub> for polydisperse monomers), R<sub>g</sub> and the outer radius R<sub>out</sub> (in units of a), and the filling factor &phi; = (total monomer volume)/R<sup>3</sup> in units of a, i.e. N (a/R)<sup>3</sup> for equal monomers, with R = &radic;(5/3) R<sub>g</sub>, the radius of a uniform sphere with the same R<sub>g</sub> (so &phi; &prop; N<sup>1&minus;3/D<sub>f</sub></sup>). <b>Show: R<sub>g</sub> circle</b> &mdash; a dashed circle of radius R<sub>g</sub> around the centre of mass (cross), and a dotted circle at R<sub>out</sub>. <b>Show: Growth order / Subclusters</b> &mdash; colours the monomers by how the aggregate was built. Particle&ndash;cluster: by the order they were added, from purple (first, at the centre) through blue and green to yellow (last, at the rim). Cluster&ndash;cluster: each subcluster in its own colour, which shows the patches it was assembled from. Hand-drawn parts of an edited aggregate stay grey. <b>Show: Mass&ndash;radius</b> &mdash; rings at r = 2a, 4a, 8a, &hellip; around one monomer (the one closest to the centre of mass, marked with a dot), each labelled with the number of monomers within that distance in 3D; and a small log-log plot of &lang;N(r)&rang;, the same count averaged over many monomers as centres. Its straight part has slope D<sub>f</sub>: the slope fitted between 3a and 0.7&nbsp;R<sub>g</sub> is shown next to the target D<sub>f</sub>. At larger r the curve levels off at N. (Averaging matters: the centre of mass of a fluffy aggregate often lies in empty space.) All of these belong to the aggregate: they move, scale and spin with it and appear in exports. New aggregates use your last choice.</li>
       <li><b>Readout</b> &mdash; N, R<sub>g</sub> (in monomer radii a), D<sub>f</sub> fitted from the growth history as a check, and the anisotropy (largest over smallest principal radius of gyration).</li>
+    </ul>
+
+    <h3>Showing the 3D structure</h3>
+    <ul>
+      <li>Tap the <b>spin</b> button (next to Undo/Redo, or <kbd>Space</kbd>) and the aggregates make <b>one full rotation</b> (8 seconds) and end where they were. <b>Press and hold</b> it (or <kbd>Shift</kbd>+<kbd>Space</kbd>) to keep them rotating; tap again to stop, and they glide back.</li>
+      <li><b>&hellip; &rarr; Settings &rarr; Spin: Rock</b> makes the same button <b>rock</b> the aggregates instead: they swing back and forth by about 35&deg; around their orientation (one swing per tap, continuous when held). The small motion shows the depth very clearly, the aggregate never faces away, and arrows or labels you have drawn stay roughly valid. <i>Rotate</i> shows all sides, including the back.</li>
+      <li>If aggregates are selected, only those spin; otherwise all of them on the page. They rotate in step about a slightly tilted axis, so you also see a little of the top and bottom.</li>
+      <li>The spin holds still while the pencil, a finger or the mouse touches the page, so you can point or annotate; it continues when you lift.</li>
+      <li>It is for display only: the orientation you set with the rotate handle is what is saved and exported, and what you get back when the spin ends.</li>
     </ul>
 
     <h3>Particle chains</h3>
@@ -491,7 +543,7 @@
       <li><b>&hellip; &rarr; Settings &rarr; Writing hand:</b> with <i>Left</i>, the &hellip; button, the menu and the D<sub>f</sub> scale move to the right side, away from your writing hand.</li>
       <li><b>&hellip; &rarr; Settings &rarr; Finger input:</b> <i>Auto</i> (fingers draw until a pencil is detected), <i>Draw</i> (one finger always draws), <i>Pan &amp; zoom</i> (one finger always moves the page). Your palm is ignored while the pencil is on the screen.</li>
       <li><b>Mouse / trackpad:</b> click to draw or select, double-click an aggregate for its settings, right- or middle-drag to pan, two-finger swipe to pan, pinch or Ctrl + wheel to zoom.</li>
-      <li><b>Keys:</b> <kbd>P</kbd> pen &middot; <kbd>E</kbd> eraser &middot; <kbd>S</kbd> select &middot; <kbd>L</kbd> laser &middot; <kbd>C</kbd> chain &middot; <kbd>A</kbd> aggregate &middot; <kbd>1</kbd>&ndash;<kbd>5</kbd> colours &middot; <kbd>[</kbd> / <kbd>]</kbd> thinner / thicker line &middot; <kbd>Ctrl/&#8984; Z</kbd> undo &middot; <kbd>Ctrl/&#8984; Shift Z</kbd> redo &middot; <kbd>Ctrl/&#8984; D</kbd> duplicate &middot; <kbd>Delete</kbd> delete selection &middot; <kbd>PgUp</kbd>/<kbd>PgDn</kbd> pages &middot; <kbd>Z</kbd>/<kbd>X</kbd> or <kbd>&darr;</kbd>/<kbd>&uarr;</kbd> lower / higher D<sub>f</sub> while placing a circle aggregate &middot; <kbd>0</kbd> fit page &middot; <kbd>Esc</kbd> close menus and dialogs, or deselect.</li>
+      <li><b>Keys:</b> <kbd>P</kbd> pen &middot; <kbd>E</kbd> eraser &middot; <kbd>S</kbd> select &middot; <kbd>L</kbd> laser &middot; <kbd>C</kbd> chain &middot; <kbd>A</kbd> aggregate &middot; <kbd>1</kbd>&ndash;<kbd>5</kbd> colours &middot; <kbd>[</kbd> / <kbd>]</kbd> thinner / thicker line &middot; <kbd>Ctrl/&#8984; Z</kbd> undo &middot; <kbd>Ctrl/&#8984; Shift Z</kbd> redo &middot; <kbd>Ctrl/&#8984; D</kbd> duplicate &middot; <kbd>Delete</kbd> delete selection &middot; <kbd>PgUp</kbd>/<kbd>PgDn</kbd> pages &middot; <kbd>Z</kbd>/<kbd>X</kbd> or <kbd>&darr;</kbd>/<kbd>&uarr;</kbd> lower / higher D<sub>f</sub> while placing a circle aggregate &middot; <kbd>0</kbd> fit page &middot; <kbd>Space</kbd> one rotation or swing / stop, <kbd>Shift</kbd>+<kbd>Space</kbd> keep going &middot; <kbd>Esc</kbd> close menus and dialogs, or deselect.</li>
     </ul>
 
     <h3>If something goes wrong</h3>
@@ -517,12 +569,12 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="aggregate-engine.js?v=2026.10.18-29"></script>
-<script src="app.js?v=2026.10.18-29"></script>
+<script src="aggregate-engine.js?v=2026.10.19-7"></script>
+<script src="app.js?v=2026.10.19-7"></script>
 <script>
   // Warn if the browser mixed files from different releases (e.g. a stale cached app.js).
   (function () {
-    var want = '2026.10.18-29';
+    var want = '2026.10.19-7';
     var okApp = window.AGGBOARD_VERSION === want;
     var okEngine = window.AggEngine && window.AggEngine.release === want;
     if (okApp && okEngine) return;

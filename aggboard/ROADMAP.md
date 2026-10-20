@@ -13,6 +13,11 @@
 - Aggregate tool: draw a box, it fills with a 3D fractal aggregate; live monomer size and D_f; new random; colour; advanced k_f with an automatic default valid for D_f 1–3.
 - Two tunable generators, both exact: **cluster–cluster** (default, realistic anisotropy, D_f 1–2.3, automatic fallback above) and **particle–cluster** (D_f 1–3, keeps its core when resized). Readout: N, R_g, fitted D_f, anisotropy.
 - Handles: bottom-right scales, bottom-left refills, top-right rotates in 3D. The box refits tightly to the projection. Aggregates fill square boxes well (in-plane orientation search). Up to 5000 monomers, with a message when the limit is reached.
+- Polydisperse monomers: size spread σ_g (1–1.4, log-normal truncated to a_g/2…2a_g); N = k_f (R_g/a_g)^D_f with mass-weighted R_g, enforced in mass form during growth (avoids sorting monomers by size), so it holds on average; separate engine path so σ_g = 1 is bit-for-bit identical to the monodisperse engine; spread-aware automatic k_f; chains attach to monomers of any size and bridge aggregates of different monomer sizes; file format version 4 only when needed.
+- Advanced settings per aggregate (panel → Advanced): k_f (auto or fixed) and cluster–cluster subcluster size (auto ≈ N^0.4 or 2–500). New aggregates use the last values; defaults reproduce the previous aggregates exactly.
+- Decided against temperature for generated aggregates: it can only bend low-D_f chains by breaking the scaling law, and its effect was not intuitive. Lowering D_f slightly (1.2–1.3) gives bent strings with an exact law; temperature stays in the chain tool.
+- Teaching overlays per aggregate: numbers (N, D_f, k_f, a, R_g, R_out, filling factor φ = N (a/R)^3 with R = √(5/3) R_g) and the R_g circle (with R_out circle and centre of mass); colouring by growth order (particle–cluster) or subcluster (cluster–cluster), hand-drawn parts grey; mass–radius rings (around the monomer nearest the centre of mass) with counts, and a log-log plot of the centre-averaged ⟨N(r)⟩ whose fitted slope (3a…0.7 R_g, matches D_f within ~0.05) is compared with D_f; in exports, follow spin.
+- Spin ("show 3D"): one rotation (8 s) on tap, continuous on hold, selection-only if something is selected, paused while touching the page, tilted axis; display only (stored orientation is saved/exported and restored). Settings → Spin: Rotate | Rock (rock = ±35° swing, 4.5 s per swing).
 - Live updates while dragging sliders, also when generation is slower than the slider; structures always drawn at their correct size.
 - Two ways to place an aggregate (Settings → New aggregates): **Box** (drag a box) or **Circle** (drag from the centre: horizontal distance = outer radius, vertical offset = monomer size; live circle, monomer ring and N estimate; real aggregate when the pencil rests). Circle-placed aggregates keep a true circle fit when regenerated. A D_f scale on the left edge (while the aggregate tool is active, and for the freshly placed aggregate) sets D_f before or after drawing; during the gesture, small loops change D_f (the "dial": clockwise = higher, about 0.3 per loop; kept alongside the scale, which sets D_f in advance), or Z/X, arrow keys, mouse wheel. Two-handed use (finger on the scale while the pencil draws) is impossible on iPad: the system withholds finger touches while the pencil is down. Circle is the default; Box remains available as a setting.
 - Tap selects an aggregate in any tool; double-tap opens its settings; the settings panel stays put while editing.
@@ -35,16 +40,11 @@
 ## Open
 
 ### Aggregates
-- **Teaching overlays:** optionally show N, D_f, a, R_g next to an aggregate, or draw the R_g circle.
 - **Import from the Aggregation Gallery** (cdominik.github.io/apps/coag_gallery): place a simulated DLA/BPCA/BCCA/DLCA aggregate on the page as an object to rotate, scale and annotate. Needs an export in the gallery apps and an import here (`index radius x y z` text format).
 - **Export coordinates** of an aggregate in the same text format.
-- **Polydisperse monomers:** a size-spread control (log-normal). Needs a decision on which scaling-law convention to enforce (definition of R_g and a; e.g. FracVAL's).
-- **Per-sphere radii:** needed for polydispersity and to bridge aggregates with different monomer sizes (currently the chain connects to the first one only). Requires a data-format extension.
-- **Cluster–cluster subcluster size** as an advanced setting (currently automatic, about N^0.4).
-- **Temperature for generated aggregates** near D_f = 1 (drawn chains already have it).
 - **Chains in depth:** chains avoid overlaps, but their depth runs linearly between the two ends; they don't wrap around an aggregate in 3D on purpose.
 - **Depth-cue control** per aggregate.
-- **Projection hint:** at D_f > 2 the 2D view looks nearly solid; rotating shows the structure.
+- **Export the spin as a short video or GIF** for slides.
 
 ### Drawing
 - **Highlighter:** wide translucent strokes (would work with shape snapping for straight highlight bars).
@@ -61,3 +61,8 @@
 - **Performance on very long notebooks:** cache rendered pages; render only changed regions.
 - **Automated test suite in the repository:** the tests used during development (simulated browser with real canvas rendering) could be included so changes can be checked before publishing.
 - **Optional cloud sync** (only if ever needed), e.g. Supabase or Firebase. The data format is already serialisable, so this would be an addition, not a rewrite.
+
+## Separate projects (not for AggBoard)
+
+- **Modelling the experiment's Df measurement:** generate populations of aggregates in random orientations, compute what the instrument sees (projected area or brightness, depending on the optics; projected size), apply the same fit as the analysis, and compare the recovered D_f with the true one. Key caveat: projected area tracks N only for open aggregates and saturates at a projected dimension of 2. Better as a standalone tool, e.g. next to the Aggregation Gallery.
+

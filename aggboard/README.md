@@ -48,7 +48,7 @@ At the top of `app.js`:
 Notebooks are stored in the browser's IndexedDB on each device. Nothing is uploaded anywhere.
 
 - On iPad, **add the app to the Home Screen**. Safari may otherwise delete a website's stored data after about a week without visits.
-- Use **⋯ → Save notebook to file** for backups and for giving a notebook to someone; **Open notebook from file** loads one. The file format (`*.aggboard.json`) carries a version number (currently 3) so future versions can read old files; older copies of the app refuse newer files with a clear message instead of misreading them.
+- Use **⋯ → Save notebook to file** for backups and for giving a notebook to someone; **Open notebook from file** loads one. The file format (`*.aggboard.json`) carries a version number (currently 3, or 4 when it contains polydisperse monomers) so future versions can read old files; older copies of the app refuse newer files with a clear message instead of misreading them.
 
 ## The aggregate engine
 

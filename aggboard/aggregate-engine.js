@@ -43,6 +43,9 @@
   }
 
   // ---------- Growth ----------
+  // Generation option for the current request (set at the start of fitBox):
+  // GEN_NS: subcluster size for cluster-cluster (null = automatic, about N^0.4).
+  let GEN_NS = null;
   class Growth {
     constructor(df, kf, seed) {
       this.df = df; this.kf = kf;
@@ -195,8 +198,13 @@
    * needs kf <~ 1 (Df -> 3). This piecewise-linear default passes through the
    * common kf = 1.3 at Df = 1.8 and was checked to give exact Df from 1 to 3.
    */
-  function kfAuto(df) {
-    return df < 1.8 ? 1.9 - 0.75 * (df - 1) : 1.3 - 0.25 * (df - 1.8);
+  function kfAuto(df, sigma = 1) {
+    const kf = df < 1.8 ? 1.9 - 0.75 * (df - 1) : 1.3 - 0.25 * (df - 1.8);
+    if (!(sigma > 1)) return kf;
+    // Size spread: chains (Df -> 1) need a larger kf, compact packings (Df -> 3) a smaller one.
+    // Factor is exactly 1 at sigma = 1 and at Df = 1.8 (fitted to feasibility tests at sigma 1.2, 1.4).
+    const ls = Math.log(sigma), wl = Math.min(1, Math.max(0, (1.8 - df) / 0.8)), wh = Math.min(1, Math.max(0, (df - 1.8) / 1.2));
+    return kf * (1 + ls * (1.0 * wl - 1.4 * wh));
   }
 
   // ---------- Linear algebra ----------
@@ -294,7 +302,7 @@
       const kk = Math.round(k0 * Math.pow(k / k0, s / steps));
       const rg = Math.sqrt(g.rg2(kk));
       if (rg <= 0) continue;
-      const X = Math.log(rg), Y = Math.log(kk);
+      const X = Math.log(rg), Y = Math.log(g.neq ? g.neq(kk) : kk);
       sx += X; sy += Y; sxx += X * X; sxy += X * Y; m++;
     }
     const slope = (m * sxy - sx * sy) / (m * sxx - sx * sx);
@@ -315,7 +323,7 @@
   //   Γ² = N²/(N1 N2) Rg² − N/N2 Rg1² − N/N1 Rg2²,   Rg = (N/kf)^(1/Df) a.
   // Monomers are unit spheres (a = 1, contact distance 2), as above.
   // ============================================================
-  function centred(pos, n) {
+  function centred(pos, n, lab) {
     let mx = 0, my = 0, mz = 0;
     for (let i = 0; i < n; i++) { mx += pos[3 * i]; my += pos[3 * i + 1]; mz += pos[3 * i + 2]; }
     mx /= n; my /= n; mz /= n;
@@ -327,7 +335,7 @@
       const r2 = x * x + y * y + z * z;
       s2 += r2; if (r2 > rmax) rmax = r2;
     }
-    return { pos: out, n, rg2: s2 / n, rmax: Math.sqrt(rmax) };
+    return { pos: out, n, rg2: s2 / n, rmax: Math.sqrt(rmax), lab: lab || null };
   }
   function buildGrid(C) {
     const grid = new Map(), p = C.pos;
@@ -497,19 +505,22 @@
     st.merges++; if (exact) st.exact++;
     const pos = new Float64Array(3 * N);
     pos.set(A.pos); pos.set(placed, 3 * A.n);
-    return centred(pos, N);
+    let lab = null;
+    if (A.lab && B.lab) { lab = new Int32Array(N); lab.set(A.lab); lab.set(B.lab, A.n); }
+    return centred(pos, N, lab);
   }
   const CCA_MAX_DF = 2.3;   // above this, tunable CCA fails to meet the scaling law (validated)
   function subclusterSize(N) { return Math.max(4, Math.min(32, Math.round(Math.pow(N, 0.4)))); }
   const ccaCache = new Map();
   function generateCCA(N, df, kf, seed) {
-    const key = N + '|' + df.toFixed(3) + '|' + kf.toFixed(3) + '|' + (seed >>> 0);
+    const NS = GEN_NS;
+    const key = N + '|' + df.toFixed(3) + '|' + kf.toFixed(3) + '|' + (seed >>> 0) + (NS ? '|s' + NS : '');
     let res = ccaCache.get(key);
     if (res) { ccaCache.delete(key); ccaCache.set(key, res); return res; }
     const rand = mulberry32(((seed >>> 0) ^ 0x9e3779b9) || 7);
     const st = { merges: 0, exact: 0 };
     const hist = [];
-    const ns = subclusterSize(N);
+    const ns = NS ? Math.max(2, Math.round(NS)) : subclusterSize(N);
     let C;
     if (N <= 2 * ns) {
       const g = new Growth(df, kf, seed); g.extend(N);
@@ -518,7 +529,7 @@
     } else {
       const m = Math.round(N / ns), sizes = [];
       for (let k = 0; k < m; k++) sizes.push(Math.floor(N / m) + (k < N % m ? 1 : 0));
-      let clusters = sizes.map((sz, k) => { const g = new Growth(df, kf, (seed >>> 0) + 7919 * (k + 1)); g.extend(sz); return centred(g.pos, sz); });
+      let clusters = sizes.map((sz, k) => { const g = new Growth(df, kf, (seed >>> 0) + 7919 * (k + 1)); g.extend(sz); return centred(g.pos, sz, new Int32Array(sz).fill(k)); });
       for (const c of clusters) hist.push([c.n, Math.sqrt(c.rg2)]);
       while (clusters.length > 1) {
         clusters.sort((a, b) => b.n - a.n);
@@ -604,6 +615,386 @@
     return { res: pick.res, o: pick.o };
   }
 
+
+  // ============================================================
+  // Polydisperse monomers (sigma_g > 1). Separate code path: sigma_g = 1 runs the
+  // monodisperse code above unchanged, so existing aggregates are reproduced exactly.
+  // ------------------------------------------------------------
+  // Radii (units of the geometric mean radius a_g) follow a log-normal with geometric
+  // standard deviation sigma_g, truncated to [a_g/2, 2 a_g]. They come from their own random
+  // stream, one per monomer in order, so particle-cluster growth keeps its prefix property.
+  // Scaling law: N = kf (Rg/a_g)^Df, N = number of monomers, Rg mass-weighted with point
+  // masses m = r^3 at the monomer centres. Contacts: |p_i - p_j| = r_i + r_j.
+  // Growth and merges enforce it in mass form, M/<r^3> = kf (Rg/a_g)^Df, so that where a
+  // monomer goes does not depend on its size; the count form then holds on average.
+  // ============================================================
+  const R_MIN = 0.5, R_MAX = 2, PCELL = 2 * R_MAX;   // largest contact distance = 4
+  const POVER = 1 - 1e-6;
+  function gaussianR(rand) { let u = 0, v = 0; while (u === 0) u = rand(); while (v === 0) v = rand(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+  function sampleRadius(rand, lnS) { for (;;) { const r = Math.exp(gaussianR(rand) * lnS); if (r >= R_MIN && r <= R_MAX) return r; } }
+  // Expected monomer mass <r^3> of the truncated log-normal (units a_g^3), by numerical integration.
+  const meanR3Cache = new Map();
+  function meanR3(lnS) {
+    let v = meanR3Cache.get(lnS);
+    if (v) return v;
+    const lo = Math.log(R_MIN), hi = Math.log(R_MAX), K = 400;
+    let w = 0, m = 0;
+    for (let k = 0; k <= K; k++) { const x = lo + (hi - lo) * k / K, f = Math.exp(-0.5 * (x / lnS) ** 2) * (k === 0 || k === K ? 0.5 : 1); w += f; m += f * Math.exp(3 * x); }
+    v = m / w; meanR3Cache.set(lnS, v);
+    return v;
+  }
+  const pkey = (x, y, z) => cellKey(Math.floor(x / PCELL), Math.floor(y / PCELL), Math.floor(z / PCELL));
+
+  class PolyGrowth {
+    constructor(df, kf, seed, sigma) {
+      this.df = df; this.kf = kf; this.sigma = sigma;
+      this.rand = mulberry32((seed >>> 0) || 1);
+      this.rrand = mulberry32((((seed >>> 0) ^ 0x5bd1e995) >>> 0) || 3);
+      this.lnS = Math.log(sigma); this.m3 = meanR3(this.lnS);
+      this.n = 0; this.cap = 0; this.grid = new Map(); this.exact = 0;
+      this.grow(256);
+      this.add(0, 0, 0, sampleRadius(this.rrand, this.lnS));
+    }
+    grow(cap) {
+      const keep = (old, len) => { const a = new Float64Array(len); if (old) a.set(old.subarray(0, Math.min(old.length, len))); return a; };
+      this.pos = keep(this.pos, 3 * cap); this.rad = keep(this.rad, cap);
+      for (const k of ['cm', 'cx', 'cy', 'cz', 'cxx', 'cyy', 'czz', 'cxy', 'cxz', 'cyz']) this[k] = keep(this[k], cap + 1);
+      this.cand = new Int32Array(cap); this.cap = cap;
+    }
+    add(x, y, z, r) {
+      if (this.n >= this.cap) this.grow(this.cap * 2);
+      const i = this.n, k = i + 1, m = r * r * r;
+      this.pos[3 * i] = x; this.pos[3 * i + 1] = y; this.pos[3 * i + 2] = z; this.rad[i] = r;
+      this.cm[k] = this.cm[i] + m;
+      this.cx[k] = this.cx[i] + m * x; this.cy[k] = this.cy[i] + m * y; this.cz[k] = this.cz[i] + m * z;
+      this.cxx[k] = this.cxx[i] + m * x * x; this.cyy[k] = this.cyy[i] + m * y * y; this.czz[k] = this.czz[i] + m * z * z;
+      this.cxy[k] = this.cxy[i] + m * x * y; this.cxz[k] = this.cxz[i] + m * x * z; this.cyz[k] = this.cyz[i] + m * y * z;
+      const key = pkey(x, y, z), l = this.grid.get(key);
+      if (l) l.push(i); else this.grid.set(key, [i]);
+      this.n = k;
+    }
+    free(x, y, z, r) {
+      const ix = Math.floor(x / PCELL), iy = Math.floor(y / PCELL), iz = Math.floor(z / PCELL), p = this.pos, R = this.rad;
+      for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (let c = -1; c <= 1; c++) {
+        const l = this.grid.get(cellKey(ix + a, iy + b, iz + c));
+        if (!l) continue;
+        for (const j of l) {
+          const dx = p[3 * j] - x, dy = p[3 * j + 1] - y, dz = p[3 * j + 2] - z, D = (r + R[j]) * POVER;
+          if (dx * dx + dy * dy + dz * dz < D * D) return false;
+        }
+      }
+      return true;
+    }
+    rg2(k) {
+      const M = this.cm[k], mx = this.cx[k] / M, my = this.cy[k] / M, mz = this.cz[k] / M;
+      return Math.max(0, (this.cxx[k] + this.cyy[k] + this.czz[k]) / M - (mx * mx + my * my + mz * mz));
+    }
+    neq(k) { return this.cm[k] / this.m3; }   // mass in units of the expected monomer mass
+    step() {
+      const n = this.n, rand = this.rand, p = this.pos, R = this.rad;
+      const rN = sampleRadius(this.rrand, this.lnS), mN = rN * rN * rN;
+      const M = this.cm[n], mx = this.cx[n] / M, my = this.cy[n] / M, mz = this.cz[n] / M;
+      // Target from the accumulated mass, in units of the expected monomer mass <r^3>: each monomer
+      // then raises the target in proportion to its mass, so where it goes does not depend on its
+      // size (enforcing the count n+1 at every step would push small monomers out, large ones in).
+      // N = kf (Rg/a_g)^Df then holds on average; exactly for equal monomers.
+      const rgN2 = this.rg2(n), rgT2 = Math.pow((M + mN) / (this.m3 * this.kf), 2 / this.df);
+      let g2 = ((M + mN) * rgT2 - M * rgN2) * (M + mN) / (M * mN);
+      if (!(g2 > 0)) g2 = 1e-6;
+      const G = Math.sqrt(g2), cand = this.cand;
+      let nc = 0;
+      for (let i = 0; i < n; i++) {
+        const d = Math.hypot(p[3 * i] - mx, p[3 * i + 1] - my, p[3 * i + 2] - mz), Dc = R[i] + rN;
+        if (d > 1e-9 && Math.abs(d - G) < Dc - 1e-9 && d + G > Dc + 1e-9) cand[nc++] = i;
+      }
+      const maxCand = Math.min(nc, 64);
+      for (let t = 0; t < maxCand; t++) {
+        const r = t + Math.floor(rand() * (nc - t)), i = cand[r]; cand[r] = cand[t]; cand[t] = i;
+        let ux = p[3 * i] - mx, uy = p[3 * i + 1] - my, uz = p[3 * i + 2] - mz;
+        const D = Math.hypot(ux, uy, uz), Dc = R[i] + rN; ux /= D; uy /= D; uz /= D;
+        const x = (D * D + g2 - Dc * Dc) / (2 * D), rho2 = g2 - x * x;
+        if (rho2 < 0) continue;
+        const rho = Math.sqrt(rho2);
+        let ax = 1, ay = 0; if (Math.abs(ux) > 0.9) { ax = 0; ay = 1; }
+        let vx = ay * uz, vy = -ax * uz, vz = ax * uy - ay * ux; const vl = Math.hypot(vx, vy, vz); vx /= vl; vy /= vl; vz /= vl;
+        const wx = uy * vz - uz * vy, wy = uz * vx - ux * vz, wz = ux * vy - uy * vx;
+        const qx = mx + ux * x, qy = my + uy * x, qz = mz + uz * x;
+        for (let tries = 0; tries < 8; tries++) {
+          const th = rand() * 2 * Math.PI, c = Math.cos(th), sn = Math.sin(th);
+          const px = qx + rho * (c * vx + sn * wx), py = qy + rho * (c * vy + sn * wy), pz = qz + rho * (c * vz + sn * wz);
+          if (this.free(px, py, pz, rN)) { this.add(px, py, pz, rN); this.exact++; return; }
+        }
+      }
+      let best = null, bestErr = Infinity;
+      for (let s = 0; s < 400; s++) {
+        const i = Math.floor(rand() * n), z = 2 * rand() - 1, phi = 2 * Math.PI * rand(), rr = Math.sqrt(1 - z * z), Dc = R[i] + rN;
+        const px = p[3 * i] + Dc * rr * Math.cos(phi), py = p[3 * i + 1] + Dc * rr * Math.sin(phi), pz = p[3 * i + 2] + Dc * z;
+        const err = Math.abs(Math.hypot(px - mx, py - my, pz - mz) - G);
+        if (err < bestErr && this.free(px, py, pz, rN)) { best = [px, py, pz]; bestErr = err; }
+      }
+      if (best) { this.add(best[0], best[1], best[2], rN); return; }
+      // guaranteed: outward from the monomer whose surface is farthest from the centre
+      let far = 0, fd = -1;
+      for (let i = 0; i < n; i++) { const d = Math.hypot(p[3 * i] - mx, p[3 * i + 1] - my, p[3 * i + 2] - mz) + R[i]; if (d > fd) { fd = d; far = i; } }
+      let dx = p[3 * far] - mx, dy = p[3 * far + 1] - my, dz = p[3 * far + 2] - mz, dl = Math.hypot(dx, dy, dz);
+      if (dl < 1e-9) { dx = 1; dy = 0; dz = 0; dl = 1; }
+      const Dc = R[far] + rN;
+      this.add(p[3 * far] + Dc * dx / dl, p[3 * far + 1] + Dc * dy / dl, p[3 * far + 2] + Dc * dz / dl, rN);
+    }
+    extend(N) { while (this.n < N) this.step(); }
+    moments(k) {
+      const M = this.cm[k], mx = this.cx[k] / M, my = this.cy[k] / M, mz = this.cz[k] / M;
+      return { c: [mx, my, mz], C: [
+        this.cxx[k] / M - mx * mx, this.cxy[k] / M - mx * my, this.cxz[k] / M - mx * mz,
+        this.cxy[k] / M - mx * my, this.cyy[k] / M - my * my, this.cyz[k] / M - my * mz,
+        this.cxz[k] / M - mx * mz, this.cyz[k] / M - my * mz, this.czz[k] / M - mz * mz] };
+    }
+  }
+  const polyCache = new Map();
+  function getPolyGrowth(df, kf, seed, sigma) {
+    const key = df.toFixed(3) + '|' + kf.toFixed(3) + '|' + (seed >>> 0) + '|' + sigma.toFixed(3);
+    let g = polyCache.get(key);
+    if (g) { polyCache.delete(key); polyCache.set(key, g); return g; }
+    g = new PolyGrowth(df, kf, seed, sigma); polyCache.set(key, g);
+    while (polyCache.size > 8) polyCache.delete(polyCache.keys().next().value);
+    return g;
+  }
+  // Principal frame (mass-weighted) and projected extents including each monomer's radius.
+  function frameP(P, R, k, mom, th) {
+    const { c, C } = mom, ev = eigenSym3(C), p1 = ev[0].vec, p2 = ev[1].vec, ct = Math.cos(th), st = Math.sin(th);
+    const e1 = [ct * p1[0] + st * p2[0], ct * p1[1] + st * p2[1], ct * p1[2] + st * p2[2]];
+    const e2 = [-st * p1[0] + ct * p2[0], -st * p1[1] + ct * p2[1], -st * p1[2] + ct * p2[2]];
+    let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
+    for (let i = 0; i < k; i++) {
+      const qx = P[3 * i] - c[0], qy = P[3 * i + 1] - c[1], qz = P[3 * i + 2] - c[2], r = R[i];
+      const s1 = qx * e1[0] + qy * e1[1] + qz * e1[2], t1 = qx * e2[0] + qy * e2[1] + qz * e2[2];
+      if (s1 - r < a0) a0 = s1 - r; if (s1 + r > a1) a1 = s1 + r; if (t1 - r < b0) b0 = t1 - r; if (t1 + r > b1) b1 = t1 + r;
+    }
+    return { c, e1, e2, major: a1 - a0, minor: b1 - b0, a0, a1, b0, b1, ev };
+  }
+  function circleFillP(P, R, k, f, Rc) {
+    const cx = (f.a0 + f.a1) / 2, cy = (f.b0 + f.b1) / 2; let m = 0;
+    for (let i = 0; i < k; i++) {
+      const qx = P[3 * i] - f.c[0], qy = P[3 * i + 1] - f.c[1], qz = P[3 * i + 2] - f.c[2];
+      const s1 = qx * f.e1[0] + qy * f.e1[1] + qz * f.e1[2] - cx, t1 = qx * f.e2[0] + qy * f.e2[1] + qz * f.e2[2] - cy;
+      m = Math.max(m, Math.hypot(s1, t1) + R[i]);
+    }
+    return m / Rc;
+  }
+  function momentsOf(P, R, n) {
+    let M = 0, mx = 0, my = 0, mz = 0;
+    for (let i = 0; i < n; i++) { const m = R[i] ** 3; M += m; mx += m * P[3 * i]; my += m * P[3 * i + 1]; mz += m * P[3 * i + 2]; }
+    mx /= M; my /= M; mz /= M;
+    const C = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+    for (let i = 0; i < n; i++) { const m = R[i] ** 3 / M, v = [P[3 * i] - mx, P[3 * i + 1] - my, P[3 * i + 2] - mz]; for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) C[3 * a + b] += m * v[a] * v[b]; }
+    return { c: [mx, my, mz], C };
+  }
+  // Common output: coordinates and radii in the box frame (x along the box width), centred on the outer extents.
+  function polyOutput(P, R, k, f, W, H) {
+    let ex = f.e1, ey = f.e2, ox = (f.a0 + f.a1) / 2, oy = (f.b0 + f.b1) / 2;
+    if (H > W) { ex = f.e2; ey = f.e1; ox = (f.b0 + f.b1) / 2; oy = (f.a0 + f.a1) / 2; }
+    const ez = cross(ex, ey), pts = new Float32Array(3 * k), radii = new Float32Array(k);
+    for (let i = 0; i < k; i++) {
+      const q = [P[3 * i] - f.c[0], P[3 * i + 1] - f.c[1], P[3 * i + 2] - f.c[2]];
+      pts[3 * i] = dot(q, ex) - ox; pts[3 * i + 1] = dot(q, ey) - oy; pts[3 * i + 2] = dot(q, ez); radii[i] = R[i];
+    }
+    return { pts, radii };
+  }
+
+  // ---------- polydisperse particle-cluster box fit ----------
+  function fitBoxPolyPC(params, df, kf, W, H, nMax, sigma) {
+    const long = Math.max(W, H), short = Math.min(W, H), circle = params.shape === 'circle', Rc = short / 2;
+    const g = getPolyGrowth(df, kf, params.seed | 0, sigma), angles = circle ? [0] : ANGLES;
+    const fillAt = (k, th) => {
+      const f = frameP(g.pos, g.rad, k, g.moments(k), th);
+      return circle ? circleFillP(g.pos, g.rad, k, f, Rc) : Math.max(f.major / long, f.minor / short);
+    };
+    const bestFill = (k) => { let m = Infinity; for (const th of angles) m = Math.min(m, fillAt(k, th)); return m; };
+    const largestAt = (th, hiK) => { if (fillAt(hiK, th) <= 1) return hiK; let lo = 1, hi = hiK; while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (fillAt(mid, th) <= 1) lo = mid; else hi = mid; } return lo; };
+    let k = 1, th = 0;
+    if (short >= 2) {
+      const est = kf * Math.pow(0.5 * long * Math.sqrt(df / (df + 2)), df);
+      g.extend(Math.min(nMax, Math.max(2, Math.ceil(est * 1.5))));
+      while (g.n < nMax && bestFill(g.n) < 1) g.extend(Math.min(nMax, Math.ceil(g.n * 1.6) + 4));
+      const hiK = Math.min(g.n, nMax); let bestK = -1;
+      for (const a of angles) { const kk = largestAt(a, hiK); if (kk > bestK * 1.03) { bestK = kk; th = a; } }
+      k = Math.max(1, bestK);
+    }
+    const f = frameP(g.pos, g.rad, k, g.moments(k), th), { pts, radii } = polyOutput(g.pos, g.rad, k, f, W, H);
+    const fit = fitDf(g, k), fillK = short < 2 ? 1 : circle ? circleFillP(g.pos, g.rad, k, f, Rc) : Math.max(f.major / long, f.minor / short);
+    return { pts, radii, n: k, rg: Math.sqrt(g.rg2(k)), dfFit: fit.df, kfFit: fit.kf, capped: k >= nMax && fillK < 0.97, fill: fillK,
+             fillMin: short < 2 ? 1 : circle ? fillK : Math.min(f.major / long, f.minor / short), exact: g.exact / Math.max(1, g.n - 1), kf, aniso: anisotropy(f.ev), method: 'pc', sigma };
+  }
+
+  // ---------- polydisperse cluster-cluster ----------
+  function centredP(pos, rad, n, lab) {
+    let M = 0, mx = 0, my = 0, mz = 0;
+    for (let i = 0; i < n; i++) { const m = rad[i] ** 3; M += m; mx += m * pos[3 * i]; my += m * pos[3 * i + 1]; mz += m * pos[3 * i + 2]; }
+    mx /= M; my /= M; mz /= M;
+    const out = new Float64Array(3 * n), R = Float64Array.from(rad.subarray ? rad.subarray(0, n) : rad.slice(0, n));
+    let s2 = 0, rmax = 0;
+    for (let i = 0; i < n; i++) {
+      const x = pos[3 * i] - mx, y = pos[3 * i + 1] - my, z = pos[3 * i + 2] - mz;
+      out[3 * i] = x; out[3 * i + 1] = y; out[3 * i + 2] = z;
+      const d2 = x * x + y * y + z * z; s2 += R[i] ** 3 * d2; rmax = Math.max(rmax, Math.sqrt(d2) + R[i]);
+    }
+    return { pos: out, rad: R, n, M, rg2: s2 / M, rmax, lab: lab || null };
+  }
+  function gridP(C) { const g = new Map(); for (let i = 0; i < C.n; i++) { const k = pkey(C.pos[3 * i], C.pos[3 * i + 1], C.pos[3 * i + 2]); const l = g.get(k); if (l) l.push(i); else g.set(k, [i]); } return g; }
+  function overlapsP(grid, P, R, x, y, z, r) {
+    const ix = Math.floor(x / PCELL), iy = Math.floor(y / PCELL), iz = Math.floor(z / PCELL);
+    for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (let c = -1; c <= 1; c++) {
+      const l = grid.get(cellKey(ix + a, iy + b, iz + c)); if (!l) continue;
+      for (const j of l) { const dx = P[3 * j] - x, dy = P[3 * j + 1] - y, dz = P[3 * j + 2] - z, D = (r + R[j]) * POVER; if (dx * dx + dy * dy + dz * dz < D * D) return true; }
+    }
+    return false;
+  }
+  function placeBP(B, Rm, c, out) {
+    const p = B.pos;
+    for (let m = 0; m < B.n; m++) { const x = p[3 * m], y = p[3 * m + 1], z = p[3 * m + 2];
+      out[3 * m] = c[0] + Rm[0] * x + Rm[1] * y + Rm[2] * z; out[3 * m + 1] = c[1] + Rm[3] * x + Rm[4] * y + Rm[5] * z; out[3 * m + 2] = c[2] + Rm[6] * x + Rm[7] * y + Rm[8] * z; }
+  }
+  function tryContactP(A, B, G, grid, rand, attempts) {
+    const PA = A.pos, PB = B.pos, RA = A.rad, RB = B.rad;
+    const rA = new Float64Array(A.n), sB = new Float64Array(B.n);
+    for (let i = 0; i < A.n; i++) rA[i] = Math.hypot(PA[3 * i], PA[3 * i + 1], PA[3 * i + 2]);
+    for (let j = 0; j < B.n; j++) sB[j] = Math.hypot(PB[3 * j], PB[3 * j + 1], PB[3 * j + 2]);
+    const candA = [];
+    for (let i = 0; i < A.n; i++) if (rA[i] >= G - B.rmax - RA[i] - 1e-9 && rA[i] <= G + B.rmax + RA[i] + 1e-9) candA.push(i);
+    if (!candA.length) return null;
+    const out = new Float64Array(3 * B.n), order = new Int32Array(B.n);
+    for (let t = 0; t < attempts; t++) {
+      const i = candA[Math.floor(rand() * candA.length)], r = rA[i];
+      let j = -1, lo = 0, hi = 0, Dc = 0;
+      for (let k = 0; k < 24; k++) { const jj = Math.floor(rand() * B.n), s = sB[jj], dc = RA[i] + RB[jj];
+        const l = Math.max(Math.abs(s - dc), Math.abs(G - r)), h = Math.min(s + dc, G + r); if (l <= h) { j = jj; lo = l; hi = h; Dc = dc; break; } }
+      if (j < 0) continue;
+      const s = sB[j], rho = lo + rand() * (hi - lo), pi = [PA[3 * i], PA[3 * i + 1], PA[3 * i + 2]];
+      let c;
+      if (r < 1e-9) { const z = 2 * rand() - 1, ph = 2 * Math.PI * rand(), q = Math.sqrt(1 - z * z); c = [G * q * Math.cos(ph), G * q * Math.sin(ph), G * z]; }
+      else {
+        const u = [pi[0] / r, pi[1] / r, pi[2] / r], x = (G * G - rho * rho + r * r) / (2 * r), h2 = G * G - x * x; if (h2 < 0) continue;
+        const h = Math.sqrt(h2), [e1, e2] = perpBasis(u), ph = 2 * Math.PI * rand();
+        c = [u[0] * x + h * (Math.cos(ph) * e1[0] + Math.sin(ph) * e2[0]), u[1] * x + h * (Math.cos(ph) * e1[1] + Math.sin(ph) * e2[1]), u[2] * x + h * (Math.cos(ph) * e1[2] + Math.sin(ph) * e2[2])];
+      }
+      const dv = [c[0] - pi[0], c[1] - pi[1], c[2] - pi[2]], dl = Math.hypot(dv[0], dv[1], dv[2]);
+      let w, R0;
+      if (s < 1e-9) { R0 = randomRotation(rand); w = null; }
+      else {
+        if (dl < 1e-9) continue;
+        const uu = [dv[0] / dl, dv[1] / dl, dv[2] / dl], x2 = (dl * dl + Dc * Dc - s * s) / (2 * dl), h2b = Dc * Dc - x2 * x2; if (h2b < 0) continue;
+        const hb = Math.sqrt(h2b), [f1, f2] = perpBasis(uu), ps = 2 * Math.PI * rand();
+        const q = [pi[0] + uu[0] * x2 + hb * (Math.cos(ps) * f1[0] + Math.sin(ps) * f2[0]), pi[1] + uu[1] * x2 + hb * (Math.cos(ps) * f1[1] + Math.sin(ps) * f2[1]), pi[2] + uu[2] * x2 + hb * (Math.cos(ps) * f1[2] + Math.sin(ps) * f2[2])];
+        w = [(q[0] - c[0]) / s, (q[1] - c[1]) / s, (q[2] - c[2]) / s];
+        R0 = rotFromTo([PB[3 * j] / s, PB[3 * j + 1] / s, PB[3 * j + 2] / s], w, rand);
+      }
+      const vj = [PB[3 * j], PB[3 * j + 1], PB[3 * j + 2]], dj = new Float64Array(B.n);
+      for (let m = 0; m < B.n; m++) { dj[m] = (PB[3 * m] - vj[0]) ** 2 + (PB[3 * m + 1] - vj[1]) ** 2 + (PB[3 * m + 2] - vj[2]) ** 2; order[m] = m; }
+      order.sort((a, b) => dj[a] - dj[b]);
+      const spins = w ? 12 : 1, ph0 = 2 * Math.PI * rand();
+      for (let k = 0; k < spins; k++) {
+        const Rm = w ? mul3(axisAngle(w, ph0 + k * 2 * Math.PI / spins), R0) : R0;
+        let ok = true;
+        for (let mm = 0; mm < B.n && ok; mm++) {
+          const m = order[mm], x = PB[3 * m], y = PB[3 * m + 1], z = PB[3 * m + 2];
+          if (overlapsP(grid, PA, RA, c[0] + Rm[0] * x + Rm[1] * y + Rm[2] * z, c[1] + Rm[3] * x + Rm[4] * y + Rm[5] * z, c[2] + Rm[6] * x + Rm[7] * y + Rm[8] * z, RB[m])) ok = false;
+        }
+        if (ok) { placeBP(B, Rm, c, out); return out; }
+      }
+    }
+    return null;
+  }
+  function ballisticP(A, B, grid, rand) {
+    const Rm = randomRotation(rand), z = 2 * rand() - 1, ph = 2 * Math.PI * rand(), q = Math.sqrt(1 - z * z), u = [q * Math.cos(ph), q * Math.sin(ph), z];
+    const out = new Float64Array(3 * B.n);
+    const hits = (t) => { placeBP(B, Rm, [u[0] * t, u[1] * t, u[2] * t], out); for (let m = 0; m < B.n; m++) if (overlapsP(grid, A.pos, A.rad, out[3 * m], out[3 * m + 1], out[3 * m + 2], B.rad[m])) return true; return false; };
+    let tFree = A.rmax + B.rmax + 0.5, tHit = tFree;
+    while (tHit > 0 && !hits(tHit)) { tFree = tHit; tHit -= 0.5; }
+    if (tHit <= 0) tHit = 0;
+    for (let k = 0; k < 30; k++) { const m = (tFree + tHit) / 2; if (hits(m)) tHit = m; else tFree = m; }
+    placeBP(B, Rm, [u[0] * tFree, u[1] * tFree, u[2] * tFree], out);
+    return out;
+  }
+  function mergeP(A, B, df, kf, rand, st) {
+    if (B.n > A.n) { const t = A; A = B; B = t; }
+    const N = A.n + B.n, M = A.M + B.M, rgT2 = Math.pow(M / (st.m3 * kf), 2 / df);
+    const G2 = (M * M / (A.M * B.M)) * (rgT2 - (A.M * A.rg2 + B.M * B.rg2) / M);
+    const Gmax = A.rmax + B.rmax - 1e-6;
+    let G = G2 > 0 ? Math.sqrt(G2) : 0, exact = G <= Gmax;
+    if (!exact) G = Gmax;
+    const grid = gridP(A);
+    let placed = null;
+    for (let relax = 0; relax < 8 && !placed; relax++) {
+      placed = tryContactP(A, B, G, grid, rand, relax ? 80 : 160);
+      if (!placed) { exact = false; G = G > 0.6 * Gmax ? G * 0.96 : G * 1.06 + 0.3; }
+    }
+    if (!placed) { placed = ballisticP(A, B, grid, rand); exact = false; }
+    st.merges++; if (exact) st.exact++;
+    const pos = new Float64Array(3 * N), rad = new Float64Array(N);
+    pos.set(A.pos); pos.set(placed, 3 * A.n); rad.set(A.rad); rad.set(B.rad, A.n);
+    let lab = null; if (A.lab && B.lab) { lab = new Int32Array(N); lab.set(A.lab); lab.set(B.lab, A.n); }
+    return centredP(pos, rad, N, lab);
+  }
+  const ccaPolyCache = new Map();
+  function generateCCAPoly(N, df, kf, seed, sigma) {
+    const NS = GEN_NS;
+    const key = N + '|' + df.toFixed(3) + '|' + kf.toFixed(3) + '|' + (seed >>> 0) + '|' + sigma.toFixed(3) + (NS ? '|s' + NS : '');
+    let res = ccaPolyCache.get(key);
+    if (res) { ccaPolyCache.delete(key); ccaPolyCache.set(key, res); return res; }
+    const m3 = meanR3(Math.log(sigma));
+    const rand = mulberry32(((seed >>> 0) ^ 0x9e3779b9) || 7), hist = [], ns = NS ? Math.max(2, Math.round(NS)) : subclusterSize(N);
+    const st = { merges: 0, exact: 0, m3 };
+    let C;
+    if (N <= 2 * ns) { const g = new PolyGrowth(df, kf, seed, sigma); g.extend(N); C = centredP(g.pos, g.rad, N); hist.push([C.M / m3, Math.sqrt(C.rg2)]); }
+    else {
+      const m = Math.round(N / ns), sizes = [];
+      for (let k = 0; k < m; k++) sizes.push(Math.floor(N / m) + (k < N % m ? 1 : 0));
+      let clusters = sizes.map((sz, k) => { const g = new PolyGrowth(df, kf, (seed >>> 0) + 7919 * (k + 1), sigma); g.extend(sz); return centredP(g.pos, g.rad, sz, new Int32Array(sz).fill(k)); });
+      for (const c of clusters) hist.push([c.M / m3, Math.sqrt(c.rg2)]);
+      while (clusters.length > 1) {
+        clusters.sort((a, b) => b.n - a.n);
+        const next = [];
+        for (let k = 0; k + 1 < clusters.length; k += 2) { const mc = mergeP(clusters[k], clusters[k + 1], df, kf, rand, st); hist.push([mc.M / m3, Math.sqrt(mc.rg2)]); next.push(mc); }
+        if (clusters.length % 2) next.push(clusters[clusters.length - 1]);
+        clusters = next;
+      }
+      C = clusters[0];
+    }
+    let sx = 0, sy = 0, sxx = 0, sxy = 0, k = 0;
+    for (const [n, rg] of hist) if (n >= 8 && rg > 0) { const X = Math.log(rg), Y = Math.log(n); sx += X; sy += Y; sxx += X * X; sxy += X * Y; k++; }
+    const slope = k >= 3 ? (k * sxy - sx * sy) / (k * sxx - sx * sx) : null;
+    res = { C, exact: st.merges ? st.exact / st.merges : 1, dfFit: slope, kfFit: slope != null ? Math.exp((sy - slope * sx) / k) : null };
+    ccaPolyCache.set(key, res); while (ccaPolyCache.size > 12) ccaPolyCache.delete(ccaPolyCache.keys().next().value);
+    return res;
+  }
+  function fitBoxPolyCCA(params, df, kf, W, H, nMax, sigma) {
+    const long = Math.max(W, H), short = Math.min(W, H), seed = params.seed | 0, circle = params.shape === 'circle';
+    const orient = (C) => {
+      const mom = momentsOf(C.pos, C.rad, C.n);
+      if (circle) { const f = frameP(C.pos, C.rad, C.n, mom, 0); return { f, fill: circleFillP(C.pos, C.rad, C.n, f, short / 2) }; }
+      let best = null;
+      for (const th of ANGLES) { const f = frameP(C.pos, C.rad, C.n, mom, th), fill = Math.max(f.major / long, f.minor / short); if (!best || fill < best.fill * 0.97) best = { f, fill }; }
+      return best;
+    };
+    let N = Math.max(2, Math.min(nMax, Math.round(kf * Math.pow(0.5 * Math.sqrt(long * short) * Math.sqrt(df / (df + 2)), df))));
+    const tried = [];
+    if (short >= 2) for (let it = 0; it < 5; it++) {
+      const res = generateCCAPoly(N, df, kf, seed, sigma), o = orient(res.C);
+      tried.push({ N, res, o });
+      if (o.fill <= 1 && (o.fill > 0.93 || N >= nMax)) break;
+      let Nn = Math.max(2, Math.min(nMax, Math.round(N * Math.pow(1 / o.fill, df) * (o.fill > 1 ? 0.97 : 1))));
+      if (tried.some(t => t.N === Nn)) Nn = o.fill > 1 ? Math.max(2, N - Math.max(1, Math.round(0.08 * N))) : Math.min(nMax, N + Math.max(1, Math.round(0.08 * N)));
+      if (Nn === N) break;
+      N = Nn;
+    } else { const res = generateCCAPoly(1, df, kf, seed, sigma); tried.push({ N: 1, res, o: orient(res.C) }); }
+    const fits = tried.filter(t => t.o.fill <= 1);
+    const pick = fits.length ? fits.reduce((a, b) => (b.N > a.N ? b : a)) : tried.reduce((a, b) => (b.o.fill < a.o.fill ? b : a));
+    const C = pick.res.C, f = pick.o.f, { pts, radii } = polyOutput(C.pos, C.rad, C.n, f, W, H);
+    const fill = short < 2 ? 1 : pick.o.fill;
+    return { pts, radii, groups: C.lab ? Uint16Array.from(C.lab) : null, n: C.n, rg: Math.sqrt(C.rg2), dfFit: pick.res.dfFit, kfFit: pick.res.kfFit,
+             capped: C.n >= nMax && fill < 0.97, fill, fillMin: short < 2 ? 1 : circle ? fill : Math.min(f.major / long, f.minor / short), exact: pick.res.exact, kf, aniso: anisotropy(f.ev), method: 'cca', sigma };
+  }
+
   /*
    * params: { W, H: box size in monomer radii; df, kf, seed, nMax, method: 'pc'|'cca' }
    * returns { pts: Float32Array (x,y,z per monomer, radii, centred on the box,
@@ -611,10 +1002,20 @@
    */
   function fitBox(params) {
     const df = Math.min(3, Math.max(1, +params.df || 1.8));
-    const kf = (params.kf == null || !(+params.kf > 0)) ? kfAuto(df) : Math.max(0.3, +params.kf);
+    const sig0 = +params.sigma > 1.0005 ? Math.min(1.5, +params.sigma) : 1;
+    // Subcluster size for cluster-cluster (null = automatic).
+    GEN_NS = +params.ns >= 2 ? Math.round(+params.ns) : null;
+    const kf = (params.kf == null || !(+params.kf > 0)) ? kfAuto(df, sig0) : Math.max(0.3, +params.kf);
     const nMax = Math.max(1, Math.floor(params.nMax || 3000));
     const W = Math.max(0, +params.W || 0), H = Math.max(0, +params.H || 0);
     const long = Math.max(W, H), short = Math.min(W, H);
+    const sigma = +params.sigma > 1.0005 ? Math.min(1.5, +params.sigma) : 1;
+    if (sigma > 1) {
+      if (params.method === 'cca' && df <= CCA_MAX_DF) return fitBoxPolyCCA(params, df, kf, W, H, nMax, sigma);
+      const r = fitBoxPolyPC(params, df, kf, W, H, nMax, sigma);
+      if (params.method === 'cca') r.ccaFallback = true;
+      return r;
+    }
     if (params.method === 'cca') {
       // Cluster–cluster cannot reach compact structures; above CCA_MAX_DF use particle–cluster.
       if (df <= CCA_MAX_DF) return fitBoxCCAResult(params, df, kf, W, H, nMax);
@@ -700,14 +1101,15 @@
     }
     const long = Math.max(W, H), short = Math.min(W, H);
     const fill = short < 2 ? 1 : (params.shape === 'circle' ? o.fill : Math.max(f.major / long, f.minor / short));
+    const groups = C.lab ? Uint16Array.from(C.lab) : null;   // subcluster of each monomer (same order as pts)
     return {
-      pts, n: k, rg: Math.sqrt(C.rg2), dfFit: res.dfFit, kfFit: res.kfFit,
+      pts, groups, n: k, rg: Math.sqrt(C.rg2), dfFit: res.dfFit, kfFit: res.kfFit,
       capped: k >= nMax && fill < 0.97, fill, fillMin: short < 2 ? 1 : (params.shape === 'circle' ? fill : Math.min(f.major / long, f.minor / short)),
       exact: res.exact, kf, aniso: anisotropy(f.ev), method: 'cca',
     };
   }
 
-  const AggEngine = { fitBox, kfAuto, Growth, eigenSym3, generateCCA, CCA_MAX_DF, version: 1, release: '2026.10.18-29' };
+  const AggEngine = { fitBox, kfAuto, Growth, PolyGrowth, eigenSym3, generateCCA, generateCCAPoly, CCA_MAX_DF, version: 1, release: '2026.10.19-7' };
   root.AggEngine = AggEngine;
   if (typeof module !== 'undefined' && module.exports) module.exports = AggEngine;
 
@@ -721,7 +1123,8 @@
       try {
         const r = fitBox(m);
         r.ms = Date.now() - t0;
-        root.postMessage({ type: 'result', id: m.id, token: m.token, genA: m.a, ...r }, [r.pts.buffer]);
+        const tr = [r.pts.buffer]; if (r.groups) tr.push(r.groups.buffer); if (r.radii) tr.push(r.radii.buffer);
+        root.postMessage({ type: 'result', id: m.id, token: m.token, genA: m.a, ...r }, tr);
       } catch (err) {
         root.postMessage({ type: 'error', id: m.id, token: m.token, message: String(err && err.message || err) });
       }
