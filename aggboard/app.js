@@ -9,7 +9,7 @@
   // Configuration
   // ============================================================
   // Bump on every release: shown in the menu, and used to bypass cached program files.
-  const VERSION = '2026.10.19-7';
+  const VERSION = '2026.10.19-9';
   window.AGGBOARD_VERSION = VERSION;
   const CONFIG = {
     MENU_URL: null,            // e.g. '../index.html' to show a "back to menu" button
@@ -2989,6 +2989,13 @@
   $('selDuplicate').addEventListener('click', duplicateSelection);
   $('selDelete').addEventListener('click', deleteSelection);
   $('selSvg').addEventListener('click', exportSelectionSVG);
+  $('selGif').addEventListener('click', () => openGifDialog('selection'));
+  for (const id of ['gifMotion', 'gifSize', 'gifFps', 'gifFormat']) for (const b of $(id).children) b.addEventListener('click', () => { if (b.disabled) return; for (const o of $(id).children) o.classList.toggle('active', o === b); if (id === 'gifFormat') updateFormatNote(); });
+  $('gifCreate').addEventListener('click', () => { createGif().catch(err => { console.warn('Animation export failed:', err); toast('The animation could not be created: ' + (err && err.message || err), 6000); if (gifJob) { gifJob = { scope: gifJob.scope }; gifShowState('setup'); } }); });
+  $('gifAgain').addEventListener('click', () => { if (gifJob) { if (gifJob.url) URL.revokeObjectURL(gifJob.url); gifJob = { scope: gifJob.scope }; $('gifPreview').removeAttribute('src'); gifShowState('setup'); } });
+  $('gifSave').addEventListener('click', () => { if (gifJob && gifJob.blob) shareBlob(gifJob.blob, gifJob.name, gifJob.mime || 'image/gif'); });
+  $('gifClose').addEventListener('click', closeGifDialog);
+  $('gifDlg').addEventListener('click', (e) => { if (e.target === $('gifDlg') && !$('gifBusy').offsetParent) closeGifDialog(); });
 
   let panelId = null, panelSession = false;
   // The panel is placed once next to its aggregate and then stays put while the
@@ -3225,6 +3232,7 @@
   shield.addEventListener('pointerdown', closeMenu);
   const menuAction = (id, fn) => $(id).addEventListener('click', () => { closeMenu(); fn(); });
   menuAction('mExport', exportNotebook);
+  menuAction('mGif', () => openGifDialog('page'));
   menuAction('mImport', () => $('fileInput').click());
   menuAction('mPng', exportPagePNG);
   menuAction('mSvg', exportPageSVG);
@@ -3569,6 +3577,475 @@
   }
 
   // ============================================================
+  // Animated GIF export of the spin (rotate or rock), one seamless cycle.
+  // One palette for all frames (median cut over sample frames, no dithering, so
+  // colours do not flicker); each frame stores only the rectangle that changed,
+  // with unchanged pixels transparent. Encoder below, no external library.
+  // ============================================================
+  function gifMedianCut(hist, sums, maxColors) {
+    const bins = [];
+    for (let i = 0; i < 32768; i++) if (hist[i]) bins.push(i);
+    const mean = (i, c) => sums[3 * i + c] / hist[i];
+    const boxOf = (list) => {
+      let n = 0, lo = [255, 255, 255], hi = [0, 0, 0];
+      for (const i of list) { n += hist[i]; for (let c = 0; c < 3; c++) { const v = mean(i, c); if (v < lo[c]) lo[c] = v; if (v > hi[c]) hi[c] = v; } }
+      const rg = [hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]];
+      const ch = rg[0] >= rg[1] && rg[0] >= rg[2] ? 0 : rg[1] >= rg[2] ? 1 : 2;
+      return { list, n, ch, range: rg[ch] };
+    };
+    const boxes = [boxOf(bins)];
+    while (boxes.length < maxColors) {
+      let best = -1, score = 0;
+      for (let k = 0; k < boxes.length; k++) {
+        const b = boxes[k];
+        if (b.list.length < 2 || b.range <= 0) continue;
+        const sc = Math.sqrt(b.n) * b.range;
+        if (sc > score) { score = sc; best = k; }
+      }
+      if (best < 0) break;
+      const b = boxes[best];
+      b.list.sort((i, j) => mean(i, b.ch) - mean(j, b.ch));
+      let acc = 0, cut = 1;
+      for (let k = 0; k < b.list.length - 1; k++) { acc += hist[b.list[k]]; if (acc >= b.n / 2) { cut = k + 1; break; } cut = k + 1; }
+      boxes.splice(best, 1, boxOf(b.list.slice(0, cut)), boxOf(b.list.slice(cut)));
+    }
+    return boxes.map(b => {
+      let n = 0, r = 0, g = 0, bl = 0;
+      for (const i of b.list) { n += hist[i]; r += sums[3 * i]; g += sums[3 * i + 1]; bl += sums[3 * i + 2]; }
+      return [Math.round(r / n), Math.round(g / n), Math.round(bl / n)];
+    });
+  }
+  // LZW-compress palette indices into GIF data sub-blocks (minimum code size 8).
+  const gifDict = { stamp: new Int32Array(4096 * 256), code: new Uint16Array(4096 * 256), gen: 0 };
+  function gifLZW(idx, out) {
+    const D = gifDict, CLEAR = 256, EOI = 257;
+    let codeSize = 9, next = 258, cur = 0, nbits = 0;
+    const block = new Uint8Array(255); let bl = 0;
+    const flushBlock = () => { if (bl) { out.push(bl); for (let k = 0; k < bl; k++) out.push(block[k]); bl = 0; } };
+    const emit = (c) => {
+      cur |= c << nbits; nbits += codeSize;
+      while (nbits >= 8) { block[bl++] = cur & 255; if (bl === 255) flushBlock(); cur >>>= 8; nbits -= 8; }
+    };
+    out.push(8);
+    D.gen++;
+    emit(CLEAR);
+    let prefix = idx[0];
+    for (let i = 1; i < idx.length; i++) {
+      const k = idx[i], key = prefix * 256 + k;
+      if (D.stamp[key] === D.gen) { prefix = D.code[key]; continue; }
+      emit(prefix);
+      if (next < 4096) {
+        D.stamp[key] = D.gen; D.code[key] = next++;
+        if (next > (1 << codeSize) && codeSize < 12) codeSize++;
+      } else {
+        emit(CLEAR); D.gen++; next = 258; codeSize = 9;
+      }
+      prefix = k;
+    }
+    emit(prefix);
+    emit(EOI);
+    if (nbits > 0) { block[bl++] = cur & 255; if (bl === 255) flushBlock(); }
+    flushBlock();
+    out.push(0);
+  }
+  class ByteOut {
+    constructor() { this.chunks = []; this.buf = new Uint8Array(1 << 16); this.n = 0; this.size = 0; }
+    push(b) { if (this.n === this.buf.length) { this.chunks.push(this.buf); this.buf = new Uint8Array(1 << 16); this.n = 0; } this.buf[this.n++] = b; this.size++; }
+    u16(v) { this.push(v & 255); this.push((v >> 8) & 255); }
+    str(t) { for (let i = 0; i < t.length; i++) this.push(t.charCodeAt(i)); }
+    blob() { return new Blob([...this.chunks, this.buf.slice(0, this.n)], { type: 'image/gif' }); }
+  }
+
+  // ------------------------------------------------------------
+  // MP4 muxer for H.264 (one video track, 'faststart' layout: ftyp, moov, mdat).
+  // samples: [{ data: Uint8Array (AVCC, 4-byte lengths, or Annex B), pts: µs, key }]
+  // in decode order. description: avcC record (from the encoder); if absent it is
+  // built from SPS/PPS found in the first key frame. Handles B-frames (ctts + edit list).
+  // ------------------------------------------------------------
+  function annexbToAvcc(u8) {
+    const nals = [];
+    let i = 0, start = -1;
+    const n = u8.length;
+    while (i + 3 <= n) {
+      if (u8[i] === 0 && u8[i + 1] === 0 && (u8[i + 2] === 1 || (u8[i + 2] === 0 && i + 3 < n && u8[i + 3] === 1))) {
+        if (start >= 0) nals.push(u8.subarray(start, i));
+        i += u8[i + 2] === 1 ? 3 : 4; start = i;
+      } else i++;
+    }
+    if (start >= 0) nals.push(u8.subarray(start, n));
+    // drop trailing zero bytes of each NAL (they belong to the next start code)
+    const clean = nals.map(x => { let e = x.length; while (e > 0 && x[e - 1] === 0) e--; return x.subarray(0, e); }).filter(x => x.length);
+    return clean;
+  }
+  // High profiles (100 and up) need the chroma/bit-depth extension at the end of avcC;
+  // add it (4:2:0, 8 bit, which is what we encode) when a record lacks it.
+  function completeAvcC(c) {
+    const prof = c[1];
+    if (prof !== 100 && prof !== 110 && prof !== 122 && prof !== 144) return c;
+    let o = 5, nS = c[o++] & 31;
+    for (let k = 0; k < nS; k++) { const L = (c[o] << 8) | c[o + 1]; o += 2 + L; }
+    let nP = c[o++];
+    for (let k = 0; k < nP; k++) { const L = (c[o] << 8) | c[o + 1]; o += 2 + L; }
+    if (o < c.length) return c;   // extension already present
+    const out = new Uint8Array(c.length + 4);
+    out.set(c, 0); out.set([0xFD, 0xF8, 0xF8, 0], c.length);
+    return out;
+  }
+  const isAnnexB = (u8) => u8.length > 4 && u8[0] === 0 && u8[1] === 0 && (u8[2] === 1 || (u8[2] === 0 && u8[3] === 1));
+  function mp4Mux({ width, height, fps, samples, description }) {
+    const TS = 90000;
+    let avcC = description ? new Uint8Array(description.buffer ? description.buffer.slice(description.byteOffset || 0, (description.byteOffset || 0) + description.byteLength) : description) : null;
+    // Normalise sample data to AVCC; collect SPS/PPS if no description was given.
+    let sps = null, pps = null;
+    const data = samples.map(sm => {
+      if (!isAnnexB(sm.data)) return sm.data;
+      const nals = annexbToAvcc(sm.data).filter(x => {
+        const t = x[0] & 31;
+        if (t === 7) { if (!sps) sps = x; return false; }
+        if (t === 8) { if (!pps) pps = x; return false; }
+        return t !== 9;   // access unit delimiters are not stored in MP4
+      });
+      let len = 0; for (const x of nals) len += 4 + x.length;
+      const out = new Uint8Array(len); let o = 0;
+      for (const x of nals) { out[o] = x.length >>> 24; out[o + 1] = (x.length >>> 16) & 255; out[o + 2] = (x.length >>> 8) & 255; out[o + 3] = x.length & 255; out.set(x, o + 4); o += 4 + x.length; }
+      return out;
+    });
+    if (!avcC) {
+      if (!sps || !pps) throw new Error('No codec description (SPS/PPS) from the encoder');
+      avcC = new Uint8Array(11 + sps.length + pps.length);
+      avcC.set([1, sps[1], sps[2], sps[3], 0xFF, 0xE1, sps.length >> 8, sps.length & 255], 0);
+      avcC.set(sps, 8);
+      avcC.set([1, pps.length >> 8, pps.length & 255], 8 + sps.length);
+      avcC.set(pps, 11 + sps.length);
+    }
+    avcC = completeAvcC(avcC);
+    const N = samples.length;
+    const dts = [], cto = [];
+    for (let i = 0; i < N; i++) dts.push(Math.round(i * TS / fps));
+    const ptsT = samples.map(sm => Math.round(sm.pts * TS / 1e6));
+    // Presentation times may be reordered (B-frames); offsets relative to decode times.
+    let minOff = Infinity;
+    for (let i = 0; i < N; i++) { cto.push(ptsT[i] - dts[i]); minOff = Math.min(minOff, cto[i]); }
+    const shift = minOff < 0 ? -minOff : 0;
+    for (let i = 0; i < N; i++) cto[i] += shift;
+    const needCtts = cto.some(v => v !== cto[0]) || cto[0] !== 0;
+    const durT = Math.round(N * TS / fps);
+    const mediaStart = Math.min(...ptsT) + shift;   // first presented frame, in media time
+    const movieDur = Math.round(N * 1000 / fps);
+    let mediaEnd = durT;   // end of the last presented frame in media time (B-frames shift it)
+    for (let i = 0; i < N; i++) mediaEnd = Math.max(mediaEnd, dts[i] + cto[i] + Math.round(TS / fps));
+    // Box helpers
+    const parts = [];
+    const u32 = (v) => [(v >>> 24) & 255, (v >>> 16) & 255, (v >>> 8) & 255, v & 255];
+    const u16b = (v) => [(v >>> 8) & 255, v & 255];
+    const str4 = (t) => [t.charCodeAt(0), t.charCodeAt(1), t.charCodeAt(2), t.charCodeAt(3)];
+    const cat = (arrs) => { let L = 0; for (const a of arrs) L += a.length; const o = new Uint8Array(L); let k = 0; for (const a of arrs) { o.set(a, k); k += a.length; } return o; };
+    const box = (type, ...content) => { const body = cat(content.map(c => (c instanceof Uint8Array ? c : new Uint8Array(c)))); return cat([new Uint8Array(u32(8 + body.length)), new Uint8Array(str4(type)), body]); };
+    const full = (type, ver, flags, ...content) => box(type, [ver, (flags >> 16) & 255, (flags >> 8) & 255, flags & 255], ...content);
+    const MATRIX = [...u32(0x10000), ...u32(0), ...u32(0), ...u32(0), ...u32(0x10000), ...u32(0), ...u32(0), ...u32(0), ...u32(0x40000000)];
+    const ftyp = box('ftyp', str4('isom'), u32(512), str4('isom'), str4('iso2'), str4('avc1'), str4('mp41'));
+    const sizes = data.map(d => d.length);
+    const buildMoov = (chunkOffset) => {
+      const mvhd = full('mvhd', 0, 0, u32(0), u32(0), u32(1000), u32(movieDur), u32(0x10000), u16b(0x100), new Uint8Array(10), MATRIX, new Uint8Array(24), u32(2));
+      const tkhd = full('tkhd', 0, 3, u32(0), u32(0), u32(1), u32(0), u32(movieDur), new Uint8Array(8), u16b(0), u16b(0), u16b(0), u16b(0), MATRIX, u32(width << 16), u32(height << 16));
+      const elst = full('elst', 0, 0, u32(1), u32(movieDur), u32(mediaStart), u16b(1), u16b(0));
+      const edts = box('edts', elst);
+      const mdhd = full('mdhd', 0, 0, u32(0), u32(0), u32(TS), u32(mediaEnd), u16b(0x55c4), u16b(0));
+      const hdlr = full('hdlr', 0, 0, u32(0), str4('vide'), new Uint8Array(12), new Uint8Array([...'AggBoard video'].map(ch => ch.charCodeAt(0)).concat([0])));
+      const vmhd = full('vmhd', 0, 1, new Uint8Array(8));
+      const dinf = box('dinf', full('dref', 0, 0, u32(1), full('url ', 0, 1)));
+      const comp = new Uint8Array(32); const cname = 'AggBoard'; comp[0] = cname.length; for (let i = 0; i < cname.length; i++) comp[1 + i] = cname.charCodeAt(i);
+      const avc1 = box('avc1', new Uint8Array(6), u16b(1), u16b(0), u16b(0), new Uint8Array(12), u16b(width), u16b(height),
+        u32(0x00480000), u32(0x00480000), u32(0), u16b(1), comp, u16b(0x18), u16b(0xFFFF), box('avcC', avcC));
+      const stsd = full('stsd', 0, 0, u32(1), avc1);
+      // stts: runs of equal decode durations
+      const runs = [];
+      for (let i = 0; i < N; i++) {
+        const dd = (i + 1 < N ? dts[i + 1] : durT) - dts[i];
+        if (runs.length && runs[runs.length - 1][1] === dd) runs[runs.length - 1][0]++; else runs.push([1, dd]);
+      }
+      const stts = full('stts', 0, 0, u32(runs.length), ...runs.map(r => [...u32(r[0]), ...u32(r[1])]));
+      const boxes = [stsd, stts];
+      if (needCtts) {
+        const cr = [];
+        for (let i = 0; i < N; i++) { if (cr.length && cr[cr.length - 1][1] === cto[i]) cr[cr.length - 1][0]++; else cr.push([1, cto[i]]); }
+        boxes.push(full('ctts', 0, 0, u32(cr.length), ...cr.map(r => [...u32(r[0]), ...u32(r[1])])));
+      }
+      const keys = []; samples.forEach((sm, i) => { if (sm.key) keys.push(i + 1); });
+      if (keys.length < N) boxes.push(full('stss', 0, 0, u32(keys.length), ...keys.map(k => u32(k))));
+      boxes.push(full('stsc', 0, 0, u32(1), u32(1), u32(N), u32(1)));
+      boxes.push(full('stsz', 0, 0, u32(0), u32(N), ...sizes.map(z => u32(z))));
+      boxes.push(full('stco', 0, 0, u32(1), u32(chunkOffset)));
+      const stbl = box('stbl', ...boxes);
+      const minf = box('minf', vmhd, dinf, stbl);
+      const mdia = box('mdia', mdhd, hdlr, minf);
+      const trak = box('trak', tkhd, edts, mdia);
+      return box('moov', mvhd, trak);
+    };
+    const moovLen = buildMoov(0).length;
+    const moov = buildMoov(ftyp.length + moovLen + 8);
+    let total = 0; for (const z of sizes) total += z;
+    const mdatHead = new Uint8Array([...u32(8 + total), ...str4('mdat')]);
+    return new Blob([ftyp, moov, mdatHead, ...data], { type: 'video/mp4' });
+  }
+
+  // H.264 configurations to try, most capable first (High, Main, Constrained Baseline; level 4.0 / 5.1).
+  const AVC_CODECS = ['avc1.640028', 'avc1.4d0028', 'avc1.42e028', 'avc1.640033', 'avc1.42001f'];
+  const videoBitrate = (W, H, fps) => Math.round(clamp(W * H * fps * 0.12, 4e5, 1.5e7));
+  async function pickAvcConfig(W, H, fps) {
+    if (typeof window.VideoEncoder !== 'function' || typeof window.VideoFrame !== 'function') return null;
+    for (const codec of AVC_CODECS) for (const extra of [{ latencyMode: 'quality' }, {}]) {
+      const cfg = { codec, width: W, height: H, bitrate: videoBitrate(W, H, fps), framerate: fps, avc: { format: 'avc' }, ...extra };
+      try { const r = await VideoEncoder.isConfigSupported(cfg); if (r && r.supported) return cfg; } catch (_) {}
+    }
+    return null;
+  }
+  let videoSupport = null;   // null = not checked yet, then true / false
+  async function checkVideoSupport() {
+    if (videoSupport === null) videoSupport = !!(await pickAvcConfig(800, 800, 25));
+    return videoSupport;
+  }
+
+  const GIF_SIZES = { small: 480, medium: 800, large: 1200 };
+  let gifJob = null;   // { scope, cancel, blob, url, name }
+  function gifTargets(scope) {
+    const list = scope === 'selection' ? items().filter(it => selection && selection.has(it.id)) : items();
+    const moving = list.filter(it => it.type === 'agg' && it.pts && it.n);
+    return { list, moving };
+  }
+  function gifThetas(motion, fps) {
+    const period = motion === 'rock' ? ROCK_PERIOD : spin.period;
+    const F = Math.max(8, Math.round(period / 1000 * fps));
+    const th = [];
+    for (let j = 0; j < F; j++) th.push(motion === 'rock' ? ROCK_AMP * Math.sin(2 * Math.PI * j / F) : 2 * Math.PI * j / F);
+    return th;
+  }
+  function openGifDialog(scope) {
+    commitPendingDot();
+    const { moving } = gifTargets(scope);
+    if (!moving.length) { toast(scope === 'selection' ? 'No aggregates in the selection, so nothing would move.' : 'There are no aggregates on this page, so nothing would move.', 3500); return; }
+    closeMenu && closeMenu();
+    gifCancel();
+    gifJob = { scope };
+    const g = settings.gif || {};
+    setSeg('gifMotion', 'motion', settings.spinStyle === 'rock' ? 'rock' : 'rotate');
+    setSeg('gifSize', 'size', GIF_SIZES[g.size] ? g.size : 'medium');
+    setSeg('gifFps', 'fps', g.fps === 25 ? '25' : '15');
+    setSeg('gifFormat', 'format', g.format === 'mp4' ? 'mp4' : 'gif');
+    updateFormatNote();
+    checkVideoSupport().then(ok => {
+      const b = $('gifFormat').querySelector('[data-format=mp4]');
+      b.disabled = !ok;
+      b.title = ok ? '' : 'Video export needs WebCodecs, which this browser does not offer';
+      if (!ok && segVal('gifFormat', 'format') === 'mp4') setSeg('gifFormat', 'format', 'gif');
+      updateFormatNote();
+    });
+    const nAgg = moving.length;
+    $('gifWhat').textContent = scope === 'selection'
+      ? `The selection, cropped to it; ${nAgg === 1 ? 'the selected aggregate moves' : nAgg === 2 ? 'both selected aggregates move' : `the ${nAgg} selected aggregates move`}.`
+      : `The whole page; ${nAgg === 1 ? 'its aggregate moves' : nAgg === 2 ? 'both aggregates move' : `all ${nAgg} aggregates move`}, everything else stays still.`;
+    gifShowState('setup');
+    $('gifDlg').classList.add('visible');
+  }
+  function updateFormatNote() {
+    const mp4 = segVal('gifFormat', 'format') === 'mp4';
+    $('gifNoteGif').style.display = mp4 ? 'none' : '';
+    $('gifNoteMp4').style.display = mp4 ? '' : 'none';
+    $('gifNoVideo').style.display = videoSupport === false ? '' : 'none';
+  }
+  function setSeg(id, key, val) { for (const b of $(id).children) b.classList.toggle('active', b.dataset[key] === val); }
+  const segVal = (id, key) => { const b = $(id).querySelector('.active'); return b ? b.dataset[key] : null; };
+  function gifShowState(st, info) {
+    $('gifSetup').style.display = st === 'setup' ? '' : 'none';
+    $('gifBusy').style.display = st === 'busy' ? '' : 'none';
+    $('gifDone').style.display = st === 'done' ? '' : 'none';
+    $('gifCreate').style.display = st === 'setup' ? '' : 'none';
+    $('gifSave').style.display = st === 'done' ? '' : 'none';
+    $('gifAgain').style.display = st === 'done' ? '' : 'none';
+    $('gifClose').textContent = st === 'busy' ? 'Cancel' : 'Close';
+    if (st === 'done' && info) $('gifInfo').textContent = info;
+    if (st !== 'done') { const v = $('gifVideo'); try { v.pause(); } catch (_) {} v.removeAttribute('src'); }
+  }
+  function gifCancel() {
+    if (!gifJob) return;
+    gifJob.cancel = true;
+    if (gifJob.url) URL.revokeObjectURL(gifJob.url);
+    $('gifPreview').removeAttribute('src');
+    const v = $('gifVideo'); try { v.pause(); } catch (_) {} v.removeAttribute('src');
+  }
+  function closeGifDialog() { gifCancel(); gifJob = null; $('gifDlg').classList.remove('visible'); }
+  async function createGif() {
+    const job = gifJob; if (!job) return;
+    const motion = segVal('gifMotion', 'motion') || 'rotate', sizeKey = segVal('gifSize', 'size') || 'medium', fps = +(segVal('gifFps', 'fps') || 15);
+    const format = segVal('gifFormat', 'format') === 'mp4' ? 'mp4' : 'gif';
+    settings.gif = { size: sizeKey, fps, format }; saveSettings();
+    const pg = curPage(), theme = themeOf(pg);
+    const { list, moving } = gifTargets(job.scope);
+    const movingIds = new Set(moving.map(it => it.id));
+    const thetas = gifThetas(motion, fps);
+    const frameItem = (it, theta) => (movingIds.has(it.id) && theta !== 0 ? { ...it, R: matMul(axisRot(SPIN_AXIS, theta), it.R) } : it);
+    // Region: the page, or the selection over all frames (so nothing is cut off while it turns).
+    let box;
+    if (job.scope === 'selection') {
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      const add = (b) => { x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h); };
+      for (const it of list) {
+        if (!movingIds.has(it.id)) { add(exportBounds(it)); continue; }
+        for (let j = 0; j < thetas.length; j += Math.max(1, Math.floor(thetas.length / 48))) add(exportBounds(frameItem(it, thetas[j])));
+        if (motion === 'rock') { add(exportBounds(frameItem(it, ROCK_AMP))); add(exportBounds(frameItem(it, -ROCK_AMP))); }
+      }
+      const m = 12; box = { x: x0 - m, y: y0 - m, w: x1 - x0 + 2 * m, h: y1 - y0 + 2 * m };
+    } else box = { x: 0, y: 0, w: PW, h: pageH(pg) };
+    const longest = GIF_SIZES[sizeKey];
+    const k = longest / Math.max(box.w, box.h);
+    // H.264 needs even dimensions.
+    const even = (v) => Math.max(2, 2 * Math.round(v / 2));
+    const W = format === 'mp4' ? even(box.w * k) : Math.max(1, Math.round(box.w * k));
+    const H = format === 'mp4' ? even(box.h * k) : Math.max(1, Math.round(box.h * k));
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const x = c.getContext('2d', { willReadFrequently: true });
+    const draw = (theta) => {
+      const prevTheme = renderTheme; renderTheme = theme;
+      x.setTransform(1, 0, 0, 1, 0, 0);
+      x.fillStyle = THEMES[theme].page; x.fillRect(0, 0, W, H);
+      x.setTransform(k, 0, 0, k, -box.x * k, -box.y * k);
+      for (const it0 of list) {
+        if (it0.type === 'stroke') { drawStroke(x, it0); continue; }
+        if (!it0.pts) continue;
+        const it = frameItem(it0, theta);
+        const bmp = renderAggBitmap(it, k);
+        x.drawImage(bmp.canvas, it.x + it.w / 2 + bmp.ox, it.y + it.h / 2 + bmp.oy, bmp.canvas.width / bmp.ppu, bmp.canvas.height / bmp.ppu);
+        drawOverlays(x, it, theme, 1 / k);
+      }
+      renderTheme = prevTheme;
+    };
+    const render = (theta) => { draw(theta); return x.getImageData(0, 0, W, H).data; };
+    gifShowState('busy');
+    const bar = $('gifBar'), status = $('gifStatus');
+    const yieldUI = () => new Promise(r => setTimeout(r, 0));
+    const finish = (blob, mime, ext) => {
+      job.blob = blob; job.mime = mime;
+      job.url = URL.createObjectURL(blob);
+      job.name = `${job.scope === 'selection' ? 'selection' : 'page-' + (nb.current + 1)}-${motion}-${dateStamp()}.${ext}`;
+      $('gifPreview').style.display = ext === 'gif' ? '' : 'none';
+      $('gifVideo').style.display = ext === 'mp4' ? '' : 'none';
+      if (ext === 'gif') $('gifPreview').src = job.url;
+      else { const v = $('gifVideo'); v.src = job.url; try { const pr = v.play && v.play(); if (pr && pr.catch) pr.catch(() => {}); } catch (_) {} }
+      const mb = blob.size / 1048576;
+      gifShowState('done', `${ext === 'mp4' ? 'Video (MP4)' : 'GIF'} · ${W} × ${H} px · ${thetas.length} frames · ${(thetas.length / fps).toFixed(1)} s · ${mb >= 1 ? mb.toFixed(1) + ' MB' : Math.round(blob.size / 1024) + ' kB'}`);
+    };
+    if (format === 'mp4') {
+      const cfg = await pickAvcConfig(W, H, fps);
+      if (!cfg) throw new Error(`this browser cannot encode video at ${W} × ${H} px. Try a smaller size, or GIF`);
+      const F = thetas.length, samples = [];
+      let desc = null, encErr = null;
+      const enc = new VideoEncoder({
+        output: (chunk, meta) => {
+          if (!desc && meta && meta.decoderConfig && meta.decoderConfig.description) desc = meta.decoderConfig.description;
+          const b = new Uint8Array(chunk.byteLength); chunk.copyTo(b);
+          samples.push({ data: b, pts: chunk.timestamp, key: chunk.type === 'key' });
+        },
+        error: (e) => { encErr = e; },
+      });
+      try {
+        enc.configure(cfg);
+        const keyEvery = Math.max(1, Math.round(fps * 2));
+        for (let j = 0; j < F; j++) {
+          if (job.cancel) return;
+          if (encErr) throw encErr;
+          draw(thetas[j]);
+          const frame = new VideoFrame(c, { timestamp: Math.round(j * 1e6 / fps), duration: Math.round(1e6 / fps) });
+          enc.encode(frame, { keyFrame: j % keyEvery === 0 });
+          frame.close();
+          while (enc.encodeQueueSize > 4 && !encErr && !job.cancel) await new Promise(r => setTimeout(r, 4));
+          bar.style.width = (100 * (j + 1) / (F + 1)).toFixed(1) + '%';
+          status.textContent = `Frame ${j + 1} of ${F}`;
+          await yieldUI();
+        }
+        status.textContent = 'Finishing…';
+        await enc.flush();
+        if (encErr) throw encErr;
+      } finally { try { enc.close(); } catch (_) {} }
+      if (job.cancel) return;
+      if (samples.length !== F) throw new Error(`the encoder returned ${samples.length} of ${F} frames`);
+      finish(mp4Mux({ width: W, height: H, fps, samples, description: desc }), 'video/mp4', 'mp4');
+      return;
+    }
+    const F = thetas.length, total = F + 8;
+    status.textContent = 'Choosing colours…'; bar.style.width = '0%';
+    await yieldUI();
+    // 1. Palette from 8 sample frames.
+    const hist = new Uint32Array(32768), sums = new Float64Array(32768 * 3);
+    for (let sIdx = 0; sIdx < 8; sIdx++) {
+      if (job.cancel) return;
+      const d = render(thetas[Math.floor(sIdx * F / 8)]);
+      for (let i = 0; i < d.length; i += 4) {
+        const bin = ((d[i] >> 3) << 10) | ((d[i + 1] >> 3) << 5) | (d[i + 2] >> 3);
+        hist[bin]++; sums[3 * bin] += d[i]; sums[3 * bin + 1] += d[i + 1]; sums[3 * bin + 2] += d[i + 2];
+      }
+      bar.style.width = (100 * (sIdx + 1) / total).toFixed(1) + '%';
+      await yieldUI();
+    }
+    const pal = gifMedianCut(hist, sums, 255);   // index 0 is reserved for "unchanged" (transparent)
+    const P = new Uint8Array(768);
+    pal.forEach((col, i) => { P[3 * (i + 1)] = col[0]; P[3 * (i + 1) + 1] = col[1]; P[3 * (i + 1) + 2] = col[2]; });
+    const map = new Int16Array(32768).fill(-1);
+    const nearest = (bin) => {
+      const r = sums[3 * bin] / hist[bin] || ((bin >> 10) << 3) + 4, g = sums[3 * bin + 1] / hist[bin] || (((bin >> 5) & 31) << 3) + 4, b = sums[3 * bin + 2] / hist[bin] || ((bin & 31) << 3) + 4;
+      let best = 1, bd = Infinity;
+      for (let i = 0; i < pal.length; i++) {
+        const dr = r - pal[i][0], dg = g - pal[i][1], db = b - pal[i][2], dd = 2 * dr * dr + 4 * dg * dg + 3 * db * db;
+        if (dd < bd) { bd = dd; best = i + 1; }
+      }
+      return best;
+    };
+    // 2. Frames.
+    const out = new ByteOut();
+    out.str('GIF89a'); out.u16(W); out.u16(H); out.push(0xF7); out.push(0); out.push(0);
+    for (let i = 0; i < 768; i++) out.push(P[i]);
+    out.push(0x21); out.push(0xFF); out.push(11); out.str('NETSCAPE2.0'); out.push(3); out.push(1); out.u16(0); out.push(0);
+    let prev = null;
+    const cur = new Uint8Array(W * H);
+    for (let j = 0; j < F; j++) {
+      if (job.cancel) return;
+      const d = render(thetas[j]);
+      for (let p = 0, i = 0; p < cur.length; p++, i += 4) {
+        const bin = ((d[i] >> 3) << 10) | ((d[i + 1] >> 3) << 5) | (d[i + 2] >> 3);
+        let v = map[bin]; if (v < 0) v = map[bin] = nearest(bin);
+        cur[p] = v;
+      }
+      // Changed rectangle relative to the previous frame.
+      let rx0 = 0, ry0 = 0, rx1 = W - 1, ry1 = H - 1, trans = false;
+      if (prev) {
+        rx0 = W; ry0 = H; rx1 = -1; ry1 = -1;
+        for (let yy = 0; yy < H; yy++) {
+          const o = yy * W;
+          for (let xx = 0; xx < W; xx++) if (cur[o + xx] !== prev[o + xx]) { if (xx < rx0) rx0 = xx; if (xx > rx1) rx1 = xx; if (yy < ry0) ry0 = yy; if (yy > ry1) ry1 = yy; }
+        }
+        if (rx1 < 0) { rx0 = rx1 = ry0 = ry1 = 0; }
+        trans = true;
+      }
+      const rw = rx1 - rx0 + 1, rh = ry1 - ry0 + 1, sub = new Uint8Array(rw * rh);
+      for (let yy = 0; yy < rh; yy++) {
+        const o = (ry0 + yy) * W + rx0;
+        for (let xx = 0; xx < rw; xx++) { const v = cur[o + xx]; sub[yy * rw + xx] = trans && prev[o + xx] === v ? 0 : v; }
+      }
+      const delay = Math.round(100 * (j + 1) / fps) - Math.round(100 * j / fps);
+      out.push(0x21); out.push(0xF9); out.push(4); out.push((1 << 2) | (trans ? 1 : 0)); out.u16(delay); out.push(0); out.push(0);
+      out.push(0x2C); out.u16(rx0); out.u16(ry0); out.u16(rw); out.u16(rh); out.push(0);
+      gifLZW(sub, out);
+      if (!prev) prev = new Uint8Array(W * H);
+      prev.set(cur);
+      bar.style.width = (100 * (9 + j) / total).toFixed(1) + '%';
+      status.textContent = `Frame ${j + 1} of ${F}`;
+      await yieldUI();
+    }
+    out.push(0x3B);
+    if (job.cancel) return;
+    finish(out.blob(), 'image/gif', 'gif');
+  }
+
+  // ============================================================
   // Persistence (IndexedDB, with localStorage fallback)
   // ============================================================
   let db = null, saveTimer = 0, saveWarned = false, storageReady = false;
@@ -3643,12 +4120,13 @@
     const k = e.key.toLowerCase();
     if (e.key === 'Escape') {
       if ($('help').classList.contains('visible')) $('help').classList.remove('visible');
+      else if ($('gifDlg').classList.contains('visible')) closeGifDialog();
       else if (menu.classList.contains('visible')) closeMenu();
       else if (panelId) closePanel();
       else clearSelection();
       return;
     }
-    if ($('help').classList.contains('visible')) return;
+    if ($('help').classList.contains('visible') || $('gifDlg').classList.contains('visible')) return;
     // Df while placing a circle aggregate: arrow keys, or Z (lower) / X (higher) for the left hand
     if (action && action.kind === 'circle' && !mod && !e.altKey) {
       const up = e.key === 'ArrowUp' || k === 'x', down = e.key === 'ArrowDown' || k === 'z';
@@ -3741,7 +4219,7 @@
   }
 
   // Exposed for automated tests only.
-  window.__aggboard = { spin, startSpin, stopSpin, buildSVG, get action() { return action; }, get nb() { return nb; }, get selection() { return selection; }, view, settings, undo, redo, goToPage, newPage, saveNow, notebookToJSON, sanitizeNotebook };
+  window.__aggboard = { spin, startSpin, stopSpin, buildSVG, get gifJob() { return gifJob; }, gifLZW, ByteOut, mp4Mux, get action() { return action; }, get nb() { return nb; }, get selection() { return selection; }, view, settings, undo, redo, goToPage, newPage, saveNow, notebookToJSON, sanitizeNotebook };
 
   init();
 })();

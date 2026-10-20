@@ -195,6 +195,16 @@
   .modal li { margin: 3px 0; }
   .modal kbd { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: #f1f1f4; border: 1px solid #d8d8de; border-radius: 4px; padding: 0 4px; }
   .modal .close-row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+  .modal .panel.gif { max-width: 520px; }
+  .gifrow { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+  .gifrow > span { min-width: 92px; color: #444; }
+  .gifrow .seg { flex: 1; margin: 0; }
+  .gifnote { color: #666; font-size: 13px; }
+  .gifprog { height: 8px; background: #ececf0; border-radius: 4px; overflow: hidden; margin: 14px 0 6px; }
+  #gifBar { height: 100%; width: 0; background: var(--accent); transition: width 0.15s; }
+  .gifprev { background: repeating-conic-gradient(#f2f2f5 0 25%, #fff 0 50%) 0 0 / 16px 16px; border-radius: 8px; padding: 6px; text-align: center; }
+  .gifprev img, .gifprev video { max-width: 100%; max-height: 52vh; display: inline-block; }
+  .seg button:disabled { color: #aaa; cursor: default; }
   #aggAdvanced summary { cursor: pointer; color: #555; margin-top: 10px; }
   #aggAdvanced .advnote { color: #777; font-size: 12px; margin: 4px 0 0; }
   .genrow .lbl { min-width: 78px; color: #444; }
@@ -205,6 +215,7 @@
   .genrow b { min-width: 48px; text-align: right; font-variant-numeric: tabular-nums; }
   button.secondary { background: #fff; color: #444; border: 1px solid #ccc; }
   .modal .close-row button { background: var(--accent); color: #fff; border: none; padding: 9px 18px; border-radius: 9px; font: inherit; cursor: pointer; }
+  .modal .close-row button.secondary { background: #ececf0; color: #333; }
 
   /* ---------- toast ---------- */
   #toast {
@@ -323,6 +334,7 @@
   <button id="selAdjust">Settings</button>
   <button id="selDuplicate">Duplicate</button>
   <button id="selSvg" title="Export the selection as vector graphics (SVG)">SVG</button>
+  <button id="selGif" title="Export the selected aggregates as an animation (video or GIF)">Animation</button>
   <button id="selDelete" class="danger">Delete</button>
 </div>
 
@@ -406,7 +418,8 @@
   <div class="section">Export</div>
   <button class="item" id="mPng">This page as image (PNG)…</button>
   <button class="item" id="mSvg">This page as vector graphics (SVG)…</button>
-  <div class="note">To export only part of a page, select it and tap SVG in the selection bar.</div>
+  <button class="item" id="mGif">This page as animation (video or GIF)…</button>
+  <div class="note">To export only part of a page, select it and tap SVG or Animation in the selection bar.</div>
 
   <div class="section">Notebook</div>
   <button class="item" id="mExport">Save notebook to file…</button>
@@ -442,6 +455,40 @@
   <div class="version">&copy; 2026 Carsten Dominik &middot; MIT License</div>
 </div>
 <input type="file" id="fileInput" accept=".json,application/json" hidden>
+
+<div class="modal" id="gifDlg">
+  <div class="panel gif">
+    <h2>Animation</h2>
+    <p class="gifnote" id="gifWhat"></p>
+    <div id="gifSetup">
+      <div class="gifrow"><span>Format</span>
+        <div class="seg" id="gifFormat"><button data-format="mp4">Video (MP4)</button><button data-format="gif">GIF</button></div></div>
+      <div class="gifrow"><span>Motion</span>
+        <div class="seg" id="gifMotion"><button data-motion="rotate">Rotate</button><button data-motion="rock">Rock</button></div></div>
+      <div class="gifrow"><span>Size</span>
+        <div class="seg" id="gifSize"><button data-size="small">480 px</button><button data-size="medium">800 px</button><button data-size="large">1200 px</button></div></div>
+      <div class="gifrow"><span>Smoothness</span>
+        <div class="seg" id="gifFps"><button data-fps="15">15 frames/s</button><button data-fps="25">25 frames/s</button></div></div>
+      <p class="gifnote" id="gifNoVideo">Video export is not available in this browser (it needs WebCodecs). GIF works everywhere.</p>
+      <p class="gifnote" id="gifNoteMp4">One full cycle, small file, sharp. Plays in PowerPoint, Keynote, web pages and on phones; for continuous motion, set the video to loop there (PowerPoint: Playback &rarr; Loop until Stopped; Keynote: Movie &rarr; Repeat: Loop).</p>
+      <p class="gifnote" id="gifNoteGif">One full cycle that repeats seamlessly by itself. GIF files are large for moving 3D spheres: an 8&#8209;second rotation is roughly 3&ndash;5 MB at 480 px and around 10 MB at 800 px, depending on the aggregates.</p>
+    </div>
+    <div id="gifBusy">
+      <div class="gifprog"><div id="gifBar"></div></div>
+      <p class="gifnote" id="gifStatus"></p>
+    </div>
+    <div id="gifDone">
+      <div class="gifprev"><img id="gifPreview" alt="Animation preview"><video id="gifVideo" muted loop playsinline autoplay style="display:none"></video></div>
+      <p class="gifnote" id="gifInfo"></p>
+    </div>
+    <div class="close-row">
+      <button id="gifClose" class="secondary">Close</button>
+      <button id="gifAgain" class="secondary">Change settings</button>
+      <button id="gifCreate">Create</button>
+      <button id="gifSave">Save…</button>
+    </div>
+  </div>
+</div>
 
 <div class="modal" id="help">
   <div class="panel">
@@ -503,6 +550,7 @@
     <ul>
       <li>Tap the <b>spin</b> button (next to Undo/Redo, or <kbd>Space</kbd>) and the aggregates make <b>one full rotation</b> (8 seconds) and end where they were. <b>Press and hold</b> it (or <kbd>Shift</kbd>+<kbd>Space</kbd>) to keep them rotating; tap again to stop, and they glide back.</li>
       <li><b>&hellip; &rarr; Settings &rarr; Spin: Rock</b> makes the same button <b>rock</b> the aggregates instead: they swing back and forth by about 35&deg; around their orientation (one swing per tap, continuous when held). The small motion shows the depth very clearly, the aggregate never faces away, and arrows or labels you have drawn stay roughly valid. <i>Rotate</i> shows all sides, including the back.</li>
+      <li><b>As an animation file:</b> &hellip; &rarr; Export &rarr; <b>This page as animation</b>, or select some aggregates and tap <b>Animation</b> in the selection bar (cropped to the selection, with room for the turning aggregates). Choose the format, rotate or rock, size and smoothness; you get a preview, then <b>Save&hellip;</b>. Both formats contain exactly one cycle. <b>Video (MP4)</b> is small and sharp and plays in PowerPoint and Keynote (set it to loop there); <b>GIF</b> repeats by itself and works anywhere, but its files are much larger. Video needs a browser with WebCodecs (current Chrome, Edge, Safari, and every browser on a current iPad).</li>
       <li>If aggregates are selected, only those spin; otherwise all of them on the page. They rotate in step about a slightly tilted axis, so you also see a little of the top and bottom.</li>
       <li>The spin holds still while the pencil, a finger or the mouse touches the page, so you can point or annotate; it continues when you lift.</li>
       <li>It is for display only: the orientation you set with the rotate handle is what is saved and exported, and what you get back when the spin ends.</li>
@@ -569,12 +617,12 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="aggregate-engine.js?v=2026.10.19-7"></script>
-<script src="app.js?v=2026.10.19-7"></script>
+<script src="aggregate-engine.js?v=2026.10.19-9"></script>
+<script src="app.js?v=2026.10.19-9"></script>
 <script>
   // Warn if the browser mixed files from different releases (e.g. a stale cached app.js).
   (function () {
-    var want = '2026.10.19-7';
+    var want = '2026.10.19-9';
     var okApp = window.AGGBOARD_VERSION === want;
     var okEngine = window.AggEngine && window.AggEngine.release === want;
     if (okApp && okEngine) return;
