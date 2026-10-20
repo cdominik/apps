@@ -9,7 +9,7 @@
   // Configuration
   // ============================================================
   // Bump on every release: shown in the menu, and used to bypass cached program files.
-  const VERSION = '2026.10.19-17';
+  const VERSION = '2026.10.19-19';
   window.AGGBOARD_VERSION = VERSION;
   const CONFIG = {
     MENU_URL: null,            // e.g. '../index.html' to show a "back to menu" button
@@ -2071,6 +2071,7 @@
   let laserTrails = [];
   let wheelTimer = 0;
   let lastPenUp = -1e9;
+  const TAP_AFTER_PEN_MS = 1000;   // a finger tap this soon after the Pencil lifted keeps the selection
   const PALM_CONTACT = 90;   // px; contacts larger than this right after writing are treated as a palm
   const PALM_ALWAYS = 80;    // px; with a pencil in use, contacts this large are a palm at any time
   const isPalmSize = (e) => e.pointerType === 'touch' && e.width > PALM_ALWAYS && e.height > PALM_ALWAYS;
@@ -2180,6 +2181,7 @@
       if (h) { startHandleAction(e, sp, h); return; }
       const b = selectionBounds();
       if (b && inRect(p, b, 8 / view.scale)) { action = { ...base, kind: 'move', dx: 0, dy: 0 }; requestRender(); return; }   // selected things move, with any tool
+      dlog(`  -> deselected: ${e.pointerType} down outside the selection`);
       clearSelection();
       base.deselected = true;   // a tap that only deselects leaves no mark; a stroke started here still draws
     }
@@ -2474,9 +2476,15 @@
     endNav();
     if (wasTap) {
       const p = toPage(screenPt(e));
+      // A finger tap shortly after the Pencil lifted is most likely the hand that rested on
+      // the screen: it must not change the selection (e.g. deselect a just-placed aggregate).
+      if (e.pointerType === 'touch' && settings.penSeen && now() - lastPenUp < TAP_AFTER_PEN_MS) {
+        dlog(`  -> tap ${Math.round(now() - lastPenUp)} ms after pen-up: selection kept (palm)`);
+        return;
+      }
       const r = handleTap(p);
       if (r === 'single-agg') selectIds([topAggAt(p).id]);
-      else if (r === 'none') clearSelection();
+      else if (r === 'none') { if (selection) dlog('  -> deselected: finger tap on an empty spot'); clearSelection(); }
     }
   }
   function endNav() {
@@ -3022,6 +3030,17 @@
       if (pagesOpen()) renderPagesGrid();
     } });
   }
+  // Move page i so that it ends up at index j (in the final order).
+  function movePageTo(i, j) {
+    if (i === j || i < 0 || j < 0 || i >= nb.pages.length || j >= nb.pages.length) return;
+    const cur = curPage();
+    const [pg] = nb.pages.splice(i, 1);
+    nb.pages.splice(j, 0, pg);
+    nb.current = nb.pages.indexOf(cur);
+    nb.modified = Date.now();
+    scheduleSave(); updateChrome();
+    if (pagesOpen()) renderPagesGrid();
+  }
   function movePage(i, d) {
     const j = i + d;
     if (j < 0 || j >= nb.pages.length) return;
@@ -3145,11 +3164,103 @@
     renderPagesGrid(nb.current);
   }
   function closePages() {
+    endPvDrag(false);
     clearTimeout(thumbTimer); thumbQueue = [];
     pagesView.classList.remove('visible');
     pagesGrid.textContent = '';
   }
+  // ---- drag and drop: hold a thumbnail (or drag with the mouse), drop in a gap ----
+  // A quick swipe still scrolls and a tap still opens the page: only holding still first
+  // lifts the card. While a card is lifted, touch scrolling is suppressed.
+  const PV_HOLD_MS = 380, PV_SLOP = 10, PV_EDGE = 56;
+  let pvDrag = null, pvSuppressClick = false;
+  pagesGrid.addEventListener('pointerdown', (e) => {
+    const card = e.target.closest('.pv-card');
+    if (!card || e.target.closest('button') || pvDrag) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    pvDrag = { pid: e.pointerId, from: +card.dataset.page, card, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY,
+      st0: pagesGrid.scrollTop, active: false, mouse: e.pointerType === 'mouse', target: null, after: false, raf: 0 };
+    pvDrag.timer = setTimeout(startPvDrag, PV_HOLD_MS);
+  });
+  function startPvDrag() {
+    const g = pvDrag;
+    if (!g || g.active) return;
+    clearTimeout(g.timer);
+    g.active = true;
+    g.st0 = pagesGrid.scrollTop;
+    g.card.classList.add('lifted');
+    pagesView.classList.add('dragging');
+    const loop = () => {
+      if (!pvDrag || !pvDrag.active) return;
+      const r = pagesGrid.getBoundingClientRect();
+      if (r.height > 0) {
+        if (g.y < r.top + PV_EDGE) pagesGrid.scrollTop -= Math.ceil((r.top + PV_EDGE - g.y) / 4);
+        else if (g.y > r.bottom - PV_EDGE) pagesGrid.scrollTop += Math.ceil((g.y - (r.bottom - PV_EDGE)) / 4);
+      }
+      updatePvDrag();
+      g.raf = requestAnimationFrame(loop);
+    };
+    g.raf = requestAnimationFrame(loop);
+    updatePvDrag();
+  }
+  function updatePvDrag() {
+    const g = pvDrag;
+    if (!g || !g.active) return;
+    g.card.style.transform = `translate(${g.x - g.x0}px, ${g.y - g.y0 + (pagesGrid.scrollTop - g.st0)}px) scale(1.04)`;
+    // Target: the card under the pointer (gaps count to the nearer card); left half = before it.
+    let best = null, bestD = Infinity;
+    for (const c of pagesGrid.children) {
+      if (c === g.card) continue;
+      const r = c.getBoundingClientRect();
+      const dx = g.x < r.left ? r.left - g.x : g.x > r.right ? g.x - r.right : 0;
+      const dy = g.y < r.top ? r.top - g.y : g.y > r.bottom ? g.y - r.bottom : 0;
+      const dd = dx * dx + dy * dy * 4;
+      if (dd < bestD) { bestD = dd; best = { c, after: g.x > r.left + r.width / 2 }; }
+    }
+    if (g.target && (!best || g.target !== best.c || g.after !== best.after)) g.target.classList.remove('drop-before', 'drop-after');
+    g.target = best ? best.c : null; g.after = best ? best.after : false;
+    if (g.target) g.target.classList.add(g.after ? 'drop-after' : 'drop-before');
+  }
+  function dropIndex(g) {
+    if (!g.target) return g.from;
+    let to = +g.target.dataset.page + (g.after ? 1 : 0);
+    if (g.from < to) to -= 1;
+    return to;
+  }
+  function endPvDrag(drop) {
+    const g = pvDrag;
+    if (!g) return;
+    pvDrag = null;
+    clearTimeout(g.timer);
+    cancelAnimationFrame(g.raf);
+    pagesView.classList.remove('dragging');
+    if (!g.active) return;
+    g.card.classList.remove('lifted'); g.card.style.transform = '';
+    if (g.target) g.target.classList.remove('drop-before', 'drop-after');
+    pvSuppressClick = true; setTimeout(() => { pvSuppressClick = false; }, 400);
+    const to = dropIndex(g);
+    if (drop && to !== g.from) movePageTo(g.from, to);
+  }
+  window.addEventListener('pointermove', (e) => {
+    const g = pvDrag;
+    if (!g || e.pointerId !== g.pid) return;
+    g.x = e.clientX; g.y = e.clientY;
+    if (!g.active) {
+      const d = Math.hypot(g.x - g.x0, g.y - g.y0);
+      if (g.mouse && d > 5) startPvDrag();
+      else if (!g.mouse && d > PV_SLOP) endPvDrag(false);   // moving before the hold: it is a scroll
+      return;
+    }
+    e.preventDefault();
+    updatePvDrag();
+  });
+  window.addEventListener('pointerup', (e) => { if (pvDrag && e.pointerId === pvDrag.pid) endPvDrag(true); });
+  window.addEventListener('pointercancel', (e) => { if (pvDrag && e.pointerId === pvDrag.pid) endPvDrag(false); });
+  pagesGrid.addEventListener('touchmove', (e) => { if (pvDrag && pvDrag.active && e.cancelable) e.preventDefault(); }, { passive: false });
+  pagesGrid.addEventListener('contextmenu', (e) => { if (pvDrag) e.preventDefault(); });
+
   pagesGrid.addEventListener('click', (e) => {
+    if (pvSuppressClick) { pvSuppressClick = false; e.preventDefault(); e.stopPropagation(); return; }
     const el = e.target.closest('[data-act]'), card = e.target.closest('.pv-card');
     if (!el || !card || el.disabled) return;
     const i = +card.dataset.page;
@@ -4362,7 +4473,7 @@
     if (e.key === 'Escape') {
       if ($('help').classList.contains('visible')) $('help').classList.remove('visible');
       else if ($('gifDlg').classList.contains('visible')) closeGifDialog();
-      else if (pagesOpen()) closePages();
+      else if (pagesOpen()) { if (pvDrag && pvDrag.active) endPvDrag(false); else closePages(); }
       else if (menu.classList.contains('visible')) closeMenu();
       else if (panelId) closePanel();
       else clearSelection();
@@ -4461,7 +4572,7 @@
   }
 
   // Exposed for automated tests only.
-  window.__aggboard = { spin, startSpin, stopSpin, buildSVG, get gifJob() { return gifJob; }, openPages, closePages, pagesOpen, coordinatesText, gifLZW, ByteOut, mp4Mux, get action() { return action; }, get nb() { return nb; }, get selection() { return selection; }, view, settings, undo, redo, goToPage, newPage, saveNow, notebookToJSON, sanitizeNotebook };
+  window.__aggboard = { spin, startSpin, stopSpin, buildSVG, get gifJob() { return gifJob; }, openPages, closePages, pagesOpen, movePageTo, coordinatesText, gifLZW, ByteOut, mp4Mux, get action() { return action; }, get nb() { return nb; }, get selection() { return selection; }, view, settings, undo, redo, goToPage, newPage, saveNow, notebookToJSON, sanitizeNotebook };
 
   init();
 })();

@@ -86,7 +86,14 @@
   .pv-head button.primary { background: var(--accent); color: #fff; }
   #pagesGrid { flex: 1; overflow-y: auto; touch-action: pan-y; -webkit-overflow-scrolling: touch; padding: 16px; display: grid;
     grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; align-content: start; }
-  .pv-card { background: #fff; border-radius: 11px; border: 2px solid transparent; padding: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+  .pv-card { position: relative; background: #fff; border-radius: 11px; border: 2px solid transparent; padding: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  .pv-card.lifted { z-index: 5; box-shadow: 0 14px 34px rgba(0,0,0,0.3); opacity: 0.93; cursor: grabbing; }
+  #pagesView.dragging .pv-card:not(.lifted) { transition: none; }
+  .pv-card.drop-before::before, .pv-card.drop-after::after { content: ''; position: absolute; top: 4px; bottom: 4px; width: 4px; border-radius: 2px; background: var(--accent); }
+  .pv-card.drop-before::before { left: -12px; }
+  .pv-card.drop-after::after { right: -12px; }
+  .pv-head .pv-hint { font-size: 12px; color: #888; margin-right: 6px; }
   .pv-card.current { border-color: var(--accent); }
   .pv-thumb { display: block; width: 100%; height: auto; border-radius: 6px; border: 1px solid #dedee4; cursor: pointer; }
   .pv-row { display: flex; align-items: center; gap: 2px; margin-top: 6px; }
@@ -507,6 +514,7 @@
   <div class="pv-panel">
     <div class="pv-head">
       <h2>Pages<small id="pagesCount"></small></h2>
+      <span class="pv-hint">Hold a page, then drag it</span>
       <button id="pagesNew">New page</button>
       <button id="pagesDone" class="primary">Done</button>
     </div>
@@ -631,7 +639,7 @@
 
     <h3>Pages and boards</h3>
     <ul>
-      <li><b>Page overview:</b> tap the page number in the toolbar (or <b>&hellip; &rarr; Notebook: Pages</b>) to see all pages as thumbnails. Tap one to go there. Under each thumbnail: <b>move earlier</b>, <b>move later</b>, <b>duplicate</b> (a full copy right after it) and <b>delete</b>. <b>New page</b> adds an empty page at the end.</li>
+      <li><b>Page overview:</b> tap the page number in the toolbar (or <b>&hellip; &rarr; Notebook: Pages</b>) to see all pages as thumbnails. Tap one to go there. To <b>reorder</b>, hold a thumbnail for a moment until it lifts, then drag it; a blue bar shows where it will go (near the top or bottom edge the overview scrolls along; <kbd>Esc</kbd> cancels). A quick swipe scrolls, a tap opens the page. Under each thumbnail: <b>move earlier</b>, <b>move later</b>, <b>duplicate</b> (a full copy right after it) and <b>delete</b>. <b>New page</b> adds an empty page at the end.</li>
       <li><b>&hellip; &rarr; This page &rarr; Board</b> switches between a white page and a <b>dark board</b>, which is easier on the eyes when projecting. New pages get the board of the page you are on. On the dark board, black ink shows as chalk white and the other colours brighter; switching back shows everything exactly as written.</li>
       <li><b>&hellip; &rarr; This page &rarr; Format</b> sets the page proportions: <i>Screen</i> (the shape of the drawing area right now, so the whole screen is board), 16:9, 16:10, 4:3 or A4 landscape. All formats have the same width, only the height differs, so switching never moves your drawing sideways. If content ends up below the new bottom edge, a message offers Undo. New pages get the format of the page you are on.</li>
       <li><b>Clear</b> a page with the broom at the right end of the toolbar (or <b>&hellip; &rarr; This page: Clear page</b>); tap <b>Undo</b> in the message to bring it back. <b>Delete page</b> (in the menu or the page overview) removes the page itself; the message that follows also offers <b>Undo</b>.</li>
@@ -684,12 +692,12 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="aggregate-engine.js?v=2026.10.19-17"></script>
-<script src="app.js?v=2026.10.19-17"></script>
+<script src="aggregate-engine.js?v=2026.10.19-19"></script>
+<script src="app.js?v=2026.10.19-19"></script>
 <script>
   // Warn if the browser mixed files from different releases (e.g. a stale cached app.js).
   (function () {
-    var want = '2026.10.19-17';
+    var want = '2026.10.19-19';
     var okApp = window.AGGBOARD_VERSION === want;
     var okEngine = window.AggEngine && window.AggEngine.release === want;
     if (okApp && okEngine) return;
