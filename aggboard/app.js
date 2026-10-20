@@ -9,7 +9,7 @@
   // Configuration
   // ============================================================
   // Bump on every release: shown in the menu, and used to bypass cached program files.
-  const VERSION = '2026.10.19-15';
+  const VERSION = '2026.10.19-16';
   window.AGGBOARD_VERSION = VERSION;
   const CONFIG = {
     MENU_URL: null,            // e.g. '../index.html' to show a "back to menu" button
@@ -3280,7 +3280,7 @@
     $('ovNums').checked = !!it.showNums;
     $('ovRg').checked = !!it.showRg;
     const gk = growthKind(it);
-    $('ovGrowthRow').style.display = gk ? '' : 'none';
+    $('ovGrowthRow').style.visibility = gk ? '' : 'hidden';   // keep its cell, so the other toggles stay in place
     $('ovGrowthLbl').textContent = gk === 'subclusters' ? 'Subclusters' : 'Growth order';
     $('ovGrowth').checked = !!it.showGrowth;
     $('ovMR').checked = !!it.showMR;

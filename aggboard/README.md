@@ -1,6 +1,6 @@
 # AggBoard
 
-A notebook-style whiteboard for teaching, with one special tool: drag a box and it fills with a real 3D fractal aggregate that you can resize, rotate, and tune (monomer size, fractal dimension) live.
+A notebook-style whiteboard for teaching, with one special tool: draw a circle (or a box) and it fills with a real 3D fractal aggregate that you can resize, rotate, spin and tune live (method, fractal dimension, monomer size and size spread). Overlays show the numbers, R_g, the growth history and the mass–radius relation; aggregates export as PNG, SVG, video (MP4) or GIF animations, and as coordinate files.
 
 Static site, no build step, no server code. Works on iPad (Apple Pencil), desktop browsers and phones.
 
@@ -48,11 +48,11 @@ At the top of `app.js`:
 Notebooks are stored in the browser's IndexedDB on each device. Nothing is uploaded anywhere.
 
 - On iPad, **add the app to the Home Screen**. Safari may otherwise delete a website's stored data after about a week without visits.
-- Use **⋯ → Save notebook to file** for backups and for giving a notebook to someone; **Open notebook from file** loads one. The file format (`*.aggboard.json`) carries a version number (currently 3, or 4 when it contains polydisperse monomers) so future versions can read old files; older copies of the app refuse newer files with a clear message instead of misreading them.
+- Use **⋯ → Notebook: Save to file** for backups and for giving a notebook to someone; **Open file** loads one. The file format (`*.aggboard.json`) carries a version number (currently 3, or 4 when it contains polydisperse monomers) so future versions can read old files; older copies of the app refuse newer files with a clear message instead of misreading them.
 
 ## The aggregate engine
 
-Two tunable methods, both enforcing N = k_f (R_g/a)^D_f exactly:
+Two tunable methods, both enforcing N = k_f (R_g/a)^D_f exactly for equal monomers:
 
 - **Cluster–cluster (default):** subclusters (about N^0.4 monomers) are grown with the particle–cluster method, then merged hierarchically in pairs of similar size. Each merge puts the centres of mass at Γ² = N²/(N₁N₂)·R_g² − N/N₂·R_g1² − N/N₁·R_g2² and searches for a touching, overlap-free orientation (contact circle + spin about the contact axis, with collision grid); a ballistic approach is the last-resort fallback. Validated: every merge exact and fitted D_f = target for D_f 1.1–2.3 (1.0 gives 1.002), no overlaps, always connected, ≤ ~0.4 s for 4000 monomers. Above D_f 2.3 compact clusters cannot meet the required distance, so the app uses particle–cluster there. Box filling regenerates for a few N values (no prefix property), so resizing gives a new structure.
 - **Particle–cluster:** details below.
@@ -65,7 +65,12 @@ Tunable particle–cluster aggregation (Filippov, Zurita & Rosner, *J. Colloid I
 - Growth is deterministic for a given (D_f, k_f, seed), so smaller aggregates are prefixes of larger ones. Filling a box therefore grows one cluster and picks the prefix length that fills the box best, trying several in-plane orientations relative to its principal axes (elongated, low-D_f aggregates fill squarish boxes better on a diagonal). Changing the monomer size or the box keeps the same core structure.
 - Typical speed: 2000 monomers in 5–20 ms, so sliders can regenerate live.
 - **Particle chains** (chain tool) are laid as touching spheres along the drawn stroke: a walk whose aim point advances one diameter along the path per step, with correlated 3D noise scaled by the temperature. N stays ≈ length / 2a at any temperature. Chains that start or end on a sphere (of an aggregate or another chain) attach at that sphere's depth, in exact contact, and are merged into its coordinate frame; such "edited" aggregates are never regenerated. New chain spheres avoid overlapping the joined structure and the chain itself (a collision grid; blocked steps tilt away from the preferred direction, and the closing sphere is placed on the circle of positions that touch both neighbours).
+- **Polydisperse monomers** (size spread σ_g > 1): radii from a truncated log-normal (a_g/2 … 2a_g) drawn from their own random stream, so σ_g = 1 reproduces the monodisperse aggregates bit for bit. R_g is mass-weighted, and growth follows the accumulated mass rather than the monomer count (otherwise small monomers end up at the rim and large ones in the centre); the law then holds on average, typically within a few percent.
 - Each aggregate stores its monomer coordinates in the notebook, so it looks the same after reloading even if the engine changes later. The seed is kept for regenerating.
+
+## Exports
+
+PNG (twice the page size), SVG (page or selection), coordinates (`index radius x y z` with a `#` header, per aggregate), and the spin as an animation. Animations are encoded in the app without libraries: GIF with a shared median-cut palette and changed-rectangle frames; MP4 (H.264) through the browser's WebCodecs encoder and a built-in MP4 muxer. Video needs WebCodecs (current Chrome, Edge, Safari, every browser on a current iPad); GIF works everywhere.
 
 ## License
 

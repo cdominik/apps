@@ -555,7 +555,7 @@
 
     <h3>Getting started</h3>
     <ul>
-      <li><b>Toolbar</b>, from left to right: the <b>&hellip;</b> menu (on the right for left-handed use) &middot; pen, eraser, select, laser, particle chain, aggregate box &middot; five ink colours &middot; three line widths &middot; Undo, Redo, spin (show 3D) &middot; page controls: previous / next page, page number, <b>+</b> new page, fit page to screen, and the broom to clear the page.</li>
+      <li><b>Toolbar</b>, from left to right: the <b>&hellip;</b> menu and the <b>Pencil/finger button</b> (both on the right for left-handed use) &middot; pen, eraser, select, laser, particle chain, aggregate &middot; five ink colours &middot; three line widths &middot; Undo, Redo, spin (show 3D) &middot; page controls: previous / next page, the page number (tap it for the page overview), <b>+</b> new page, fit page to screen, and the broom to clear the page.</li>
       <li><b>Pencil and fingers:</b> the button next to <b>&hellip;</b> shows who draws. <b>Pencil symbol:</b> the Pencil draws, one finger pans, two fingers pinch to zoom, and your palm is ignored. <b>Finger symbol</b> (tinted): one finger draws. Tap the button to switch, for example when you put the Pencil away. As soon as the Pencil touches the screen, it switches back to the Pencil by itself (a short message says so). Without a Pencil, fingers draw from the start.</li>
     </ul>
 
@@ -565,7 +565,7 @@
       <li><b>Eraser</b> &mdash; removes every stroke it touches (aggregates are deleted via selection instead).</li>
       <li><b>Laser</b> &mdash; a red trail that fades after a second, for pointing while presenting. It leaves nothing on the page.</li>
       <li><b>Straight lines and shapes</b> &mdash; at the end of a stroke, keep the pencil still for half a second. The stroke becomes the shape it resembles: a straight line (exactly horizontal, vertical or 45&deg; when close), an angled line such as an L for axes, an arrow, a triangle, a rectangle, another polygon, or a circle or ellipse. You see the shape while holding; lift to keep it, or keep moving to stay freehand. For an arrow, draw the shaft and a quick head in one stroke, or draw a line and then a &ldquo;V&rdquo; at its end.</li>
-      <li><b>Undo / Redo</b> work per page and cover everything: drawing, erasing, moving, clearing and all aggregate changes.</li>
+      <li><b>Undo / Redo</b> work per page and cover everything on it: drawing, erasing, moving, clearing and all aggregate changes. Deleting a whole page is undone with the <b>Undo</b> in the message that appears.</li>
     </ul>
 
     <h3>Selecting and moving</h3>
@@ -574,7 +574,7 @@
       <li><b>Tap an aggregate</b> with any tool except the laser to select it.</li>
       <li><b>Move:</b> drag inside the selection frame. This works with every tool: whatever is selected moves.</li>
       <li><b>Scale a group:</b> drag a corner square. Handwriting keeps its proportions; aggregates keep their exact structure.</li>
-      <li><b>Selection bar:</b> Duplicate, Delete, SVG (export the selection), and Settings for a single aggregate. Tapping an ink colour recolours selected strokes.</li>
+      <li><b>Selection bar:</b> Duplicate, Delete, SVG and Animation (export the selection), and Settings for a single aggregate or chain. Tapping an ink colour recolours selected strokes.</li>
       <li><b>Deselect:</b> tap an empty spot (or press Esc).</li>
     </ul>
 
@@ -585,30 +585,36 @@
       <li><b>Box</b> (dashed-box icon): drag a box; when you lift, it fills with a 3D fractal aggregate.</li>
     </ul>
     <p><b>D<sub>f</sub> scale:</b> while the aggregate tool is active, a D<sub>f</sub> scale is shown at the screen edge (left, or right for left-handed use) &mdash; set D<sub>f</sub> there (pencil or finger) <i>before</i> drawing. After placing, the scale stays and now changes the new aggregate, as long as it is selected.</p>
-    <p>Afterwards the tool switches back to the pen and the new aggregate is selected, with three handles:</p>
+    <p>Afterwards the tool switches back to the one you used before, and the new aggregate is selected, with three handles:</p>
     <ul>
       <li><b>Bottom-right</b> &mdash; scale: bigger or smaller with the same structure (the monomers scale too).</li>
       <li><b>Bottom-left</b> (dashed box) &mdash; refill: change the box; the aggregate is regenerated to fill it at the same monomer size, so the number of monomers changes.</li>
-      <li><b>Top-right</b> (round arrow) &mdash; rotate in 3D. In pan-and-zoom finger mode, dragging one finger on a selected aggregate rotates it too.</li>
+      <li><b>Top-right</b> (round arrow) &mdash; rotate in 3D. While fingers move the page (Pencil symbol on the button), dragging one finger on a selected aggregate rotates it too.</li>
     </ul>
-    <p><b>Double-tap</b> an aggregate (or select it and tap <b>Settings</b>) for its settings: how it is generated and what is shown on it. Changes appear live while you drag a slider.</p>
+    <p><b>Double-tap</b> an aggregate (or select it and tap <b>Settings</b>) for its settings, from top to bottom. Changes appear live while you drag a slider, and each change is one Undo step.</p>
     <ul>
       <li><b>Method</b> &mdash; <i>Cluster&ndash;cluster</i> (default) builds it the way real aggregates form, small clusters merging into larger ones; realistic, irregular shapes for D<sub>f</sub> 1 to 2.3 (above that, particle&ndash;cluster is used automatically and the panel says so). <i>Particle&ndash;cluster</i> adds monomers one at a time; it covers D<sub>f</sub> 1 to 3 and keeps the same core when the size changes, while cluster&ndash;cluster gives a new structure each time.</li>
-      <li><b>Monomer size</b> &mdash; the monomer radius; the number of monomers adjusts so the aggregate still fills its box (at most 5000).</li>
-      <li><b>Fractal dimension D<sub>f</sub></b> &mdash; from 1 (a chain) to 3 (compact).</li>
-      <li><b>Colour</b>, <b>New random</b> (same settings, different structure), <b>Duplicate</b>, <b>Delete</b>.</li>
-      <li><b>Advanced</b> &mdash; the prefactor k<sub>f</sub> in N = k<sub>f</sub> (R<sub>g</sub>/a)<sup>D<sub>f</sub></sup>. <i>Auto</i> picks a value that works across the whole D<sub>f</sub> range.</li>
-      <li><b>Size spread &sigma;<sub>g</sub></b> &mdash; makes the monomers polydisperse: radii follow a log-normal distribution with geometric standard deviation &sigma;<sub>g</sub> (1 = all equal, up to 1.4), limited to between half and twice the monomer size. The monomer size is then the geometric mean radius a<sub>g</sub>, and the scaling law N = k<sub>f</sub> (R<sub>g</sub>/a<sub>g</sub>)<sup>D<sub>f</sub></sup> uses the mass-weighted R<sub>g</sub> (each monomer weighted by its volume). While growing, the aggregate follows its accumulated mass (counted in average monomer masses) rather than the monomer count, so that a monomer's size does not decide where it goes; the law then holds on average, typically within a few percent, and for nearly straight chains (D<sub>f</sub> close to 1) only roughly.</li>
-      <li><b>Advanced</b> (per aggregate): the prefactor <b>k<sub>f</sub></b> (Auto chooses it from D<sub>f</sub> and the size spread so that the scaling law can be met, or set a fixed value); the <b>subcluster size</b> for cluster&ndash;cluster aggregates (Auto &asymp; N<sup>0.4</sup>, or fixed from 2 to 500: small = more hierarchical, closer to pure cluster&ndash;cluster aggregation; large = more particle&ndash;cluster-like). New aggregates use the values you last set. For a bent string rather than a straight rod, lower D<sub>f</sub> a little (1.2&ndash;1.3) instead of using D<sub>f</sub> = 1.</li>
-      <li><b>Coordinates&hellip;</b> saves the monomers as a text file, one line per monomer: <code>index radius x y z</code>, in units of the monomer radius (for a size spread: of the geometric mean radius), in the orientation shown on the board (x right, y up, z toward you), centred on the centre of mass. Header lines start with <code>#</code> and record N, D<sub>f</sub>, k<sub>f</sub>, method, seed and R<sub>g</sub>; the file reads directly with <code>numpy.loadtxt</code>, Matlab, gnuplot or Fortran.</li>
-      <li><b>Show: Numbers</b> &mdash; a label below the aggregate with N, D<sub>f</sub>, k<sub>f</sub>, the monomer radius a (a<sub>g</sub> and &sigma;<sub>g</sub> for polydisperse monomers), R<sub>g</sub> and the outer radius R<sub>out</sub> (in units of a), and the filling factor &phi; = (total monomer volume)/R<sup>3</sup> in units of a, i.e. N (a/R)<sup>3</sup> for equal monomers, with R = &radic;(5/3) R<sub>g</sub>, the radius of a uniform sphere with the same R<sub>g</sub> (so &phi; &prop; N<sup>1&minus;3/D<sub>f</sub></sup>). <b>Show: R<sub>g</sub> circle</b> &mdash; a dashed circle of radius R<sub>g</sub> around the centre of mass (cross), and a dotted circle at R<sub>out</sub>. <b>Show: Growth order / Subclusters</b> &mdash; colours the monomers by how the aggregate was built. Particle&ndash;cluster: by the order they were added, from purple (first, at the centre) through blue and green to yellow (last, at the rim). Cluster&ndash;cluster: each subcluster in its own colour, which shows the patches it was assembled from. Hand-drawn parts of an edited aggregate stay grey. <b>Show: Mass&ndash;radius</b> &mdash; rings at r = 2a, 4a, 8a, &hellip; around one monomer (the one closest to the centre of mass, marked with a dot), each labelled with the number of monomers within that distance in 3D; and a small log-log plot of &lang;N(r)&rang;, the same count averaged over many monomers as centres. Its straight part has slope D<sub>f</sub>: the slope fitted between 3a and 0.7&nbsp;R<sub>g</sub> is shown next to the target D<sub>f</sub>. At larger r the curve levels off at N. (Averaging matters: the centre of mass of a fluffy aggregate often lies in empty space.) All of these belong to the aggregate: they move, scale and spin with it and appear in exports. New aggregates use your last choice.</li>
+      <li><b>Fractal dimension D<sub>f</sub></b> &mdash; from 1 (a straight chain) to 3 (compact). For a bent string rather than a straight rod, use 1.2&ndash;1.3.</li>
+      <li><b>Monomer size</b> &mdash; the monomer radius a; the number of monomers adjusts so the aggregate still fills its circle or box (at most 5000).</li>
+      <li><b>Size spread &sigma;<sub>g</sub></b> &mdash; makes the monomers polydisperse: radii follow a log-normal distribution with geometric standard deviation &sigma;<sub>g</sub> (1 = all equal, up to 1.4), limited to between half and twice the monomer size, which is then the geometric mean radius a<sub>g</sub>. The scaling law uses the mass-weighted R<sub>g</sub> (each monomer weighted by its volume). While growing, the aggregate follows its accumulated mass rather than the monomer count, so that a monomer's size does not decide where it goes; the law then holds on average, typically within a few percent, and for nearly straight chains (D<sub>f</sub> close to 1) only roughly.</li>
       <li><b>Readout</b> &mdash; N, R<sub>g</sub> (in monomer radii a), D<sub>f</sub> fitted from the growth history as a check, and the anisotropy (largest over smallest principal radius of gyration).</li>
+      <li><b>Show</b> &mdash; four buttons that draw information on the aggregate (tinted = on). They move, scale and spin with it and appear in exports; new aggregates use your last choice.
+        <ul>
+          <li><b>Numbers:</b> a label with N, D<sub>f</sub>, k<sub>f</sub>, the monomer radius a (a<sub>g</sub> and &sigma;<sub>g</sub> for polydisperse monomers), R<sub>g</sub> and the outer radius R<sub>out</sub> (in units of a), and the filling factor &phi; = (total monomer volume)/R<sup>3</sup> in units of a, i.e. N (a/R)<sup>3</sup> for equal monomers, with R = &radic;(5/3) R<sub>g</sub>, the radius of a uniform sphere with the same R<sub>g</sub> (so &phi; &prop; N<sup>1&minus;3/D<sub>f</sub></sup>).</li>
+          <li><b>R<sub>g</sub> circle:</b> a dashed circle of radius R<sub>g</sub> around the centre of mass (cross), and a dotted circle at R<sub>out</sub>.</li>
+          <li><b>Growth order</b> (particle&ndash;cluster) or <b>Subclusters</b> (cluster&ndash;cluster): colours the monomers by how the aggregate was built &mdash; by the order they were added, from purple (first, at the centre) through blue and green to yellow (last, at the rim), or each subcluster in its own colour, which shows the patches it was assembled from. Hand-drawn parts of an edited aggregate stay grey.</li>
+          <li><b>Mass&ndash;radius:</b> rings at r = 2a, 4a, 8a, &hellip; around the monomer closest to the centre of mass (marked with a dot), each labelled with the number of monomers within that distance in 3D; and a small log-log plot of &lang;N(r)&rang;, the same count averaged over many monomers as centres. Its straight part has slope D<sub>f</sub>: the slope fitted between 3a and 0.7&nbsp;R<sub>g</sub> is shown next to the target D<sub>f</sub>. At larger r the curve levels off at N. (Averaging matters: the centre of mass of a fluffy aggregate often lies in empty space.)</li>
+        </ul></li>
+      <li><b>Colour</b> &mdash; the sphere colour.</li>
+      <li><b>Advanced</b> &mdash; the prefactor <b>k<sub>f</sub></b> in N = k<sub>f</sub> (R<sub>g</sub>/a)<sup>D<sub>f</sub></sup> (<i>Auto</i> chooses it from D<sub>f</sub> and the size spread so that the scaling law can be met, or set a fixed value), and the <b>subcluster size</b> for cluster&ndash;cluster aggregates (<i>Auto</i> &asymp; N<sup>0.4</sup>, or fixed from 2 to 500: small = more hierarchical, closer to pure cluster&ndash;cluster aggregation; large = more particle&ndash;cluster-like). These belong to the aggregate; new aggregates use the values you last set.</li>
+      <li><b>New random</b> (same settings, a different structure; for an edited aggregate <b>Remove chains&hellip;</b> instead, see <i>Particle chains</i>) &middot; <b>Duplicate</b> &middot; <b>Coordinates&hellip;</b> &middot; <b>Delete</b>.</li>
+      <li><b>Coordinates&hellip;</b> saves the monomers as a text file, one line per monomer: <code>index radius x y z</code>, in units of the monomer radius (for a size spread: of the geometric mean radius), in the orientation shown on the board (x right, y up, z toward you), centred on the centre of mass. Header lines start with <code>#</code> and record N, D<sub>f</sub>, k<sub>f</sub>, method, seed and R<sub>g</sub>; the file reads directly with <code>numpy.loadtxt</code>, Matlab, gnuplot or Fortran.</li>
     </ul>
 
     <h3>Showing the 3D structure</h3>
     <ul>
       <li>Tap the <b>spin</b> button (next to Undo/Redo, or <kbd>Space</kbd>) and the aggregates make <b>one full rotation</b> (8 seconds) and end where they were. <b>Press and hold</b> it (or <kbd>Shift</kbd>+<kbd>Space</kbd>) to keep them rotating; tap again to stop, and they glide back.</li>
-      <li><b>&hellip; &rarr; Settings &rarr; Spin: Rock</b> makes the same button <b>rock</b> the aggregates instead: they swing back and forth by about 35&deg; around their orientation (one swing per tap, continuous when held). The small motion shows the depth very clearly, the aggregate never faces away, and arrows or labels you have drawn stay roughly valid. <i>Rotate</i> shows all sides, including the back.</li>
+      <li><b>&hellip; &rarr; Settings &rarr; Aggregates: Spin: Rock</b> makes the same button <b>rock</b> the aggregates instead: they swing back and forth by about 35&deg; around their orientation (one swing per tap, continuous when held). The small motion shows the depth very clearly, the aggregate never faces away, and arrows or labels you have drawn stay roughly valid. <i>Rotate</i> shows all sides, including the back.</li>
       <li><b>As an animation file:</b> &hellip; &rarr; Export: <b>Animation</b>, or select some aggregates and tap <b>Animation</b> in the selection bar (cropped to the selection, with room for the turning aggregates). Choose the format, rotate or rock, size and smoothness; you get a preview, then <b>Save&hellip;</b>. Both formats contain exactly one cycle. <b>Video (MP4)</b> is small and sharp and plays in PowerPoint and Keynote (set it to loop there); <b>GIF</b> repeats by itself and works anywhere, but its files are much larger. Video needs a browser with WebCodecs (current Chrome, Edge, Safari, and every browser on a current iPad).</li>
       <li>If aggregates are selected, only those spin; otherwise all of them on the page. They rotate in step about a slightly tilted axis, so you also see a little of the top and bottom.</li>
       <li>The spin holds still while the pencil, a finger or the mouse touches the page, so you can point or annotate; it continues when you lift.</li>
@@ -617,9 +623,9 @@
 
     <h3>Particle chains</h3>
     <ul>
-      <li>The <b>chain tool</b> (spheres without a box) turns a stroke into a chain of touching spheres, at the current monomer size.</li>
-      <li><b>Connecting:</b> start or end the stroke on a sphere of an aggregate or another chain, and the new chain attaches there in 3D and becomes part of it. Start on one and end on another to bridge them (both need the same monomer size). You can branch off a chain or close it into a ring. New spheres steer around existing ones instead of overlapping. (A <i>selected</i> aggregate is moved instead; tap an empty spot first.)</li>
-      <li><b>Settings:</b> double-tap a chain to change its monomer size, its <b>temperature</b> (how much it wiggles in 3D; rotate it to see) and its random pattern. It is re-laid along the line you drew. New chains use the last temperature you set.</li>
+      <li>The <b>chain tool</b> (a row of spheres) turns a stroke into a chain of touching spheres, at the current monomer size.</li>
+      <li><b>Connecting:</b> start or end the stroke on a sphere of an aggregate or another chain, and the new chain attaches there in 3D and becomes part of it. Start on one and end on another to bridge them, also between different monomer sizes. You can branch off a chain or close it into a ring. New spheres steer around existing ones instead of overlapping. (A <i>selected</i> aggregate is moved instead; tap an empty spot first.)</li>
+      <li><b>Settings:</b> double-tap a chain for the same panel as for aggregates, with <b>monomer size</b> and <b>temperature</b> (how much it wiggles in 3D; rotate or spin it to see). <b>New random</b> gives a new random wiggle. The chain is re-laid along the line you drew. New chains use the last temperature you set.</li>
       <li><b>Edited aggregates:</b> an aggregate with attached chains no longer regenerates. Its size slider and corner handle scale it, and <b>Remove chains&hellip;</b> removes the drawn parts and rebuilds the aggregate from its settings: the same structure as before you attached anything (a message offers Undo).</li>
     </ul>
 
@@ -633,10 +639,10 @@
 
     <h3>Exporting</h3>
     <ul>
-      <li><b>&hellip; &rarr; Export: PNG</b> &mdash; the page as a picture at twice the page size (3200&times;1800 for 16:9).</li>
+      <li><b>&hellip; &rarr; Export: PNG</b> &mdash; the whole page as a picture at twice the page size (3200&times;1800 for 16:9).</li>
       <li><b>&hellip; &rarr; Export: SVG</b> &mdash; the page as vector graphics, sharp at any size; opens in browsers, Inkscape, Illustrator, Keynote and PowerPoint.</li>
       <li><b>&hellip; &rarr; Export: Animation</b> &mdash; the spin as a video or GIF (see <i>Showing the 3D structure</i>).</li>
-      <li><b>For figures:</b> select what you want and tap <b>SVG</b> (or <b>Animation</b>) in the selection bar. Only the selection is exported, cropped, on a transparent background (dark-board pages keep their dark background).</li>
+      <li><b>For figures:</b> select what you want and tap <b>SVG</b> (or <b>Animation</b>) in the selection bar. Only the selection is exported, cropped. The SVG has a transparent background (dark-board pages keep their dark background); animations always have the page background.</li>
     </ul>
 
     <h3>Saving, sharing, offline</h3>
@@ -649,11 +655,10 @@
 
     <h3>Settings, mouse and keyboard</h3>
     <ul>
-      <li><b>&hellip; &rarr; Settings</b> opens the settings inside the menu (<b>&lsaquo; Menu</b> goes back): writing hand, how new aggregates are placed, spin style, and input diagnostics. Whether fingers draw is the button next to <b>&hellip;</b> (see <i>Drawing</i>).</li>
-      <li><b>Hand:</b> with <i>Left</i>, the &hellip; button, the menu and the D<sub>f</sub> scale move to the right side, away from your writing hand.</li>
-
+      <li><b>&hellip; &rarr; Settings</b> opens the settings inside the menu (<b>&lsaquo; Menu</b> goes back): writing hand, how new aggregates are placed (circle or box), spin style (rotate or rock), and input diagnostics. Whether fingers draw is set with the button next to <b>&hellip;</b> (see <i>Getting started</i>).</li>
+      <li><b>Hand:</b> with <i>Left</i>, the &hellip; and Pencil/finger buttons, the menu and the D<sub>f</sub> scale move to the right side, away from your writing hand.</li>
       <li><b>Mouse / trackpad:</b> click to draw or select, double-click an aggregate for its settings, right- or middle-drag to pan, two-finger swipe to pan, pinch or Ctrl + wheel to zoom.</li>
-      <li><b>Keys:</b> <kbd>P</kbd> pen &middot; <kbd>E</kbd> eraser &middot; <kbd>S</kbd> select &middot; <kbd>L</kbd> laser &middot; <kbd>C</kbd> chain &middot; <kbd>A</kbd> aggregate &middot; <kbd>1</kbd>&ndash;<kbd>5</kbd> colours &middot; <kbd>[</kbd> / <kbd>]</kbd> thinner / thicker line &middot; <kbd>Ctrl/&#8984; Z</kbd> undo &middot; <kbd>Ctrl/&#8984; Shift Z</kbd> redo &middot; <kbd>Ctrl/&#8984; D</kbd> duplicate &middot; <kbd>Delete</kbd> delete selection &middot; <kbd>PgUp</kbd>/<kbd>PgDn</kbd> pages &middot; <kbd>Z</kbd>/<kbd>X</kbd> or <kbd>&darr;</kbd>/<kbd>&uarr;</kbd> lower / higher D<sub>f</sub> while placing a circle aggregate &middot; <kbd>0</kbd> fit page &middot; <kbd>Space</kbd> one rotation or swing / stop, <kbd>Shift</kbd>+<kbd>Space</kbd> keep going &middot; <kbd>Esc</kbd> close menus and dialogs, or deselect.</li>
+      <li><b>Keys:</b> <kbd>P</kbd> pen &middot; <kbd>E</kbd> eraser &middot; <kbd>S</kbd> select &middot; <kbd>L</kbd> laser &middot; <kbd>C</kbd> chain &middot; <kbd>A</kbd> aggregate &middot; <kbd>1</kbd>&ndash;<kbd>5</kbd> colours &middot; <kbd>[</kbd> / <kbd>]</kbd> thinner / thicker line &middot; <kbd>Ctrl/&#8984; Z</kbd> undo &middot; <kbd>Ctrl/&#8984; Shift Z</kbd> redo &middot; <kbd>Ctrl/&#8984; D</kbd> duplicate &middot; <kbd>Delete</kbd> delete selection &middot; <kbd>PgUp</kbd>/<kbd>PgDn</kbd> previous / next page &middot; <kbd>Z</kbd>/<kbd>X</kbd> or <kbd>&darr;</kbd>/<kbd>&uarr;</kbd> lower / higher D<sub>f</sub> while placing a circle aggregate &middot; <kbd>0</kbd> fit page &middot; <kbd>Space</kbd> one rotation or swing / stop, <kbd>Shift</kbd>+<kbd>Space</kbd> keep going &middot; <kbd>Esc</kbd> close menus, dialogs and the page overview, or deselect.</li>
     </ul>
 
     <h3>If something goes wrong</h3>
@@ -679,12 +684,12 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
-<script src="aggregate-engine.js?v=2026.10.19-15"></script>
-<script src="app.js?v=2026.10.19-15"></script>
+<script src="aggregate-engine.js?v=2026.10.19-16"></script>
+<script src="app.js?v=2026.10.19-16"></script>
 <script>
   // Warn if the browser mixed files from different releases (e.g. a stale cached app.js).
   (function () {
-    var want = '2026.10.19-15';
+    var want = '2026.10.19-16';
     var okApp = window.AGGBOARD_VERSION === want;
     var okEngine = window.AggEngine && window.AggEngine.release === want;
     if (okApp && okEngine) return;
