@@ -9,7 +9,7 @@
   // Configuration
   // ============================================================
   // Bump on every release: shown in the menu, and used to bypass cached program files.
-  const VERSION = '2026.10.19-19';
+  const VERSION = '2026.10.19-23';
   window.AGGBOARD_VERSION = VERSION;
   const CONFIG = {
     MENU_URL: null,            // e.g. '../index.html' to show a "back to menu" button
@@ -958,8 +958,26 @@
    * obstacles: optional flat [X,Y,Z,r,...] of existing spheres (any radius) that new
    * spheres must not overlap; the chain also avoids itself.
    */
-  function layChain(path, z0, z1, a, temp, seed, start, end, obstacles) {
+  // Drop path points closer than minD to the last kept one. A slowly drawn Pencil line
+  // arrives as many sub-pixel points with a little tremor; their zigzag makes the path much
+  // longer than the line, and a chain that advances along that length packs too many spheres
+  // and folds back. Bends on the scale of a monomer are kept.
+  function thinPath(path, minD) {
+    const n = path.length / 2;
+    if (n <= 2) return path;
+    const out = [path[0], path[1]];
+    for (let i = 1; i < n - 1; i++) {
+      const x = path[2 * i], y = path[2 * i + 1];
+      if (Math.hypot(x - out[out.length - 2], y - out[out.length - 1]) >= minD) out.push(x, y);
+    }
+    const lx = path[2 * n - 2], ly = path[2 * n - 1];
+    if (out.length >= 4 && Math.hypot(lx - out[out.length - 2], ly - out[out.length - 1]) < minD * 0.5) { out[out.length - 2] = lx; out[out.length - 1] = ly; }
+    else out.push(lx, ly);
+    return out;
+  }
+  function layChain(path0, z0, z1, a, temp, seed, start, end, obstacles) {
     const rand = mulberry32((seed >>> 0) || 1);
+    const path = thinPath(path0, 0.5 * a);
     const n = path.length / 2;
     const cum = [0];
     for (let i = 1; i < n; i++) cum.push(cum[i - 1] + Math.hypot(path[2 * i] - path[2 * i - 2], path[2 * i + 1] - path[2 * i - 1]));
@@ -979,11 +997,13 @@
         z0 + (z1 - z0) * (L > 0 ? s / L : 0),
       ]);
     }
-    // Walk: each step aims at the path point one diameter further along, plus 3D noise.
-    // The aim point always advances, so N stays ~ length / 2a at any temperature, and
-    // the deterministic pull keeps the chain near the drawn line.
+    // Walk: each step aims one diameter beyond the chain's current position along the line,
+    // plus correlated 3D noise; the pull towards the line keeps the chain near it.
     const D = 2 * a, out = [];
-    let jit = temp * a * 2.4;
+    // Noise as in the original drawing tool: every sphere independently shifted in 3D by
+    // 0.6 T radii (T = 0..3 there; here temp = 0..1, so 1.8 temp radii), anchored to its own
+    // point on the line, so deviations stay local and spread evenly along the chain.
+    let jit = temp * a * 1.8;
     const h = L / M;
     const at = (sArc) => {
       const f = L > 0 ? Math.min(M, sArc / h) : 0, k0 = Math.floor(f), k1 = Math.min(M, k0 + 1), t = f - k0;
@@ -1039,8 +1059,8 @@
       }
       return best;   // boxed in: least overlap
     };
-    // Correlated (AR(1)) noise: smooth, wave-like excursions instead of kinks.
-    const nv = [0, 0, 0], RHO = 0.75;
+    // Independent noise per sphere (no memory): no drifting waves or excursions.
+    const nv = [0, 0, 0], RHO = 0;
     const stepTo = (prev, T) => {
       for (let c = 0; c < 3; c++) nv[c] = RHO * nv[c] + gaussian(rand) * jit;
       // the first step from an attached sphere touches it at its own radius
@@ -1052,15 +1072,36 @@
     let prev;
     if (start) prev = [start.X, start.Y, start.Z, start.r || a];
     else { prev = S[0].slice(); out.push(prev); gridAdd(prev); }
-    let sArc = 0;
+    // Progress along the line = where the last sphere projects onto it (searched forward
+    // only, so loops and crossings of the stroke are followed in order). Each step aims one
+    // diameter beyond that point, and the walk goes on until the end of the line is reached:
+    // a wigglier (hotter) chain needs more spheres, a straight one fewer, and nothing piles
+    // up at the end.
     const Eend = end ? [end.X, end.Y, end.Z] : null, dE = end ? (end.r || a) + a : D;
-    while (sArc < L - 1e-9 && out.length < CONFIG.N_MAX) {
+    let kp = 0;
+    const WIN = Math.ceil(3 * D / h) + 2;
+    const project = (q) => {
+      let best = kp, bd = Infinity;
+      for (let k = kp, kEnd = Math.min(M, kp + WIN); k <= kEnd; k++) {
+        const dd = (S[k][0] - q[0]) ** 2 + (S[k][1] - q[1]) ** 2;
+        if (dd < bd) { bd = dd; best = k; }
+      }
+      kp = best;
+      return kp * h;
+    };
+    let sP = start ? project(prev) : 0, stall = 0;
+    const NCAP = Math.min(CONFIG.N_MAX, Math.ceil(8 * L / D) + 20);
+    while (out.length < NCAP) {
       if (Eend && dist3(prev, Eend) <= D + dE) break;   // close enough: the closing step below connects
-      sArc = Math.min(L, sArc + D);
-      const T = at(sArc);
-      if (dist3(T, prev) < D * 0.5 && sArc >= L) break;
+      if (L - sP <= 0.5 * a) break;
+      const sAim = Math.min(L, sP + D);
+      const T = at(sAim);
+      if (sAim >= L && Math.hypot(T[0] - prev[0], T[1] - prev[1]) < D) break;   // end within reach
       prev = stepTo(prev, T);
       out.push(prev);
+      const s2 = project(prev);
+      if (s2 > sP + 1e-9) { sP = s2; stall = 0; }
+      else if (++stall > 6) { kp = Math.min(M, kp + Math.ceil(D / h)); sP = kp * h; stall = 0; }   // boxed in: move on
     }
     // catch up with the end of the stroke if the walk lagged behind (straight, no noise)
     const tail = at(L);
@@ -1098,7 +1139,7 @@
           const h = Math.sqrt(Math.max(0, dL * dL - xa * xa));
           const mx = last[0] + ux * xa, my = last[1] + uy * xa, mz = last[2] + uz * xa;
           // every point on this circle touches both last and E; prefer view-plane positions, avoid overlaps
-          let pick = null, pickC = -1;
+          let pick = null, pickC = -Infinity;   // if every spot overlaps, take the least overlapping one
           const phi0 = rand() < 0.5 ? 0 : Math.PI;
           for (let k = 0; k < 24; k++) {
             const ph = phi0 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * Math.PI / 12;
