@@ -9,7 +9,7 @@
   // Configuration
   // ============================================================
   // Bump on every release: shown in the menu, and used to bypass cached program files.
-  const VERSION = '2026.10.19-23';
+  const VERSION = '2026.10.19-26';
   window.AGGBOARD_VERSION = VERSION;
   const CONFIG = {
     MENU_URL: null,            // e.g. '../index.html' to show a "back to menu" button
@@ -63,6 +63,7 @@
       aggCreate: 'circle',       // 'box' | 'circle': how the aggregate tool places a new aggregate
       hand: 'right',             // 'right' | 'left': controls go to the side away from the writing hand
       spinStyle: 'rotate',       // 'rotate' (full rotations) | 'rock' (swing back and forth)
+      ovScale: 0.8,              // size of all overlay text on the board (labels, plot, ring numbers)
     };
     try {
       const s = JSON.parse(localStorage.getItem(CONFIG.SETTINGS_KEY) || 'null');
@@ -89,6 +90,7 @@
         if (s.aggCreate === 'box' || s.aggCreate === 'circle') d.aggCreate = s.aggCreate;
         if (s.hand === 'left' || s.hand === 'right') d.hand = s.hand;
         if (s.spinStyle === 'rotate' || s.spinStyle === 'rock') d.spinStyle = s.spinStyle;
+        if ([0.5, 0.8, 1, 1.25, 1.5].includes(+s.ovScale)) d.ovScale = +s.ovScale;
         else if (s.spinStyle === 'turn') d.spinStyle = 'rotate';   // earlier name
         if (s.gen && typeof s.gen === 'object') {   // from the short-lived global setting
           if (s.gen.kf != null && isFinite(s.gen.kf)) d.agg.kf = clamp(+s.gen.kf, 0.5, 2.5);
@@ -1498,7 +1500,38 @@
   // phi = N (a/R)^3 with R = sqrt(5/3) Rg (uniform sphere with the same Rg), so that
   // phi ~ N^(1 - 3/Df). Overlays follow the displayed orientation (also while spinning).
   // ============================================================
-  const OV_FONT = 24;                       // page units (about 17 px on an iPad at fit)
+  // Typography of all overlays, in page units (one page unit is about 0.7 px on an iPad at fit):
+  // values and symbols 20 (about 14 px), small text (captions, units, ticks) 16 (about 11 px).
+  // All of it scales with Settings → Aggregates: Text (settings.ovScale).
+  const OVS_BASE = { val: 20, small: 16 };
+  const OVS = { ...OVS_BASE };
+  const OV_FONT = OVS.val;
+  const OV_FAMILY = 'system-ui, sans-serif';   // canvas: keep it simple, an unparsable font list is silently ignored
+  const OV_FAMILY_SVG = 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif';
+  // Eigenvalues of a symmetric 3x3 matrix [[a,d,e],[d,b,f],[e,f,c]], largest first.
+  function symEig3(a, b, c, d, e, f) {
+    const p1 = d * d + e * e + f * f;
+    if (p1 < 1e-30) return [a, b, c].sort((u, v) => v - u);
+    const q = (a + b + c) / 3, p2 = (a - q) ** 2 + (b - q) ** 2 + (c - q) ** 2 + 2 * p1, p = Math.sqrt(p2 / 6);
+    const A = (a - q) / p, B = (b - q) / p, Cc = (c - q) / p, D = d / p, E = e / p, F = f / p;
+    const r = (A * (B * Cc - F * F) - D * (D * Cc - F * E) + E * (D * F - B * E)) / 2;
+    const phi = r <= -1 ? Math.PI / 3 : r >= 1 ? 0 : Math.acos(r) / 3;
+    const e1 = q + 2 * p * Math.cos(phi), e3 = q + 2 * p * Math.cos(phi + 2 * Math.PI / 3);
+    return [e1, 3 * q - e1 - e3, e3];
+  }
+  // ---- rich text: runs of { s, i (italic), sub, z (size factor), w (weight), c (colour) } ----
+  const measCtx = document.createElement('canvas').getContext('2d');
+  const runSize = (r, size) => size * (r.z || 1) * (r.sub ? 0.7 : 1);
+  const runFont = (r, size) => `${r.i ? 'italic ' : ''}${r.w || 400} ${runSize(r, size)}px ${OV_FAMILY}`;
+  function richWidth(runs, size) {
+    let w = 0;
+    for (const r of runs) { measCtx.font = runFont(r, size); w += measCtx.measureText(r.s).width; }
+    return w;
+  }
+  // Overlay palette, shared by the numbers label, the R_g marker and the mass-radius plot.
+  const ovPalette = (theme) => theme === 'dark'
+    ? { text: '#e8e8ee', sym: '#c4c6ce', muted: '#9a9ca6', card: 'rgba(31,36,40,0.92)', edge: 'rgba(230,232,240,0.18)', div: 'rgba(230,232,240,0.14)' }
+    : { text: '#26262c', sym: '#55555f', muted: '#8a8a94', card: 'rgba(255,255,255,0.94)', edge: 'rgba(40,40,60,0.16)', div: 'rgba(40,40,60,0.12)' };
   const ovCache = new WeakMap();            // pts -> { com (units a, local frame), rg, rOut }
   function ovStats(it) {
     let st = ovCache.get(it.pts);
@@ -1512,8 +1545,17 @@
       const d2 = (P[3 * i] - mx) ** 2 + (P[3 * i + 1] - my) ** 2 + (P[3 * i + 2] - mz) ** 2;
       s2 += w(i) * d2; rmax = Math.max(rmax, Math.sqrt(d2) + radOf(it, i));
     }
+    // Anisotropy: largest over smallest principal radius of gyration, from the (mass-weighted)
+    // gyration tensor, so chains and edited aggregates have it too.
+    let txx = 0, tyy = 0, tzz = 0, txy = 0, txz = 0, tyz = 0;
+    for (let i = 0; i < n; i++) {
+      const m = w(i), x = P[3 * i] - mx, y = P[3 * i + 1] - my, z = P[3 * i + 2] - mz;
+      txx += m * x * x; tyy += m * y * y; tzz += m * z * z; txy += m * x * y; txz += m * x * z; tyz += m * y * z;
+    }
+    const ev = symEig3(txx / M, tyy / M, tzz / M, txy / M, txz / M, tyz / M);
+    const aniso = Math.sqrt(Math.max(ev[0], 1e-12) / Math.max(ev[2], 1e-12));
     // vol: total monomer volume in units of a^3 (= N for equal monomers), for the filling factor
-    st = { com: [mx, my, mz], rg: Math.sqrt(s2 / M), rOut: rmax, vol: M, radii: it.radii };
+    st = { com: [mx, my, mz], rg: Math.sqrt(s2 / M), rOut: rmax, vol: M, radii: it.radii, aniso };
     ovCache.set(it.pts, st);
     return st;
   }
@@ -1526,24 +1568,91 @@
     };
   }
   const fmtNum = (v, d) => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(d));
-  function ovLines(it) {
+  const fmtAniso = (v) => (v >= 100 ? '> 100' : v.toFixed(v >= 10 ? 0 : 1));
+  // The numbers label as a small table: a caption, then rows of symbol / value / unit, then
+  // (below a hairline) the filling factor and the anisotropy with their names.
+  function ovTable(it) {
     const st = ovStats(it), n = it.n, a = ptsScale(it);
     const rc = Math.sqrt(5 / 3) * st.rg, phi = rc > 0 ? st.vol / Math.pow(rc, 3) : 1;
-    let l1;
-    if (it.kind === 'chain' && !it.edited) l1 = `N = ${n} · chain`;
-    else if (it.edited) l1 = `N = ${n} · with hand-drawn parts`;
+    const sym = (x, sub) => (sub ? [{ s: x, i: true, k: 'sym' }, { s: sub, sub: true, k: 'sym' }] : [{ s: x, i: true, k: 'sym' }]);
+    const unitA = [{ s: 'a', i: true, z: 0.8, k: 'muted' }];
+    const aSym = it.radii ? sym('a', 'g') : sym('a');
+    let caption, top;
+    const rowR = [{ sym: sym('R', 'g'), val: fmtNum(st.rg, 1), unit: unitA }, { sym: sym('R', 'out'), val: fmtNum(st.rOut, 1), unit: unitA }];
+    if (it.kind === 'chain' && !it.edited) { caption = 'Hand-drawn chain'; top = [[{ sym: sym('N'), val: String(n) }, { sym: aSym, val: fmtNum(a, 1) }], rowR]; }
+    else if (it.edited) { caption = 'Aggregate with hand-drawn parts'; top = [[{ sym: sym('N'), val: String(n) }, { sym: aSym, val: fmtNum(a, 1) }], rowR]; }
     else {
       const kf = it.kfUsed != null ? it.kfUsed : (it.kf != null ? it.kf : window.AggEngine.kfAuto(it.df, it.sigma || 1));
-      l1 = `N = ${n} · Df = ${it.df.toFixed(2)} · kf = ${kf.toFixed(2)}${it.radii && it.sigma > 1 ? ` · σg = ${it.sigma.toFixed(2)}` : ''}`;
+      caption = it.method === 'cca' && !it.ccaFallback ? 'Cluster–cluster aggregate' : 'Particle–cluster aggregate';
+      const r1 = [{ sym: sym('N'), val: String(n) }, { sym: sym('D', 'f'), val: it.df.toFixed(2) }, { sym: sym('k', 'f'), val: kf.toFixed(2) }];
+      if (it.radii && it.sigma > 1) r1.push({ sym: sym('σ', 'g'), val: it.sigma.toFixed(2) });
+      top = [r1, [{ sym: aSym, val: fmtNum(a, 1) }, ...rowR]];
     }
-    return [l1, `${it.radii ? 'ag' : 'a'} = ${fmtNum(a, 1)} · Rg = ${fmtNum(st.rg, 1)} a · Rout = ${fmtNum(st.rOut, 1)} a`, `filling factor φ = ${phi < 0.01 ? phi.toExponential(1) : phi.toFixed(3)}`];
+    // One line below the hairline: filling factor and anisotropy, symbol and number only.
+    const bottom = [
+      { sym: [{ s: 'φ', i: true, k: 'sym' }], val: phi < 0.01 ? phi.toExponential(1) : phi.toFixed(3) },
+      { sym: [{ s: 'R', i: true, k: 'sym' }, { s: '1', sub: true, k: 'sym' }, { s: '/', k: 'sym' }, { s: 'R', i: true, k: 'sym' }, { s: '3', sub: true, k: 'sym' }], val: fmtAniso(st.aniso) },
+    ];
+    return { caption, top, bottom };
   }
-  // Label box below the aggregate (above it if it would leave the page).
-  function ovLabelBox(it, lines) {
-    const lh = OV_FONT * 1.22, w = Math.max(...lines.map(l => l.length)) * OV_FONT * 0.52 + 14, h = lines.length * lh + 8;
-    let y = it.y + it.h + 6;
-    if (y + h > pageH(curPage())) y = it.y - h - 6;
-    return { x: it.x, y, w, h, lh };
+  const OVL_BASE = { padX: 14, padY: 11, lh: 30, capH: 26, gapCol: 26, gapSV: 9, gapVU: 4, divGap: 9 };
+  const OVL = { ...OVL_BASE };
+  function ovLabelLayout(it) {
+    const T = ovTable(it), F = OVS.val, Fs = OVS.small;
+    const nCol = Math.max(...T.top.map(r => r.length));
+    const symW = Array(nCol).fill(0), valW = Array(nCol).fill(0), unitW = Array(nCol).fill(0);
+    for (const row of T.top) row.forEach((c, j) => {
+      symW[j] = Math.max(symW[j], richWidth(c.sym, F));
+      valW[j] = Math.max(valW[j], richWidth([{ s: c.val }], F));
+      if (c.unit) unitW[j] = Math.max(unitW[j], OVL.gapVU + richWidth(c.unit, F));
+    });
+    const colX = []; let x = 0;
+    for (let j = 0; j < nCol; j++) { colX.push(x); x += symW[j] + OVL.gapSV + valW[j] + unitW[j] + (j < nCol - 1 ? OVL.gapCol : 0); }
+    const topW = x;
+    const bX = []; let bx = 0;
+    T.bottom.forEach((c, j) => { bX.push(bx); bx += richWidth(c.sym, F) + OVL.gapSV + richWidth([{ s: c.val }], F) + (j < T.bottom.length - 1 ? OVL.gapCol : 0); });
+    const botW = bx;
+    const capW = richWidth([{ s: T.caption }], Fs);
+    const w = 2 * OVL.padX + Math.max(topW, botW, capW);
+    const h = 2 * OVL.padY + OVL.capH + (T.top.length + 1) * OVL.lh + 2 * OVL.divGap - 6 * (OVS.val / 20);
+    return { T, nCol, symW, valW, unitW, colX, bX, w, h };
+  }
+  function ovLabelBox(it) {
+    const L = ovLabelLayout(it);
+    let y = it.y + it.h + 8;
+    if (y + L.h > pageH(curPage())) y = it.y - L.h - 8;
+    return { x: it.x, y, w: L.w, h: L.h, L };
+  }
+  // Shapes for the label (drawn the same way on screen, in PNG and in SVG).
+  function labelShapes(it, theme) {
+    const C = ovPalette(theme), b = ovLabelBox(it), L = b.L, F = OVS.val, Fs = OVS.small;
+    const col = (r) => ({ ...r, c: r.k === 'muted' ? C.muted : r.k === 'sym' ? C.sym : (r.c || C.text) });
+    const out = [{ t: 'card', x: b.x, y: b.y, w: b.w, h: b.h, fill: C.card, stroke: C.edge }];
+    const x0 = b.x + OVL.padX;
+    let y = b.y + OVL.padY;
+    out.push({ t: 'rich', x: x0, y: y + Fs * 0.95, size: Fs, runs: [{ s: L.T.caption, c: C.muted }] });
+    y += OVL.capH;
+    for (const row of L.T.top) {
+      const base = y + F * 1.02;
+      row.forEach((c, j) => {
+        const cx = x0 + L.colX[j];
+        out.push({ t: 'rich', x: cx, y: base, size: F, runs: c.sym.map(col) });
+        const vx = cx + L.symW[j] + OVL.gapSV + L.valW[j];
+        out.push({ t: 'rich', x: vx, y: base, size: F, anchor: 'end', runs: [{ s: c.val, c: C.text }] });
+        if (c.unit) out.push({ t: 'rich', x: vx + OVL.gapVU, y: base, size: F, runs: c.unit.map(col) });
+      });
+      y += OVL.lh;
+    }
+    y += OVL.divGap - 4 * (F / 20);
+    out.push({ t: 'line', pts: [x0, y, b.x + b.w - OVL.padX, y], color: C.div, w: 1 });
+    y += OVL.divGap - 2 * (F / 20);
+    const base = y + F * 1.02;
+    L.T.bottom.forEach((c, j) => {
+      const cx = x0 + L.bX[j];
+      out.push({ t: 'rich', x: cx, y: base, size: F, runs: c.sym.map(col) });
+      out.push({ t: 'rich', x: cx + richWidth(c.sym, F) + OVL.gapSV, y: base, size: F, runs: [{ s: c.val, c: C.text }] });
+    });
+    return out;
   }
   const ovColors = (theme) => theme === 'dark'
     ? { rg: '#ffbb55', out: 'rgba(230,232,240,0.55)', text: '#e8e8ee', bg: 'rgba(31,36,40,0.82)' }
@@ -1563,18 +1672,17 @@
       ctx.setLineDash([]);
       const k = Math.max(6, ptsScale(it) * 0.9);
       ctx.beginPath(); ctx.moveTo(g.X - k, g.Y); ctx.lineTo(g.X + k, g.Y); ctx.moveTo(g.X, g.Y - k); ctx.lineTo(g.X, g.Y + k); ctx.stroke();
-      ctx.fillStyle = C.rg; ctx.font = `600 ${OV_FONT}px system-ui, sans-serif`;
-      ctx.textBaseline = 'bottom'; ctx.fillText('Rg', g.X + g.rg * 0.72 + 4, g.Y - g.rg * 0.72 - 2);
       ctx.restore();
+      drawShapes(ctx, [rgMarker(it, theme, g)]);
     }
-    if (it.showNums) {
-      const lines = ovLines(it), b = ovLabelBox(it, lines);
-      ctx.save();
-      ctx.fillStyle = C.bg; ctx.fillRect(b.x, b.y, b.w, b.h);
-      ctx.fillStyle = C.text; ctx.font = `${OV_FONT}px system-ui, sans-serif`; ctx.textBaseline = 'top';
-      lines.forEach((l, i) => ctx.fillText(l, b.x + 6, b.y + 4 + i * b.lh));
-      ctx.restore();
-    }
+    if (it.showNums) drawShapes(ctx, labelShapes(it, theme));
+  }
+  // "R_g" next to the R_g circle: italic R with subscript g, amber, with a halo.
+  function rgMarker(it, theme, g) {
+    const C = ovColors(theme);
+    // Upper left of the circle: the ring counts of the mass-radius overlay sit at the upper right.
+    return { t: 'rich', x: g.X - g.rg * 0.72 - 4, y: g.Y - g.rg * 0.72 - 4 * (OVS.val / 20), size: OVS.val, anchor: 'end', halo: THEMES[theme].page,
+      runs: [{ s: 'R', i: true, w: 600, c: C.rg }, { s: 'g', sub: true, w: 600, c: C.rg }] };
   }
   // ---------- mass-radius overlay: rings + log-log plot (slope = Df) ----------
   // Around the centre of mass a fluffy aggregate is often empty, which makes single-centre
@@ -1621,11 +1729,18 @@
     mrCache.set(it.pts, m);
     return m;
   }
-  const MR_W = 270, MR_H = 190;
+  let MR_W = 340, MR_H = 240;
+  function applyOvScale() {
+    const k = settings.ovScale || 0.8;
+    for (const key in OVS_BASE) OVS[key] = OVS_BASE[key] * k;
+    for (const key in OVL_BASE) OVL[key] = OVL_BASE[key] * k;
+    MR_W = 340 * k; MR_H = 240 * k;
+  }
+  applyOvScale();
   // Place the plot at the first position that fits on the page, avoiding the numbers label.
   function mrPlotBox(it) {
     const PHc = pageH(curPage()), W = MR_W, H = MR_H, gap = 8;
-    const lb = it.showNums && it.pts ? ovLabelBox(it, ovLines(it)) : null;
+    const lb = it.showNums && it.pts ? ovLabelBox(it) : null;
     const hits = (b) => lb && b.x < lb.x + lb.w && b.x + b.w > lb.x && b.y < lb.y + lb.h && b.y + b.h > lb.y;
     const fits = (b) => b.x >= 0 && b.y >= 0 && b.x + b.w <= PW && b.y + b.h <= PHc && !hits(b);
     const cands = [
@@ -1644,41 +1759,42 @@
     const out = [], C = theme === 'dark'
       ? { ring: '#5fd1c8', text: '#e8e8ee', axis: 'rgba(230,232,240,0.6)', bg: 'rgba(31,36,40,0.85)', fit: '#5fd1c8', dot: '#e8e8ee' }
       : { ring: '#13807d', text: '#2a2a30', axis: 'rgba(60,60,70,0.55)', bg: 'rgba(255,255,255,0.88)', fit: '#13807d', dot: '#2a2a30' };
-    const m = mrStats(it), a = ptsScale(it), F = 15, R = it.R, P = it.pts, i0 = m.c0;
+    const m = mrStats(it), a = ptsScale(it), F = OVS.small, R = it.R, P = it.pts, i0 = m.c0, Pal = ovPalette(theme);
     const gx = it.x + it.w / 2 + (R[0] * P[3 * i0] + R[1] * P[3 * i0 + 1] + R[2] * P[3 * i0 + 2]) * a;
     const gy = it.y + it.h / 2 + (R[3] * P[3 * i0] + R[4] * P[3 * i0 + 1] + R[5] * P[3 * i0 + 2]) * a;
     for (let r = 2; r < m.rMax; r *= 2) {
       out.push({ t: 'circle', x: gx, y: gy, r: r * a, color: C.ring, w: 1.8, dash: [4, 4] });
       const N = m.count(r), ang = -Math.PI / 4;
-      out.push({ t: 'text', x: gx + Math.cos(ang) * r * a + 3, y: gy + Math.sin(ang) * r * a - 3, s: String(N), size: F, color: C.ring, bold: true, halo: THEMES[theme].page });
+      out.push({ t: 'rich', x: gx + Math.cos(ang) * r * a + 3, y: gy + Math.sin(ang) * r * a - 3, size: F, halo: THEMES[theme].page, runs: [{ s: String(N), w: 600, c: C.ring }] });
     }
     out.push({ t: 'dot', x: gx, y: gy, r: Math.max(3, a * 0.35), fill: C.ring });
-    const b = mrPlotBox(it), L = 46, Bm = 32, T = 24, Rm = 12;
+    const kk = F / 16, b = mrPlotBox(it), L = 58 * kk, Bm = 50 * kk, T = 40 * kk, Rm = 16 * kk;
     const px0 = b.x + L, px1 = b.x + b.w - Rm, py0 = b.y + b.h - Bm, py1 = b.y + T;
     const lx = (r) => px0 + (Math.log(r) / Math.log(m.rMax)) * (px1 - px0);
     const lN = Math.log(Math.max(2, it.n));
     const ly = (N) => py0 - (Math.log(N) / lN) * (py0 - py1);
-    out.push({ t: 'rect', x: b.x, y: b.y, w: b.w, h: b.h, fill: C.bg });
-    out.push({ t: 'line', pts: [px0, py0, px1, py0], color: C.axis, w: 1.4 });
-    out.push({ t: 'line', pts: [px0, py0, px0, py1], color: C.axis, w: 1.4 });
+    out.push({ t: 'card', x: b.x, y: b.y, w: b.w, h: b.h, fill: Pal.card, stroke: Pal.edge });
+    out.push({ t: 'line', pts: [px0, py0, px1, py0], color: C.axis, w: 1.2 });
+    out.push({ t: 'line', pts: [px0, py0, px0, py1], color: C.axis, w: 1.2 });
     for (let r = 1; r <= m.rMax * 1.001; r *= 2) {
       out.push({ t: 'line', pts: [lx(r), py0, lx(r), py0 + 4], color: C.axis, w: 1.2 });
-      out.push({ t: 'text', x: lx(r), y: py0 + 6 + F * 0.8, s: String(r), size: F * 0.8, color: C.text, anchor: 'middle' });
+      out.push({ t: 'rich', x: lx(r), y: py0 + 6 * kk + F * 0.9, size: F, anchor: 'middle', runs: [{ s: String(r), c: Pal.sym }] });
     }
     for (let N = 1; N <= it.n * 1.001; N *= 10) {
       out.push({ t: 'line', pts: [px0 - 4, ly(N), px0, ly(N)], color: C.axis, w: 1.2 });
-      out.push({ t: 'text', x: px0 - 6, y: ly(N) + F * 0.3, s: String(N), size: F * 0.8, color: C.text, anchor: 'end' });
+      out.push({ t: 'rich', x: px0 - 7 * kk, y: ly(N) + F * 0.34, size: F, anchor: 'end', runs: [{ s: String(N), c: Pal.sym }] });
     }
-    out.push({ t: 'text', x: px1, y: py0 + 6 + F * 1.75, s: 'r / a', size: F * 0.85, color: C.text, anchor: 'end' });
-    out.push({ t: 'text', x: b.x + 6, y: b.y + F, s: '⟨N(r)⟩', size: F * 0.85, color: C.text });
+    out.push({ t: 'rich', x: px1, y: py0 + 6 * kk + F * 2.05, size: F, anchor: 'end', runs: [{ s: 'r', i: true, c: Pal.sym }, { s: ' / ', c: Pal.sym }, { s: 'a', i: true, c: Pal.sym }] });
+    out.push({ t: 'rich', x: b.x + 12 * kk, y: b.y + 12 * kk + F * 0.95, size: F, runs: [{ s: '⟨', c: Pal.sym }, { s: 'N', i: true, c: Pal.sym }, { s: '(', c: Pal.sym }, { s: 'r', i: true, c: Pal.sym }, { s: ')⟩', c: Pal.sym }] });
     for (const q of m.samples) out.push({ t: 'dot', x: lx(q.r), y: ly(q.N), r: 2.6, fill: C.dot });
     if (m.slope != null) {
       const f = (r) => Math.exp(m.icpt + m.slope * Math.log(r));
       out.push({ t: 'line', pts: [lx(m.r0), ly(f(m.r0)), lx(m.r1), ly(f(m.r1))], color: C.fit, w: 3 });
-      const target = it.kind === 'chain' || it.edited ? '' : ` · Df ${it.df.toFixed(2)}`;
-      out.push({ t: 'text', x: px1, y: b.y + F, s: `slope ${m.slope.toFixed(2)}${target}`, size: F, color: C.fit, anchor: 'end', bold: true });
+      const runs = [{ s: 'slope ', c: C.fit }, { s: m.slope.toFixed(2), w: 600, c: C.fit }];
+      if (!(it.kind === 'chain' || it.edited)) runs.push({ s: '  ·  ', c: C.fit }, { s: 'D', i: true, c: C.fit }, { s: 'f', sub: true, c: C.fit }, { s: ' ' + it.df.toFixed(2), w: 600, c: C.fit });
+      out.push({ t: 'rich', x: px1, y: b.y + 12 * kk + F * 0.95, size: F, anchor: 'end', runs });
     } else {
-      out.push({ t: 'text', x: px1, y: b.y + F, s: 'too small to fit', size: F * 0.9, color: C.text, anchor: 'end' });
+      out.push({ t: 'rich', x: px1, y: b.y + 12 * kk + F * 0.95, size: F, anchor: 'end', runs: [{ s: 'too small to fit', c: Pal.muted }] });
     }
     return out;
   }
@@ -1686,6 +1802,16 @@
     ctx.save();
     for (const q of shapes) {
       if (q.t === 'rect') { ctx.fillStyle = q.fill; ctx.fillRect(q.x, q.y, q.w, q.h); continue; }
+      if (q.t === 'card') {
+        const r = Math.min(9, q.w / 2, q.h / 2);
+        ctx.beginPath();
+        ctx.moveTo(q.x + r, q.y); ctx.arcTo(q.x + q.w, q.y, q.x + q.w, q.y + q.h, r); ctx.arcTo(q.x + q.w, q.y + q.h, q.x, q.y + q.h, r);
+        ctx.arcTo(q.x, q.y + q.h, q.x, q.y, r); ctx.arcTo(q.x, q.y, q.x + q.w, q.y, r); ctx.closePath();
+        ctx.fillStyle = q.fill; ctx.fill();
+        ctx.setLineDash([]); ctx.lineWidth = 1; ctx.strokeStyle = q.stroke; ctx.stroke();
+        continue;
+      }
+      if (q.t === 'rich') { drawRich(ctx, q); continue; }
       if (q.t === 'dot') { ctx.fillStyle = q.fill; ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, Math.PI * 2); ctx.fill(); continue; }
       if (q.t === 'text') {
         ctx.fillStyle = q.color; ctx.font = `${q.bold ? '600 ' : ''}${q.size}px system-ui, sans-serif`;
@@ -1700,12 +1826,48 @@
     }
     ctx.restore();
   }
+  function drawRich(ctx, q) {
+    const W = richWidth(q.runs, q.size);
+    let x = q.anchor === 'end' ? q.x - W : q.anchor === 'middle' ? q.x - W / 2 : q.x;
+    ctx.save();
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.setLineDash([]);
+    for (const pass of q.halo ? ['halo', 'fill'] : ['fill']) {
+      let xx = x;
+      for (const r of q.runs) {
+        ctx.font = runFont(r, q.size);
+        const y = q.y + (r.sub ? q.size * 0.24 : 0);
+        if (pass === 'halo') { ctx.strokeStyle = q.halo; ctx.lineWidth = q.size * 0.28; ctx.lineJoin = 'round'; ctx.strokeText(r.s, xx, y); }
+        else { ctx.fillStyle = r.c; ctx.fillText(r.s, xx, y); }
+        xx += ctx.measureText(r.s).width;
+      }
+    }
+    ctx.restore();
+  }
+  function richSVG(q) {
+    const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const anchor = q.anchor ? ` text-anchor="${q.anchor}"` : '';
+    // The halo is a separate outlined copy underneath (no reliance on paint-order, which
+    // some SVG importers ignore).
+    const body = (halo) => {
+      let shift = 0, b = '';
+      for (const r of q.runs) {
+        const want = r.sub ? q.size * 0.24 : 0, dy = want - shift; shift = want;
+        b += `<tspan${dy ? ` dy="${f2(dy)}"` : ''}${r.i ? ' font-style="italic"' : ''}${r.w && r.w !== 400 ? ` font-weight="${r.w}"` : ''} font-size="${f2(runSize(r, q.size))}" fill="${halo ? 'none' : r.c}">${esc(r.s)}</tspan>`;
+      }
+      return b;
+    };
+    const open = `<text x="${f2(q.x)}" y="${f2(q.y)}" font-family="${OV_FAMILY_SVG}"${anchor} xml:space="preserve"`;
+    const haloText = q.halo ? `${open} stroke="${q.halo}" stroke-width="${f2(q.size * 0.28)}" stroke-linejoin="round">${body(true)}</text>` : '';
+    return `${haloText}${open}>${body(false)}</text>`;
+  }
   function shapesSVG(shapes) {
     let out = '';
     for (const q of shapes) {
-      if (q.t === 'rect') out += `<rect x="${f2(q.x)}" y="${f2(q.y)}" width="${f2(q.w)}" height="${f2(q.h)}" fill="${q.fill}"/>`;
+      if (q.t === 'card') out += `<rect x="${f2(q.x)}" y="${f2(q.y)}" width="${f2(q.w)}" height="${f2(q.h)}" rx="${f2(Math.min(9, q.w / 2, q.h / 2))}" fill="${q.fill}" stroke="${q.stroke}" stroke-width="1"/>`;
+      else if (q.t === 'rich') out += richSVG(q);
+      else if (q.t === 'rect') out += `<rect x="${f2(q.x)}" y="${f2(q.y)}" width="${f2(q.w)}" height="${f2(q.h)}" fill="${q.fill}"/>`;
       else if (q.t === 'dot') out += `<circle cx="${f2(q.x)}" cy="${f2(q.y)}" r="${f2(q.r)}" fill="${q.fill}"/>`;
-      else if (q.t === 'text') out += `<text x="${f2(q.x)}" y="${f2(q.y)}" fill="${q.color}" font-family="sans-serif" font-size="${f2(q.size)}"${q.bold ? ' font-weight="600"' : ''}${q.anchor ? ` text-anchor="${q.anchor}"` : ''}${q.halo ? ` stroke="${q.halo}" stroke-width="${f2(q.size * 0.3)}" stroke-linejoin="round" paint-order="stroke"` : ''}>${q.s.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</text>`;
+      else if (q.t === 'text') out += richSVG({ x: q.x, y: q.y, size: q.size, anchor: q.anchor, halo: q.halo, runs: [{ s: q.s, w: q.bold ? 600 : 400, c: q.color }] });
       else if (q.t === 'circle') out += `<circle cx="${f2(q.x)}" cy="${f2(q.y)}" r="${f2(q.r)}" fill="none" stroke="${q.color}" stroke-width="${q.w}"${q.dash ? ` stroke-dasharray="${q.dash.join(' ')}"` : ''}/>`;
       else out += `<path d="M${f2(q.pts[0])} ${f2(q.pts[1])}L${f2(q.pts[2])} ${f2(q.pts[3])}" stroke="${q.color}" stroke-width="${q.w}"/>`;
     }
@@ -1720,19 +1882,15 @@
       out += `<circle cx="${f2(g.X)}" cy="${f2(g.Y)}" r="${f2(g.rOut)}" fill="none" stroke="${C.out}" stroke-width="2.2" stroke-dasharray="2 5"/>`;
       out += `<circle cx="${f2(g.X)}" cy="${f2(g.Y)}" r="${f2(g.rg)}" fill="none" stroke="${C.rg}" stroke-width="2.6" stroke-dasharray="10 6"/>`;
       out += `<path d="M${f2(g.X - k)} ${f2(g.Y)}H${f2(g.X + k)}M${f2(g.X)} ${f2(g.Y - k)}V${f2(g.Y + k)}" stroke="${C.rg}" stroke-width="2.6"/>`;
-      out += `<text x="${f2(g.X + g.rg * 0.72 + 4)}" y="${f2(g.Y - g.rg * 0.72 - 2)}" fill="${C.rg}" font-family="sans-serif" font-weight="600" font-size="${OV_FONT}">Rg</text>`;
+      out += shapesSVG([rgMarker(it, theme, g)]);
     }
-    if (it.showNums) {
-      const lines = ovLines(it), b = ovLabelBox(it, lines);
-      out += `<rect x="${f2(b.x)}" y="${f2(b.y)}" width="${f2(b.w)}" height="${f2(b.h)}" fill="${C.bg}"/>`;
-      lines.forEach((l, i) => { out += `<text x="${f2(b.x + 6)}" y="${f2(b.y + 4 + (i + 0.8) * b.lh)}" fill="${C.text}" font-family="sans-serif" font-size="${OV_FONT}">${esc(l)}</text>`; });
-    }
+    if (it.showNums) out += shapesSVG(labelShapes(it, theme));
     return out;
   }
   function overlayBounds(it) {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     if (it.showRg && it.pts) { const g = ovGeometry(it); x0 = g.X - g.rOut; x1 = g.X + g.rOut; y0 = g.Y - g.rOut; y1 = g.Y + g.rOut; }
-    if (it.showNums && it.pts) { const b = ovLabelBox(it, ovLines(it)); x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h); }
+    if (it.showNums && it.pts) { const b = ovLabelBox(it); x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h); }
     if (it.showMR && it.pts) {
       const b = mrPlotBox(it), sh = mrShapes(it, 'light').filter(q => q.t === 'circle');
       x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h);
@@ -3418,17 +3576,23 @@
     show('aggAdvanced', mode === 'agg');
     if (mode === 'agg') refreshAdvanced(it);
     }
+    // Readout as a small table, typeset like the numbers label on the board.
     let html;
-    if (mode === 'chain') html = `N = <b>${it.n}</b> monomers &middot; hand-drawn chain`;
-    else if (mode === 'edited') html = `N = <b>${it.n}</b> monomers<br><i>Contains hand-drawn chains, so it is no longer regenerated.</i>`;
-    else if (!it.pts) html = 'Building…';
+    if (!it.pts || !it.n) html = '<div class="ro-note">Building…</div>';
     else {
-      html = `N = <b>${it.n}</b> monomers<br>R<sub>g</sub> = ${it.rg.toFixed(1)} a`;
-      if (it.dfFit != null) html += ` &middot; fitted D<sub>f</sub> = ${it.dfFit.toFixed(2)}`;
-      if (it.aniso) html += `<br>anisotropy ${it.aniso.toFixed(1)}`;
-      if (it.ccaFallback) html += `<br><span class="warn">Cluster–cluster works up to D<sub>f</sub> = ${window.AggEngine.CCA_MAX_DF}; this one uses particle–cluster.</span>`;
-      if (it.needsGen) html += '<br><i>updating…</i>';
-      else if (it.capped) html += `<br><span class="warn">Capped at ${CONFIG.N_MAX} monomers: increase the monomer size to fill the box.</span>`;
+      const st = ovStats(it);
+      const cell = (sym, val, unit = '', note = '') => `<span class="s">${sym}${note ? ` <small>${note}</small>` : ''}</span><span class="v">${val}${unit ? `<span class="u"> ${unit}</span>` : ''}</span>`;
+      const cells = [cell('N', it.n), cell('R<sub>g</sub>', fmtNum(st.rg, 1), '<i>a</i>')];
+      if (mode === 'agg' && it.dfFit != null) cells.push(cell('D<sub>f</sub>', it.dfFit.toFixed(2), '', 'fit'));
+      cells.push(cell('R<sub>1</sub> / R<sub>3</sub>', fmtAniso(st.aniso)));
+      html = `<div class="ro-grid">${cells.join('')}</div>`;
+      if (mode === 'chain') html += '<div class="ro-note">Hand-drawn chain.</div>';
+      else if (mode === 'edited') html += '<div class="ro-note">Contains hand-drawn chains, so it is no longer regenerated.</div>';
+      else {
+        if (it.ccaFallback) html += `<div class="ro-note warn">Cluster–cluster works up to <i>D</i><sub>f</sub> = ${window.AggEngine.CCA_MAX_DF}; this one uses particle–cluster.</div>`;
+        if (it.needsGen) html += '<div class="ro-note">updating…</div>';
+        else if (it.capped) html += `<div class="ro-note warn">Capped at ${CONFIG.N_MAX} monomers: increase the monomer size to fill the box.</div>`;
+      }
     }
     $('aggReadout').innerHTML = html;
     for (const b of aggColorsEl.children) b.classList.toggle('active', b.dataset.color === it.color);
@@ -3605,6 +3769,10 @@
   }
   function updateSpinStyleUI() { for (const b of $('spinSeg').children) b.classList.toggle('active', b.dataset.spin === settings.spinStyle); updateSpinBtn(); }
   for (const b of $('spinSeg').children) b.addEventListener('click', () => { settings.spinStyle = b.dataset.spin; saveSettings(); updateSpinStyleUI(); });
+  function updateOvScaleUI() { for (const b of $('ovScaleSeg').children) b.classList.toggle('active', +b.dataset.scale === (settings.ovScale || 0.8)); }
+  for (const b of $('ovScaleSeg').children) b.addEventListener('click', () => {
+    settings.ovScale = +b.dataset.scale; saveSettings(); applyOvScale(); updateOvScaleUI(); requestRender();
+  });
   function applyHand() {
     document.body.classList.toggle('left-handed', settings.hand === 'left');
     for (const b of $('handSeg').children) b.classList.toggle('active', b.dataset.hand === settings.hand);
@@ -3619,6 +3787,7 @@
   updateCreateUI();
   applyHand();
   updateSpinStyleUI();
+  updateOvScaleUI();
   function screenAspect() {
     const W = window.innerWidth, H = window.innerHeight;
     const top = $('toolbar').getBoundingClientRect().bottom + 10;
