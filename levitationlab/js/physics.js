@@ -104,8 +104,14 @@
    * All sampled vt values are clamped to TUNING.particle.settleFloor.
    */
   function scheduleInjections() {
+    // Indices of the open nozzles; fall back to all if none are open.
+    let openNozzles = [0, 1, 2, 3, 4].filter(k => CFG.NOZZLE_OPEN[k]);
+    if (!openNozzles.length) openNozzles = [0, 1, 2, 3, 4];
+
     if (GEO && GEO.nozzleXs.length) {
-      for (const nx of GEO.nozzleXs) {
+      for (const k of openNozzles) {
+        const nx = GEO.nozzleXs[k];
+        if (nx === undefined) continue;
         state.puffs.push({ x: nx, y: GEO.nozzleTipY, bornAt: state.t, life: 1.42 });
       }
     }
@@ -117,14 +123,16 @@
     for (let i = 0; i < N; i++) {
       // Spread injection events evenly across the DT_INJECT window.
       const t = (N === 1 || CFG.DT_INJECT === 0) ? 0 : (i / (N - 1)) * CFG.DT_INJECT;
-      // Assign particle to one of 5 nozzles round-robin, then sample within
-      // the focus beam centred on that nozzle. Matches drawInjector() geometry.
+      // Assign particle to one of the open nozzles round-robin, then sample
+      // within the focus beam centred on that nozzle. Matches drawInjector()
+      // geometry. Closed nozzles' share goes to the open ones.
       const _nN       = 5;
       const _nX0      = CFG.RELEASE_X_MIN + 5;          // 5 cm
       const _nX1      = CFG.RELEASE_X_MAX - 5;          // 95 cm
       const _slotW    = (_nX1 - _nX0) / _nN;            // 18 cm per slot
       const _focus    = Math.min(Math.max(1, CFG.NOZZLE_FOCUS), _slotW);
-      const _nCentre  = _nX0 + (i % _nN + 0.5) * _slotW;
+      const _nIdx     = openNozzles[i % openNozzles.length];
+      const _nCentre  = _nX0 + (_nIdx + 0.5) * _slotW;
       const x         = _nCentre + (Math.random() - 0.5) * _focus;
       let vt;
 

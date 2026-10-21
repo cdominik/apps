@@ -710,6 +710,17 @@
         <span class="settings-label">Broad</span>
       </div>
       <div class="settings-val" id="nozzleFocusVal">18.0 cm</div>
+      <p>
+        Open or close individual nozzles. The same number of particles is
+        injected, shared among the open nozzles. At least one must stay open.
+      </p>
+      <div class="settings-row nozzle-toggles" id="nozzleToggles">
+        <label><input type="checkbox" data-nozzle="0" checked>1</label>
+        <label><input type="checkbox" data-nozzle="1" checked>2</label>
+        <label><input type="checkbox" data-nozzle="2" checked>3</label>
+        <label><input type="checkbox" data-nozzle="3" checked>4</label>
+        <label><input type="checkbox" data-nozzle="4" checked>5</label>
+      </div>
       <h3>Heatmap Resolution</h3>
       <p>
         Grid cells per axis for the velocity-variance and density overlays.

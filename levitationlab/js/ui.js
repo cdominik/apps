@@ -506,6 +506,8 @@
   const heatmapResVal     = document.getElementById('heatmapResVal');
   
   const DEFAULT_NOZZLE_FOCUS   = CFG.NOZZLE_FOCUS;
+  const DEFAULT_NOZZLE_OPEN    = CFG.NOZZLE_OPEN.slice();
+  const nozzleChecks = Array.from(document.querySelectorAll('#nozzleToggles input[data-nozzle]'));
   const DEFAULT_TRAIL_DURATION = TUNING.trails.durationS;
   const DEFAULT_HEATMAP_RES    = heatmap.resolution;
   
@@ -513,6 +515,16 @@
     CFG.NOZZLE_FOCUS           = v;
     nozzleFocusSlider.value    = v;
     nozzleFocusVal.textContent = v.toFixed(1) + ' cm';
+  }
+  // Apply open/closed states; the last open nozzle's checkbox is disabled
+  // so that zero open nozzles is impossible.
+  function syncNozzleOpen(open) {
+    CFG.NOZZLE_OPEN = open.slice();
+    const nOpen = open.filter(Boolean).length;
+    nozzleChecks.forEach((cb, k) => {
+      cb.checked  = open[k];
+      cb.disabled = open[k] && nOpen === 1;
+    });
   }
   function syncTrail(v) {
     TUNING.trails.durationS    = v;
@@ -536,16 +548,23 @@
   }
   
   nozzleFocusSlider.addEventListener('input', () => syncNozzle(parseFloat(nozzleFocusSlider.value)));
+  nozzleChecks.forEach(cb => cb.addEventListener('change', () => {
+    const open = nozzleChecks.map(c => c.checked);
+    if (!open.some(Boolean)) open[+cb.dataset.nozzle] = true;
+    syncNozzleOpen(open);
+  }));
   trailLengthSlider.addEventListener('input', () => syncTrail(parseFloat(trailLengthSlider.value)));
   heatmapResSlider.addEventListener('input',  () => syncRes(parseInt(heatmapResSlider.value, 10)));
   
   document.getElementById('btnSettingsReset').addEventListener('click', () => {
     syncNozzle(DEFAULT_NOZZLE_FOCUS);
+    syncNozzleOpen(DEFAULT_NOZZLE_OPEN);
     syncTrail(DEFAULT_TRAIL_DURATION);
     syncRes(DEFAULT_HEATMAP_RES);
   });
   
   syncNozzle(CFG.NOZZLE_FOCUS);
+  syncNozzleOpen(CFG.NOZZLE_OPEN);
   syncTrail(TUNING.trails.durationS);
   syncRes(heatmap.resolution);
   

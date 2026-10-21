@@ -1103,8 +1103,10 @@
       ctx.strokeStyle = isModern ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.6)';
       ctx.lineWidth = 1; ctx.stroke();
 
-      // Interior hole
-      ctx.fillStyle = isModern ? '#0a0a0c' : '#040206';
+      // Interior hole (capped with metal when the nozzle is closed)
+      const isOpen = CFG.NOZZLE_OPEN[i] !== false;
+      ctx.fillStyle = isOpen ? (isModern ? '#0a0a0c' : '#040206')
+                             : (isModern ? '#adb5bd' : '#a07a30');
       ctx.beginPath();
       ctx.ellipse(cx, yBot + nozzleH - 1, tipHalfW * 0.8, Math.max(1, nozzleH * 0.20), 0, 0, Math.PI * 2);
       ctx.fill();

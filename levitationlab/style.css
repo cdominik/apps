@@ -975,6 +975,19 @@ body.theme-light .sel .chev { color: #1a1006; }
   margin-bottom: 8px;
 }
 
+/* Settings overlay — nozzle on/off toggles */
+.nozzle-toggles { justify-content: space-around; margin-bottom: 14px; }
+.nozzle-toggles label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #d8c18a;
+  cursor: pointer;
+}
+.nozzle-toggles input[type="checkbox"] { accent-color: #d9b76a; cursor: pointer; }
+.nozzle-toggles input[type="checkbox"]:disabled { cursor: not-allowed; }
+
 /* Allow touch scrolling inside settings overlay */
 #settingsOverlay .manual-box,
 #settingsOverlay .manual-box * { touch-action: pan-y; }

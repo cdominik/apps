@@ -222,6 +222,11 @@
     // 1  = tightest beam. Applies to the next injection event.
     NOZZLE_FOCUS: 18,
 
+    // Which of the 5 injection nozzles are open (left to right).
+    // N_P is always injected in full, shared among the open nozzles.
+    // At least one nozzle must stay open. Applies to the next injection event.
+    NOZZLE_OPEN: [true, true, true, true, true],
+
     // Maximum physics timestep before simSpeed scaling.
     // Must remain above DT_SUBSTEP (computed in main.js from omegaMax)
     // to avoid the substep count growing unboundedly at high simSpeed.
