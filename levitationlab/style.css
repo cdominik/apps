@@ -105,6 +105,23 @@ body.theme-light #app {
   z-index: 10;
 }
 
+/* Left-wing sub-columns: transparent to layout unless the wide screen
+   split is active, in which case they sit side by side and are zoomed
+   (--wing-zoom, set by layoutSideWings) to fill the wing height. */
+.wing-col { display: contents; }
+body.wing-split .wing-col {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  zoom: var(--wing-zoom, 1);
+}
+body.wing-split #expertContainer { margin-top: 0; }
+body.wing-split #wingLeftColA { justify-content: space-between; }
+body.wing-split #wingLeftColA .wing-logo { margin-bottom: 0; }
+
 #wingMiddle { display: none; }
 body.regime-portrait #wingMiddle { display: flex; }
 

@@ -265,7 +265,7 @@
       deviceX = CX - totalPx;
       u = (VIEWPORT.phase === 'hidden' || VIEWPORT.phase === 'sliding-up') ? 0 : 1;
     } else {
-      const wingRight = GEO.wingLeftX + GEO.wingW;
+      const wingRight = GEO.wingLeftX + GEO.wingLeftW;
       deviceX = wingRight + TUNING.viewport.gapToWingPx;
       const maxX = W - totalPx - 4;
       if (deviceX > maxX) deviceX = maxX;

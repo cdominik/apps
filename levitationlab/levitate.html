@@ -14,6 +14,9 @@
   <canvas id="cvOverlay"></canvas>
 
   <div class="wing" id="wingLeft">
+    <!-- Two sub-columns: stacked normally (display: contents); placed side by
+         side and zoomed on wide screens (body.wing-split, see layoutSideWings). -->
+    <div class="wing-col" id="wingLeftColA">
 
     <a class="wing-logo" href="https://gt4pebbles.github.io/Website/" target="_blank" title="Go to the GT4Pebbles project website.
 " rel="noopener noreferrer">
@@ -37,6 +40,9 @@
       <div class="sel-lbl">Δt inject</div>
     </div>
 
+    </div>
+
+    <div class="wing-col" id="wingLeftColB">
     <!-- New Expert Container wrapping the Door and the Block -->
     <div id="expertContainer">
       <!-- The Door (Initially Visible) -->
@@ -367,6 +373,7 @@
         </button>
         
       </div>
+    </div>
     </div>
   </div>
 

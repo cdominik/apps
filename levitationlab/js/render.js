@@ -34,7 +34,7 @@
   const GEO = {
     barTop: 0, barBot: 0, barHalfW: 0,
     footTopY: 0, footBotY: 0, footTopHalfW: 0, footBotHalfW: 0,
-    wingW: 120, wingTop: 60, wingBot: 0, wingLeftX: 20, wingRightX: 0,
+    wingW: 120, wingLeftW: 120, wingTop: 60, wingBot: 0, wingLeftX: 20, wingRightX: 0,
     nozzleXs: [], nozzleTipY: 0,
     drawFeet: true, drawSideBeams: true,
     injectBtnX: 0, injectBtnY: 0, injectBtnW: 0, injectBtnH: 0,
@@ -112,6 +112,8 @@
       }
     }
 
+    document.body.classList.remove('wing-split');   // re-applied by planLeftWingSplit
+    document.body.style.removeProperty('--wing-zoom');
     if (REGIME === 'portrait') layoutPortrait();
     else                       layoutSideWings(REGIME);
 
@@ -123,7 +125,7 @@
       GEO.injectBtnW = r.width;
       GEO.injectBtnH = r.height;
     }
-    GEO.leftWingTopX = GEO.wingLeftX + GEO.wingW * 0.5;
+    GEO.leftWingTopX = GEO.wingLeftX + GEO.wingLeftW * 0.5;
     GEO.leftWingTopY = GEO.wingTop;
 
     buildOmegaHint();
@@ -155,19 +157,30 @@
     const ARROW_ROOM   = isWide ? 84 : 60;
     const SIDE_RESERVE = WING_WIDTH + WING_GAP + ARROW_ROOM;
 
+    const SIDE_MARGIN  = isWide ? 20 : 12;
+
     const vBudget = Math.max(140, H - TOP_MARGIN - BOT_MARGIN - FOOT_HEIGHT - BAR_HEIGHT);
-    const hBudget = Math.max(140, W - 2 * SIDE_RESERVE);
+    const split = isWide ? planLeftWingSplit(vBudget + FOOT_HEIGHT + BAR_HEIGHT,
+                                             W - 2 * SIDE_MARGIN - SIDE_RESERVE - WING_GAP - ARROW_ROOM - vBudget)
+                         : null;
+    const leftW = split ? split.width : WING_WIDTH;
+    const leftReserve = leftW + WING_GAP + ARROW_ROOM;
+    const hBudget = Math.max(140, W - 2 * SIDE_MARGIN - leftReserve - SIDE_RESERVE);
     const outerDia = Math.min(hBudget, vBudget);
     const rDrumPx = Math.max(40, outerDia * 0.5 - BAND_OUTSIDE);
     SCALE = Math.max(0.2, rDrumPx / CFG.R_DRUM);
 
-    CX = W * 0.5;
+    // Centre the drum in the space between the wings (W/2 when they are equal).
+    CX = SIDE_MARGIN + leftReserve + (W - 2 * SIDE_MARGIN - leftReserve - SIDE_RESERVE) * 0.5;
     const dPx = CFG.R_DRUM * SCALE;
     CY = TOP_MARGIN + BAND_OUTSIDE + dPx;
     const bandBot = CY + dPx + BAND_OUTSIDE;
     const barTop = bandBot + FOOT_HEIGHT;
     const barBot = barTop + BAR_HEIGHT;
-    const halfW = Math.min(W * 0.46, Math.max(dPx * 1.3, (dPx + BAND_OUTSIDE) * 1.15));
+    const halfW = Math.min(W * 0.46,
+                           CX - SIDE_MARGIN - leftW - 8,
+                           W - SIDE_MARGIN - WING_WIDTH - 8 - CX,
+                           Math.max(dPx * 1.3, (dPx + BAND_OUTSIDE) * 1.15));
 
     GEO.barTop = barTop;
     GEO.barBot = barBot;
@@ -177,10 +190,11 @@
     GEO.footTopHalfW = (dPx + BAND_OUTSIDE) * Math.sin(28 * Math.PI / 180);
     GEO.footBotHalfW = halfW * 0.92;
     GEO.wingW = WING_WIDTH;
+    GEO.wingLeftW = leftW;
     GEO.wingTop = TOP_MARGIN;
     GEO.wingBot = barBot;
-    GEO.wingLeftX = isWide ? 20 : 12;
-    GEO.wingRightX = W - (isWide ? 20 : 12) - WING_WIDTH;
+    GEO.wingLeftX = SIDE_MARGIN;
+    GEO.wingRightX = W - SIDE_MARGIN - WING_WIDTH;
     GEO.drawFeet = true;
     GEO.drawSideBeams = isWide;
 
@@ -199,10 +213,10 @@
     if (wL) {
       wL.style.left = GEO.wingLeftX + 'px';
       wL.style.top = GEO.wingTop + 'px';
-      wL.style.width = WING_WIDTH + 'px';
+      wL.style.width = leftW + 'px';
       wL.style.height = (GEO.wingBot - GEO.wingTop) + 'px';
-      wL.style.flexDirection = 'column';
-      wL.style.gap = isWide ? '8px' : '5px';
+      wL.style.flexDirection = split ? 'row' : 'column';
+      wL.style.gap = split ? Math.round(8 * split.zoom) + 'px' : (isWide ? '8px' : '5px');
     }
     if (wR) {
       wR.style.left = GEO.wingRightX + 'px';
@@ -212,6 +226,55 @@
       wR.style.flexDirection = 'column';
       wR.style.gap = isWide ? '6px' : '4px';
     }
+  }
+
+  const SPLIT_MIN_ZOOM = 1.3; // below this the side-by-side left wing is not worth it
+
+  /**
+   * Decides whether the left wing's two sub-columns (selectors | expert door)
+   * go side by side, zoomed so the expert buttons match the right wing's
+   * square buttons (or less, if height/width run out). Applies or clears
+   * body.wing-split and --wing-zoom accordingly.
+   *
+   * @param {number} wingH  - Wing height in pixels.
+   * @param {number} availW - Horizontal space available for the left wing.
+   * @returns {?{zoom: number, width: number}} Split geometry, or null for the
+   *   normal single column.
+   */
+  function planLeftWingSplit(wingH, availW) {
+    const body = document.body;
+    const cols = [document.getElementById('wingLeftColA'),
+                  document.getElementById('wingLeftColB')];
+    if (!cols[0] || !cols[1]) return null;
+
+    // Measure the natural (unzoomed) column sizes in split arrangement.
+    body.classList.add('wing-split');
+    body.style.setProperty('--wing-zoom', '1');
+    cols[0].style.height = '';
+    const rA = cols[0].getBoundingClientRect();
+    const rB = cols[1].getBoundingClientRect();
+    const natW = rA.width + rB.width + 8;          // 8px column gap, zoomed with the rest
+    const natH = Math.max(rA.height, rB.height);
+    const PAD_W = 16, PAD_H = 20;                  // .wing padding
+
+    // Target: expert buttons as large as the right wing's square buttons.
+    const expBtn = document.querySelector('#expertBlock .btnsq');
+    const refBtn = document.querySelector('#instrumentBlock .btnsq');
+    const target = (expBtn && refBtn && expBtn.offsetWidth > 0)
+      ? refBtn.offsetWidth / expBtn.offsetWidth : 1.5;
+
+    const zoom = Math.min(target, (wingH - PAD_H) / natH, (availW - PAD_W) / natW);
+    if (!(natH > 0) || zoom < SPLIT_MIN_ZOOM) {
+      body.classList.remove('wing-split');
+      body.style.removeProperty('--wing-zoom');
+      cols[0].style.height = '';
+      return null;
+    }
+    body.style.setProperty('--wing-zoom', zoom.toFixed(3));
+    // Stretch the selector column to the door's height (both share the zoom,
+    // so the unzoomed height carries over); CSS spreads its items.
+    cols[0].style.height = Math.max(rA.height, rB.height) + 'px';
+    return { zoom, width: Math.ceil(natW * zoom + PAD_W) };
   }
 
   /**
@@ -266,6 +329,7 @@
     GEO.footTopHalfW = 0;
     GEO.footBotHalfW = 0;
     GEO.wingW = W - 2 * SIDE_MARGIN;
+    GEO.wingLeftW = GEO.wingW;
     GEO.wingTop = deckTop;
     GEO.wingBot = rowActsBot;
     GEO.wingLeftX = SIDE_MARGIN;
@@ -3404,7 +3468,7 @@ function drawRepresentativeOrbits() {
     // --- STRUCTURAL CHROME (suppressed in zoom) ---
     if (!inZoom) {
       if (REGIME !== 'portrait') {
-        drawWing(GEO.wingLeftX, GEO.wingTop, GEO.wingW, GEO.wingBot - GEO.wingTop);
+        drawWing(GEO.wingLeftX, GEO.wingTop, GEO.wingLeftW, GEO.wingBot - GEO.wingTop);
         drawWing(GEO.wingRightX, GEO.wingTop, GEO.wingW, GEO.wingBot - GEO.wingTop);
       } else {
         drawWing(GEO.wingLeftX, GEO.wingTop, GEO.wingW, (GEO.wingBot - GEO.wingTop));
