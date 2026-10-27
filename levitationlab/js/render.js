@@ -12,7 +12,7 @@
  * Reads globals:   TUNING, CFG, PAL, PAL_DARK, PAL_LIGHT,
  *                  state, heatmap, aggregateImages, globeMaps,
  *                  eggLevitatedParticles, trayEndpoints,
- *                  drawViewport
+ *                  drawViewport, NOZZLE_COUNT, nozzleCentreX
  */
 (() => {
   'use strict';
@@ -35,7 +35,6 @@
     barTop: 0, barBot: 0, barHalfW: 0,
     footTopY: 0, footBotY: 0, footTopHalfW: 0, footBotHalfW: 0,
     wingW: 120, wingLeftW: 120, wingTop: 60, wingBot: 0, wingLeftX: 20, wingRightX: 0,
-    nozzleXs: [], nozzleTipY: 0,
     drawFeet: true, drawSideBeams: true,
     injectBtnX: 0, injectBtnY: 0, injectBtnW: 0, injectBtnH: 0,
     leftWingTopX: 0, leftWingTopY: 0,
@@ -993,82 +992,132 @@
   }
 
   // ============================================================
-  // SECTION: RENDER — INJECTOR
+  // SECTION: RENDER — INJECTOR EXTRUSION
   // ============================================================
-  /** Draws the particle injector nozzle assembly above the drum. */
-  /** Draws the particle injector nozzle assembly above the drum, supporting both Brass and Modern themes. */
+  // The injector is a triangular extrusion on the rim of the drum: the
+  // nozzle bar forms its top, a straight outer wall drops to the rim, and
+  // the drum circle closes it. It is bolted to the drum and rotates with
+  // it. The front is a window outside the steel band, so the nozzles and
+  // the falling particles stay visible; the band itself stays complete and
+  // particles pass behind it into the drum. The whole assembly sits behind
+  // the band and the display bar, in front of the red support. All drawing here happens in the drum frame: the context
+  // is translated to the drum centre and rotated by the drum angle, and
+  // drum-frame cm map to local pixels as (x * SCALE, -y * SCALE).
+
+  const EXT_WALL_CM = 4;     // side wall thickness
+  const EXT_BAR_CM  = 6;     // nozzle bar (top wall) height
+
+  /** Enters the drum frame (pair with ctx.restore()). */
+  function enterDrumFrame(c) {
+    c.save();
+    c.translate(CX, CY);
+    c.rotate(-state.drumAngle);
+  }
+
+  /** Outer silhouette of the extrusion: walls meet the outside of the band. */
+  function extrusionOuterGeom() {
+    const rOut = CFG.R_DRUM + bandOutside() / SCALE;
+    const xa = CFG.EXT_X_MIN - EXT_WALL_CM;
+    const xb = CFG.EXT_X_MAX + EXT_WALL_CM;
+    const ya = Math.sqrt(Math.max(1, rOut * rOut - xa * xa));
+    const yb = Math.sqrt(Math.max(1, rOut * rOut - xb * xb));
+    return { rOut, xa, xb, ya, yb };
+  }
+
+  /**
+   * Adds a closed path to the current (drum-frame) context: the region with
+   * x in [x0, x1], below yTop, outside the circle of radius r (cm).
+   */
+  function extrusionPath(x0, x1, yTop, r) {
+    const S = SCALE;
+    const y0 = Math.sqrt(Math.max(1, r * r - x0 * x0));
+    const y1 = Math.sqrt(Math.max(1, r * r - x1 * x1));
+    ctx.beginPath();
+    ctx.moveTo(x0 * S, -y0 * S);
+    ctx.lineTo(x0 * S, -yTop * S);
+    ctx.lineTo(x1 * S, -yTop * S);
+    ctx.lineTo(x1 * S, -y1 * S);
+    ctx.arc(0, 0, r * S, Math.atan2(-y1, x1), Math.atan2(-y0, x0), true);
+    ctx.closePath();
+  }
+
+  /** Window path of the extrusion (outside the steel band), in the drum frame. */
+  function extrusionInteriorPath() {
+    extrusionPath(CFG.EXT_X_MIN, CFG.EXT_X_MAX, CFG.EXT_Y_TOP, extrusionOuterGeom().rOut);
+  }
+
+  /** Open path along the three window walls (not the side against the band). */
+  function extrusionFramePath() {
+    const S = SCALE, R = extrusionOuterGeom().rOut;
+    const x0 = CFG.EXT_X_MIN, x1 = CFG.EXT_X_MAX, yT = CFG.EXT_Y_TOP;
+    ctx.beginPath();
+    ctx.moveTo(x0 * S, -Math.sqrt(R * R - x0 * x0) * S);
+    ctx.lineTo(x0 * S, -yT * S);
+    ctx.lineTo(x1 * S, -yT * S);
+    ctx.lineTo(x1 * S, -Math.sqrt(R * R - x1 * x1) * S);
+  }
+
+  /**
+   * Draws the extrusion body: walls, the dark interior seen through the
+   * window, the nozzle bar on top and the nozzles.
+   */
   function drawInjector() {
-    const barHeightCm = 9;
-    const yNozzleTip = Y2px(CFG.RELEASE_Y);
-    const yBar = yNozzleTip;
-    const x0 = X2px(CFG.RELEASE_X_MIN - 8);
-    const x1 = X2px(CFG.RELEASE_X_MAX + 8);
-    if (!isFinite(yBar) || !isFinite(x0) || !isFinite(x1) || x1 <= x0) { GEO.nozzleXs = []; return; }
+    const S = SCALE;
+    const isModern   = document.body.classList.contains('theme-modern');
+    const isPfeiffer = isPfeifferTheme();
+    const isLight    = PAL.name === 'light';
+    const g = extrusionOuterGeom();
+    const lx = x => x * S, ly = y => -y * S;
 
-    const barH = Math.max(12, pxDist(barHeightCm));
-    const yTop = yBar - barH;
-    const yBot = yBar;
-    if (yBot < 0) { GEO.nozzleXs = []; return; }
+    enterDrumFrame(ctx);
 
-    const capW = Math.max(6, pxDist(4));
-    const beamW = Math.max(8, pxDist(5));
-    const beam1X = x0 + capW + barH * 1.5;
-    const beam2X = x1 - capW - barH * 1.5 - beamW;
+    // --- 1. WALLS — same material as the steel band: each wall gets the
+    // band's inner-to-outer gradient across its thickness. ---
+    const bandStops = isPfeiffer
+      ? [[0.00, '#4e5358'], [0.08, '#b9bec3'], [0.40, '#e2e5e8'], [0.72, '#c3c8cc'], [0.86, '#e9ecee'], [1.00, '#73787d']]
+      : [[0, PAL.bandInner], [0.4, PAL.bandMid1], [0.7, PAL.bandMid2], [1, PAL.bandOuter]];
+    const yWallTop = ly(CFG.EXT_Y_TOP + EXT_BAR_CM);
+    ctx.save();
+    extrusionPath(g.xa, g.xb, CFG.EXT_Y_TOP, g.rOut);
+    ctx.clip();
+    for (const [xIn, xOut] of [[CFG.EXT_X_MIN, g.xa], [CFG.EXT_X_MAX, g.xb]]) {
+      const wg = ctx.createLinearGradient(lx(xIn), 0, lx(xOut), 0);
+      for (const [pos, col] of bandStops) wg.addColorStop(pos, col);
+      ctx.fillStyle = wg;
+      ctx.fillRect(Math.min(lx(xIn), lx(xOut)), yWallTop, Math.abs(lx(xOut) - lx(xIn)), -yWallTop);
+    }
+    ctx.restore();
+    extrusionPath(g.xa, g.xb, CFG.EXT_Y_TOP, g.rOut);
+    ctx.strokeStyle = isLight ? 'rgba(20,20,30,0.45)' : 'rgba(0,0,0,0.6)';
+    ctx.lineWidth = 1.2; ctx.stroke();
 
-    // Determine current theme
-    const isModern = document.body.classList.contains('theme-modern');
-    const isPfeiffer = document.body.classList.contains('theme-pfeiffer');
-    const isLight = PAL.name === 'light';
+    // --- 2. INTERIOR, seen through the front window ---
+    const dim = state.laserOn ? TUNING.lidar.backplateDim : 1;
+    extrusionInteriorPath();
+    const ig = ctx.createLinearGradient(0, ly(CFG.EXT_Y_TOP), 0, ly(0));
+    ig.addColorStop(0, mixHex(PAL.backplateOuter, '#000000', 1 - dim));
+    ig.addColorStop(1, mixHex(PAL.backplateMid,   '#000000', 1 - dim));
+    ctx.fillStyle = ig; ctx.fill();
 
-    if (yTop > 0) {
-      for (const bx of [beam1X, beam2X]) {
-        // --- 1. SUPPORT BEAMS ---
-        const bg = ctx.createLinearGradient(bx, 0, bx + beamW, 0);
-        if (isModern) {
-          bg.addColorStop(0.00, '#cfd4d9'); bg.addColorStop(0.30, '#e8ecef'); bg.addColorStop(0.70, '#adb5bd'); bg.addColorStop(1.00, '#495057');
-        } else if (isLight) {
-          bg.addColorStop(0.00, '#d6d2c2'); bg.addColorStop(0.30, '#e2dece'); bg.addColorStop(0.70, '#b4ae9e'); bg.addColorStop(1.00, '#6e6858');
-        } else {
-          bg.addColorStop(0.00, '#6a6a72'); bg.addColorStop(0.30, '#8a8a92'); bg.addColorStop(0.70, '#4a4a52'); bg.addColorStop(1.00, '#1a1a22');
-        }
-        ctx.fillStyle = bg; ctx.fillRect(bx, 0, beamW, yTop);
-
-        ctx.strokeStyle = (isModern || isLight) ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.3)';
-        ctx.lineWidth = 1.2;
-        ctx.beginPath(); ctx.moveTo(bx + 0.5, 0); ctx.lineTo(bx + 0.5, yTop); ctx.stroke();
-        ctx.strokeStyle = 'rgba(0,0,0,0.7)';
-        ctx.beginPath(); ctx.moveTo(bx + beamW - 0.5, 0); ctx.lineTo(bx + beamW - 0.5, yTop); ctx.stroke();
-
-        const flW = beamW * 1.8;
-        const flH = Math.max(4, pxDist(2.5));
-        const flX = bx - (flW - beamW) / 2;
-        const flY = yTop - flH;
-
-        ctx.fillStyle = isModern ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.5)';
-        ctx.fillRect(flX + 1, flY + 2, flW, flH);
-
-        // --- 2. FLANGE BASE ---
-        const fg = ctx.createLinearGradient(0, flY, 0, flY + flH);
-        if (isModern) {
-          fg.addColorStop(0.00, '#f8f9fa'); fg.addColorStop(0.40, '#cfd4d9'); fg.addColorStop(1.00, '#6c757d');
-        } else {
-          fg.addColorStop(0.00, '#f0d088'); fg.addColorStop(0.40, '#d9b76a'); fg.addColorStop(1.00, '#5a4418');
-        }
-        ctx.fillStyle = fg; ctx.fillRect(flX, flY, flW, flH);
-        
-        ctx.strokeStyle = isModern ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.6)';
-        ctx.lineWidth = 1; ctx.strokeRect(flX, flY, flW, flH);
-
-        const rivetR = Math.max(1.6, beamW * 0.15);
-        rivet(flX + flW * 0.2, flY + flH * 0.5, rivetR);
-        rivet(flX + flW * 0.8, flY + flH * 0.5, rivetR);
+    // Window frame screws along both side walls
+    const screwR = Math.max(1.4, pxDist(0.8));
+    for (const [x, yLo] of [[CFG.EXT_X_MIN - EXT_WALL_CM / 2, g.ya], [CFG.EXT_X_MAX + EXT_WALL_CM / 2, g.yb]]) {
+      const n = Math.max(1, Math.round((CFG.EXT_Y_TOP - yLo) / 22));
+      for (let i = 0; i < n; i++) {
+        const y = yLo + (i + 0.5) * (CFG.EXT_Y_TOP - yLo) / n;
+        if (isPfeiffer) pfBolt(lx(x), ly(y), screwR); else rivet(lx(x), ly(y), screwR);
       }
     }
 
-    ctx.fillStyle = isModern ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.55)';
-    ctx.fillRect(x0 + 3, yBot + 1, x1 - x0, 4);
+    // --- 3. NOZZLE BAR (top wall) ---
+    const x0 = lx(g.xa), x1 = lx(g.xb);
+    const yTop = ly(CFG.EXT_Y_TOP + EXT_BAR_CM), yBot = ly(CFG.EXT_Y_TOP);
+    const barH = yBot - yTop;
+    const capW = Math.max(6, pxDist(4));
 
-    // --- 3. MAIN BODY ---
+    ctx.fillStyle = isModern ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.55)';
+    ctx.fillRect(lx(CFG.EXT_X_MIN), yBot, lx(CFG.EXT_X_MAX) - lx(CFG.EXT_X_MIN), 4);
+
     const gBody = ctx.createLinearGradient(0, yTop, 0, yBot);
     if (isModern) {
       gBody.addColorStop(0.00, '#ffffff'); gBody.addColorStop(0.10, '#f8f9fa'); gBody.addColorStop(0.30, '#e8ecef');
@@ -1080,36 +1129,30 @@
       gBody.addColorStop(0.00, '#f0d088'); gBody.addColorStop(0.10, '#e8c77a'); gBody.addColorStop(0.30, '#d9b76a');
       gBody.addColorStop(0.65, '#8a6b2e'); gBody.addColorStop(0.90, '#5a4418'); gBody.addColorStop(1.00, '#2a1a06');
     }
-    ctx.fillStyle = gBody; ctx.fillRect(x0, yTop, x1 - x0, yBot - yTop);
+    ctx.fillStyle = gBody; ctx.fillRect(x0, yTop, x1 - x0, barH);
 
     ctx.strokeStyle = isModern ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255,245,200,0.75)';
     ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.moveTo(x0, yTop + 0.6); ctx.lineTo(x1, yTop + 0.6); ctx.stroke();
-    
     ctx.strokeStyle = isModern ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.7)';
-    ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.moveTo(x0, yBot - 0.6); ctx.lineTo(x1, yBot - 0.6); ctx.stroke();
 
     const capA = ctx.createLinearGradient(x0, 0, x0 + capW, 0);
     capA.addColorStop(0, isModern ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.55)'); capA.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = capA; ctx.fillRect(x0, yTop, capW, yBot - yTop);
+    ctx.fillStyle = capA; ctx.fillRect(x0, yTop, capW, barH);
     const capB = ctx.createLinearGradient(x1 - capW, 0, x1, 0);
     capB.addColorStop(0, 'rgba(0,0,0,0)'); capB.addColorStop(1, isModern ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.55)');
-    ctx.fillStyle = capB; ctx.fillRect(x1 - capW, yTop, capW, yBot - yTop);
+    ctx.fillStyle = capB; ctx.fillRect(x1 - capW, yTop, capW, barH);
 
     const endBoltR = Math.max(2.2, barH * 0.16);
-    rivet(x0 + capW * 0.5, yTop + barH * 0.25, endBoltR);
-    rivet(x0 + capW * 0.5, yTop + barH * 0.75, endBoltR);
-    rivet(x1 - capW * 0.5, yTop + barH * 0.25, endBoltR);
-    rivet(x1 - capW * 0.5, yTop + barH * 0.75, endBoltR);
+    rivet(x0 + capW * 0.5, yTop + barH * 0.5, endBoltR);
+    rivet(x1 - capW * 0.5, yTop + barH * 0.5, endBoltR);
 
-    // --- 4. COOLING RIBS ---
+    // Cooling ribs
     const ribCount = 5;
-    const ribAreaX0 = x0 + capW;
-    const ribAreaX1 = x1 - capW;
+    const ribW = Math.max(3, pxDist(2));
     for (let i = 0; i < ribCount; i++) {
-      const cx = ribAreaX0 + (i + 1) * (ribAreaX1 - ribAreaX0) / (ribCount + 1);
-      const ribW = Math.max(3, pxDist(2));
+      const cx = x0 + capW + (i + 1) * (x1 - x0 - 2 * capW) / (ribCount + 1);
       const ribX = cx - ribW / 2;
       const rg = ctx.createLinearGradient(ribX, 0, ribX + ribW, 0);
       if (isModern) {
@@ -1119,23 +1162,18 @@
       }
       ctx.fillStyle = rg; ctx.fillRect(ribX, yTop + 2, ribW, barH - 4);
       const ribBoltR = Math.max(1.6, barH * 0.10);
-      rivet(cx, yTop + barH * 0.18, ribBoltR);
-      rivet(cx, yTop + barH * 0.82, ribBoltR);
+      rivet(cx, yTop + barH * 0.22, ribBoltR);
+      rivet(cx, yTop + barH * 0.78, ribBoltR);
     }
 
-    // --- 5. NOZZLES ---
-    const nozzleCount = 5;
-    const nozzleAreaX0 = X2px(CFG.RELEASE_X_MIN + 5);
-    const nozzleAreaX1 = X2px(CFG.RELEASE_X_MAX - 5);
-    const nozzleH = Math.max(5, pxDist(3.5));
+    // --- 4. NOZZLES (hang into the window; tips at RELEASE_Y) ---
+    const nozzleH = pxDist(CFG.EXT_Y_TOP - CFG.RELEASE_Y);
     const nozzleHalfW = Math.max(3, pxDist(2.6));
     const collarH = Math.max(2, pxDist(1.0));
     const collarHalfW = nozzleHalfW * 1.15;
-    GEO.nozzleXs = [];
-    
-    for (let i = 0; i < nozzleCount; i++) {
-      const cx = nozzleAreaX0 + (i + 0.5) * (nozzleAreaX1 - nozzleAreaX0) / nozzleCount;
-      GEO.nozzleXs.push(cx);
+
+    for (let i = 0; i < NOZZLE_COUNT; i++) {
+      const cx = lx(nozzleCentreX(i));
 
       // Collar
       const colG = ctx.createLinearGradient(0, yBot - collarH, 0, yBot + collarH);
@@ -1145,7 +1183,6 @@
         colG.addColorStop(0, '#e8c77a'); colG.addColorStop(0.5, '#a07a30'); colG.addColorStop(1, '#5a4418');
       }
       ctx.fillStyle = colG; ctx.fillRect(cx - collarHalfW, yBot - collarH * 0.4, collarHalfW * 2, collarH);
-      
       ctx.strokeStyle = isModern ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.55)';
       ctx.lineWidth = 1; ctx.strokeRect(cx - collarHalfW, yBot - collarH * 0.4, collarHalfW * 2, collarH);
 
@@ -1163,7 +1200,6 @@
       ctx.lineTo(cx + tipHalfW, yBot + nozzleH); ctx.lineTo(cx - tipHalfW, yBot + nozzleH);
       ctx.closePath();
       ctx.fill();
-      
       ctx.strokeStyle = isModern ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.6)';
       ctx.lineWidth = 1; ctx.stroke();
 
@@ -1175,45 +1211,85 @@
       ctx.ellipse(cx, yBot + nozzleH - 1, tipHalfW * 0.8, Math.max(1, nozzleH * 0.20), 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Accent Line
+      // Accent line
       ctx.strokeStyle = isModern ? 'rgba(140, 224, 240, 0.4)' : 'rgba(255,235,170,0.45)';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(cx - nozzleHalfW + 0.6, yBot + collarH * 0.6); ctx.lineTo(cx - tipHalfW + 0.4, yBot + nozzleH);
       ctx.stroke();
     }
-    GEO.nozzleTipY = yBot + nozzleH - 1;
+
+    ctx.restore();
   }
 
-  /** Draws all active injection puff animations above the drum nozzles. */
+  /**
+   * Draws the window glass over the extrusion interior (after the
+   * particles in it): a faint sheen, a diagonal reflection and a crisp frame edge.
+   */
+  function drawInjectorGlass() {
+    const S = SCALE;
+    enterDrumFrame(ctx);
+    ctx.save();
+    extrusionInteriorPath();
+    ctx.clip();
+    const x0 = CFG.EXT_X_MIN * S, x1 = CFG.EXT_X_MAX * S;
+    const yT = -CFG.EXT_Y_TOP * S;
+    const sheen = ctx.createLinearGradient(x0, yT, x1, 0);
+    sheen.addColorStop(0.00, 'rgba(210,230,240,0.16)');
+    sheen.addColorStop(0.35, 'rgba(210,230,240,0.05)');
+    sheen.addColorStop(0.60, 'rgba(210,230,240,0.10)');
+    sheen.addColorStop(1.00, 'rgba(210,230,240,0.03)');
+    ctx.fillStyle = sheen;
+    ctx.fillRect(x0, yT, x1 - x0, -yT);
+    // Diagonal reflection streak
+    const w = (x1 - x0);
+    ctx.fillStyle = 'rgba(255,255,255,0.07)';
+    ctx.beginPath();
+    ctx.moveTo(x0 + w * 0.55, yT); ctx.lineTo(x0 + w * 0.68, yT);
+    ctx.lineTo(x0 + w * 0.18, 0);  ctx.lineTo(x0 + w * 0.05, 0);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+    // Frame edge around the glass: dark seam plus a light bevel on the frame
+    extrusionFramePath();
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    ctx.strokeStyle = PAL.name === 'light' ? 'rgba(20,20,30,0.6)' : 'rgba(0,0,0,0.8)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /** Draws all active injection puffs at the nozzles (drum frame). */
   function drawPuffs() {
     if (!state.puffs.length) return;
-    ctx.save();
+    enterDrumFrame(ctx);
     for (const pf of state.puffs) {
       const age = state.t - pf.bornAt;
       if (age < 0 || age > pf.life) continue;
       const u = age / pf.life;
       const rise = u * 18;
       const r0 = 4 + u * 18;
-      const cy = pf.y + 2 - rise;
+      const px = pf.x * SCALE;
+      const cy = -pf.y * SCALE + 2 - rise;
       const alpha = (1 - u) * 0.55;
-      const g = ctx.createRadialGradient(pf.x, cy, 0, pf.x, cy, r0);
+      const g = ctx.createRadialGradient(px, cy, 0, px, cy, r0);
       g.addColorStop(0.00, `rgba(255, 245, 225, ${alpha})`);
       g.addColorStop(0.35, `rgba(230, 225, 215, ${alpha * 0.6})`);
       g.addColorStop(1.00, 'rgba(200, 200, 200, 0)');
       ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(pf.x, cy, r0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(px, cy, r0, 0, Math.PI * 2); ctx.fill();
       const lobeR = r0 * 0.55;
-      const g2 = ctx.createRadialGradient(pf.x - r0 * 0.3, cy + 2, 0, pf.x - r0 * 0.3, cy + 2, lobeR);
+      const g2 = ctx.createRadialGradient(px - r0 * 0.3, cy + 2, 0, px - r0 * 0.3, cy + 2, lobeR);
       g2.addColorStop(0, `rgba(240, 235, 225, ${alpha * 0.5})`);
       g2.addColorStop(1, 'rgba(200, 200, 200, 0)');
       ctx.fillStyle = g2;
-      ctx.beginPath(); ctx.arc(pf.x - r0 * 0.3, cy + 2, lobeR, 0, Math.PI * 2); ctx.fill();
-      const g3 = ctx.createRadialGradient(pf.x + r0 * 0.35, cy + 1, 0, pf.x + r0 * 0.35, cy + 1, lobeR * 0.9);
+      ctx.beginPath(); ctx.arc(px - r0 * 0.3, cy + 2, lobeR, 0, Math.PI * 2); ctx.fill();
+      const g3 = ctx.createRadialGradient(px + r0 * 0.35, cy + 1, 0, px + r0 * 0.35, cy + 1, lobeR * 0.9);
       g3.addColorStop(0, `rgba(240, 235, 225, ${alpha * 0.45})`);
       g3.addColorStop(1, 'rgba(200, 200, 200, 0)');
       ctx.fillStyle = g3;
-      ctx.beginPath(); ctx.arc(pf.x + r0 * 0.35, cy + 1, lobeR * 0.9, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(px + r0 * 0.35, cy + 1, lobeR * 0.9, 0, Math.PI * 2); ctx.fill();
     }
     ctx.restore();
   }
@@ -1318,7 +1394,6 @@
       drawPfeifferBand(rInner, rOuter);
       return;
     }
-    if (GEO.drawFeet) drawOmegaFeet();
     const g = ctx.createRadialGradient(CX, CY, rInner, CX, CY, rOuter);
     g.addColorStop(0, PAL.bandInner);
     g.addColorStop(0.4, PAL.bandMid1);
@@ -2035,11 +2110,10 @@
     if (alphaMul < 1) ctx.globalAlpha = 1;
   }
 
-  /** Draws all live particles, clipped to the drum interior. */
+  /** Draws all live particles in the drum, clipped to its interior. */
   function drawParticles() {
     const rInnerPx = pxDist(CFG.R_DRUM) + 2;
     const R_DRUM_CM = CFG.R_DRUM;
-    const R_BAND_OUT_CM = CFG.R_DRUM + 30 / SCALE;
     ctx.save();
     ctx.beginPath(); ctx.arc(CX, CY, rInnerPx, 0, Math.PI * 2); ctx.clip();
     for (const p of state.particles) {
@@ -2048,11 +2122,34 @@
       drawOneParticle(p);
     }
     ctx.restore();
+  }
+
+  /**
+   * Draws particles in the injector extrusion, clipped to its window. Part
+   * of the injector assembly, so they pass behind the steel band.
+   */
+  function drawInjectorParticles() {
+    ctx.save();
+    ctx.translate(CX, CY);
+    ctx.rotate(-state.drumAngle);
+    extrusionInteriorPath();
+    ctx.clip();
+    ctx.rotate(state.drumAngle);
+    ctx.translate(-CX, -CY);
     for (const p of state.particles) {
       if (!p.alive) continue;
-      if (Math.hypot(p.x, p.y) <= R_BAND_OUT_CM) continue;
+      if (Math.hypot(p.x, p.y) <= CFG.R_DRUM + 0.5) continue;
       drawOneParticle(p);
     }
+    ctx.restore();
+  }
+
+  /** Injector extrusion with its contents and glass, in back-to-front order. */
+  function drawInjectorAssembly() {
+    drawInjector();
+    drawPuffs();
+    drawInjectorParticles();
+    drawInjectorGlass();
   }
 
   /** Draws the glass glare arc across the front face of the drum. */
@@ -3473,16 +3570,21 @@ function drawRepresentativeOrbits() {
       } else {
         drawWing(GEO.wingLeftX, GEO.wingTop, GEO.wingW, (GEO.wingBot - GEO.wingTop));
       }
-      // Pfeiffer: base, cradle and bar go first so the rim ports pass in
-      // front of them (the chamber hangs free); the injector stays on top.
+      // Back to front: support (feet / Pfeiffer cradle), injector extrusion,
+      // then the display bar and the drum, so the rotating extrusion passes
+      // between the support and the display mounting and behind the band.
+      // Pfeiffer: the bar goes before ports and band so the rim ports pass
+      // in front of it (the chamber hangs free).
       const pf = isPfeifferTheme();
+      if (GEO.drawFeet) {
+        drawOmegaFeet();
+        if (pf) drawPfeifferCradle(pxDist(CFG.R_DRUM) + bandOutside());
+      }
+      drawInjectorAssembly();
       if (pf) {
-        if (GEO.drawFeet) { drawOmegaFeet(); drawPfeifferCradle(pxDist(CFG.R_DRUM) + bandOutside()); }
         if (REGIME !== 'portrait') drawOmegaBar();
         drawPfeifferPorts();
       }
-      if (REGIME !== 'portrait') drawInjector();
-      drawPuffs();
       drawSteelBand();
       if (!pf && REGIME !== 'portrait') drawOmegaBar();
     }

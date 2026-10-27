@@ -9,12 +9,13 @@
  *                  updateDrum, step, eggLevitatedParticles, aggImageIndex,
  *                  updateEgg, updateGlobe, spawnGoldenBall, updateAggregates,
  *                  refreshAggFormGate,
- *                  updateSolar, computeAutoOmega, trayEndpoints, updateTray
+ *                  updateSolar, computeAutoOmega, trayEndpoints, updateTray,
+ *                  NOZZLE_COUNT, nozzleCentreX
  * Reads globals:   TUNING, TUNING_DEFAULT, CFG, LASER_OMEGA,
  *                  state, heatmap, aggregateImages,
  *                  soundTink, soundSnap, soundCrunch, soundAggMerge,
  *                  soundGoldenThud, soundGoldenChime,
- *                  GEO, X2px, angleSwept, visualSizeFactor,
+ *                  angleSwept, visualSizeFactor,
  *                  updateGauge, resetExpertUI, resetSimSpeed
  */
 (() => {
@@ -35,6 +36,16 @@
   function aggImageIndex(count) {
       const tier = Math.min(10, Math.max(1, Math.ceil(count / 10)));
       return tier - 1;
+  }
+
+  // Nozzle row on the injector extrusion: 5 slots across RELEASE_X_MIN+5 ..
+  // RELEASE_X_MAX-5 (drum frame). Shared with drawInjector().
+  const NOZZLE_COUNT  = 5;
+  const NOZZLE_SLOT_W = (CFG.RELEASE_X_MAX - CFG.RELEASE_X_MIN - 10) / NOZZLE_COUNT; // 18 cm
+
+  /** Drum-frame x (cm) of nozzle k's centre. */
+  function nozzleCentreX(k) {
+    return CFG.RELEASE_X_MIN + 5 + (k + 0.5) * NOZZLE_SLOT_W;
   }
 
   // ============================================================
@@ -108,12 +119,9 @@
     let openNozzles = [0, 1, 2, 3, 4].filter(k => CFG.NOZZLE_OPEN[k]);
     if (!openNozzles.length) openNozzles = [0, 1, 2, 3, 4];
 
-    if (GEO && GEO.nozzleXs.length) {
-      for (const k of openNozzles) {
-        const nx = GEO.nozzleXs[k];
-        if (nx === undefined) continue;
-        state.puffs.push({ x: nx, y: GEO.nozzleTipY, bornAt: state.t, life: 1.42 });
-      }
+    // Puffs live in the drum frame (cm) so they ride along with the extrusion.
+    for (const k of openNozzles) {
+      state.puffs.push({ x: nozzleCentreX(k), y: CFG.RELEASE_Y, bornAt: state.t, life: 1.42 });
     }
     state.toInject = [];
     const N    = CFG.N_P;
@@ -126,14 +134,9 @@
       // Assign particle to one of the open nozzles round-robin, then sample
       // within the focus beam centred on that nozzle. Matches drawInjector()
       // geometry. Closed nozzles' share goes to the open ones.
-      const _nN       = 5;
-      const _nX0      = CFG.RELEASE_X_MIN + 5;          // 5 cm
-      const _nX1      = CFG.RELEASE_X_MAX - 5;          // 95 cm
-      const _slotW    = (_nX1 - _nX0) / _nN;            // 18 cm per slot
-      const _focus    = Math.min(Math.max(1, CFG.NOZZLE_FOCUS), _slotW);
+      const _focus    = Math.min(Math.max(1, CFG.NOZZLE_FOCUS), NOZZLE_SLOT_W);
       const _nIdx     = openNozzles[i % openNozzles.length];
-      const _nCentre  = _nX0 + (_nIdx + 0.5) * _slotW;
-      const x         = _nCentre + (Math.random() - 0.5) * _focus;
+      const x         = nozzleCentreX(_nIdx) + (Math.random() - 0.5) * _focus;
       let vt;
 
       if (dist === 'bi') {
@@ -174,17 +177,28 @@
   /**
    * Adds a visual puff at the nozzle closest to the given x position.
    *
-   * @param {number} particleX_cm - The particle's x coordinate in centimetres.
+   * @param {number} particleX_cm - The particle's drum-frame x coordinate in centimetres.
    */
   function spawnPuffAtNozzle(particleX_cm) {
-    if (!GEO.nozzleXs.length) return;
-    const particleX_px = X2px(particleX_cm);
-    let bestIdx = 0, bestD = Infinity;
-    for (let i = 0; i < GEO.nozzleXs.length; i++) {
-      const d = Math.abs(GEO.nozzleXs[i] - particleX_px);
-      if (d < bestD) { bestD = d; bestIdx = i; }
-    }
-    state.puffs.push({ x: GEO.nozzleXs[bestIdx], y: GEO.nozzleTipY, bornAt: state.t, life: 0.42 });
+    const k = Math.max(0, Math.min(NOZZLE_COUNT - 1,
+      Math.floor((particleX_cm - CFG.RELEASE_X_MIN - 5) / NOZZLE_SLOT_W)));
+    state.puffs.push({ x: nozzleCentreX(k), y: CFG.RELEASE_Y, bornAt: state.t, life: 0.42 });
+  }
+
+  /**
+   * True if the drum-frame point (lx, ly) lies inside the injector extrusion,
+   * shrunk by margin m. Points inside the drum circle may also pass; callers
+   * test the circle first.
+   */
+  function inExtrusion(lx, ly, m) {
+    return lx > CFG.EXT_X_MIN + m && lx < CFG.EXT_X_MAX - m &&
+           ly > 0 && ly < CFG.EXT_Y_TOP - m;
+  }
+
+  /** True if the drum-frame point is near enough the extrusion to have hit its wall. */
+  function nearExtrusion(lx, ly) {
+    return lx > CFG.EXT_X_MIN - 3 && lx < CFG.EXT_X_MAX + 3 &&
+           ly > 0 && ly < CFG.EXT_Y_TOP + 3;
   }
 
   /**
@@ -274,11 +288,16 @@
    * @param {number} dt - Elapsed substep time in seconds.
    */
   function step(dt) {
-    // Inject any particles whose scheduled time has arrived.
+    // Drum orientation: drum-frame (lx, ly) -> world is a rotation by +drumAngle.
+    const cA = Math.cos(state.drumAngle), sA = Math.sin(state.drumAngle);
+
+    // Inject any particles whose scheduled time has arrived. The nozzles ride
+    // on the extrusion, so the release point rotates with the drum.
     while (state.toInject.length && state.toInject[0].t <= state.t) {
       const inj = state.toInject.shift();
       state.particles.push({
-        x: inj.x, y: CFG.RELEASE_Y,
+        x: cA * inj.x - sA * CFG.RELEASE_Y,
+        y: sA * inj.x + cA * CFG.RELEASE_Y,
         vx: 0, vy: 0,
         stuck: false, stuckAngle: 0,
         alive: true,
@@ -328,44 +347,58 @@
 
       if (p.stuck) {
         // Stuck particles ride the drum wall; fade out after 5 s.
-        p.stuckAngle += omega * dt;
-        p.x = CFG.R_DRUM * Math.cos(p.stuckAngle);
-        p.y = CFG.R_DRUM * Math.sin(p.stuckAngle);
+        if (p.stuckLX !== undefined) {
+          // Stuck to an extrusion wall: fixed in the drum frame.
+          p.x = cA * p.stuckLX - sA * p.stuckLY;
+          p.y = sA * p.stuckLX + cA * p.stuckLY;
+        } else {
+          p.stuckAngle += omega * dt;
+          p.x = CFG.R_DRUM * Math.cos(p.stuckAngle);
+          p.y = CFG.R_DRUM * Math.sin(p.stuckAngle);
+        }
         p.inHighlightSince = null;
         if (state.t - p.stuckAt >= 5) p.alive = false;
 
       } else {
-        // Kinematic update: gas co-rotates with the drum, particle settles at vt.
-        if (p.insideOnce) {
-          p.vx = -omega * p.y;
-          p.vy =  omega * p.x - p.vt;
-        } else {
-          // Still falling from the injector — no drag yet.
-          p.vx = 0;
-          p.vy = -p.vt;
-        }
+        // Kinematic update: gas co-rotates with the drum (the injector
+        // extrusion included), particle settles at vt.
+        p.vx = -omega * p.y;
+        p.vy =  omega * p.x - p.vt;
         p.x += p.vx * dt;
         p.y += p.vy * dt;
 
         const r2    = p.x * p.x + p.y * p.y;
-        const Rwall = CFG.R_DRUM - TUNING.particle.collisionR;
-        const wasInside = p.insideOnce;
+        const mC    = TUNING.particle.collisionR;
+        const Rwall = CFG.R_DRUM - mC;
 
+        // The gas volume is the drum circle plus the extrusion (drum frame).
+        let inChamber = r2 < Rwall * Rwall;
+        let lx = 0, ly = 0;
+        if (!inChamber) {
+          lx =  cA * p.x + sA * p.y;
+          ly = -sA * p.x + cA * p.y;
+          inChamber = inExtrusion(lx, ly, mC);
+        }
+        const wasInChamber = (p.inChamber === undefined) ? inChamber : p.inChamber;
+        // insideOnce = has entered the drum proper (stats, hints, trails).
         if (!p.insideOnce && r2 <= CFG.R_DRUM * CFG.R_DRUM) p.insideOnce = true;
 
-        const prevR2 = (p.prevR2 === undefined)
-          ? (CFG.R_DRUM + 1) * (CFG.R_DRUM + 1)
-          : p.prevR2;
-
-        if (wasInside && prevR2 < Rwall * Rwall && r2 >= Rwall * Rwall) {
-          // Particle just crossed the wall boundary — stick it.
+        if (wasInChamber && !inChamber) {
+          // Particle just crossed a wall — stick it.
           if (!TUNING.particle.invincible) {
-            const ang = Math.atan2(p.y, p.x);
-            p.stuck       = true;
-            p.stuckAngle  = ang;
-            p.stuckAt     = state.t;
-            p.x           = Rwall * Math.cos(ang);
-            p.y           = Rwall * Math.sin(ang);
+            p.stuck   = true;
+            p.stuckAt = state.t;
+            if (nearExtrusion(lx, ly)) {
+              p.stuckLX = Math.min(Math.max(lx, CFG.EXT_X_MIN + mC), CFG.EXT_X_MAX - mC);
+              p.stuckLY = Math.min(ly, CFG.EXT_Y_TOP - mC);
+              p.x = cA * p.stuckLX - sA * p.stuckLY;
+              p.y = sA * p.stuckLX + cA * p.stuckLY;
+            } else {
+              const ang = Math.atan2(p.y, p.x);
+              p.stuckAngle = ang;
+              p.x          = Rwall * Math.cos(ang);
+              p.y          = Rwall * Math.sin(ang);
+            }
             p.inHighlightSince = null;
             state.lostCount++;
             soundTink();
@@ -382,13 +415,20 @@
         }
 
         // Invincible mode: clamp to just inside the wall rather than sticking.
-        if (TUNING.particle.invincible && p.insideOnce && !p.stuck && r2 >= Rwall * Rwall) {
-          const rr = Math.sqrt(r2);
-          p.x = (p.x / rr) * Rwall * 0.999;
-          p.y = (p.y / rr) * Rwall * 0.999;
-          p.prevR2 = p.x * p.x + p.y * p.y;
+        if (TUNING.particle.invincible && !p.stuck && !inChamber) {
+          if (nearExtrusion(lx, ly)) {
+            const cx = Math.min(Math.max(lx, CFG.EXT_X_MIN + mC * 1.01), CFG.EXT_X_MAX - mC * 1.01);
+            const cy = Math.min(ly, CFG.EXT_Y_TOP - mC * 1.01);
+            p.x = cA * cx - sA * cy;
+            p.y = sA * cx + cA * cy;
+          } else {
+            const rr = Math.sqrt(r2);
+            p.x = (p.x / rr) * Rwall * 0.999;
+            p.y = (p.y / rr) * Rwall * 0.999;
+          }
+          p.inChamber = true;
         } else {
-          p.prevR2 = r2;
+          p.inChamber = inChamber;
         }
 
         // Collect particles within tray thickness of the live rotating tray line.
@@ -400,7 +440,7 @@
 
         // Remove particles that escaped the drum entirely.
         if (p.y < -CFG.R_DRUM * 1.5) { state.lostCount++; p.alive = false; }
-        if (p.insideOnce && !p.stuck &&
+        if (!inChamber && !p.stuck &&
             r2 > (CFG.R_DRUM * 1.05) * (CFG.R_DRUM * 1.05) &&
             !TUNING.particle.invincible) {
           state.lostCount++;
@@ -2049,4 +2089,6 @@
   window.updateSolar           = updateSolar;
   window.computeAutoOmega      = computeAutoOmega;
   window.updateTray            = updateTray;
+  window.NOZZLE_COUNT          = NOZZLE_COUNT;
+  window.nozzleCentreX         = nozzleCentreX;
 })();

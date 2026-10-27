@@ -214,6 +214,15 @@
     RELEASE_X_MIN: 0,   // x range minimum
     RELEASE_X_MAX: 100, // x range maximum
 
+    // Injector extrusion (drum frame, drum-units): the triangular chamber on
+    // the rim that carries the nozzle row. It rotates with the drum and its
+    // interior is part of the gas volume. Bounded by x in [EXT_X_MIN,
+    // EXT_X_MAX], y in [0, EXT_Y_TOP] and the drum circle; the nozzle tips
+    // sit at RELEASE_Y, just below the ceiling.
+    EXT_X_MIN: -2,
+    EXT_X_MAX: 98,
+    EXT_Y_TOP: 113.5,
+
     // Physics
     BRAKE_DAMP: 1.2,  // coefficient — extra velocity damping applied while the drum is braking
 
