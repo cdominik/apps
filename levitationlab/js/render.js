@@ -113,6 +113,7 @@
 
     document.body.classList.remove('wing-split');   // re-applied by planLeftWingSplit
     document.body.style.removeProperty('--wing-zoom');
+    placeInjectButton(false);                        // likewise
     if (REGIME === 'portrait') layoutPortrait();
     else                       layoutSideWings(REGIME);
 
@@ -230,6 +231,24 @@
   const SPLIT_MIN_ZOOM = 1.3; // below this the side-by-side left wing is not worth it
 
   /**
+   * Moves the INJECT button to the bottom of the selector column (split left
+   * wing) or back to the top of the right wing.
+   *
+   * @param {boolean} inLeft - True for the split left wing.
+   */
+  function placeInjectButton(inLeft) {
+    const btn = document.getElementById('btnStart');
+    const colA = document.getElementById('wingLeftColA');
+    const wR = document.getElementById('wingRight');
+    if (!btn || !colA || !wR) return;
+    if (inLeft) {
+      if (btn.parentElement !== colA) colA.appendChild(btn);
+    } else if (btn.parentElement !== wR) {
+      wR.insertBefore(btn, wR.firstElementChild);
+    }
+  }
+
+  /**
    * Decides whether the left wing's two sub-columns (expert door | selectors)
    * go side by side, zoomed so the expert buttons match the right wing's
    * square buttons (or less, if height/width run out). Applies or clears
@@ -248,6 +267,7 @@
 
     // Measure the natural (unzoomed) column sizes in split arrangement.
     body.classList.add('wing-split');
+    placeInjectButton(true);
     body.style.setProperty('--wing-zoom', '1');
     cols[0].style.height = '';
     const rA = cols[0].getBoundingClientRect();
@@ -267,6 +287,7 @@
       body.classList.remove('wing-split');
       body.style.removeProperty('--wing-zoom');
       cols[0].style.height = '';
+      placeInjectButton(false);
       return null;
     }
     body.style.setProperty('--wing-zoom', zoom.toFixed(3));

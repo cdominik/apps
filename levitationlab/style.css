@@ -121,6 +121,12 @@ body.wing-split .wing-col {
 body.wing-split #expertContainer { margin-top: 0; }
 body.wing-split #wingLeftColA { justify-content: space-between; }
 body.wing-split #wingLeftColA .wing-logo { margin-bottom: 0; }
+/* INJECT joins the selectors here; undo the column zoom so it keeps the
+   size it has on the right wing. */
+body.wing-split #wingLeftColA .btnind.inject { margin-bottom: 0; zoom: calc(1 / var(--wing-zoom, 1)); }
+/* ...and RESET, now alone on the right wing, grows to match it. */
+body.wing-split #btnReset { width: 96px; height: 96px; }
+body.wing-split #btnReset .cap-label { font-size: 15px; }
 
 #wingMiddle { display: none; }
 body.regime-portrait #wingMiddle { display: flex; }
