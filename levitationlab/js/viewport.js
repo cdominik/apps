@@ -496,6 +496,36 @@ function updateViewport(dt) {
     targetG.restore();
   }
 
+  // Frame materials: brass for the classic theme (like its button bezels),
+  // aluminium for modern/Pfeiffer (like the nozzle bar), darkened with the
+  // lights off so it sits with the gunmetal wings.
+  const VP_MATERIALS = {
+    brass: {
+      plate: ['#f0d088', '#e8c77a', '#d9b76a', '#8a6b2e', '#5a4418', '#3a2a0e'],
+      bezel: ['#e8c77a', '#d9b76a', '#8a6b2e', '#3a2a0e'],
+      boss:  ['#fff0c8', '#d9b76a', '#3a2a0e'],
+      plateLine: 'rgba(255,245,200,0.7)', bezelLine: 'rgba(255,245,200,0.6)', capShade: 'rgba(0,0,0,0.55)',
+    },
+    aluLight: {
+      plate: ['#ffffff', '#f8f9fa', '#e8ecef', '#cfd4d9', '#adb5bd', '#495057'],
+      bezel: ['#f8f9fa', '#e8ecef', '#adb5bd', '#495057'],
+      boss:  ['#ffffff', '#cfd4d9', '#495057'],
+      plateLine: 'rgba(255,255,255,0.9)', bezelLine: 'rgba(255,255,255,0.8)', capShade: 'rgba(0,0,0,0.4)',
+    },
+    aluDark: {
+      plate: ['#c9ced3', '#b4babf', '#9aa1a7', '#6c737a', '#454b51', '#25292d'],
+      bezel: ['#b4babf', '#9aa1a7', '#6c737a', '#25292d'],
+      boss:  ['#e8ecef', '#9aa1a7', '#25292d'],
+      plateLine: 'rgba(255,255,255,0.45)', bezelLine: 'rgba(255,255,255,0.35)', capShade: 'rgba(0,0,0,0.5)',
+    },
+  };
+
+  /** @returns {object} The VP_MATERIALS entry for the current theme and lighting. */
+  function viewportMaterial() {
+    if (!document.body.classList.contains('theme-modern')) return VP_MATERIALS.brass;
+    return PAL.name === 'light' ? VP_MATERIALS.aluLight : VP_MATERIALS.aluDark;
+  }
+
   /**
    * Renders the viewport panel, asset content, and glass overlay onto ctxOv.
    */
@@ -527,18 +557,15 @@ function updateViewport(dt) {
       return;
     }
 
-    // === MOUNT (top portion) — brass plate with rivets ===
+    const mat = viewportMaterial();
+
+    // === MOUNT (top portion) — metal plate with rivets ===
     const mountG = ctxOv.createLinearGradient(0, geom.mountY, 0, geom.mountY + geom.mountH);
-    mountG.addColorStop(0.00, '#f0d088');
-    mountG.addColorStop(0.10, '#e8c77a');
-    mountG.addColorStop(0.30, '#d9b76a');
-    mountG.addColorStop(0.65, '#8a6b2e');
-    mountG.addColorStop(0.90, '#5a4418');
-    mountG.addColorStop(1.00, '#3a2a0e');
+    [0.00, 0.10, 0.30, 0.65, 0.90, 1.00].forEach((pos, i) => mountG.addColorStop(pos, mat.plate[i]));
     ctxOv.fillStyle = mountG;
     ctxOv.fillRect(geom.mountX, geom.mountY, geom.mountW, geom.mountH);
 
-    ctxOv.strokeStyle = 'rgba(255,245,200,0.7)';
+    ctxOv.strokeStyle = mat.plateLine;
     ctxOv.lineWidth = 1.2;
     ctxOv.beginPath();
     ctxOv.moveTo(geom.mountX, geom.mountY + 0.6);
@@ -552,10 +579,10 @@ function updateViewport(dt) {
     ctxOv.stroke();
     const capW = Math.max(4, geom.mountW * 0.04);
     const capA = ctxOv.createLinearGradient(geom.mountX, 0, geom.mountX + capW, 0);
-    capA.addColorStop(0, 'rgba(0,0,0,0.55)'); capA.addColorStop(1, 'rgba(0,0,0,0)');
+    capA.addColorStop(0, mat.capShade); capA.addColorStop(1, 'rgba(0,0,0,0)');
     ctxOv.fillStyle = capA; ctxOv.fillRect(geom.mountX, geom.mountY, capW, geom.mountH);
     const capB = ctxOv.createLinearGradient(geom.mountX + geom.mountW - capW, 0, geom.mountX + geom.mountW, 0);
-    capB.addColorStop(0, 'rgba(0,0,0,0)'); capB.addColorStop(1, 'rgba(0,0,0,0.55)');
+    capB.addColorStop(0, 'rgba(0,0,0,0)'); capB.addColorStop(1, mat.capShade);
     ctxOv.fillStyle = capB; ctxOv.fillRect(geom.mountX + geom.mountW - capW, geom.mountY, capW, geom.mountH);
 
     const rR = Math.max(2.4, geom.mountW * 0.022);
@@ -567,9 +594,9 @@ function updateViewport(dt) {
     const bossY = geom.mountY + geom.mountH * 0.5;
     const bossR = Math.max(6, geom.mountH * 0.30);
     const bossG = ctxOv.createRadialGradient(bossX - bossR * 0.35, bossY - bossR * 0.35, 0, bossX, bossY, bossR);
-    bossG.addColorStop(0, '#fff0c8');
-    bossG.addColorStop(0.4, '#d9b76a');
-    bossG.addColorStop(1, '#3a2a0e');
+    bossG.addColorStop(0, mat.boss[0]);
+    bossG.addColorStop(0.4, mat.boss[1]);
+    bossG.addColorStop(1, mat.boss[2]);
     ctxOv.fillStyle = bossG;
     ctxOv.beginPath(); ctxOv.arc(bossX, bossY, bossR, 0, Math.PI * 2); ctxOv.fill();
     ctxOv.strokeStyle = 'rgba(0,0,0,0.6)'; ctxOv.lineWidth = 1;
@@ -584,13 +611,10 @@ function updateViewport(dt) {
     const sx = geom.screenX, sy = geom.screenY;
     const sw = geom.screenW, sh = geom.screenH;
     const bezelG = ctxOv.createLinearGradient(0, sy, 0, sy + sh);
-    bezelG.addColorStop(0.00, '#e8c77a');
-    bezelG.addColorStop(0.30, '#d9b76a');
-    bezelG.addColorStop(0.65, '#8a6b2e');
-    bezelG.addColorStop(1.00, '#3a2a0e');
+    [0.00, 0.30, 0.65, 1.00].forEach((pos, i) => bezelG.addColorStop(pos, mat.bezel[i]));
     ctxOv.fillStyle = bezelG;
     ctxOv.fillRect(sx, sy, sw, sh);
-    ctxOv.strokeStyle = 'rgba(255,245,200,0.6)';
+    ctxOv.strokeStyle = mat.bezelLine;
     ctxOv.lineWidth = 1;
     ctxOv.strokeRect(sx + 0.5, sy + 0.5, sw - 1, sh - 1);
     const cornerR = rR * 0.85;

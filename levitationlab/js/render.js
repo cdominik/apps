@@ -1139,23 +1139,16 @@
     ctx.fillStyle = isModern ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.55)';
     ctx.fillRect(lx(CFG.EXT_X_MIN), yBot, lx(CFG.EXT_X_MAX) - lx(CFG.EXT_X_MIN), 4);
 
-    const gBody = ctx.createLinearGradient(0, yTop, 0, yBot);
-    if (isModern) {
-      gBody.addColorStop(0.00, '#ffffff'); gBody.addColorStop(0.10, '#f8f9fa'); gBody.addColorStop(0.30, '#e8ecef');
-      gBody.addColorStop(0.65, '#cfd4d9'); gBody.addColorStop(0.90, '#adb5bd'); gBody.addColorStop(1.00, '#495057');
-    } else if (isPfeiffer) {
-      gBody.addColorStop(0.00, '#ff9999'); gBody.addColorStop(0.10, '#ff4d4d'); gBody.addColorStop(0.30, '#d5001c');
-      gBody.addColorStop(0.65, '#aa0016'); gBody.addColorStop(0.90, '#800011'); gBody.addColorStop(1.00, '#4d000a');
-    } else {
-      gBody.addColorStop(0.00, '#f0d088'); gBody.addColorStop(0.10, '#e8c77a'); gBody.addColorStop(0.30, '#d9b76a');
-      gBody.addColorStop(0.65, '#8a6b2e'); gBody.addColorStop(0.90, '#5a4418'); gBody.addColorStop(1.00, '#2a1a06');
-    }
+    // Same material as the rim and walls: the band's inner-to-outer
+    // gradient, running from the bar's inner face up to its outer face.
+    const gBody = ctx.createLinearGradient(0, yBot, 0, yTop);
+    for (const [pos, col] of bandStops) gBody.addColorStop(pos, col);
     ctx.fillStyle = gBody; ctx.fillRect(x0, yTop, x1 - x0, barH);
 
-    ctx.strokeStyle = isModern ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255,245,200,0.75)';
+    ctx.strokeStyle = isLight ? 'rgba(255,255,255,0.55)' : 'rgba(210,210,220,0.35)';
     ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.moveTo(x0, yTop + 0.6); ctx.lineTo(x1, yTop + 0.6); ctx.stroke();
-    ctx.strokeStyle = isModern ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.7)';
+    ctx.strokeStyle = isLight ? 'rgba(20,20,30,0.45)' : 'rgba(0,0,0,0.7)';
     ctx.beginPath(); ctx.moveTo(x0, yBot - 0.6); ctx.lineTo(x1, yBot - 0.6); ctx.stroke();
 
     const capA = ctx.createLinearGradient(x0, 0, x0 + capW, 0);
@@ -1165,9 +1158,10 @@
     capB.addColorStop(0, 'rgba(0,0,0,0)'); capB.addColorStop(1, isModern ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.55)');
     ctx.fillStyle = capB; ctx.fillRect(x1 - capW, yTop, capW, barH);
 
+    const bolt = isPfeiffer ? pfBolt : rivet;
     const endBoltR = Math.max(2.2, barH * 0.16);
-    rivet(x0 + capW * 0.5, yTop + barH * 0.5, endBoltR);
-    rivet(x1 - capW * 0.5, yTop + barH * 0.5, endBoltR);
+    bolt(x0 + capW * 0.5, yTop + barH * 0.5, endBoltR);
+    bolt(x1 - capW * 0.5, yTop + barH * 0.5, endBoltR);
 
     // Cooling ribs
     const ribCount = 5;
@@ -1176,15 +1170,11 @@
       const cx = x0 + capW + (i + 1) * (x1 - x0 - 2 * capW) / (ribCount + 1);
       const ribX = cx - ribW / 2;
       const rg = ctx.createLinearGradient(ribX, 0, ribX + ribW, 0);
-      if (isModern) {
-        rg.addColorStop(0.00, 'rgba(0,0,0,0.25)'); rg.addColorStop(0.45, 'rgba(255,255,255,0.3)'); rg.addColorStop(1.00, 'rgba(0,0,0,0.25)');
-      } else {
-        rg.addColorStop(0.00, 'rgba(0,0,0,0.45)'); rg.addColorStop(0.45, 'rgba(255,235,170,0.30)'); rg.addColorStop(1.00, 'rgba(0,0,0,0.45)');
-      }
+      rg.addColorStop(0.00, 'rgba(0,0,0,0.3)'); rg.addColorStop(0.45, 'rgba(255,255,255,0.25)'); rg.addColorStop(1.00, 'rgba(0,0,0,0.3)');
       ctx.fillStyle = rg; ctx.fillRect(ribX, yTop + 2, ribW, barH - 4);
       const ribBoltR = Math.max(1.6, barH * 0.10);
-      rivet(cx, yTop + barH * 0.22, ribBoltR);
-      rivet(cx, yTop + barH * 0.78, ribBoltR);
+      bolt(cx, yTop + barH * 0.22, ribBoltR);
+      bolt(cx, yTop + barH * 0.78, ribBoltR);
     }
 
     // --- 4. NOZZLES (hang into the window; tips at RELEASE_Y) ---
@@ -1196,13 +1186,9 @@
     for (let i = 0; i < NOZZLE_COUNT; i++) {
       const cx = lx(nozzleCentreX(i));
 
-      // Collar
-      const colG = ctx.createLinearGradient(0, yBot - collarH, 0, yBot + collarH);
-      if (isModern) {
-        colG.addColorStop(0, '#e8ecef'); colG.addColorStop(0.5, '#adb5bd'); colG.addColorStop(1, '#6c757d');
-      } else {
-        colG.addColorStop(0, '#e8c77a'); colG.addColorStop(0.5, '#a07a30'); colG.addColorStop(1, '#5a4418');
-      }
+      // Collar (part of the holder, so rim material too)
+      const colG = ctx.createLinearGradient(0, yBot + collarH, 0, yBot - collarH);
+      for (const [pos, col] of bandStops) colG.addColorStop(pos, col);
       ctx.fillStyle = colG; ctx.fillRect(cx - collarHalfW, yBot - collarH * 0.4, collarHalfW * 2, collarH);
       ctx.strokeStyle = isModern ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.55)';
       ctx.lineWidth = 1; ctx.strokeRect(cx - collarHalfW, yBot - collarH * 0.4, collarHalfW * 2, collarH);
