@@ -214,7 +214,7 @@
       wL.style.top = GEO.wingTop + 'px';
       wL.style.width = leftW + 'px';
       wL.style.height = (GEO.wingBot - GEO.wingTop) + 'px';
-      wL.style.flexDirection = split ? 'row' : 'column';
+      wL.style.flexDirection = split ? 'row-reverse' : 'column';   // door left, dials right
       wL.style.gap = split ? Math.round(8 * split.zoom) + 'px' : (isWide ? '8px' : '5px');
     }
     if (wR) {
@@ -230,7 +230,7 @@
   const SPLIT_MIN_ZOOM = 1.3; // below this the side-by-side left wing is not worth it
 
   /**
-   * Decides whether the left wing's two sub-columns (selectors | expert door)
+   * Decides whether the left wing's two sub-columns (expert door | selectors)
    * go side by side, zoomed so the expert buttons match the right wing's
    * square buttons (or less, if height/width run out). Applies or clears
    * body.wing-split and --wing-zoom accordingly.
