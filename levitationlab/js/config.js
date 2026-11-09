@@ -97,8 +97,6 @@
       maxBalls:   30,   // count    — maximum golden pebbles allowed simultaneously
       mergeDur:   0.6,  // s        — duration of the pebble merge animation
       minSpread:  0.30, // fraction — minimum vt spread required to allow pebble formation
-      widthThresh: 0.20,  // aggregate vt range must exceed this fraction of mean for pebble formation (grow mode)
-      nCritCollapse:  3,     // minimum levitated aggregates required for collapse-triggered pebble
       vtSpreadMult: 1.5,  // multiplier — threshold multiplier for vt spread (bounce/pebble gate)
       bounceKick:   1.05,  // multiplier — factor to increase vt after a bounce
       bounceSound:  true, // bool       — enable tink sound on bounce

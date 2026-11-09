@@ -235,6 +235,18 @@
     state.injectedMeanVt = state.toInject.length > 0
       ? state.toInject.reduce((s, p) => s + p.vt, 0) / state.toInject.length
       : CFG.V_T;
+    // Relative spread (stddev/mean) of the vt sample actually injected.
+    // The pebble-formation gate refers to this frozen value, not the live
+    // spread dial — and it is meaningful for all distribution modes,
+    // including bi/power where the dial does not describe the sample.
+    if (state.toInject.length > 1 && state.injectedMeanVt > 0) {
+      let q = 0;
+      for (const p of state.toInject) q += (p.vt - state.injectedMeanVt) ** 2;
+      state.injectedVtSpread =
+        Math.sqrt(q / state.toInject.length) / state.injectedMeanVt;
+    } else {
+      state.injectedVtSpread = 0;
+    }
     state.running = true;
   }
 
@@ -721,11 +733,13 @@
     const lev = eggLevitatedAggregates();
     const T   = state.period();
 
-    if (!window.aggGrowthOn) {
-      // SIMPLE MODE: nCrit levitated aggregates held for holdTarget revs,
-      // gated on injection spread. Uses the animated startMerge().
+    if ((window.aggGrowthStage || 0) === 0) {
+      // SIMPLE MODE (stage 0): nCrit levitated aggregates held for
+      // holdTarget revs, gated on the spread of the vt sample actually
+      // injected (state.injectedVtSpread, frozen at injection time).
+      // Uses the animated startMerge().
       if (lev.length >= TUNING.egg.nCrit && isFinite(T) &&
-          CFG.VT_SPREAD >= TUNING.egg.minSpread) {
+          (state.injectedVtSpread || 0) >= TUNING.egg.minSpread) {
         state.eggHoldRevs += dt / T;
         if (state.eggHoldRevs >= target) {
           startMerge(lev);
@@ -735,8 +749,9 @@
         state.eggHoldRevs = 0;
       }
     } else {
-      // GROWTH MODE: Systemic pebble formation is disabled.
-      // Pebble formation is handled entirely by resolveAggAggCollisions.
+      // Stages 1-2: pebble formation is handled entirely by
+      // resolveAggAggCollisions. Stage 3 (off): no growth beyond
+      // aggregate formation — no systemic collapse either.
       state.eggHoldRevs = 0;
     }
   }

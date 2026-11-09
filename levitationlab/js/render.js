@@ -3103,8 +3103,7 @@ function drawRepresentativeOrbits() {
     if (aggVts.length >= 2) {
       const aggMin  = Math.min(...aggVts);
       const aggMax  = Math.max(...aggVts);
-      const aggMid  = (aggMin + aggMax) * 0.5;
-      
+
       let lineLeftVt = null;
       let lineRightVt = null;
 
@@ -3119,14 +3118,8 @@ function drawRepresentativeOrbits() {
         
         lineLeftVt = threshold;
         lineRightVt = xMax;
-      } else {
-        // Stages 0, 1, 3: Draw a centered threshold width
-        const threshAbs = TUNING.egg.widthThresh * 0.5 * aggMid;
-        // lineLeftVt = aggMid - threshAbs;
-        // lineRightVt = aggMid + threshAbs;
-        lineLeftVt = null;
-        lineRightVt = null;
       }
+      // Stages 0, 1, 3: no threshold line on the aggregate bar.
 
       _drawSpreadBar(
         bar2TopPx,
