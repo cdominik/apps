@@ -65,13 +65,20 @@
       }
 
       if (dt > CFG.MAX_DT) dt = CFG.MAX_DT;
-      
+
       // Warp speed
       dt *= state.simSpeed;
-      // DT_SUBSTEP derived from omegaMax, which is a game-speed parameter,
-      // not the physical lab rate — see config.js TUNING.drum.omegaMax.
-      const DT_SUBSTEP = (2 * Math.PI / TUNING.drum.omegaMax) / 100;
-      const sub = Math.max(1, Math.ceil(dt / DT_SUBSTEP));
+      // Adaptive physics substep. The orbit integration error scales with
+      // (omega*h)^2, so target the same omega*h the fixed step had at
+      // omegaMax and relax h when the drum turns slower. Caps: at most 4x
+      // the base step (wall-crossing detection for fast settlers), and the
+      // base step whenever golden pebbles are loose (their ball physics
+      // needs the fine step to resolve collisions).
+      const DT_BASE = (2 * Math.PI / TUNING.drum.omegaMax) / 100;
+      const omRef = Math.max(Math.abs(state.omega), Math.abs(state.omegaTarget), 1e-9);
+      let maxH = DT_BASE * Math.min(4, TUNING.drum.omegaMax / omRef);
+      if (state.goldenBalls.length > 0) maxH = DT_BASE;
+      const sub = Math.max(1, Math.ceil(dt / maxH));
       const h = dt / sub;
 
       if (!state.paused) {

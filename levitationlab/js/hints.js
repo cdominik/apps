@@ -600,7 +600,10 @@
     const msg      = hs.current.message;
     const fontSize = Math.max(10, Math.min(13, pxDist(5)));
     const cx       = CX;
-    const cy       = Y2px(78);  // near top of drum, above levitation zone
+    // Near top of drum, above the levitation zone. In zoom mode the zone
+    // fills the view and drum y=78 lies above the visible area, so clamp
+    // the box onto the screen instead of letting it vanish off the top.
+    const cy       = Math.max(Y2px(78), fontSize * 2.5);
 
     ctxOv.save();
     ctxOv.globalAlpha  = alpha;

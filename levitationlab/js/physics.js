@@ -96,11 +96,27 @@
    *
    * @returns {number} A sample drawn from N(0, 1).
    */
-  function randn() {
+  function randn(rand) {
+    const r = rand || Math.random;
     let u = 0, v = 0;
-    while (u === 0) u = Math.random();
-    while (v === 0) v = Math.random();
+    while (u === 0) u = r();
+    while (v === 0) v = r();
     return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  /**
+   * Deterministic PRNG (mulberry32). Used for seeded injection sampling so
+   * that every player in a locked challenge contract gets the identical
+   * particle batch — same vt values, same nozzle positions.
+   */
+  function mulberry32(seed) {
+    let a = seed | 0;
+    return function () {
+      a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
   }
 
   /**
@@ -129,6 +145,8 @@
     const N    = CFG.N_P;
     const dist = state.distMode;
     const p    = state.distParams;
+    // Seeded sampling (challenge contracts) or the usual random draw.
+    const rand = (state.injectSeed != null) ? mulberry32(state.injectSeed) : Math.random;
 
     for (let i = 0; i < N; i++) {
       // Spread injection events evenly across the DT_INJECT window.
@@ -138,23 +156,23 @@
       // geometry. Closed nozzles' share goes to the open ones.
       const _focus    = Math.min(Math.max(1, CFG.NOZZLE_FOCUS), NOZZLE_SLOT_W);
       const _nIdx     = openNozzles[i % openNozzles.length];
-      const x         = nozzleCentreX(_nIdx) + (Math.random() - 0.5) * _focus;
+      const x         = nozzleCentreX(_nIdx) + (rand() - 0.5) * _focus;
       let vt;
 
       if (dist === 'bi') {
         // Pick group 1 with probability ratio/(1+ratio), group 2 otherwise.
         const prob1 = p.bi.ratio / (1 + p.bi.ratio);
-        if (Math.random() < prob1) {
-          vt = p.bi.vt1 * (1 + p.bi.s1 * randn());
+        if (rand() < prob1) {
+          vt = p.bi.vt1 * (1 + p.bi.s1 * randn(rand));
         } else {
-          vt = p.bi.vt2 * (1 + p.bi.s2 * randn());
+          vt = p.bi.vt2 * (1 + p.bi.s2 * randn(rand));
         }
       } else if (dist === 'power') {
         // Inverse-transform sampling for n(v) ~ v^q on [v0, v1].
         const q  = p.power.index;
         const v0 = p.power.vtMin;
         const v1 = p.power.vtMax;
-        const u  = Math.random();
+        const u  = rand();
         if (Math.abs(q + 1) < 1e-6) {
           // Special case q = −1: log-uniform distribution.
           vt = v0 * Math.pow(v1 / v0, u);
@@ -166,7 +184,7 @@
         }
       } else {
         // Default: Gaussian with relative spread.
-        vt = CFG.V_T * (1 + CFG.VT_SPREAD * randn());
+        vt = CFG.V_T * (1 + CFG.VT_SPREAD * randn(rand));
       }
 
       if (vt < TUNING.particle.settleFloor) vt = TUNING.particle.settleFloor;
@@ -442,9 +460,12 @@
       } else {
         // Kinematic update: gas co-rotates with the drum (the injector
         // extrusion included), particle settles at vt.
+        // Semi-implicit (symplectic) Euler: x advances on the old y, then
+        // y advances on the NEW x — orbits stay closed instead of slowly
+        // spiralling outward as with the fully explicit update.
         p.vx = -omega * p.y;
-        p.vy =  omega * p.x - p.vt;
         p.x += p.vx * dt;
+        p.vy =  omega * p.x - p.vt;
         p.y += p.vy * dt;
 
         const r2    = p.x * p.x + p.y * p.y;
@@ -649,15 +670,6 @@
     return out;
   }
 
-  /**
-   * Integrates golden balls, resolves collisions, and manages pebble merge sequencing.
-   *
-   * A merge animation is started when enough aggregates have been levitated
-   * for the required number of revolutions (holdTarget / holdSubseq).
-   * While a merge is in progress (state.eggMerging), no new merge can start.
-   *
-   * @param {number} dt - Elapsed time in seconds since the last frame.
-   */
   /**
    * Integrates golden balls, resolves collisions, and manages pebble merge sequencing.
    *
@@ -1180,13 +1192,9 @@
               
               // Increase terminal velocity to change their aerodynamic sorting
               const kick = TUNING.egg.bounceKick;
-              const oldVtA = a.vt;
-              const oldVtB = b.vt;
-              
               a.vt *= kick;
               b.vt *= kick;
 
-              // Half drum rotation cooldown (safeguarded against division by zero)
               // Half drum rotation cooldown (safeguarded against division by zero)
               const cooldownDur = Math.PI / Math.max(0.01, Math.abs(state.omega));
               a.lastBounce = { withId: b.id, until: state.t + cooldownDur };
@@ -1195,8 +1203,6 @@
               // Visual flash timer for debugging (0.6 seconds)
               a.bounceFlashEndsAt = state.t + 0.6;
               b.bounceFlashEndsAt = state.t + 0.6;
-
-              console.log(`Bounce! Agg A vt: ${oldVtA.toFixed(2)} -> ${a.vt.toFixed(2)} | Agg B vt: ${oldVtB.toFixed(2)} -> ${b.vt.toFixed(2)}`);
 
               if (TUNING.egg.bounceSound) {
                 if (window.soundSharpPing) window.soundSharpPing();
@@ -1392,27 +1398,24 @@
           }
         }
 
-        // Orbital kinematics: co-rotate with drum, settle at vt.
-        agg.vx = -state.omega * agg.y;
-        agg.vy =  state.omega * agg.x - agg.vt;
-
         // Turbulent perturbation — models gas velocity fluctuations.
         // Only applied when aggregate growth mode is active.
+        let kickX = 0, kickY = 0;
         if (window.aggGrowthOn && Math.abs(state.omega) > 1e-3) {
           const turb    = TUNING.aggregate.brownian;
           const kR      = TUNING.aggregate.restoreK;
           const xc      = agg.vt / state.omega;
-        
-          // Random Brownian kick
-          agg.vx += turb * randn();
-          agg.vy += turb * randn();
-        
-          // Restoring force toward natural orbit centre (xc, 0)
-          agg.vx += kR * (xc - agg.x) * dt;
-          agg.vy += kR * (0  - agg.y) * dt;
+          // Random Brownian kick + restoring force toward the natural
+          // orbit centre (xc, 0).
+          kickX = turb * randn() + kR * (xc - agg.x) * dt;
+          kickY = turb * randn() + kR * (0  - agg.y) * dt;
         }
 
+        // Orbital kinematics: co-rotate with drum, settle at vt.
+        // Semi-implicit (symplectic) Euler, same order as step().
+        agg.vx = -state.omega * agg.y + kickX;
         agg.x += agg.vx * dt;
+        agg.vy =  state.omega * agg.x - agg.vt + kickY;
         agg.y += agg.vy * dt;
         agg.rot += agg.rotSpeed * dt;
 
@@ -2061,9 +2064,9 @@
       }
       for (const p of parts) {
         if (p.dead) continue;
-        const vx = -om * p.y, vy = om * p.x - p.vt;
-        p.x += vx * dt;
-        p.y += vy * dt;
+        // Semi-implicit Euler — must match step() exactly.
+        p.x += -om * p.y * dt;
+        p.y += (om * p.x - p.vt) * dt;
         if (p.x * p.x + p.y * p.y >= Rwall * Rwall) {
           const lx =  cA * p.x + sA * p.y;
           const ly = -sA * p.x + cA * p.y;

@@ -235,8 +235,9 @@
     NOZZLE_OPEN: [true, true, true, true, true],
 
     // Maximum physics timestep before simSpeed scaling.
-    // Must remain above DT_SUBSTEP (computed in main.js from omegaMax)
-    // to avoid the substep count growing unboundedly at high simSpeed.
+    // Must remain above the base physics substep (computed in main.js from
+    // omegaMax; the substep adapts to the current drum speed) to avoid the
+    // substep count growing unboundedly at high simSpeed.
     MAX_DT: 0.033, // s
   };
 

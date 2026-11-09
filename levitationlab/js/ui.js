@@ -1302,8 +1302,8 @@ return `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
     });
   }
   
-  window.setOmegaCtlMode  = setOmegaCtlMode;
-  window._resetLaunchState = _resetLaunchState;
+  // (setOmegaCtlMode and _resetLaunchState are exported once, with the
+  // other exports at the end of this file.)
 
   // SYSTEM 3. COLLECTION TRAY
 const btnCollect = document.getElementById('btnCollect');

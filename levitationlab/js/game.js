@@ -31,6 +31,7 @@
     phase: 'idle',
     goalHoldSince: null,
     structureWaitSince: null,  // sim time when all particles injected, for timeout
+    maxOmega: 0,               // fastest |omega| seen this run — detects "never spun"
 
     wonTimeout: null,
     levels: [
@@ -90,7 +91,8 @@
         failText: 'Too many particles were lost. Keep the drum spinning steadily.',
         describe: function() {
           return 'More particles, same spread. Hold ' + this.goal.minLevitated +
-                 ' levitated for ' + this.goal.holdSeconds + ' seconds. Watch what happens when they collide.';
+                 ' levitated for ' + this.goal.holdSeconds + ' seconds — each size ' +
+                 'settles onto its own orbit, and crossing orbits mean encounters.';
         }
       },
       {
@@ -303,6 +305,7 @@
     setGameBtnLabel('Game');
     GAME.goalHoldSince = null;
     GAME.structureWaitSince = null;
+    GAME.maxOmega = 0;
     setGameBtnLabel('Game Menu');
     lockSelectors(true);
     if (window.setOmegaDecay) { setOmegaDecay(false); }
@@ -370,7 +373,11 @@
         });
       }
     } else if (outcome === 'lost') {
-      const failText = currentLevel().failText || 'Not enough particles levitated.';
+      // A player who never spun the drum needs the basic instruction,
+      // not the level's speed-tuning advice.
+      const failText = GAME.maxOmega < 0.05
+        ? 'The drum never turned. Swipe across it to set it spinning.'
+        : (currentLevel().failText || 'Not enough particles levitated.');
       showSheet('Failed', failText, 'Retry', () => {
         enterIdle();
       });
@@ -384,6 +391,7 @@
   function updateGame() {
     if (!GAME.on || GAME.phase !== 'playing') return;
     const lv = currentLevel();
+    if (Math.abs(state.omega) > GAME.maxOmega) GAME.maxOmega = Math.abs(state.omega);
 
     // --- WIN: pebble goal ---
     if (lv.goal.minPebbles !== undefined) {
@@ -595,6 +603,7 @@
       hideVideoElement();
       state.challengeTimeOverride = null;
       CHALLENGE.contract = null;       // session over → next entry is a fresh game master
+      state.injectSeed   = null;       // back to random sampling in the sandbox
       initLevel();
     }
   }
@@ -685,7 +694,12 @@
       SPREAD: CFG.VT_SPREAD,
       DT:     CFG.DT_INJECT,
       timeOverride: state.challengeTimeOverride,
+      // One seed per contract: every player of this session gets the
+      // identical injection batch (same vt sample, same nozzle positions),
+      // so the leaderboard compares skill, not luck.
+      seed: (Math.random() * 0x7fffffff) | 0,
     };
+    state.injectSeed = CHALLENGE.contract.seed;
   }
 
   /**
@@ -701,6 +715,7 @@
     setSettingByValue('SPREAD', c.SPREAD);
     setSettingByValue('DT',     c.DT);
     state.challengeTimeOverride = c.timeOverride;
+    state.injectSeed = (c.seed != null) ? c.seed : null;
   }
 
   const chalStartDefaultBtn = document.getElementById('chalStartDefaultBtn');
