@@ -544,8 +544,8 @@
       DRILLS.phase = 'done';
       state.running = false;
       showSheet('Drill Failed', _txt(d.failText, d),
-        'Retry', () => { gameSheetHide(); startDrillRun(); },
-        'Exit',  () => enterDrillMode(false));
+        'Retry',      () => { gameSheetHide(); startDrillRun(); },
+        'Drill Menu', () => { DRILLS.phase = 'idle'; showDrillIntro(); });
       return;
     }
 
@@ -556,8 +556,8 @@
       if (state.t - DRILLS.winHoldSince >= 2.0) {
         DRILLS.phase = 'done';
         showSheet('Drill Complete', _txt(d.debrief, d),
-          'Again', () => { gameSheetHide(); startDrillRun(); },
-          'Exit',  () => enterDrillMode(false));
+          'Again',      () => { gameSheetHide(); startDrillRun(); },
+          'Drill Menu', () => { DRILLS.phase = 'idle'; showDrillIntro(); });
       }
     } else {
       DRILLS.winHoldSince = null;
