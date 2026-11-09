@@ -6,7 +6,8 @@
  *   (planet) merging, and heatmap accumulation.
  *
  * Exposes globals: initLevel, randn, scheduleInjections, startRelease,
- *                  updateDrum, step, eggLevitatedParticles, aggImageIndex,
+ *                  updateDrum, startDrumHoming, step,
+ *                  eggLevitatedParticles, aggImageIndex,
  *                  updateEgg, updateGlobe, spawnGoldenBall, updateAggregates,
  *                  refreshAggFormGate,
  *                  updateSolar, computeAutoOmega, _computeOptimalLaunch,
@@ -251,6 +252,28 @@
    * @param {number} dt - Elapsed time in seconds since the last frame.
    */
   function updateDrum(dt) {
+    const hm = state.drumHoming;
+    if (hm) {
+      // Scripted return-to-home (see startDrumHoming): cubic Hermite from
+      // the activation state (angle th0, omega w0) to rest at th0 + D over
+      // T seconds. Position and velocity are both set from the profile, so
+      // the motion is smooth regardless of slip/decay settings.
+      hm.t = Math.min(hm.T, hm.t + dt);
+      const u = hm.t / hm.T;
+      state.drumAngle = hm.th0 + hm.D * u * u * (3 - 2 * u) +
+                        hm.w0 * hm.T * (((u - 2) * u + 1) * u);
+      state.omega = (6 * hm.D * u * (1 - u)) / hm.T +
+                    hm.w0 * (1 - u) * (1 - 3 * u);
+      state.omegaTarget = 0;
+      if (u >= 1) {
+        state.drumAngle  = hm.th0 + hm.D;
+        state.omega      = 0;
+        state.drumHoming = null;
+      }
+      state.laserAngle += LASER_OMEGA * dt;
+      return;
+    }
+
     state.omegaTarget *= Math.exp(-TUNING.drum.omegaDecay * dt);
     const a = 1 - Math.exp(-TUNING.drum.slipRate * dt);
     state.omega += (state.omegaTarget - state.omega) * a;
@@ -263,6 +286,50 @@
 
     state.drumAngle  += state.omega    * dt;
     state.laserAngle += LASER_OMEGA    * dt;
+  }
+
+  /**
+   * Starts a smooth scripted return of the drum to its home orientation
+   * (drumAngle at a multiple of 2π — injector extrusion on top), used when
+   * the launch omega-control mode is armed. The Hermite profile driven by
+   * updateDrum() matches the drum's current angular velocity at the start
+   * and ends at rest on the home angle; a spinning drum keeps its direction
+   * and winds down over however many extra revolutions keep the
+   * deceleration gentle. A drum already at rest takes the short way round.
+   *
+   * @returns {boolean} true if a homing motion was started, false if the
+   *          drum was already home (it is then simply stopped).
+   */
+  function startDrumHoming() {
+    const TWO_PI = 2 * Math.PI;
+    const DECEL  = 1.5;  // rad/s² — comfortable wind-down deceleration
+    const w0  = state.omega;
+    const th0 = state.drumAngle;
+    const res = ((th0 % TWO_PI) + TWO_PI) % TWO_PI;  // [0, 2π)
+
+    let D;
+    if (Math.abs(w0) > 0.3) {
+      // Keep the current direction; stop on the first home angle beyond
+      // the gentle-deceleration stopping distance.
+      const dStop = (w0 * w0) / (2 * DECEL);
+      D = w0 > 0 ? (TWO_PI - res) % TWO_PI : -res;
+      while (Math.abs(D) < dStop) D += (w0 > 0 ? TWO_PI : -TWO_PI);
+    } else {
+      // (Nearly) at rest: take the short way round.
+      D = res <= Math.PI ? -res : TWO_PI - res;
+    }
+
+    state.omegaTarget = 0;
+    if (Math.abs(D) < 1e-3 && Math.abs(w0) <= 0.3) {
+      state.drumAngle += D;  // snap the invisible residual
+      state.omega      = 0;
+      state.drumHoming = null;
+      return false;  // already home
+    }
+    const T = Math.min(8, Math.max(1.2,
+      2 * Math.abs(D) / Math.max(Math.abs(w0), 1.0)));
+    state.drumHoming = { th0, w0, D, T, t: 0 };
+    return true;
   }
 
 
@@ -2323,6 +2390,7 @@
   window.scheduleInjections    = scheduleInjections;
   window.startRelease          = startRelease;
   window.updateDrum            = updateDrum;
+  window.startDrumHoming       = startDrumHoming;
   window.step                  = step;
   window.eggLevitatedParticles = eggLevitatedParticles;
   window.aggImageIndex         = aggImageIndex;

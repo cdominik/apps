@@ -15,7 +15,7 @@
  *                  AUDIO, state, heatmap,
  *                  SETTINGS, SEL_WIN, applyInitialSettings,
  *                  GAME, CHALLENGE, VIEWPORT,
- *                  initLevel, startRelease, scheduleInjections,
+ *                  initLevel, startRelease, scheduleInjections, startDrumHoming,
  *                  ensureAudio, soundMillStart, soundSnap, soundTink,
  *                  soundExpertDoorKnock, layout, draw,
  *                  cv, W, H, ctxOv, CX, CY, SCALE, REGIME,
@@ -1230,11 +1230,16 @@ return `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
 
     if (mode === 2) {
       _resetLaunchState();
-      // Undo any omega that mode 1 may have set — let the drum coast to rest.
-      state.omegaTarget = 0;
       if (window.omegaDecayOff) setOmegaDecay(false);
-    } else if (mode !== 1) {
-      window.launchState = 'waiting';
+      // Stop the drum and return it smoothly to its start position
+      // (injector on top). Launch planning waits until the drum is home
+      // (see main.js); startDrumHoming() also zeroes omegaTarget.
+      if (startDrumHoming()) {
+        showToast('Drum returning to start position');
+      }
+    } else {
+      state.drumHoming = null;  // cancel a pending return on leaving launch mode
+      if (mode !== 1) window.launchState = 'waiting';
     }
   }
 

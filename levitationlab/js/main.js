@@ -97,7 +97,9 @@
         const ls = window.launchState;
         if (ls === 'waiting') {
           const hasParticles = state.particles.length > 0 || state.toInject.length > 0;
-          if (hasParticles && window.launchT0 === null) {
+          // While the drum is still returning to its start position, hold
+          // off planning — the plan depends on the resting drum angle.
+          if (hasParticles && window.launchT0 === null && !state.drumHoming) {
             // Plan the launch over the queue plus anything already falling:
             // optimal spin-up moment AND target omega (see _computeOptimalLaunch).
             const plan = window._computeOptimalLaunch();

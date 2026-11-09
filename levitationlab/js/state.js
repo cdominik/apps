@@ -36,6 +36,7 @@
     pebbleBannerUsed: false,   // latches the first-pebble banner per run (sandbox/game)
     showVectors: false,
     simSpeed: 1.0,
+    drumHoming: null,  // scripted return-to-home {th0,w0,D,T,t}; see startDrumHoming()
     challengeTimeOverride: null,   // null = use CHALLENGE_CFG.TIME_LIMIT; number = ?challenge&time= override (seconds)
     orbitSample: [],
     lastOrbitUpdate: 0,
