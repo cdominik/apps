@@ -535,6 +535,7 @@ body.theme-light .sel .chev { color: #1a1006; }
 .scr.warn { color: #ff7a5a; text-shadow: 0 0 4px rgba(255,122,90,0.7); background: radial-gradient(ellipse at 50% 30%, #30140a 0%, #1a0a06 70%, #0a0302 100%); }
 .scr.rot  { color: #5ad0ff; text-shadow: 0 0 4px rgba(90,208,255,0.6);  background: radial-gradient(ellipse at 50% 30%, #0a2034 0%, #061020 70%, #02060a 100%); }
 .scr.gold { color: #ffcc55; text-shadow: 0 0 4px rgba(255,204,85,0.6);  background: radial-gradient(ellipse at 50% 30%, #2a1c06 0%, #1a1204 70%, #0a0602 100%); }
+.scr.yellow { color: #f4ef5a; text-shadow: 0 0 4px rgba(244,239,90,0.6); background: radial-gradient(ellipse at 50% 30%, #262606 0%, #171704 70%, #090902 100%); }
 .scr.tlight { color: #fff0c8; text-shadow: 0 0 4px rgba(255,255,255,0.5); background: radial-gradient(ellipse at 50% 30%, #1c1c22 0%, #101014 70%, #060608 100%); }
 
 .lbl {
@@ -1370,6 +1371,13 @@ body.theme-modern .scr.gold { color: #40ff90 !important; text-shadow: 0 0 5px rg
 body.theme-modern .scr.rot  { color: #d0d8e0 !important; text-shadow: none !important; }
 body.theme-modern .scr.tlight { color: #e8eef4 !important; text-shadow: none !important; }
 
+/* Gauge readout colours (also inherited by theme-pfeiffer) — Lost stays red.
+   Floating=yellow, Levitated=green, Aggregates=blue, Pebbles=gold. */
+body.theme-modern #floating    { color: #ffe14d !important; text-shadow: 0 0 5px rgba(255,225,77,0.4) !important; }
+body.theme-modern #remaining   { color: #40ff90 !important; text-shadow: 0 0 5px rgba(64,255,144,0.4) !important; }
+body.theme-modern #aggCount    { color: #33ccff !important; text-shadow: 0 0 5px rgba(51,204,255,0.4) !important; }
+body.theme-modern #pebbleCount { color: #ffaa33 !important; text-shadow: 0 0 5px rgba(255,170,51,0.4) !important; }
+
 /* Labels — keep readable against modern backgrounds */
 body.theme-modern .sel-lbl,
 body.theme-modern .lbl,
@@ -1520,7 +1528,6 @@ body.theme-pfeiffer #gauges .lbl {
   color: #ffffff !important;
   text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 6px rgba(0,0,0,0.8) !important;
 }
-
 /* Light-bulb button: long press cycles themes — keep touch long-press clean */
 #btnTheme {
   touch-action: none;
