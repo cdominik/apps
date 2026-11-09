@@ -9,7 +9,8 @@
  *                  updateDrum, step, eggLevitatedParticles, aggImageIndex,
  *                  updateEgg, updateGlobe, spawnGoldenBall, updateAggregates,
  *                  refreshAggFormGate,
- *                  updateSolar, computeAutoOmega, trayEndpoints, updateTray,
+ *                  updateSolar, computeAutoOmega, _computeOptimalLaunch,
+ *                  trayEndpoints, updateTray,
  *                  NOZZLE_COUNT, nozzleCentreX
  * Reads globals:   TUNING, TUNING_DEFAULT, CFG, LASER_OMEGA,
  *                  state, heatmap, aggregateImages,
@@ -1862,8 +1863,252 @@
   
     // Centre the orbit-centre range on the levitation zone
     const omega = (vtLow + vtHigh) / (2.0 * HCX);
-  
+
     return Math.min(Math.max(omega, 0.02), TUNING.drum.omegaMax);
+  }
+
+  // ============================================================
+  // SECTION: PHYSICS — OPTIMAL LAUNCH PLANNER
+  // ============================================================
+  //
+  // Launch mode (omegaCtlMode 2) spins the drum up once, at a single moment.
+  // With the gas co-rotating at constant omega, every particle moves on a
+  // fixed lab-frame circle around C = (vt/omega, 0); the orbit radius is its
+  // distance to C when the drum reached speed. A particle ends up levitating
+  // inside the highlight zone (centre HCX/HCY, radius HR) iff
+  //
+  //     dist(C, zone centre) + r  <=  HR.
+  //
+  // While the drum rests, particles fall straight down, so for a candidate
+  // omega each particle has a closed-form time WINDOW of effective spin-up
+  // moments that capture it. The planner sweeps a grid of omega values, finds
+  // the maximum-coverage instant for each (interval stabbing), scores
+  // candidates by capture count with vt spread (CV) as the tie-break, and
+  // finally validates the best candidate and nearby variants with a shadow
+  // simulation that integrates the exact game kinematics (same explicit
+  // Euler update as step() / updateDrum()).
+
+  /** Coefficient of variation (stddev/mean) of a list of vt values. */
+  function _vtCV(vts) {
+    if (vts.length < 2) return 0;
+    let s = 0;
+    for (const v of vts) s += v;
+    const mean = s / vts.length;
+    if (mean < 1e-9) return 0;
+    let q = 0;
+    for (const v of vts) q += (v - mean) ** 2;
+    return Math.sqrt(q / vts.length) / mean;
+  }
+
+  /**
+   * Collects everything that will be falling during the launch wait, in lab
+   * coordinates: the pending injection queue (release points taken at the
+   * current drum angle, assuming the drum is at rest) plus any particles
+   * already in free flight.
+   */
+  function _launchFallers() {
+    const cA = Math.cos(state.drumAngle), sA = Math.sin(state.drumAngle);
+    const out = [];
+    for (const q of state.toInject) {
+      out.push({
+        t0: q.t,
+        x:  cA * q.x - sA * CFG.RELEASE_Y,
+        y0: sA * q.x + cA * CFG.RELEASE_Y,
+        vt: q.vt,
+      });
+    }
+    for (const p of state.particles) {
+      if (!p.alive || p.stuck || p.onTray || p.merging) continue;
+      out.push({ t0: state.t, x: p.x, y0: p.y, vt: p.vt });
+    }
+    return out;
+  }
+
+  /**
+   * Shadow simulation of one launch candidate: spin-up command at sim time
+   * tCmd with target omega omCmd. Integrates drum and particles from the
+   * current state with the same kinematics as updateDrum()/step(), but
+   * without rendering, collisions-to-stuck bookkeeping, or sound. Uses the
+   * real DT_SUBSTEP while anything rotates and a coarse step during the
+   * pure free-fall wait (where explicit Euler is exact).
+   *
+   * @returns {{count: number, cv: number}} particles whose final orbit lies
+   *          entirely inside the highlight zone, and their vt spread.
+   */
+  function _shadowLaunch(omCmd, tCmd) {
+    const HCX   = TUNING.highlight.cx;
+    const HCY   = TUNING.highlight.cy;
+    const HR    = TUNING.highlight.radius;
+    const mC    = TUNING.particle.collisionR;
+    const Rwall = CFG.R_DRUM - mC;
+    const slip  = TUNING.drum.slipRate;
+    const dtF   = (2 * Math.PI / TUNING.drum.omegaMax) / 100; // = DT_SUBSTEP
+    const dtC   = 0.05;                   // coarse step for the resting wait
+    const tEnd  = tCmd + 5 / slip;        // omega within 1% of target here
+
+    const parts = [];
+    for (const p of state.particles) {
+      if (!p.alive || p.stuck || p.onTray || p.merging) continue;
+      parts.push({ x: p.x, y: p.y, vt: p.vt, dead: false });
+    }
+    const queue = state.toInject;
+    let qi = 0, t = state.t, om = state.omega, tgt = 0, ang = state.drumAngle;
+
+    while (t < tEnd) {
+      // Fine steps while the drum turns or an injection is imminent; the
+      // vertical fall itself is linear, so coarse steps lose nothing there.
+      let dt = (t >= tCmd || Math.abs(om) > 1e-3 ||
+                (qi < queue.length && queue[qi].t <= t + dtC)) ? dtF : dtC;
+      if (t < tCmd && t + dt > tCmd) dt = tCmd - t;
+
+      // Drum, mirroring updateDrum(); the launch holds the target steady
+      // once the command fires (main.js re-asserts it, then the omega lock).
+      if (t >= tCmd) tgt = omCmd;
+      else tgt *= Math.exp(-TUNING.drum.omegaDecay * dt);
+      om += (tgt - om) * (1 - Math.exp(-slip * dt));
+      if (Math.abs(om) < 1e-4 && Math.abs(tgt) < 1e-4) om = 0;
+      ang += om * dt;
+      t   += dt;
+
+      const cA = Math.cos(ang), sA = Math.sin(ang);
+      while (qi < queue.length && queue[qi].t <= t) {
+        const q = queue[qi++];
+        parts.push({ x: cA * q.x - sA * CFG.RELEASE_Y,
+                     y: sA * q.x + cA * CFG.RELEASE_Y,
+                     vt: q.vt, dead: false });
+      }
+      for (const p of parts) {
+        if (p.dead) continue;
+        const vx = -om * p.y, vy = om * p.x - p.vt;
+        p.x += vx * dt;
+        p.y += vy * dt;
+        if (p.x * p.x + p.y * p.y >= Rwall * Rwall) {
+          const lx =  cA * p.x + sA * p.y;
+          const ly = -sA * p.x + cA * p.y;
+          if (!(lx > CFG.EXT_X_MIN + mC && lx < CFG.EXT_X_MAX - mC &&
+                ly > 0 && ly < CFG.EXT_Y_TOP - mC)) p.dead = true;
+        }
+      }
+    }
+
+    const vts = [];
+    for (const p of parts) {
+      if (p.dead) continue;
+      const c = p.vt / omCmd;
+      const r = Math.hypot(p.x - c, p.y);
+      if (Math.hypot(c - HCX, HCY) + r <= HR) vts.push(p.vt);
+    }
+    return { count: vts.length, cv: _vtCV(vts) };
+  }
+
+  /**
+   * Plans the launch: the spin-up command time and target omega that
+   * maximise the number of particles captured into the levitation zone,
+   * with the vt spread of the captured set as the tie-break.
+   *
+   * @returns {{tCmd: number, omega: number, count: number, cv: number}}
+   *          tCmd is absolute sim time (compare against state.t); count/cv
+   *          are the shadow-simulated prediction for the chosen plan.
+   */
+  function _computeOptimalLaunch() {
+    const HCX   = TUNING.highlight.cx;
+    const HCY   = TUNING.highlight.cy;
+    const HR    = TUNING.highlight.radius;
+    const Rwall = CFG.R_DRUM - TUNING.particle.collisionR;
+    const lead  = 1.0 / TUNING.drum.slipRate; // extra fall during spin-up ramp
+    const now   = state.t;
+
+    const bodies   = _launchFallers();
+    const fallback = { tCmd: now, omega: computeAutoOmega(), count: 0, cv: 0 };
+    if (!bodies.length) return fallback;
+
+    // Omega grid: log-spaced over every "some vt centred in the zone" choice,
+    // plus the envelope value computeAutoOmega() would have picked.
+    let vtMin = Infinity, vtMax = 0;
+    for (const b of bodies) {
+      if (b.vt < vtMin) vtMin = b.vt;
+      if (b.vt > vtMax) vtMax = b.vt;
+    }
+    const omLo = Math.min(Math.max(vtMin / (HCX + HR), 0.02), TUNING.drum.omegaMax);
+    const omHi = Math.min(Math.max(vtMax / HCX, omLo * 1.001), TUNING.drum.omegaMax);
+    const omegas = [computeAutoOmega()];
+    const NOM = 32;
+    for (let i = 0; i < NOM; i++) {
+      omegas.push(omLo * Math.pow(omHi / omLo, i / (NOM - 1)));
+    }
+
+    // Analytic sweep: per-particle capture windows, then interval stabbing.
+    const candidates = [];
+    for (const om of omegas) {
+      const ivals = [];
+      for (const b of bodies) {
+        const c = b.vt / om;                       // orbit centre x
+        const m = HR - Math.hypot(c - HCX, HCY);   // orbit-radius budget
+        if (m <= 0) continue;
+        const dx = b.x - c;
+        const h2 = m * m - dx * dx;
+        if (h2 <= 0) continue;                     // x offset alone too large
+        const half = Math.sqrt(h2);
+        const yBot = -Math.sqrt(Math.max(0, Rwall * Rwall - b.x * b.x));
+        const a = Math.max(b.t0 + (b.y0 - half) / b.vt, now + lead);
+        const e = b.t0 + (b.y0 - Math.max(-half, yBot)) / b.vt;
+        if (e <= a) continue;
+        ivals.push({ a, e, vt: b.vt });
+      }
+      if (!ivals.length) continue;
+
+      const evts = [];
+      for (const iv of ivals) evts.push([iv.a, 1], [iv.e, -1]);
+      evts.sort((p, q) => p[0] - q[0] || q[1] - p[1]); // opens before closes
+      let cov = 0, maxCov = 0;
+      for (const ev of evts) { cov += ev[1]; if (cov > maxCov) maxCov = cov; }
+
+      // Midpoint of every segment that achieves this omega's max coverage.
+      cov = 0;
+      for (let i = 0; i < evts.length - 1; i++) {
+        cov += evts[i][1];
+        if (cov !== maxCov || evts[i + 1][0] <= evts[i][0]) continue;
+        const T   = (evts[i][0] + evts[i + 1][0]) / 2;
+        const vts = [];
+        for (const iv of ivals) if (iv.a <= T && T <= iv.e) vts.push(iv.vt);
+        candidates.push({ omega: om, T, count: vts.length, cv: _vtCV(vts) });
+      }
+    }
+    if (!candidates.length) return fallback;
+
+    // Primary: capture count. Among candidates within 95% of the best count,
+    // maximise the vt spread (the aggregate-formation gate criterion).
+    let maxCount = 0;
+    for (const c of candidates) if (c.count > maxCount) maxCount = c.count;
+    let best = null;
+    for (const c of candidates) {
+      if (c.count < 0.95 * maxCount) continue;
+      if (!best || c.cv > best.cv + 1e-9 ||
+          (Math.abs(c.cv - best.cv) <= 1e-9 && c.count > best.count)) {
+        best = c;
+      }
+    }
+
+    // Shadow-sim validation: exact kinematics on the pick and nearby variants.
+    const tCmd0 = Math.max(now, best.T - lead);
+    const variants = [
+      [best.omega, tCmd0],
+      [best.omega, Math.max(now, tCmd0 - 0.4)],
+      [best.omega, tCmd0 + 0.4],
+      [best.omega, Math.max(now, tCmd0 - 0.8)],
+      [best.omega, tCmd0 + 0.8],
+      [Math.max(best.omega * 0.93, 0.02), tCmd0],
+      [Math.min(best.omega * 1.07, TUNING.drum.omegaMax), tCmd0],
+    ];
+    let win = null;
+    for (const [om, tc] of variants) {
+      const r = _shadowLaunch(om, tc);
+      if (!win || r.count > win.count ||
+          (r.count === win.count && r.cv > win.cv + 1e-9)) {
+        win = { tCmd: tc, omega: om, count: r.count, cv: r.cv };
+      }
+    }
+    return win;
   }
 
   // ============================================================
@@ -2088,6 +2333,7 @@
   window.refreshAggFormGate    = refreshAggFormGate;
   window.updateSolar           = updateSolar;
   window.computeAutoOmega      = computeAutoOmega;
+  window._computeOptimalLaunch = _computeOptimalLaunch;
   window.updateTray            = updateTray;
   window.NOZZLE_COUNT          = NOZZLE_COUNT;
   window.nozzleCentreX         = nozzleCentreX;

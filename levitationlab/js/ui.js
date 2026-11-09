@@ -8,7 +8,7 @@
  *
  * Exposes globals: slowMoArmed (window), resetExpertUI (window),
  *                  setOmegaDecay (window), setOmegaCtlMode (window),
- *                  _resetLaunchState (window), _computeOptimalWait (window),
+ *                  _resetLaunchState (window), showToast (window),
  *                  _ghostClear (window), _ghostEnsureTarget (window),
  *                  resetSimSpeed (window)
  * Reads globals:   TUNING, TUNING_DEFAULT, CFG, PAL, PAL_DARK, PAL_LIGHT,
@@ -412,6 +412,7 @@
       btnCollect.disabled = false;
     }
     if (window.zoomOn) document.getElementById('btnProcFast').click();
+    if (window.resetSimSpeed) window.resetSimSpeed();
     btnReset.classList.add('flash');
     setTimeout(() => btnReset.classList.remove('flash'), 200);
     
@@ -1281,25 +1282,7 @@ return `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
   //  if (isEmpty) state.omegaTarget = 0;
   }
 
-  function _computeOptimalWait() {
-    // Find the time of peak flux at y=0: mode of KDE of arrival times.
-    const arrivals = state.toInject.map(p => p.t + CFG.RELEASE_Y / p.vt);
-    if (arrivals.length === 0) return 0;
-    const n    = arrivals.length;
-    const mean = arrivals.reduce((a, b) => a + b, 0) / n;
-    const sig  = Math.sqrt(Math.max(0.01, arrivals.reduce((s, v) => s + (v - mean) ** 2, 0) / n));
-    const bw   = 1.06 * sig * Math.pow(n, -0.2);
-    const tMin = Math.min(...arrivals);
-    const tMax = Math.max(...arrivals);
-    let bestT = mean, bestK = -1;
-    for (let i = 0; i <= 60; i++) {
-      const t = tMin + (i / 60) * (tMax - tMin);
-      let k = 0;
-      for (const a of arrivals) { const z = (t - a) / bw; k += Math.exp(-0.5 * z * z); }
-      if (k > bestK) { bestK = k; bestT = t; }
-    }
-    return Math.max(0, bestT - 1.0 / TUNING.drum.slipRate);
-  }
+  // Launch wait/omega planning lives in physics.js: _computeOptimalLaunch().
 
   if (btnSysAutoOmega) {
     btnSysAutoOmega.addEventListener('click', () => {
@@ -1719,6 +1702,6 @@ if (btnCollect) {
   window.setOmegaDecay      = setOmegaDecay;
   window.setOmegaCtlMode    = setOmegaCtlMode;
   window._resetLaunchState  = _resetLaunchState;
-  window._computeOptimalWait = _computeOptimalWait;
+  window.showToast          = showToast;
 })();
 

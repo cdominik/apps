@@ -9,7 +9,8 @@
  * Reads globals:   CFG, TUNING, TUNING_DEFAULT, state,
  *                  slowMoArmed, updateDrum, updateTray, step, updateEgg,
  *                  updateAggregates, refreshAggFormGate, updateGlobe, updateSolar,
- *                  computeAutoOmega, updateMotorSound,
+ *                  computeAutoOmega, _computeOptimalLaunch, showToast,
+ *                  updateMotorSound,
  *                  recordTrails, pollAggregateCounter,
  *                  updateViewport, draw, drawGlobes,
  *                  updateGauge, updateGame, updateChallenge,
@@ -96,19 +97,24 @@
         const ls = window.launchState;
         if (ls === 'waiting') {
           const hasParticles = state.particles.length > 0 || state.toInject.length > 0;
-          if (hasParticles && state.toInject.length === 0) {
-            // Particles already in drum before launch armed — skip straight to spinup
-            window.launchOmegaTgt = computeAutoOmega();
-            window.launchState    = 'spinup';
-          } else if (state.toInject.length > 0 && window.launchT0 === null) {
-            window.launchTWait = window._computeOptimalWait();
-            window.launchT0    = state.t;
-            window.launchState = 'countdown';
+          if (hasParticles && window.launchT0 === null) {
+            // Plan the launch over the queue plus anything already falling:
+            // optimal spin-up moment AND target omega (see _computeOptimalLaunch).
+            const plan = window._computeOptimalLaunch();
+            window.launchTWait    = plan.tCmd;
+            window.launchOmegaTgt = plan.omega;
+            window.launchT0       = state.t;
+            window.launchState    = 'countdown';
+            if (window.showToast) {
+              showToast(`Launch plan: Ω = ${plan.omega.toFixed(2)} rad/s in ` +
+                        `${Math.max(0, plan.tCmd - state.t).toFixed(1)} s — ` +
+                        `${plan.count} captures predicted`, 3000);
+            }
           }
         } else if (ls === 'countdown') {
           if (state.t >= window.launchTWait) {
-            window.launchOmegaTgt = computeAutoOmega();
-            window.launchState    = 'spinup';
+            // launchOmegaTgt was planned at arm time
+            window.launchState = 'spinup';
           }
         } else if (ls === 'spinup') {
           // Commit to this omega — do not track further
