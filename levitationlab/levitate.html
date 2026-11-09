@@ -428,6 +428,7 @@
     </span></span></button>
     <button class="btnind btn-mode" id="btnGameMode" title="Start 7-level game at level 1 - the game will lead you to the more interesting corners of the simulation."><span class="cap"><span class="cap-label">Game</span></span></button>
     <button class="btnind btn-mode" id="btnChallenge" title="Start challenge with scoreboard, using current settings."><span class="cap"><span class="cap-label">Challenge</span></span></button>
+    <button class="btnind btn-mode" id="btnDrills" hidden title="Practice drills — specific lab situations and the techniques that get out of them."><span class="cap"><span class="cap-label">Drills</span></span></button>
 
     <div class="btn-row2" id="infoRow">
       <button class="btnind btnsq btn-info" id="btnManual" title="Compact manual of the simulation">
@@ -861,6 +862,7 @@
     <div class="sheet-content">
       <div class="sheet-title" id="sheetTitle">Level 1</div>
       <div class="sheet-desc" id="sheetDesc">Description</div>
+      <select class="sheet-select" id="drillSelect" hidden title="Jump to a specific drill"></select>
       <button class="sheet-btn" id="sheetBtn">Start</button>
       <button class="sheet-btn" id="sheetBtn2" hidden style="margin-top:8px; background: linear-gradient(180deg, #b0b0b0 0%, #606060 100%);">Exit Game</button>
     </div>
@@ -907,6 +909,7 @@
 <script src="js/render.js"></script>
 <script src="js/gauge.js"></script>
 <script src="js/game.js"></script>
+<script src="js/drills.js"></script>
 <script src="js/viewport.js"></script>
 <script src="js/hints.js"></script>
 <script src="js/timeline.js"></script>

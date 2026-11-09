@@ -1405,10 +1405,14 @@
           const turb    = TUNING.aggregate.brownian;
           const kR      = TUNING.aggregate.restoreK;
           const xc      = agg.vt / state.omega;
-          // Random Brownian kick + restoring force toward the natural
-          // orbit centre (xc, 0).
-          kickX = turb * randn() + kR * (xc - agg.x) * dt;
-          kickY = turb * randn() + kR * (0  - agg.y) * dt;
+          // Both terms were tuned at the base substep H0. The substep is
+          // adaptive now, so rescale: noise by sqrt(H0/dt) (same position
+          // diffusion per second), restore by H0 instead of dt (same drift
+          // per second) — step-size independent behaviour either way.
+          const H0 = (2 * Math.PI / TUNING.drum.omegaMax) / 100;
+          const ns = turb * Math.sqrt(H0 / dt);
+          kickX = ns * randn() + kR * (xc - agg.x) * H0;
+          kickY = ns * randn() + kR * (0  - agg.y) * H0;
         }
 
         // Orbital kinematics: co-rotate with drum, settle at vt.
@@ -2415,6 +2419,7 @@
   window.updateEgg             = updateEgg;
   window.updateGlobe           = updateGlobe;
   window.spawnGoldenBall       = spawnGoldenBall;
+  window.spawnAggregate        = spawnAggregate;
   window.updateAggregates      = updateAggregates;
   window.refreshAggFormGate    = refreshAggFormGate;
   window.updateSolar           = updateSolar;

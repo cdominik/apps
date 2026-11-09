@@ -403,8 +403,9 @@
     
     // 4. Mode and UI cleanup
     if (window.cancelEndingSequence) window.cancelEndingSequence();
-    if (GAME.on) enterGameMode(false); 
+    if (GAME.on) enterGameMode(false);
     if (CHALLENGE.on) enterChallengeMode(false);
+    if (window.DRILLS && window.DRILLS.on) window.enterDrillMode(false);
     
     btnStart.classList.remove('on');
     if (btnCollect) {

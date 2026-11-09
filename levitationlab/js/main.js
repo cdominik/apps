@@ -153,6 +153,7 @@
       updateGauge();
       updateGame();
       updateChallenge();
+      if (window.updateDrills) updateDrills();
       if (window.takeSnapshot) window.takeSnapshot();
       if (window.updateHints && Math.floor(state.t * 4) !== Math.floor((state.t - dt) * 4)) updateHints(); // cooled to a 4 Hz update.
 

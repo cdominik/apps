@@ -266,6 +266,7 @@
     GAME.on = on;
     btnGameMode.classList.toggle('on', on);
     if (on && typeof CHALLENGE !== 'undefined' && CHALLENGE.on) enterChallengeMode(false);
+    if (on && window.DRILLS && window.DRILLS.on) window.enterDrillMode(false);
     if (elTitlePlate) elTitlePlate.hidden = on || (typeof CHALLENGE !== 'undefined' && CHALLENGE.on);
 
     if (on) {
@@ -580,6 +581,7 @@
     btnChallenge.classList.toggle('on', on);
 
     if (on && GAME.on) enterGameMode(false);
+    if (on && window.DRILLS && window.DRILLS.on) window.enterDrillMode(false);
     if (elTitlePlate) elTitlePlate.hidden = on || GAME.on;
 
     if (on) {

@@ -265,6 +265,10 @@ body.theme-light .sel .chev { color: #1a1006; }
    7. INDICATOR BUTTONS (.btnind)
    ============================================================= */
 
+/* The .btnind display rule below would otherwise override the browser's
+   built-in [hidden] { display: none } — keep hidden buttons hidden. */
+.btnind[hidden] { display: none; }
+
 .btnind {
   position: relative;
   width: 96px;
@@ -661,6 +665,22 @@ body.theme-light .sel .chev { color: #1a1006; }
 }
 .sheet-btn:hover  { filter: brightness(1.15); }
 .sheet-btn:active { transform: translateY(1px); box-shadow: inset 0 2px 3px rgba(0,0,0,0.5); }
+
+/* Drill picker inside the game sheet (drills.js shows/hides it). */
+.sheet-select {
+  display: block;
+  margin: 0 auto 18px;
+  background: #1a1a22;
+  color: #d8c18a;
+  border: 1px solid #5a4418;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  max-width: 100%;
+  cursor: pointer;
+}
+.sheet-select[hidden] { display: none; }
 
 /* Highscore table */
 .highscore-table {

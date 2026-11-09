@@ -508,6 +508,7 @@
     if (!window.hintsOn) return;
     if (typeof GAME      !== 'undefined' && GAME.on)      return;
     if (typeof CHALLENGE !== 'undefined' && CHALLENGE.on) return;
+    if (window.DRILLS && window.DRILLS.on)                return;
 
     // No hints during the planetary finale. Clear any in-flight hint
     // so the rise gets an empty canvas, but don't touch window.hintsOn —
